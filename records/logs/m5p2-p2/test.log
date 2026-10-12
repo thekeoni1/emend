@@ -1,0 +1,2383 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m5p2-p2-test.sh 61d23fc3d22af01cffc4ecc42a78d9dccf40d45e
+input: RERUN_NOTE: unset
+input: RERUN_FILES: unset
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+input: HOME: set, read for the paths under it, printed as <home>
+input: TEST_BUILD: unset (the build root, <build>)
+input: CARGO_NET_OFFLINE: true (exported by this script at entry, so every cargo command of this log runs offline; change SD)
+input: PYTHONDONTWRITEBYTECODE: 1 (exported by this script at entry, so no python it runs writes byte code; change WG)
+input: TMPDIR=<scratch>/tmp
+  (set and exported by this script before its mktemp -d: <build>/tmp, under the phase directory; specs/0032 close-out ruling 1; change WH)
+input: RUSTDOCFLAGS, RUSTFLAGS and CARGO_TARGET_DIR: unset by this script at entry; each cargo command below names its target directory
+about: M5 part 2 P2 phase commit 61d23fc3d22af01cffc4ecc42a78d9dccf40d45e; HEAD at run: 61d23fc3d22af01cffc4ecc42a78d9dccf40d45e
+
+## the shape greps, the three and PYB, over this script, before its log (specs/0001; change WI)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  shape PYB: in this script 0 (of its 1 Python calls); in the fixture 1 (of its 2)
+  PYB: this script holds none (change WI): yes
+  control: PYB: the same form finds the fixture's one call without -I -B, of its two calls, the comment and the command -v line not calls: yes
+  control: the call form finds this script's one Python call, plant_apply's: yes
+  control: ynnot reports no on a passing command: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's full subject>, for each role
+  M5 part 2 P1's record commit (the base): 02648705a00acf916cc3aeb58b94d4e0831563a0
+  the doc commit: a9354ecf306541787e83605368ba8f812723bd95
+  the crate commit (the pivot tables): ec9e58f34adcbdcc534edc1b53e381618b549178
+  the tool commit (--pivot-sample), the phase commit: 61d23fc3d22af01cffc4ecc42a78d9dccf40d45e
+command: git rev-parse <phase commit>~0 to <phase commit>~3
+    61d23fc3d22af01cffc4ecc42a78d9dccf40d45e
+    ec9e58f34adcbdcc534edc1b53e381618b549178
+    a9354ecf306541787e83605368ba8f812723bd95
+    02648705a00acf916cc3aeb58b94d4e0831563a0
+  the tool commit, the crate commit, the doc commit and the base, each the next one's parent, the tool commit the phase commit (change XA): yes
+  control: roles_in_order refuses the crate commit named as the phase commit: yes
+  control: roles_in_order refuses the base named as the doc commit: yes
+
+phase: Milestone 5 part 2 P2 (specs/0033-read-breadth-survey.md) test.log; run at 2026-10-12T20:20:31Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds in <repo> into <target>/main, one cargo command at a time (change QB)
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh, the spec, M5 part 2 P1's test.log and the phase's sources are read from it by git show at the phase commit, the working spec is hashed in it, the plants' copy is made from it by git archive, and cargo test, clippy and doc run in it with their output in <target>/main
+root: <home> stands for the home directory of the account that ran this script
+root: <phase> stands for <home>/.cache/emend-build/m5p2-p2, the phase's directory on the disk
+root: <scripts> stands for <phase>/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)
+root: <target> stands for <phase>/target, the phase's one target root (specs/0001); <target>/main holds this log's builds of <repo> (cargo test on both targets, clippy, doc, the keep run and the runs after the plants), <target>/plant the plants' builds from <scratch>/w/src (change TH)
+root: <build> stands for the build root on the disk, <phase>/test unless TEST_BUILD names another
+root: <superseded> stands for <phase>/superseded, where a rerun's superseded files are kept; read only
+root: <scratch>/tmp stands for <build>/tmp, the TMPDIR this script exports before its mktemp -d, under the phase directory, so every temporary file of the run is there and none in the system temporary directory (change WH)
+root: <scratch>/w stands for this run's mktemp -d working directory, made in <scratch>/tmp (under <build>), kept on the disk after the run (changes QC and WH): <scratch>/w/counting.sh the phase commit's library, sourced; the captured cargo outputs (*.out) and the names each run passed (*.names); <scratch>/w/prev-test.log, M5 part 2 P1's test.log read at the phase commit; the keep directory <scratch>/w/keep.<random> of block K; the plants' archive copy <scratch>/w/src and their tables; the controls' fixtures (changes TD to TH, UC to UF, WC to WI, XA to XG)
+  the roots other than <home> and <phase> are distinct, none inside another (<scratch>/w inside <build>): yes
+  control: apart refuses <scratch>/w against <build>, which holds it: yes
+command: dirname <scratch>/w -> <scratch>/tmp
+  the directory mktemp -d made, <scratch>/w, is directly in TMPDIR, <scratch>/tmp, which is <build>/tmp (change WH): yes
+  control: the same check refuses <build>/tmp.x, a directory beside TMPDIR, not in it: yes
+  control: the same check refuses <phase>/tmp.x, a directory outside TMPDIR: yes
+  control: the same check refuses a TMPDIR that is not <build>/tmp (<phase> itself), even holding the directory: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 0; of them this phase's log directory, its record pairs or specs/0033 modified 0; the lines:
+  the phase commit given to this script: 61d23fc3d22af01cffc4ecc42a78d9dccf40d45e
+  git rev-parse HEAD at this run:        61d23fc3d22af01cffc4ecc42a78d9dccf40d45e
+  the controls' commits: the null commit 0000000000000000000000000000000000000000; the fabricated commit 61d23fc3d22af01cffc4ecc42a78d9dccf40d450 (the given one, its last hex digit changed); the short sha 61d23fc
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison refuses the null commit: yes
+  control: the same comparison refuses a fabricated commit: yes
+  control: the same comparison refuses a short sha of the real commit: yes
+  control: the short sha is the real commit's, so only its form is refused: yes
+  control: the phase's status pattern refuses a modified gate file: yes
+  control: the phase's status pattern refuses a modified crate source: yes
+  control: the phase's status pattern refuses a modified ROADMAP.md (committed and clean in this phase): yes
+  control: the phase's status pattern takes this phase's log, specs/0033 modified and this phase's two record stems untracked with the phase commit's short sha, four of twelve lines: no other phase's log (P1's among them), no sibling directory, no untracked spec, no modified specs/0032 (committed and clean in this phase), no other short sha, no modified record, no other phase's record (P1's stem) (changes WB and XB): yes
+command: git show <phase commit>:specs/0033-read-breadth-survey.md | sha256sum: 5067dfcc8911d20af95ee7242a17b7a4157caea1534963620ce66e6f85185f4c; sha256sum specs/0033-read-breadth-survey.md (the working file, printed and not asserted: planning may hold rulings during P2 uncommitted; changes WA and XA): 5067dfcc8911d20af95ee7242a17b7a4157caea1534963620ce66e6f85185f4c
+  the spec's blob at the phase commit is at the hash this log pins: yes
+  control: the same comparison refuses the hash of another file: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 5 part 2 P2 test.log
+    # (specs/0033-read-breadth-survey.md, "### P2: pivot tables": the tests on
+    # built packages, and the gate as P1's; "Phases": the feature sets off,
+    # read, read,rules and every feature, both targets; "Planning rulings on
+    # P1 (2026-10-12)", ruling 12: every mktemp call checked under TMPDIR; the
+    # spec pinned at its blob at the doc commit a9354ec, 5067dfcc). The phase
+    # commit's workspace, built and tested in <repo> into <target>/main, one
+    # cargo command at a time, offline:
+    #
+    #   W  cargo test --workspace, on the host and on i686-unknown-linux-musl:
+    #      exit 0, failed 0, passed more than 0 and equal to the ok test lines;
+    #      each target's passed count equal to M5 part 2 P1's W figure, read by
+    #      grep from P1's committed test.log at the phase commit, plus the
+    #      tests this phase adds (the pivot module's and the tool's
+    #      the_pivot_sample_ tests), each compiled in the workspace.
+    #   F  cargo test -p emend with the features off, read, read,rules and
+    #      every feature, on both targets, the same checks; host and i686 pass
+    #      the same names for each set.
+    #   E  each F run's count by property: every set's passed count equal to
+    #      M5 part 2 P1's figure for that target and set, read by grep from
+    #      P1's committed test.log at the phase commit, plus the pivot tests
+    #      the set compiles (package/tests/pivot.rs, a new file, every test
+    #      under read, none gated further: none off, all of them in the other
+    #      three); each set's pivot tests passed equal, as a set of names, to
+    #      the ones it compiles, derived from the source.
+    #   N  the tests the phase adds and removes, derived from the source over
+    #      base..phase commit: exactly the tests of the new
+    #      package/tests/pivot.rs and the tool tests named the_pivot_sample_,
+    #      none removed, none elsewhere (package/pivot.rs, the other new .rs
+    #      file, holds none); each added test passed on both targets in W.
+    #   K  the crate's tests with every feature on, host, with EMEND_KEEP_DIR
+    #      set to a keep directory in <scratch>/w, which is checked under
+    #      TMPDIR: exit 0, the names F's all run passed, files written into the
+    #      keep.
+    #   R  each F run's doc-tests result: 0 passed, 0 failed.
+    #   C  clippy with -D warnings, the four sets and the workspace: exit 0, 0
+    #      diagnostic lines.
+    #   D  rustdoc with -D warnings, the four sets: exit 0, 0 diagnostic lines.
+    #   P  eight planted changes (FACTS.md "Test log", P1 to P8, every one in
+    #      crates/emend/src/package/pivot.rs), each an exact-string replacement
+    #      found once in a git archive copy of the phase commit in
+    #      <scratch>/w/src, built into <target>/plant: the crate's library tests
+    #      with read,rules and the tool's pivot sample tests, run in the
+    #      unplanted copy (the control: all pass) and with each plant, the
+    #      failing names compared as a SET with the plant table's expectation;
+    #      the file restored to the phase commit's bytes; the main tree's pivot
+    #      tests and the tool's sample tests passing after the plants, the
+    #      same names as before them.
+    #   Every count has a control through the same command form.
+    #
+    # CARRIED TO M5 part 2 P2 from M5 part 2 P1's test script (printed in
+    # records/logs/m5p2-p1/test.log; the template <phase>/templates/m5p2p1/
+    # scripts/m5p2-p1-test.sh, sha256 a3d2fa28..., is byte-equal to that
+    # print, the log's one trailing separator line aside, which gen/test.py
+    # asserts before deriving), generated by
+    # <home>/.cache/emend-build/m5p2-p2/gen/test.py with gen/test_plants.py
+    # and gen/test-parts/. The letters continue after P1's WA to WI: XA to XG.
+    # P1's comment text follows below as the carried history; the code is
+    # P1's but for these changes:
+    #  XA. The phase, the log directory and the subjects are M5 part 2 P2's:
+    #      the base M5 part 2 P1's record commit, then the doc commit, the
+    #      crate commit and the tool commit (the phase commit), each by its
+    #      full subject; four roles, no scripts commit. The spec is specs/0033,
+    #      pinned at its blob at the doc commit a9354ec, 5067dfcc (FACTS.md);
+    #      the working file, planning's rulings during P2 if any, is printed
+    #      and not asserted.
+    #  XB. The status pattern admits exactly: this phase's log directory
+    #      records/logs/m5p2-p2/ (untracked or changed), the run log's record
+    #      pairs records/m5p2-p2-<date>-<short sha>.md and .txt and
+    #      records/m5p2-open-<date>-<short sha>.md and .txt untracked, the
+    #      short sha the phase commit's, and specs/0033 modified; its control
+    #      plants P1's log directory and a record stem of P1 beside them.
+    #  XC. Block E reads M5 part 2 P1's committed test.log (prev_count and
+    #      ws_prev, P1's forms) and derives the pivot module's tests
+    #      (package/tests/pivot.rs, new: none at the base) as the tests this
+    #      phase adds; W's figure is P1's plus the pivot tests and the tool's
+    #      the_pivot_sample_ tests, all compiled in W.
+    #  XD. Block N: the new .rs files are exactly two, package/pivot.rs and
+    #      package/tests/pivot.rs (the former holds no test); the added tests
+    #      are the pivot module's and the tool's the_pivot_sample_*, none
+    #      elsewhere (the tool commit also edits the comment of a kinds sample
+    #      test, ruling 10: a body changed, no test added or removed); each is
+    #      looked for in W on both targets, and, as a control, refused in F's
+    #      off runs.
+    #  XE. Block P: the plant table is this phase's eight (gen/test_plants.py,
+    #      each failing set settled by the generator's author on a git archive
+    #      copy of the phase commit before the dry run), the tool run filtered
+    #      to the_pivot_sample_, the run after the plants on the pivot module.
+    #  XF. Root lines: <repo> reads M5 part 2 P1's test.log; <phase> is
+    #      m5p2-p2's; <scratch>/w/prev-test.log is P1's test.log.
+    #  XG. Ruling 12 (specs/0033 "Planning rulings on P1"): every mktemp call
+    #      of this script is checked under TMPDIR with a control: the working
+    #      directory <scratch>/w (change WH's check, kept), the keep directory
+    #      of block K (made under <scratch>/w, checked under TMPDIR, with a
+    #      control that refuses a directory beside TMPDIR), and the sourced
+    #      library's one mktemp -d in counting_controls, which removes its own
+    #      directory: checked to run with TMPDIR exported as <build>/tmp, with
+    #      a control that refuses an environment whose TMPDIR is <phase>. The
+    #      script makes no plain file with mktemp.
+    #  A refused or failed attempt is hashed in the rerun's own log through
+    #  RERUN_NOTE and RERUN_FILES before the rerun, the carried rerun block
+    #  unchanged.
+    #
+    # P1's text:
+    # Milestone 5 part 2 P1 test.log
+    # (specs/0033-read-breadth-survey.md, "### P1: the survey": the tests on
+    # built packages, and the gate as part 1 P1's; "Phases": the feature sets
+    # off, read, read,rules and every feature, both targets; specs/0032's
+    # "Planning verification and rulings on P3" rulings 1, 3 and 4 and
+    # "Planning rulings on the close-out (2026-10-12)" ruling 1, carried;
+    # planning's working specs/0033, printed and not asserted). The phase
+    # commit's workspace, built and tested in <repo> into <target>/main, one
+    # cargo command at a time, offline:
+    #
+    #   W  cargo test --workspace, on the host and on i686-unknown-linux-musl:
+    #      exit 0, failed 0, passed more than 0 and equal to the ok test lines;
+    #      each target's passed count equal to M5 part 1 P3's W figure, read by
+    #      grep from P3's committed test.log at the phase commit, plus the
+    #      tests this phase adds (the survey module's and the tool's
+    #      the_kinds_sample_ tests), each compiled in the workspace.
+    #   F  cargo test -p emend with the features off, read, read,rules and
+    #      every feature, on both targets, the same checks; host and i686 pass
+    #      the same names for each set.
+    #   E  each F run's count by property: every set's passed count equal to
+    #      M5 part 1 P3's figure for that target and set, read by grep from
+    #      P3's committed test.log at the phase commit, plus the survey tests
+    #      the set compiles (package/tests/survey.rs, a new file, every test
+    #      under read, none gated further: none off, all of them in the other
+    #      three); each set's survey tests passed equal, as a set of names, to
+    #      the ones it compiles, derived from the source.
+    #   N  the tests the phase adds and removes, derived from the source over
+    #      base..phase commit: exactly the tests of the new
+    #      package/tests/survey.rs and the tool tests named the_kinds_sample_,
+    #      none removed, none elsewhere (package/survey.rs, the other new .rs
+    #      file, holds none); each added test passed on both targets in W.
+    #   K  the crate's tests with every feature on, host, with EMEND_KEEP_DIR
+    #      set to a keep directory in <scratch>/w: exit 0, the names F's all
+    #      run passed, files written into the keep.
+    #   R  each F run's doc-tests result: 0 passed, 0 failed.
+    #   C  clippy with -D warnings, the four sets and the workspace: exit 0, 0
+    #      diagnostic lines.
+    #   D  rustdoc with -D warnings, the four sets: exit 0, 0 diagnostic lines.
+    #   P  seven planted changes (FACTS.md P1 to P7, every one in
+    #      crates/emend/src/package/survey.rs), each an exact-string
+    #      replacement found once in a git archive copy of the phase commit in
+    #      <scratch>/w/src, built into <target>/plant: the crate's library tests
+    #      with read,rules and the tool's kinds sample tests, run in the
+    #      unplanted copy (the control: all pass) and with each plant, the
+    #      failing names compared as a SET with the plant table's expectation;
+    #      the file restored to the phase commit's bytes; the main tree's
+    #      survey tests and the tool's sample tests passing after the plants,
+    #      the same names as before them.
+    #   Every count has a control through the same command form.
+    #
+    # CARRIED TO M5 part 2 P1 from M5 part 1 P2's test script (printed in
+    # records/logs/m5p1-p2/test.log; the template <phase>/templates/m5p1p2/
+    # scripts/m5p1-p2-test.sh is byte-equal to that print, the log's one
+    # trailing separator line aside, which gen/test.py asserts before
+    # deriving), generated by <home>/.cache/emend-build/m5p2-p1/gen/test.py
+    # with gen/test_plants.py and gen/test-parts/. P2 is this script's frame
+    # (its roles, crate and tool, are this phase's kind); M5 part 1 P3's test
+    # script (records/logs/m5p1-p3/test.log) transformed the same template with
+    # changes VA to VJ, of which this script carries the rule VI (byte code
+    # off) as WG and the forms of VC, VD and VE (the W figure read from the
+    # previous log; the tests a phase adds derived as a set) in WC and WD, and
+    # leaves P3's own content (the API listing, the formatter, P3's plants).
+    # The letters here continue after P3's: WA to WI. P2's comment text follows
+    # below as the carried history (its change list UA to UF, and P1's TA to
+    # TH before it); the code is P2's but for these changes:
+    #  WA. The phase, the log directory and the subjects are M5 part 2 P1's:
+    #      the base M5 part 1's close-out record commit, then the doc commit,
+    #      the crate commit, the tool commit and the scripts commit (the phase
+    #      commit), each by its full subject. The spec is specs/0033, pinned at
+    #      its blob at the doc commit a1f484c, b9f13b40 (FACTS.md); the working
+    #      file, planning's rulings during P1 if any, is printed and not
+    #      asserted.
+    #  WB. The status pattern admits exactly: this phase's log directory
+    #      records/logs/m5p2-p1/ (untracked or changed), the run log's record
+    #      pairs records/m5p2-p1-<date>-<short sha>.md and .txt and
+    #      records/m5p2-open-<date>-<short sha>.md and .txt untracked, the
+    #      short sha the phase commit's, and specs/0033 modified; its control
+    #      plants part 1 P3's log directory and a record stem of part 1 beside
+    #      them, and specs/0032 modified (committed and clean in this phase).
+    #  WC. Block E reads M5 part 1 P3's committed test.log (prev_count, P3's
+    #      form of p1_count); the survey module's tests are derived from the
+    #      source as the tests this phase adds (the file is new: none at the
+    #      base); there is no carry test; W's figure is read from P3's W line
+    #      (ws_prev, P3's form) and checked against P3's plus the survey tests
+    #      and the tool's the_kinds_sample_ tests, all compiled in W.
+    #  WD. Block N: the new .rs files are exactly two, package/survey.rs and
+    #      package/tests/survey.rs (the former holds no test); the added tests
+    #      are the survey module's and the tool's the_kinds_sample_*, none
+    #      elsewhere; each is looked for in W on both targets, and, as a
+    #      control, refused in F's off runs, which do not compile the survey
+    #      module.
+    #  WE. Block P: the plant table is this phase's seven (gen/test_plants.py),
+    #      the tool run filtered to the_kinds_sample_, the tool's sample tests
+    #      read from the source at the phase commit (P3's VF form), the counts
+    #      and the run after the plants on the survey module.
+    #  WF. Root lines: <repo> reads M5 part 1 P3's test.log; <phase> is
+    #      m5p2-p1's; <scratch>/w/prev-test.log is P3's test.log.
+    #  WG. PYTHONDONTWRITEBYTECODE=1 is exported at entry and printed as an
+    #      input line (part 1's P2 verification ruling 6; P3's change VI).
+    #  WH. TMPDIR is <build>/tmp, under the phase directory, made and exported
+    #      before the script's mktemp -d, which now takes it (no -p): printed as
+    #      "input: TMPDIR=<scratch>/tmp", and the working directory <scratch>/w
+    #      checked to be directly under it, with controls that refuse a
+    #      directory that is not (specs/0032 close-out ruling 1; P3
+    #      verification ruling 4: temporary files under the phase directory,
+    #      never the system one). Every cargo, rustc and python run of the log
+    #      inherits it.
+    #  WI. The one Python call, plant_apply's, is python3 -I -B (P3
+    #      verification ruling 4), and the shape greps gain a fourth shape,
+    #      PYB: a non-comment line calling python3 (followed by whitespace and
+    #      an option, a dash or a .py path) without "-I -B", 0 in this script,
+    #      its control a four-line fixture (two calls, one without -I -B, a
+    #      comment and a command -v line not calls), and the call form's own
+    #      count of this script's calls, 1.
+    #  A refused or failed attempt is hashed in the rerun's own log through
+    #  RERUN_NOTE and RERUN_FILES before the rerun (P3 verification ruling 1),
+    #  the carried rerun block unchanged.
+    #
+    # P2's text:
+    # Milestone 5 part 1 P2 test.log
+    # (specs/0032-read-breadth-styles.md, "### P2: colours": the tests on
+    # byte-built parts, and the gate as P1's; "Phases": the feature sets off,
+    # read, read,rules and every feature, both targets; "Planning verification
+    # and rulings on P1" ruling 3, the carry test whose figure the off set
+    # gains; planning's working "Planning rulings during P2" 1 to 10, printed
+    # and not asserted). The phase commit's workspace, built and tested in
+    # <repo> into <target>/main, one cargo command at a time, offline:
+    #
+    #   W  cargo test --workspace, on the host and on i686-unknown-linux-musl:
+    #      exit 0, failed 0, passed more than 0 and equal to the ok test lines.
+    #   F  cargo test -p emend with the features off, read, read,rules and
+    #      every feature, on both targets, the same checks; host and i686 pass
+    #      the same names for each set.
+    #   E  each F run's count by property: every set's passed count equal to
+    #      M5 part 1 P1's figure for that target and set, read by grep from
+    #      P1's committed test.log at the phase commit, plus the tests this
+    #      phase adds that the set compiles: the carry test (styles/tests.rs,
+    #      compiled only without read) in the off set alone, the colors tests
+    #      (package/tests/colors.rs, every one under read, none gated further)
+    #      in the other three; each set's colors tests and carry test passed
+    #      equal, as sets of names, to the ones it compiles, derived from the
+    #      source.
+    #   N  the tests the phase adds and removes, derived from the source over
+    #      base..phase commit: exactly the tests of the new
+    #      package/tests/colors.rs, the one carry test of styles/tests.rs and
+    #      the tool tests named the_colors_sample_*, none removed; each added
+    #      test passed on both targets, in W, or for the carry test, which W
+    #      does not compile (the workspace builds the crate with the tool's
+    #      features, read among them), in F's off runs.
+    #   K  the crate's tests with every feature on, host, with EMEND_KEEP_DIR
+    #      set to a keep directory in <scratch>/w: exit 0, the names F's all
+    #      run passed, files written into the keep.
+    #   R  each F run's doc-tests result: 0 passed, 0 failed.
+    #   C  clippy with -D warnings, the four sets and the workspace: exit 0, 0
+    #      diagnostic lines.
+    #   D  rustdoc with -D warnings, the four sets: exit 0, 0 diagnostic lines.
+    #   P  ten planted changes (FACTS.md P1 to P10), each an exact-string
+    #      replacement found once in a git archive copy of the phase commit in
+    #      <scratch>/w/src, built into <target>/plant: the crate's library tests
+    #      with read,rules and the tool's colors sample tests, run in the
+    #      unplanted copy (the control: all pass) and with each plant, the
+    #      failing names compared as a SET with the plant table's expectation;
+    #      the files restored to the phase commit's bytes; the main tree's
+    #      colors tests and the tool's sample tests passing after the plants,
+    #      the same names as before them.
+    #   Every count has a control through the same command form.
+    #
+    # CARRIED TO M5 part 1 P2 from P1's test script (printed in
+    # records/logs/m5p1-p1/test.log; the template <phase>/templates/m5p1p1/
+    # scripts/m5p1-p1-test.sh is byte-equal to that print, the log's one
+    # trailing separator line aside, checked by the script-writing fork before
+    # deriving), generated by <home>/.cache/emend-build/m5p1-p2/gen/test.py
+    # with gen/test_plants.py and gen/test-parts/. P1's comment text follows
+    # below as the carried history (its change list TA to TH, and P2's of M4
+    # part 2 before it); the code is P1's but for these changes:
+    #  UA. The phase, the log directory and the subjects are M5 part 1 P2's:
+    #      the base M5 part 1 P1's record commit, then the doc commit, the
+    #      crate commit and the tool commit (the phase commit), each by its
+    #      full subject. The spec is specs/0032, pinned at its blob at the doc
+    #      commit 76f489f, 01c1d194 (FACTS.md); the working file, planning's
+    #      rulings during P2, is printed and not asserted.
+    #  UB. The status pattern admits exactly: this phase's log directory
+    #      records/logs/m5p1-p2/ (untracked or changed), the run log's record
+    #      pairs records/m5p1-p2-<date>-<short sha>.md and .txt and
+    #      records/m5p1-open-<date>-<short sha>.md and .txt untracked, the
+    #      short sha the phase commit's, and specs/0032 modified; its control
+    #      plants P1's log directory and record stem beside them.
+    #  UC. Block E reads P1's committed test.log, whose E lines take the form
+    #      "  E <target>, features <set>: this run passed <n>; ...", eight of
+    #      them, by p1_count rewritten for that form (the line still anchored
+    #      at its start, so the printed script's indented copies are not
+    #      read); every set is checked, not only off and all; the namedstyles
+    #      derivation becomes the colors tests' (none gated on rules, which E
+    #      checks) and the carry test's (added to styles/tests.rs under
+    #      cfg(not(feature = "read")), derived as the added tests of that file
+    #      that carry that line).
+    #  UD. Block N: the new .rs files are two, package/tests/colors.rs and
+    #      styles/colors.rs (the latter holds no test); the added tests are the
+    #      colors module's, the carry test and the tool's the_colors_sample_*,
+    #      none elsewhere; the carry test is looked for in F's off runs, the
+    #      rest in W.
+    #  UE. Block P: the plant table is P2's ten (gen/test_plants.py), the
+    #      tool run filtered to the_colors_sample_, the counts and the run
+    #      after the plants on the colors module.
+    #  UF. Root lines: <repo> reads P1's test.log; <phase> is m5p1-p2's;
+    #      <scratch>/w/prev-test.log is P1's test.log.
+    #
+    # P1's text:
+    # Milestone 5 part 1 P1 test.log
+    # (specs/0032-read-breadth-styles.md, "### P1: named styles and
+    # differential styles": the tests on byte-built parts, and the gate as
+    # specs/0027 P1's, the crate built and tested with the feature sets on both
+    # targets; "Phases": the feature sets off, read, read,rules and every
+    # feature, both targets; planning's working "Planning rulings during P1"
+    # 1 to 5, printed and not asserted). The phase commit's workspace, built
+    # and tested in <repo> into <target>/main, one cargo command at a time,
+    # offline:
+    #
+    #   W  cargo test --workspace, on the host and on i686-unknown-linux-musl:
+    #      exit 0, failed 0, passed more than 0 and equal to the ok test lines.
+    #   F  cargo test -p emend with the features off, read, read,rules and
+    #      every feature, on both targets, the same checks; host and i686 pass
+    #      the same names for each set.
+    #   E  each F run's count by property: the off run's passed count equal to
+    #      M4 part 2 P2's off figure and the all run's equal to its all figure
+    #      plus the namedstyles tests, both figures read by grep from that
+    #      phase's committed test.log at the phase commit; the namedstyles
+    #      tests each run passes equal, as a set of names, to the ones its set
+    #      compiles (none off; with read all but those gated on rules; with
+    #      read,rules and with every feature all of them), derived from the
+    #      source.
+    #   N  the tests the phase adds and removes, derived from the source over
+    #      base..phase commit: exactly the tests of the new
+    #      package/tests/namedstyles.rs and the tool tests named
+    #      the_namedstyles_sample_*, none removed, each added test passed on
+    #      both targets in W.
+    #   K  the crate's tests with every feature on, host, with EMEND_KEEP_DIR
+    #      set to a keep directory in <scratch>/w: exit 0, the names F's all
+    #      run passed, files written into the keep.
+    #   R  each F run's doc-tests result: 0 passed, 0 failed.
+    #   C  clippy with -D warnings, the four sets and the workspace: exit 0, 0
+    #      diagnostic lines.
+    #   D  rustdoc with -D warnings, the four sets: exit 0, 0 diagnostic lines.
+    #   P  eight planted changes (FACTS.md P1 to P8), each an exact-string
+    #      replacement found once in a git archive copy of the phase commit in
+    #      <scratch>/w/src, built into <target>/plant: the crate's library tests
+    #      with read,rules and the tool's namedstyles sample tests, run in the
+    #      unplanted copy (the control: all pass) and with each plant, the
+    #      failing names compared as a SET with the plant table's expectation;
+    #      the files restored to the phase commit's bytes; the main tree's
+    #      namedstyles tests and the tool's sample tests passing after the
+    #      plants, the same names as before them.
+    #   Every count has a control through the same command form.
+    #
+    # CARRIED TO M5 part 1 P1 from M4 part 2 P2's test script (printed in
+    # records/logs/m4p2-p2/test.log), generated by <home>/.cache/emend-build/
+    # m5p1-p1/gen/test.py with gen/test_plants.py and gen/test-parts/; blocks N,
+    # K and P transform M3 part 6 P3's test script (printed in
+    # records/logs/m3p6-p3/test.log): its added_between, tests_attr and
+    # cfg_tests forms, its EMEND_KEEP_DIR block and its plant machinery. P2's
+    # comment text follows below as the carried history; the code is P2's but
+    # for these changes:
+    #  TA. The phase, the log directory and the subjects are M5 part 1 P1's:
+    #      the base M4 part 2's close-out record commit, then the doc commit,
+    #      the crate commit and the tool commit (the phase commit), each by its
+    #      full subject. The spec is specs/0032, pinned at its blob at the doc
+    #      commit, 9f9c12c9 (FACTS.md); the working file, planning's rulings
+    #      during P1, is printed and not asserted.
+    #  TB. The status pattern admits exactly: this phase's log directory
+    #      records/logs/m5p1-p1/ (untracked or changed), the run log's record
+    #      pairs records/m5p1-p1-<date>-<short sha>.md and .txt and
+    #      records/m5p1-open-<date>-<short sha>.md and .txt untracked, the
+    #      short sha the phase commit's, and specs/0032 modified; its labels say
+    #      so.
+    #  TC. The feature sets are spec "Phases"' four: off, read, read,rules and
+    #      every feature, for F, R, C and D.
+    #  TD. Block E checks by property (above) in place of P2's three typed
+    #      sources: part 1 P3's gate.log and the spec's typed figures are
+    #      dropped; M4 part 2 P2's committed test.log is read for the off and
+    #      all figures by the same p1_count form; test_run also writes each
+    #      run's passed names, which E and K compare.
+    #  TE. Block N added, from M3 part 6 P3's forms (tests_attr, added_between,
+    #      cfg_tests, qualified); the workspace runs' names written by test_run.
+    #  TF. Block K added, M3 part 6 P3's EMEND_KEEP_DIR run, host only (the
+    #      i686 every-feature run is F's).
+    #  TG. Block P added, M3 part 6 P3's plant machinery (git archive with -m
+    #      into <scratch>/w/src, <target>/plant, an exact-string replacement
+    #      found once, the file restored), the expectation a SET of failing
+    #      names per plant over two whole runs (the crate's library tests with
+    #      read,rules and the tool's namedstyles sample tests) in place of one
+    #      named test and its assertion line; each planted run asserted to have
+    #      compiled and run (a test result line, no could-not-compile line), so
+    #      an empty expected set is not met by a build that failed.
+    #  TH. Root lines: <target>/plant added; <scratch>/w's contents named.
+    #
+    # P2's text:
+    # Milestone 4 part 2 P2 test.log
+    # (specs/0031-release-metadata.md, "### P2": "test (the same counts)", that
+    # is P1's: 514 off, 526 on, 558 cm, 573 pair and 918 all on each target;
+    # "Out of scope": no doctest). The phase commit's workspace, built and
+    # tested in <repo> into <target>/main, one cargo command at a time, with
+    # CARGO_NET_OFFLINE=true (FACTS.md "NETWORK": only the run log's publish
+    # dry run may reach the network):
+    #
+    #   W  cargo test --workspace, on the host and on i686-unknown-linux-musl:
+    #      exit 0, failed 0, passed more than 0 and equal to the ok test lines;
+    #      the executed count (passed plus failed) printed.
+    #   F  cargo test -p emend with each feature set the gate's clippy and doc
+    #      steps use (none, copy, comments, copy and comments, all features),
+    #      on both targets, the same checks.
+    #   E  each F run's passed count equal to the figure P1's committed
+    #      test.log prints for the same target and set ("this run passed <n>"
+    #      on its E line), and to the figure part 1 P3's gate.log prints on its
+    #      "passed:" line (both read by grep at the phase commit), and both
+    #      equal to the spec's expectation typed here.
+    #   R  each F run's doc-tests result (the first "test result:" line after
+    #      cargo's "Doc-tests emend" line): 0 passed, 0 failed.
+    #   C  cargo clippy -p emend --all-targets with the same five sets, and
+    #      cargo clippy --workspace --all-targets, each with -D warnings: exit 0
+    #      and 0 diagnostic lines.
+    #   D  cargo doc -p emend --no-deps with RUSTDOCFLAGS=-D warnings and the
+    #      same five sets: exit 0 and 0 diagnostic lines.
+    #   Every count has a control through the same command form.
+    #
+    # CARRIED TO M4 part 2 P2 from M4 part 2 P1's test script (printed in
+    # records/logs/m4p2-p1/test.log), generated by
+    # <home>/.cache/emend-build/m4p2-p2/gen/test.py. P1's comment text follows
+    # below as the carried history; the code is P1's but for these changes:
+    #  SA. The phase, the log directory and the subjects are M4 part 2 P2's:
+    #      the base M4 part 2 P1's record commit, then the doc commit and the
+    #      one code commit (the package metadata, the phase commit), each by
+    #      its full subject. The spec is specs/0031, pinned at its blob at the
+    #      doc commit, f00739a4 (FACTS.md); the working file, if planning holds
+    #      rulings during P2 uncommitted, is printed and not asserted.
+    #  SB. The status pattern admits exactly: this phase's log directory
+    #      records/logs/m4p2-p2/ (untracked or changed), the size record
+    #      records/size-m4p2-<date>-2c31aad.md untracked, and specs/0031
+    #      modified; its labels say so (specs/0031 P1 verification ruling 3).
+    #  SC. Block E reads P1's committed test.log as a second source: for each
+    #      target and set, the one E line of P1's log and its "this run passed
+    #      <n>" figure, compared with this run's count; part 1 P3's gate.log
+    #      line and the spec's typed figures stay as P1 had them.
+    #  SD. CARGO_NET_OFFLINE=true exported at entry and printed as an input
+    #      line, so every cargo command of this log runs offline.
+    #  SE. P1's changes RC, RD and RE stand as P1's history says.
+    #
+    # P1's text:
+    # Milestone 4 part 2 P1 test.log
+    # (specs/0031-release-metadata.md, "### P1": "test (the gate's test counts
+    # unchanged from part 1's P3: 514 off, 526 on, 558 cm, 573 pair and 918 all
+    # on each target, read from records/logs/m4p1-p3/gate.log)"; "Out of
+    # scope": no doctest in the doc comment). The phase commit's workspace,
+    # built and tested in <repo> into <target>/main, one cargo command at a
+    # time:
+    #
+    #   W  cargo test --workspace, on the host and on i686-unknown-linux-musl:
+    #      exit 0, failed 0, passed more than 0 and equal to the ok test lines;
+    #      the executed count (passed plus failed) printed.
+    #   F  cargo test -p emend with each feature set the gate's clippy and doc
+    #      steps use (none, copy, comments, copy and comments, all features),
+    #      on both targets, the same checks.
+    #   E  each F run's passed count equal to the figure part 1 P3's gate.log
+    #      prints for the same target and set on its "passed:" line (read by
+    #      grep from the committed log at the phase commit; P3's labels off,
+    #      on (copy), cm (comments), pair (copy and comments) and all), and
+    #      that figure equal to the spec's expectation typed here.
+    #   R  each F run's doc-tests result (the first "test result:" line after
+    #      cargo's "Doc-tests emend" line): 0 passed, 0 failed.
+    #   C  cargo clippy -p emend --all-targets with the same five sets, and
+    #      cargo clippy --workspace --all-targets, each with -D warnings: exit 0
+    #      and 0 diagnostic lines.
+    #   D  cargo doc -p emend --no-deps with RUSTDOCFLAGS=-D warnings and the
+    #      same five sets: exit 0 and 0 diagnostic lines.
+    #   Every count has a control through the same command form.
+    #
+    # CARRIED TO M4 part 2 P1 from M4 part 1 P2's test script (printed in
+    # records/logs/m4p1-p2/test.log), generated by
+    # <home>/.cache/emend-build/m4p2-p1/gen/test.py. P2's N block (the renames'
+    # names in the trees) is P2's and is not rerun. P2's comment text follows
+    # below as the carried history; the code is P2's but for these changes:
+    #  RA. The phase, the log directory and the subjects are M4 part 2 P1's:
+    #      the base M4 part 1's close-out record commit, then the doc commit
+    #      and the three code commits (the CHANGELOG, the doc comment, and the
+    #      README and licence texts, the phase commit), each by its full
+    #      subject. The spec is specs/0031, pinned at its blob at the doc
+    #      commit, 18cab49d (FACTS.md); the working file, planning's rulings
+    #      during P1, is printed and not asserted. The status pattern allows
+    #      this phase's logs and planning's uncommitted specs/0031 alone.
+    #  RB. Block E added after F (above). The figures are read from part 1
+    #      P3's committed gate.log at the phase commit; the spec's typed
+    #      figures are a second source, compared with them, never the only one.
+    #  RC. Block R added after E (above): the doc comment adds no doctest.
+    #  RD. Block N dropped, and with it the trees <scratch>/w/tree-c,
+    #      <scratch>/w/tree-base and <scratch>/w/tree-ctl and their root line's
+    #      words; <scratch>/w also holds part 1 P3's gate.log as read
+    #      (p3-gate.log) and the fixtures of E's and R's controls.
+    #  RE. P2's changes QB, QC and QD stand as P2's history says (the builds,
+    #      <scratch>/w kept on the disk, the root lines).
+    #
+    # P2's text:
+    # Milestone 4 part 1 P2 test.log
+    # (specs/0030-carries-and-api-changes.md, "### P2": "the test log on both
+    # targets with every feature set the gate runs; clippy and doc 0 lines";
+    # "The API changes" items 1 to 6; "Planning rulings during P2" rulings 2
+    # and 3). The phase commit's workspace, built and tested in <repo> into
+    # <target>/main, one cargo command at a time:
+    #
+    #   W  cargo test --workspace, on the host and on i686-unknown-linux-musl:
+    #      exit 0, failed 0, passed more than 0 and equal to the ok test lines;
+    #      the executed count (passed plus failed) printed.
+    #   F  cargo test -p emend with each feature set the gate's clippy and doc
+    #      steps use (none, copy, comments, copy and comments, all features),
+    #      on both targets, the same checks.
+    #   C  cargo clippy -p emend --all-targets with the same five sets, and
+    #      cargo clippy --workspace --all-targets, each with -D warnings: exit 0
+    #      and 0 diagnostic lines.
+    #   D  cargo doc -p emend --no-deps with RUSTDOCFLAGS=-D warnings and the
+    #      same five sets: exit 0 and 0 diagnostic lines.
+    #   N  the names, read from the trees at the phase commit and at the base
+    #      (git archive into <scratch>/w): each old type is declared 0 times
+    #      and its new name once at the phase commit, the reverse at the base;
+    #      no Rust path names an old type through cells:: or package:: at the
+    #      phase commit (the base's count printed as the control); no pub type
+    #      alias or `as` re-export keeps an old name; each renamed type's
+    #      rustdoc says "formerly `<old>`" once (the comment lines joined, so a
+    #      wrapped sentence counts), 0 at the base; no `pub fn prefix_len`, and
+    #      both `pub(crate) fn prefix_len` lines under #[cfg(test)] (ruling 3),
+    #      against the base's one public and one unmarked crate method.
+    #   Every count has a control through the same command form.
+    #
+    # CARRIED TO M4 part 1 P2 from M4 part 1 P1's test script (printed in
+    # records/logs/m4p1-p1/test.log), generated by
+    # <home>/.cache/emend-build/m4p1-p2/gen/test.py with gen/p2_common.py.
+    # P1's cases (the list script and the runner over fixtures) are P1's and
+    # are not rerun. P1's comment text follows below as the carried history;
+    # the code is this phase's. What differs, and why:
+    #  QA. The phase, the log directory and the subjects are M4 part 1 P2's:
+    #      the base M4 part 1 P1's record commit, then the doc commit and the
+    #      six code commits, the last (prefix_len) the phase commit, each by
+    #      its full subject. The spec is specs/0030, pinned at its blob at the
+    #      doc commit, 31cd9689 (FACTS.md); the working file, planning's
+    #      rulings during P2, is printed and not asserted. The status pattern
+    #      allows this phase's logs and planning's uncommitted specs/0030 alone.
+    #  QB. This log builds: cargo test, clippy and doc in <repo> into
+    #      <target>/main, the phase's one target root (specs/0001), serially;
+    #      no fixture, no binary copied, no corpus.
+    #  QC. <scratch>/w holds the captured cargo outputs, the two trees
+    #      extracted by git archive and the controls' fixtures, kept on the
+    #      disk under <build>; this script removes no directory.
+    #  QD. Root lines for the placeholders the carried history prints before a
+    #      slash and this log never uses, each saying so.
+    #
+    # P1's text:
+    # Milestone 4 part 1 P1 test.log
+    # (specs/0030-carries-and-api-changes.md, "### P1": "The test log: the
+    # script on a fixture run directory with and without a planted error row,
+    # the counts shown"; item 1; decision 1 A and "Planning rulings during P1"
+    # rulings 2 and 6). The phase commit's scripts/excel-check-list.py and
+    # scripts/passthrough-run.sh, over FICTIONAL fixtures this script builds in
+    # <scratch>/w/fx (no corpus file is read; nothing runs in <repo>):
+    #
+    #   T1 the list, --run root1/runs/run-formula --run-plain
+    #      root1/runs/run-plain, no error row: exit 0, the counts line, stderr
+    #      EMPTY (ruling 6: no note for a directory with none), the list with
+    #      mode 600, its rows counted by source.
+    #   T2 the same with run-plain copied to run-plain-planted and one error row
+    #      planted there (fx-b: outcome error, out_bytes empty, its output
+    #      removed, as the runner leaves it): exit 0, stderr exactly one line,
+    #      the note for 1 row of run-plain-planted (built from the source's
+    #      own form), one corpus row fewer than T1, fx-b absent under that
+    #      label.
+    #   T2b the planted row in the --run directory instead (run-formula copied
+    #      to run-formula-planted): the note names "host".
+    #   T3 the runner, the clone's scripts/passthrough-run.sh at the phase
+    #      commit, over the fixture corpus root rroot with the gate's DEBUG
+    #      emend-copy and xlsx-diff copied, no --libreoffice, --ids selecting
+    #      fa0000000001:
+    #      T3a a fresh run directory: exit 0, one ok row;
+    #      T3b a fresh run directory with fa0000000001/lo.host planted: exit 2,
+    #          the earlier-run message from the source, no row, no output, the
+    #          planted directory still there;
+    #      T3c the same with lo-in.host;
+    #      T3d only fa0000000001/lo.i686 planted, --label host: not refused,
+    #          one ok row, lo.i686 left in place;
+    #      T3e lo.host planted under fa0000000002, which --ids does not select:
+    #          refused (every subdirectory counts, ruling 2).
+    #   Every message and the note's form are read from the sources by grep,
+    #   never typed; each pass check has a control that refuses another case's
+    #   output.
+    #
+    # CARRIED TO M4 part 1 P1 from M3 part 7 P4's test script (printed in
+    # records/logs/m3p7-p4/test.log), generated by
+    # <home>/.cache/emend-build/m4p1-p1/gen/test.py with gen/p1_common.py.
+    # P4's cases (the carried close-out scripts and their generator) are P4's
+    # and are not rerun. P4's comment text follows below as the carried history;
+    # the code is this phase's. What differs, and why:
+    #  KA. The phase, the log directory and the subjects are M4 part 1 P1's: the
+    #      base M3 part 7's close-out record commit, then the doc commit, the
+    #      rules commit (specs/0001), the runner commit and the list commit,
+    #      the phase commit, each by its full subject. The spec is specs/0030,
+    #      pinned at its blob at the doc commit, 7bc47cae (FACTS.md); the
+    #      working file, planning's rulings during P1, is printed and not
+    #      asserted. The status pattern allows this phase's logs and
+    #      planning's uncommitted specs/0030 alone.
+    #  KB. No build. scripts/counting.sh and scripts/excel-check-list.py are
+    #      read at the phase commit by git show into <scratch>/w; the runner is
+    #      run from a clone of <repo> at the phase commit in <scratch>/w/clone
+    #      (the runner finds its repository as its own directory's parent and
+    #      reads its commit, Cargo.lock and rustc there, and sources
+    #      scripts/lo-check.sh beside it); the gate's DEBUG emend-copy and
+    #      xlsx-diff are copied from <target>/main/debug into <scratch>/w/bin
+    #      and each copy's sha256 checked against the one line gate.log
+    #      printed for it.
+    #  KC. The fixtures, built under <scratch>/w/fx by a python3 -I program this
+    #      script writes beside them (printed), all fictional. <scratch>/w, with
+    #      the fixtures, the clone and the cases' outputs, is kept on the disk
+    #      under <build>; this script removes no directory.
+    #  KD. Root lines for the placeholders the carried history prints before a
+    #      slash and this log never uses, each saying so.
+    #
+    # P4's text:
+    # Milestone 3 part 7 P4 test.log (specs/0029-engineering-close.md, "P4:
+    # the README and the list" as amended 2026-10-09, "The Excel check",
+    # "Close-out push (after P4)" as amended, and "Planning rulings during P4
+    # (2026-10-09)" rulings 3 and 4): the spec pinned by the hash of its
+    # committed blob, planning's working copy printed; the phase's three
+    # commits by role; T1 part 6's close-out push, ci-run and scan scripts,
+    # copied to <home>/.cache/emend-build/m3p7-close/carried, each equal to the
+    # text part 6's committed logs printed; T2 the counting library the
+    # close-out sources, equal to the phase commit's scripts/counting.sh, and
+    # its one line of difference from part 6's copy, which part 6's push.log
+    # printed; T3 gen.py printed and run into a scratch directory, the three
+    # scripts it writes equal to the ones on the disk; T4 each generated
+    # script's diff against part 6's, printed in full; T5 bash -n, the three
+    # shape greps with fixtures, and no non-ASCII byte, U+2014 or home path in
+    # each generated script; T6 the Excel-record check's three functions and
+    # its pre-mode section present once each, the base, record and tip
+    # patterns resolved or read; this log runs no cargo; this script's own
+    # stderr counted.
+    #
+    #
+    # Usage: m5p2-p2-test.sh <phase commit> > <file outside the tree>; the
+    # caller moves the output to records/logs/m5p2-p2/test.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/test.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    
+    C=${1:?phase commit required}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR RUSTDOCFLAGS RUSTFLAGS CARGO_TARGET_DIR
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    # Change SD: every cargo command of this log runs offline.
+    export CARGO_NET_OFFLINE=true
+    # Change WG: no python run by this log writes byte code (part 1's
+    # "Planning verification and rulings on P2", ruling 6; P3's change VI).
+    export PYTHONDONTWRITEBYTECODE=1
+    PHASE_DIR=$HOME/.cache/emend-build/m5p2-p2
+    BUILD_ROOT=${TEST_BUILD:-$PHASE_DIR/test}
+    SUPERSEDED_DIR=$PHASE_DIR/superseded
+    TARGET_DIR=$PHASE_DIR/target
+    SPEC=specs/0033-read-breadth-survey.md
+    SPEC_WANT=5067dfcc8911d20af95ee7242a17b7a4157caea1534963620ce66e6f85185f4c
+    mkdir -p "$BUILD_ROOT" || exit 2
+    # Change WH: every temporary file of this run, cargo's, rustc's and
+    # python's among them, goes under <build>/tmp, inside the phase directory,
+    # never the system temporary directory (specs/0032 close-out ruling 1).
+    TMPDIR=$BUILD_ROOT/tmp
+    export TMPDIR
+    mkdir -p "$TMPDIR" || exit 2
+    # Change QC: made on the disk under <build> and kept after the run; it is
+    # made in TMPDIR (change WH).
+    B=$(mktemp -d) || exit 2
+    git show "$C:scripts/counting.sh" >"$B/counting.sh" || exit 2
+    . "$B/counting.sh"
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    case "${C: -1}" in 0) LAST=1 ;; *) LAST=0 ;; esac
+    FAKE_SHA=${C:0:39}$LAST
+    SHORT_SHA=${C:0:7}
+    # This phase's log directory, the run log's record pairs (untracked, the
+    # phase commit's short sha) and planning's modified specs/0033, nothing else
+    # (changes TB, UB, WB and XB).
+    OURS="^((\\?\\?| ?[MARCD]) records/logs/m5p2-p2/|[?][?] records/m5p2-(p2|open)-[0-9]{4}-[0-9]{2}-[0-9]{2}-${SHORT_SHA}[.](md|txt)\$| M specs/0033-read-breadth-survey[.]md\$)"
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's log directory, its record pairs and specs/0033 modified" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$B#<scratch>/w#g" \
+        -e "s#$TMPDIR#<scratch>/tmp#g" -e "s#$BUILD_ROOT#<build>#g" -e "s#$SUPERSEDED_DIR#<superseded>#g" \
+        -e "s#$TARGET_DIR#<target>#g" -e "s#$PHASE_DIR#<phase>#g" \
+        -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    echo "input: RERUN_NOTE: ${RERUN_NOTE:-unset}"
+    echo "input: RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    echo "input: HOME: set, read for the paths under it, printed as <home>"
+    echo "input: TEST_BUILD: ${TEST_BUILD:-unset} (the build root, <build>)"
+    echo "input: CARGO_NET_OFFLINE: $CARGO_NET_OFFLINE (exported by this script at entry, so every cargo command of this log runs offline; change SD)"
+    echo "input: PYTHONDONTWRITEBYTECODE: $PYTHONDONTWRITEBYTECODE (exported by this script at entry, so no python it runs writes byte code; change WG)"
+    echo "input: TMPDIR=$TMPDIR"
+    echo "  (set and exported by this script before its mktemp -d: <build>/tmp, under the phase directory; specs/0032 close-out ruling 1; change WH)"
+    echo "input: RUSTDOCFLAGS, RUSTFLAGS and CARGO_TARGET_DIR: unset by this script at entry; each cargo command below names its target directory"
+    echo "about: M5 part 2 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the shape greps, the three and PYB, over this script, before its log (specs/0001; change WI)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    # Change WI: the fourth shape, PYB: a line that is not a comment and calls
+    # python3 (followed by whitespace, then a dash or a .py path) without -I -B.
+    # The interpreter's name is held in a variable, so no line here spells a call.
+    PY=python3
+    PYB_CALL="^[^#]*$PY[[:space:]]+(-|[^[:space:]]*[.]py)"
+    PYB_OK="$PY -I -B( |\$)"
+    # pyb_calls <file> and pyb_without <file>: the calls, and the calls without
+    # -I -B. They print, so their values are compared.
+    pyb_calls() { count_matches -E "$PYB_CALL" "$1"; }
+    pyb_without() { LC_ALL=C "$G" -E "$PYB_CALL" "$1" | LC_ALL=C "$G" -vE "$PYB_OK" | count_lines /dev/stdin; }
+    printf '%s\n' "$PY -c x" "$PY -I -B -c x" "# $PY -c x" "command -v $PY" >"$B/shape-pyb-fixture"
+    n_pyb_self=$(pyb_without "$SELF")
+    n_pyb_fix=$(pyb_without "$B/shape-pyb-fixture")
+    n_calls_self=$(pyb_calls "$SELF")
+    n_calls_fix=$(pyb_calls "$B/shape-pyb-fixture")
+    echo "  shape PYB: in this script $n_pyb_self (of its $n_calls_self Python calls); in the fixture $n_pyb_fix (of its $n_calls_fix)"
+    check "PYB: this script holds none (change WI)" "$(yn [ "$n_pyb_self" = 0 ])"
+    check "control: PYB: the same form finds the fixture's one call without -I -B, of its two calls, the comment and the command -v line not calls" "$(yn [ "$n_pyb_fix:$n_calls_fix" = 1:2 ])"
+    check "control: the call form finds this script's one Python call, plant_apply's" "$(yn [ "$n_calls_self" = 1 ])"
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M5 part 2 P1 record: logs, the kinds sample and open records, the independent check')
+    DOC=$(by_subject "M5 part 2 P2: commit planning docs (the P1 rulings)")
+    CRATE=$(by_subject "M5 part 2 P2: pivot tables read with their caches")
+    TOOL=$(by_subject "M5 part 2 P2: emend-copy --pivot-sample")
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's full subject>, for each role"
+    echo "  M5 part 2 P1's record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC:-none}"
+    echo "  the crate commit (the pivot tables): ${CRATE:-none}"
+    echo "  the tool commit (--pivot-sample), the phase commit: ${TOOL:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~3"
+    for k in 0 1 2 3; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$TOOL" "$CRATE" "$DOC" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "the tool commit, the crate commit, the doc commit and the base, each the next one's parent, the tool commit the phase commit (change XA)" "$(yn roles_in_order)"
+    roles_ctl() { local TOOL=$CRATE; roles_in_order; }
+    check "control: roles_in_order refuses the crate commit named as the phase commit" "$(ynnot roles_ctl)"
+    roles_ctl2() { local DOC=$REC; roles_in_order; }
+    check "control: roles_in_order refuses the base named as the doc commit" "$(ynnot roles_ctl2)"
+    echo
+    echo "phase: Milestone 5 part 2 P2 ($SPEC) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "rerun: the superseded files are kept in <superseded>"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds in <repo> into <target>/main, one cargo command at a time (change QB)"
+    no_build_running() { [ "$((n_cargo + n_rustc))" = 0 ]; }
+    check "no cargo or rustc process was running at entry" "$(yn no_build_running)"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh, the spec, M5 part 2 P1's test.log and the phase's sources are read from it by git show at the phase commit, the working spec is hashed in it, the plants' copy is made from it by git archive, and cargo test, clippy and doc run in it with their output in <target>/main"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <phase> stands for <home>/.cache/emend-build/m5p2-p2, the phase's directory on the disk"
+    echo "root: <scripts> stands for <phase>/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <target> stands for <phase>/target, the phase's one target root (specs/0001); <target>/main holds this log's builds of <repo> (cargo test on both targets, clippy, doc, the keep run and the runs after the plants), <target>/plant the plants' builds from <scratch>/w/src (change TH)"
+    echo "root: <build> stands for the build root on the disk, <phase>/test unless TEST_BUILD names another"
+    echo "root: <superseded> stands for <phase>/superseded, where a rerun's superseded files are kept; read only"
+    echo "root: <scratch>/tmp stands for <build>/tmp, the TMPDIR this script exports before its mktemp -d, under the phase directory, so every temporary file of the run is there and none in the system temporary directory (change WH)"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory, made in <scratch>/tmp (under <build>), kept on the disk after the run (changes QC and WH): <scratch>/w/counting.sh the phase commit's library, sourced; the captured cargo outputs (*.out) and the names each run passed (*.names); <scratch>/w/prev-test.log, M5 part 2 P1's test.log read at the phase commit; the keep directory <scratch>/w/keep.<random> of block K; the plants' archive copy <scratch>/w/src and their tables; the controls' fixtures (changes TD to TH, UC to UF, WC to WI, XA to XG)"
+    
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$MAIN" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$BUILD_ROOT" && apart "$SUPERSEDED_DIR" "$MAIN" && apart "$TARGET_DIR" "$BUILD_ROOT" && apart "$TARGET_DIR" "$MAIN"; }
+    check "the roots other than <home> and <phase> are distinct, none inside another (<scratch>/w inside <build>)" "$(yn roots_distinct)"
+    roots_ctl() { apart "$B" "$BUILD_ROOT"; }
+    check "control: apart refuses <scratch>/w against <build>, which holds it" "$(ynnot roots_ctl)"
+    # Change WH: the working directory mktemp -d made is directly in TMPDIR,
+    # which is <build>/tmp.
+    in_tmpdir() { [ "$(dirname "$1")" = "$TMPDIR" ] && [ "$TMPDIR" = "$BUILD_ROOT/tmp" ]; }
+    echo "command: dirname <scratch>/w -> $(dirname "$B")"
+    check "the directory mktemp -d made, <scratch>/w, is directly in TMPDIR, <scratch>/tmp, which is <build>/tmp (change WH)" "$(yn in_tmpdir "$B")"
+    check "control: the same check refuses <build>/tmp.x, a directory beside TMPDIR, not in it" "$(ynnot in_tmpdir "$BUILD_ROOT/tmp.x")"
+    check "control: the same check refuses <phase>/tmp.x, a directory outside TMPDIR" "$(ynnot in_tmpdir "$PHASE_DIR/tmp.x")"
+    tmpdir_ctl() { local TMPDIR=$PHASE_DIR; in_tmpdir "$PHASE_DIR/tmp.x"; }
+    check "control: the same check refuses a TMPDIR that is not <build>/tmp (<phase> itself), even holding the directory" "$(ynnot tmpdir_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them this phase's log directory, its record pairs or specs/0033 modified $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $(git rev-parse HEAD)"
+    echo "  the controls' commits: the null commit $NULL_SHA; the fabricated commit $FAKE_SHA (the given one, its last hex digit changed); the short sha $SHORT_SHA"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison refuses the null commit" "$(ynnot given_ok "$NULL_SHA")"
+    check "control: the same comparison refuses a fabricated commit" "$(ynnot given_ok "$FAKE_SHA")"
+    check "control: the same comparison refuses a short sha of the real commit" "$(ynnot given_ok "$SHORT_SHA")"
+    short_names_head() { [ "$(git rev-parse "$SHORT_SHA")" = "$(git rev-parse HEAD)" ]; }
+    check "control: the short sha is the real commit's, so only its form is refused" "$(yn short_names_head)"
+    ours_ctl() { printf ' M scripts/check.sh\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified gate file" "$(ynnot ours_ctl)"
+    ours_src_ctl() { printf ' M crates/emend/src/cells.rs\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified crate source" "$(ynnot ours_src_ctl)"
+    ours_roadmap_ctl() { printf ' M ROADMAP.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified ROADMAP.md (committed and clean in this phase)" "$(ynnot ours_roadmap_ctl)"
+    ours_rec_ctl() { printf "?? records/logs/m5p2-p2/gate.log\n?? records/logs/m5p2-p1/gate.log\n?? records/logs/m5p2-p2x/gate.log\n M ROADMAP.md\n M specs/0033-read-breadth-survey.md\n?? specs/0033-read-breadth-survey.md\n M specs/0032-read-breadth-styles.md\n?? records/m5p2-p2-2026-10-12-${SHORT_SHA}.md\n?? records/m5p2-open-2026-10-12-${SHORT_SHA}.txt\n?? records/m5p2-p2-2026-10-12-0000000.md\n M records/m5p2-p2-2026-10-12-${SHORT_SHA}.md\n?? records/m5p2-p1-2026-10-12-${SHORT_SHA}.md\n" | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern takes this phase's log, specs/0033 modified and this phase's two record stems untracked with the phase commit's short sha, four of twelve lines: no other phase's log (P1's among them), no sibling directory, no untracked spec, no modified specs/0032 (committed and clean in this phase), no other short sha, no modified record, no other phase's record (P1's stem) (changes WB and XB)" "$(yn [ "$(ours_rec_ctl)" = 4 ])"
+    SPEC_HAVE=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_BLOB=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum: $SPEC_BLOB; sha256sum $SPEC (the working file, printed and not asserted: planning may hold rulings during P2 uncommitted; changes WA and XA): $SPEC_HAVE"
+    check "the spec's blob at the phase commit is at the hash this log pins" "$(yn [ "$SPEC_BLOB" = "$SPEC_WANT" ])"
+    spec_ctl() { [ "$(printf 'x' | sha256sum | cut -d' ' -f1)" = "$SPEC_WANT" ]; }
+    check "control: the same comparison refuses the hash of another file" "$(ynnot spec_ctl)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$B/counting.sh"
+    echo
+    echo "## counting controls"
+    # Change XG (ruling 12): the library's counting_controls makes its one
+    # mktemp -d, and removes it, itself; it inherits TMPDIR from this script's
+    # environment, checked here to be <build>/tmp before it runs.
+    lib_mktemps=$(count_matches -F 'mktemp' "$B/counting.sh")
+    tmpdir_exported() { [ "$(printenv TMPDIR)" = "$BUILD_ROOT/tmp" ]; }
+    echo "  command: count_matches -F mktemp <scratch>/w/counting.sh: $lib_mktemps; printenv TMPDIR: $(printenv TMPDIR)"
+    check "the sourced library holds one mktemp call, counting_controls' mktemp -d (change XG)" "$(yn [ "$lib_mktemps" = 1 ])"
+    check "the library's mktemp -d runs with TMPDIR exported as <build>/tmp, so its directory lies under TMPDIR (ruling 12; change XG)" "$(yn tmpdir_exported)"
+    tmpdir_exported_ctl() { local TMPDIR=$PHASE_DIR; export TMPDIR; tmpdir_exported; }
+    check "control: the same check refuses an environment whose TMPDIR is <phase>" "$(ynnot tmpdir_exported_ctl)"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    # failed_names <cargo output>: prints the name of every test the run failed,
+    # from its FAILED lines, or "none" (part 6 P3's form). It prints, so it is
+    # never a check's condition.
+    failed_names() {
+      local n
+      n=$(LC_ALL=C "$G" -a -E '^test .* \.\.\. FAILED$' "$1" | sed -E 's/^test (.*) \.\.\. FAILED$/\1/')
+      if [ -n "$n" ]; then printf '%s\n' "$n" | sed 's/^/    failed test: /'; else echo "    failed tests: none"; fi
+    }
+    printf 'test a::b ... ok\ntest a::c ... FAILED\n' >"$B/c-failed"
+    check "control: failed_names prints the name of the one FAILED line of two" "$(yn [ "$(failed_names "$B/c-failed")" = "    failed test: a::c" ])"
+    printf 'test a::b ... ok\n' >"$B/c-failed-none"
+    check "control: failed_names prints none for a run with no FAILED line" "$(yn [ "$(failed_names "$B/c-failed-none")" = "    failed tests: none" ])"
+    # diag_lines <cargo output>: the lines a warning or an error begins with
+    # (rustc's and clippy's "warning:" / "warning[...]" / "error:" / "error[...]"),
+    # counted by the counting library's form.
+    DIAG='^(warning|error)(\[[A-Za-z0-9_:]+\])?: '
+    diag_lines() { count_matches -E "$DIAG" "$1"; }
+    printf 'warning: unused import\nerror[E0433]: failed to resolve\n    Finished x\nnote: this is not one\n' >"$B/c-diag"
+    check "control: diag_lines counts the two diagnostic lines of a four-line fixture" "$(yn [ "$(diag_lines "$B/c-diag")" = 2 ])"
+    
+    CT=$TARGET_DIR/main
+    SETS="off read read,rules all"
+    # set_args <set>: the cargo arguments of a feature set.
+    set_args() { case $1 in off) ;; all) echo "--all-features" ;; *) echo "--features $1" ;; esac; }
+    # test_run <name> <cargo args...>: runs cargo with the args into <target>/main,
+    # keeps the output as <name>.out, prints the exit, the summary lines and the
+    # failed names, and writes <name>.rc, .passed, .failed, .nok and .names. It prints,
+    # so it is never a check's condition; run_passed reads its files.
+    test_run() {
+      local name=$1 rc passed failed nok
+      shift
+      echo "command: CARGO_TARGET_DIR=<target>/main cargo $*"
+      CARGO_TARGET_DIR=$CT cargo "$@" >"$B/$name.out" 2>&1 </dev/null
+      rc=$?
+      LC_ALL=C "$G" -a -E '^test result: ' "$B/$name.out" | sed 's/^/    /'
+      failed_names "$B/$name.out"
+      passed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^passed;$/) n += $i } END { print n + 0 }' "$B/$name.out")
+      failed=$(awk '/^test result: / { for (i = 1; i < NF; i++) if ($(i + 1) ~ /^failed;$/) n += $i } END { print n + 0 }' "$B/$name.out")
+      nok=$(count_matches -E '^test .* \.\.\. ok$' "$B/$name.out")
+      echo "$rc" >"$B/$name.rc"; echo "$passed" >"$B/$name.passed"; echo "$failed" >"$B/$name.failed"; echo "$nok" >"$B/$name.nok"
+      # Change TD: the names the run passed, sorted in the C locale.
+      LC_ALL=C "$G" -a -E '^test .* \.\.\. ok$' "$B/$name.out" | sed -E 's/^test (.*) \.\.\. ok$/\1/' | LC_ALL=C sort >"$B/$name.names"
+      echo "  $name: exit $rc; passed $passed; failed $failed; executed (passed plus failed) $((passed + failed)); test lines ending ok $nok"
+    }
+    # run_passed <name>: exit 0, failed 0, passed more than 0 and equal to the ok lines.
+    run_passed() {
+      local rc passed failed nok
+      rc=$(cat "$B/$1.rc"); passed=$(cat "$B/$1.passed"); failed=$(cat "$B/$1.failed"); nok=$(cat "$B/$1.nok")
+      [ "$rc" = 0 ] && [ "$failed" = 0 ] && [ "$passed" -gt 0 ] && [ "$passed" = "$nok" ]
+    }
+    echo 0 >"$B/c-run.rc"; echo 3 >"$B/c-run.passed"; echo 1 >"$B/c-run.failed"; echo 3 >"$B/c-run.nok"
+    check "control: run_passed refuses a run with one failed test" "$(ynnot run_passed c-run)"
+    echo 0 >"$B/c-run2.rc"; echo 3 >"$B/c-run2.passed"; echo 0 >"$B/c-run2.failed"; echo 2 >"$B/c-run2.nok"
+    check "control: run_passed refuses a run whose passed count is not its ok lines" "$(ynnot run_passed c-run2)"
+    echo 0 >"$B/c-run3.rc"; echo 3 >"$B/c-run3.passed"; echo 0 >"$B/c-run3.failed"; echo 3 >"$B/c-run3.nok"
+    check "control: run_passed takes a clean run of three" "$(yn run_passed c-run3)"
+    
+    echo
+    echo "## W: cargo test --workspace on both targets (the gate's own test steps)"
+    test_run ws-host test --workspace
+    check "W host: exit 0, none failed, some ran, passed equals the ok lines" "$(yn run_passed ws-host)"
+    test_run ws-i686 test --workspace --target i686-unknown-linux-musl
+    check "W i686: exit 0, none failed, some ran, passed equals the ok lines" "$(yn run_passed ws-i686)"
+    
+    echo
+    echo "## F: cargo test -p emend with the features off, read, read,rules and every feature, on both targets (change TC)"
+    for target in host i686; do
+      for set in $SETS; do
+        args=(test -p emend)
+        [ "$target" = host ] || args+=(--target i686-unknown-linux-musl)
+        # shellcheck disable=SC2207
+        args+=($(set_args "$set"))
+        test_run "f-$target-$set" "${args[@]}"
+        check "F $target, features $set: exit 0, none failed, some ran, passed equals the ok lines" "$(yn run_passed "f-$target-$set")"
+      done
+    done
+    more_with_all() { [ "$(cat "$B/f-$1-all.passed")" -gt "$(cat "$B/f-$1-off.passed")" ]; }
+    check "F host: the all-features run passes more tests than the run with none (the sets differ)" "$(yn more_with_all host)"
+    check "F i686: the all-features run passes more tests than the run with none" "$(yn more_with_all i686)"
+    more_ctl() { [ "$(cat "$B/f-host-off.passed")" -gt "$(cat "$B/f-host-all.passed")" ]; }
+    check "control: the same comparison refuses the reverse order" "$(ynnot more_ctl)"
+    
+    echo
+    echo "## E: each F run's count by property, against M5 part 2 P1's committed test.log and the source (changes WC and XC)"
+    PREVLOG=records/logs/m5p2-p1/test.log
+    PREVFORM='^  E (host|i686), features [a-z,]+: this run passed [0-9]+;'
+    echo "command: git show <phase commit>:$PREVLOG > <scratch>/w/prev-test.log; grep -E '$PREVFORM' <scratch>/w/prev-test.log"
+    git show "$C:$PREVLOG" >"$B/prev-test.log"
+    rc_prev=$?
+    n_prevlines=$(count_matches -E "$PREVFORM" "$B/prev-test.log")
+    echo "  exit $rc_prev; matching lines $n_prevlines:"
+    LC_ALL=C "$G" -E "$PREVFORM" "$B/prev-test.log" | sed 's/^/    /'
+    prev_read() { [ "$rc_prev" = 0 ] && [ "$n_prevlines" = 8 ]; }
+    check "M5 part 2 P1's test.log was read at the phase commit and holds one E line per target and set, eight" "$(yn prev_read)"
+    # prev_count <file> <target> <set>: the "this run passed <n>" figure of the
+    # one E line of that log for that target and set, or "none" when the log
+    # holds not exactly one. The line must START with the E prefix: the
+    # committed log also prints its own script, whose lines hold the same text
+    # indented. It prints, so its value is compared, never run as a condition
+    # (changes UC, VD and WC).
+    prev_count() {
+      local hits
+      hits=$(LC_ALL=C awk -v p="  E $2, features $3: this run passed " 'index($0, p) == 1 { s = substr($0, length(p) + 1); sub(/;.*$/, "", s); print s }' "$1" | LC_ALL=C "$G" -E '^[0-9]+$')
+      if [ -n "$hits" ] && [ "$(printf '%s\n' "$hits" | wc -l)" = 1 ]; then echo "$hits"; else echo none; fi
+    }
+    printf "  E host, features off: this run passed 31; x\n  E host, features all: this run passed 32; y\n  E i686, features off: this run passed 33; z\n  E i686, features off: this run passed 34; z\n    printf \"  E host, features all: this run passed 39; q\\\\n\"\n  E host, features read: this run passed 35; w\n" >"$B/c-prev"
+    check "control: prev_count reads the host off figure of a planted file, not the host all one after it" "$(yn [ "$(prev_count "$B/c-prev" host off)" = 31 ])"
+    check "control: prev_count reads the host all figure, not an indented copy of its line (a printed script's)" "$(yn [ "$(prev_count "$B/c-prev" host all)" = 32 ])"
+    check "control: prev_count reads none for a target and set the file gives twice (i686 off)" "$(yn [ "$(prev_count "$B/c-prev" i686 off)" = none ])"
+    check "control: prev_count reads none for a set the file does not give (host read,rules), not the read line's figure" "$(yn [ "$(prev_count "$B/c-prev" host read,rules)" = none ])"
+    check "control: prev_count reads the host read figure" "$(yn [ "$(prev_count "$B/c-prev" host read)" = 35 ])"
+    # same_count <a> <b>: both are the same decimal number.
+    same_count() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9]+$' && [ "$1" = "$2" ]; }
+    check "control: same_count refuses 594 against 595" "$(ynnot same_count 594 595)"
+    check "control: same_count refuses none against none" "$(ynnot same_count none none)"
+    check "control: same_count takes 594 against 594" "$(yn same_count 594 594)"
+    # The pivot tests, all of them and the ones this phase adds, derived from
+    # the source (M3 part 6 P3's tests_in and cfg_tests forms, each sort in the
+    # C locale so comm and cmp compare one collation). The file is new, so every
+    # test in it is added.
+    PV_RS=crates/emend/src/package/tests/pivot.rs
+    PV_MOD=package::tests::pivot::
+    TOOL_RS=tools/emend-copy/tests/null_rewrite.rs
+    tests_attr() { git show "$1:$2" 2>/dev/null | tests_in; }
+    tests_in() {
+      awk '
+        /^[ \t]*#\[test\][ \t]*$/ { t = 1; next }
+        t && /^[ \t]*#\[/ { next }
+        t && /^[ \t]*(pub[ \t]+)?(async[ \t]+)?fn[ \t]/ {
+          sub(/^[ \t]*(pub[ \t]+)?(async[ \t]+)?fn[ \t]+/, ""); sub(/[(<].*/, ""); print; t = 0; next
+        }
+        t { t = 0 }' | LC_ALL=C sort
+    }
+    # cfg_tests <cfg line> <file text on stdin>: the tests whose attribute
+    # lines, before the fn line, hold exactly that cfg line.
+    cfg_tests() {
+      awk -v want="$1" '
+        $0 == want { c = 1; next }
+        /^#\[test\]/ { t = 1; next }
+        /^#\[/ { next }
+        /^fn / { if (c && t) { s = $0; sub(/^fn /, "", s); sub(/[(<].*/, "", s); print s }; c = 0; t = 0; next }
+        { c = 0; t = 0 }' | LC_ALL=C sort
+    }
+    tests_attr "$C" "$PV_RS" >"$B/pv-all"
+    tests_attr "$REC" "$PV_RS" >"$B/pv-base"
+    LC_ALL=C comm -13 "$B/pv-base" "$B/pv-all" >"$B/pv-new"
+    git show "$C:$PV_RS" | cfg_tests '#[cfg(feature = "rules")]' >"$B/pv-rules"
+    : >"$B/none"
+    PV_ALL=$(count_lines "$B/pv-all")
+    PV_BASE=$(count_lines "$B/pv-base")
+    PV_NEW=$(count_lines "$B/pv-new")
+    PV_RULES=$(count_lines "$B/pv-rules")
+    echo "  #[test] functions in $PV_RS at the phase commit: $PV_ALL; at the base: $PV_BASE; added by this phase: $PV_NEW; at the phase commit gated on rules: $PV_RULES"
+    sed 's/^/    the added pivot test: /' "$B/pv-new"
+    pv_shape() { [ "$PV_ALL" -ge 1 ] && [ "$PV_RULES" = 0 ]; }
+    check "the pivot test file holds tests, none gated on rules, so every one is compiled with read (FACTS.md)" "$(yn pv_shape)"
+    pv_new_all() { [ "$PV_BASE" = 0 ] && [ "$PV_NEW" = "$PV_ALL" ]; }
+    check "the pivot test file is new: no test of it at the base, every test of it added by this phase" "$(yn pv_new_all)"
+    pv_new_ctl() { local PV_BASE=1; pv_new_all; }
+    check "control: the same check refuses a base that held one of its tests" "$(ynnot pv_new_ctl)"
+    tests_attr "$C" "$TOOL_RS" >"$B/tool-all"
+    tests_attr "$REC" "$TOOL_RS" >"$B/tool-base"
+    LC_ALL=C comm -13 "$B/tool-base" "$B/tool-all" >"$B/tool-new"
+    TOOL_NEW=$(count_lines "$B/tool-new")
+    echo "  #[test] functions added to $TOOL_RS by this phase: $TOOL_NEW"
+    sed 's/^/    the added tool test: /' "$B/tool-new"
+    printf '#[cfg(feature = "rules")]\n#[test]\nfn ctl_on() {}\n#[test]\nfn ctl_plain() {}\n#[test]\n#[should_panic]\nfn ctl_attr() {}\n#[cfg(not(feature = "read"))]\n#[test]\nfn ctl_off() {}\n' >"$B/c-cfg"
+    check "control: tests_in reads all four tests of a fixture, one with a second attribute" "$(yn [ "$(tests_in <"$B/c-cfg" | count_lines /dev/stdin)" = 4 ])"
+    check "control: cfg_tests reads the one test gated on rules, not the plain ones" "$(yn [ "$(cfg_tests '#[cfg(feature = "rules")]' <"$B/c-cfg")" = ctl_on ])"
+    # pv_want <set>: the file of the pivot names the set compiles (none off,
+    # all of them with read).
+    pv_want() { case $1 in off) echo "$B/none" ;; *) echo "$B/pv-all" ;; esac; }
+    # pv_got <run>: the pivot names the run passed, the module path dropped,
+    # sorted. It prints, so it writes files, never conditions.
+    pv_got() { LC_ALL=C "$G" -F "$PV_MOD" "$B/$1.names" | sed 's/^.*:://' | LC_ALL=C sort; }
+    printf 'package::tests::pivot::b\npackage::tests::dxf::c\npackage::tests::pivot::a\n' >"$B/c-sv.names"
+    check "control: pv_got reads the two pivot names of three, sorted, the module path dropped" "$(yn [ "$(pv_got c-sv | tr '\n' ' ')" = "a b " ])"
+    for target in host i686; do
+      for set in $SETS; do
+        pv_got "f-$target-$set" >"$B/pv-got-$target-$set"
+        prev=$(prev_count "$B/prev-test.log" "$target" "$set")
+        case $prev in '' | *[!0-9]*) want=none ;; *) want=$((prev + $(count_lines "$(pv_want "$set")"))) ;; esac
+        echo "  E $target, features $set: this run passed $(cat "$B/f-$target-$set.passed"); P1's figure $prev, plus the tests this phase adds that the set compiles $(count_lines "$(pv_want "$set")"), $want; pivot tests passed $(count_lines "$B/pv-got-$target-$set") of the $(count_lines "$(pv_want "$set")") the set compiles"
+        check "E $target, features $set: the run passes P1's figure plus the tests this phase adds that the set compiles" "$(yn same_count "$(cat "$B/f-$target-$set.passed")" "$want")"
+        check "E $target, features $set: the pivot tests the run passed are exactly the ones the set compiles, by name" "$(yn cmp -s "$B/pv-got-$target-$set" "$(pv_want "$set")")"
+      done
+    done
+    plus_one=$(( $(cat "$B/f-i686-all.passed") + 1 ))
+    check "control: the same comparison refuses the i686 all run's count plus one" "$(ynnot same_count "$plus_one" "$(( $(prev_count "$B/prev-test.log" i686 all) + PV_NEW ))")"
+    sed '1d' "$B/pv-all" >"$B/c-pv-short"
+    check "control: the name comparison refuses the pivot names one short" "$(ynnot cmp -s "$B/c-pv-short" "$B/pv-all")"
+    check "control: the name comparison refuses the off set's want (none) for a set that compiles the pivot tests" "$(ynnot cmp -s "$B/none" "$B/pv-all")"
+    for set in $SETS; do
+      check "E features $set: host and i686 pass the same names" "$(yn cmp -s "$B/f-host-$set.names" "$B/f-i686-$set.names")"
+    done
+    sed '1d' "$B/f-host-all.names" >"$B/c-names-short"
+    check "control: the same comparison refuses the host all run's names one short" "$(ynnot cmp -s "$B/c-names-short" "$B/f-i686-all.names")"
+    echo "### W's figure, against M5 part 2 P1's committed W line, plus the tests this phase adds (changes VC, WC and XC)"
+    # ws_prev <file> <target>: the passed figure of the one W line of that log
+    # for that target ("  ws-<target>: exit 0; passed <n>;", anchored at its
+    # start), or "none". It prints, so its value is compared.
+    ws_prev() {
+      local hits
+      hits=$(LC_ALL=C awk -v p="  ws-$2: exit 0; passed " 'index($0, p) == 1 { s = substr($0, length(p) + 1); sub(/;.*$/, "", s); print s }' "$1" | LC_ALL=C "$G" -E '^[0-9]+$')
+      if [ -n "$hits" ] && [ "$(printf '%s\n' "$hits" | wc -l)" = 1 ]; then echo "$hits"; else echo none; fi
+    }
+    printf "  ws-host: exit 0; passed 41; x\n    echo \"  ws-host: exit 0; passed 49; q\"\n  ws-i686: exit 0; passed 42; y\n  ws-i686: exit 0; passed 43; y\n" >"$B/c-ws"
+    check "control: ws_prev reads the host figure, not an indented copy of its line" "$(yn [ "$(ws_prev "$B/c-ws" host)" = 41 ])"
+    check "control: ws_prev reads none for a target the file gives twice" "$(yn [ "$(ws_prev "$B/c-ws" i686)" = none ])"
+    WS_NEW=$((PV_NEW + TOOL_NEW))
+    for target in host i686; do
+      wprev=$(ws_prev "$B/prev-test.log" "$target")
+      case $wprev in '' | *[!0-9]*) wwant=none ;; *) wwant=$((wprev + WS_NEW)) ;; esac
+      echo "  W $target: this run passed $(cat "$B/ws-$target.passed"); P1's W figure $wprev, plus the tests this phase adds, each compiled in the workspace (the pivot tests, its crate built with the tool's features, read among them, $PV_NEW; the tool's added tests $TOOL_NEW) $WS_NEW, $wwant"
+      check "W $target: the run passes P1's W figure plus the tests this phase adds" "$(yn same_count "$(cat "$B/ws-$target.passed")" "$wwant")"
+    done
+    ws_ctl() { same_count "$(( $(cat "$B/ws-host.passed") + 1 ))" "$(( $(ws_prev "$B/prev-test.log" host) + WS_NEW ))"; }
+    check "control: the same comparison refuses the host W count plus one" "$(ynnot ws_ctl)"
+    echo
+    echo "## N: the tests the phase adds and removes, derived from the source (changes WD and XD)"
+    added_between() {
+      # $1 older commit, $2 newer commit: "<file> <name>" per #[test] the newer
+      # commit has in a .rs file the pair's diff touches and the older lacks.
+      local f
+      git diff --name-only "$1" "$2" -- '*.rs' | while IFS= read -r f; do
+        tests_attr "$2" "$f" >"$B/ab-new"
+        tests_attr "$1" "$f" >"$B/ab-old"
+        LC_ALL=C comm -13 "$B/ab-old" "$B/ab-new" | sed "s#^#$f #"
+      done
+    }
+    removed_between() { added_between "$2" "$1"; }
+    echo "command: git diff --name-only <base> <phase commit> -- '*.rs'"
+    git diff --name-only "$REC" "$C" -- '*.rs' >"$B/changed-rs"
+    echo "  the .rs files the phase changed: $(count_lines "$B/changed-rs")"
+    sed 's/^/    /' "$B/changed-rs"
+    added_between "$REC" "$C" >"$B/src-added"
+    removed_between "$REC" "$C" >"$B/src-removed"
+    echo "  #[test] functions at the phase commit and not at the base, by file:"
+    sed 's/^/    /' "$B/src-added"
+    echo "  #[test] functions at the base and not at the phase commit, by file: $(count_lines "$B/src-removed")"
+    sed 's/^/    /' "$B/src-removed"
+    check "the source removes no test in this phase" "$(yn [ "$(count_lines "$B/src-removed")" = 0 ])"
+    git diff --name-only --diff-filter=A "$REC" "$C" -- '*.rs' >"$B/new-rs"
+    echo "  new .rs files: $(count_lines "$B/new-rs")"
+    sed 's/^/    new .rs file: /' "$B/new-rs"
+    printf '%s\n%s\n' crates/emend/src/package/pivot.rs "$PV_RS" >"$B/new-rs-want"
+    check "the phase adds exactly two .rs files, the pivot module and its test module" "$(yn cmp -s "$B/new-rs" "$B/new-rs-want")"
+    added_in_file() { awk -v f="$1" '$1 == f { print $2 }' "$B/src-added" | LC_ALL=C sort; }
+    added_in_file "$PV_RS" >"$B/added-sv"
+    check "the tests added to the pivot test module are exactly the ones block E derived ($(count_lines "$B/added-sv") of $PV_NEW)" "$(yn cmp -s "$B/added-sv" "$B/pv-new")"
+    added_in_file crates/emend/src/package/pivot.rs >"$B/added-pivot-module"
+    check "the pivot module itself adds no test" "$(yn [ "$(count_lines "$B/added-pivot-module")" = 0 ])"
+    added_in_file "$TOOL_RS" >"$B/added-tool"
+    ntool=$(count_lines "$B/added-tool")
+    ntool_named=$(count_matches -E '^the_pivot_sample_' "$B/added-tool")
+    echo "  tests added to $TOOL_RS: $ntool; of them named for the pivot sample: $ntool_named"
+    tool_named() { [ "$ntool" -ge 1 ] && [ "$ntool" = "$ntool_named" ] && cmp -s "$B/added-tool" "$B/tool-new"; }
+    check "the tool's added tests are each named for the pivot sample, and some, the ones block E counted for W" "$(yn tool_named)"
+    # elsewhere <list>: the "<file> <test>" lines of <list> in neither the
+    # pivot test module nor the tool's test file.
+    elsewhere() { awk -v a="$PV_RS" -v d="$TOOL_RS" '$1 != a && $1 != d' "$1"; }
+    elsewhere "$B/src-added" >"$B/added-elsewhere"
+    check "no other file gains a test ($(count_lines "$B/added-elsewhere"))" "$(yn [ "$(count_lines "$B/added-elsewhere")" = 0 ])"
+    printf '%s t1\n%s t2\nx.rs t3\n' "$PV_RS" "$TOOL_RS" >"$B/c-src-added"
+    check "control: the same filter finds one test outside the two files in a list of three" "$(yn [ "$(elsewhere "$B/c-src-added" | count_lines /dev/stdin)" = 1 ])"
+    # Each added test passed on both targets, by its module path: a file under
+    # crates/emend/src gives <module path>::<name>, an integration test file its
+    # bare name (M3 part 6 P3's change CK).
+    qualified() {
+      case $1 in
+        crates/emend/src/*.rs) printf '%s::%s' "$(printf '%s' "${1#crates/emend/src/}" | sed 's/[.]rs$//; s#/#::#g')" "$2" ;;
+        *) printf '%s' "$2" ;;
+      esac
+    }
+    passed_on() { count_matches -E "(^|::)$1\$" "$B/$2.names"; }
+    both_passed() { [ "$(passed_on "$1" "$2")" = 1 ] && [ "$(passed_on "$1" "$3")" = 1 ]; }
+    echo "  each added test, by its module path, and whether it ran and passed on each target in W:"
+    while read -r f name; do
+      q=$(qualified "$f" "$name")
+      echo "    $q (ws-host, ws-i686): host $(passed_on "$q" ws-host), i686 $(passed_on "$q" ws-i686)"
+      check "  $q passed on both targets" "$(yn both_passed "$q" ws-host ws-i686)"
+    done <"$B/src-added"
+    check "control: both_passed refuses a name no run holds" "$(ynnot both_passed zzz_no_such_test_anywhere ws-host ws-i686)"
+    while read -r name; do
+      q=$(qualified "$PV_RS" "$name")
+      echo "    $q in F's host off run (not compiled there): $(passed_on "$q" f-host-off)"
+      check "control: both_passed refuses the added pivot test in F's off runs, which do not compile it" "$(ynnot both_passed "$q" f-host-off f-i686-off)"
+    done <"$B/pv-new"
+    qualified_ok() { [ "$(qualified crates/emend/src/package/tests/pivot.rs t)" = package::tests::pivot::t ] && [ "$(qualified crates/emend/src/styles/tests.rs t)" = styles::tests::t ] && [ "$(qualified tools/emend-copy/tests/null_rewrite.rs t)" = t ]; }
+    check "control: qualified gives a crate test its module path and an integration test its bare name" "$(yn qualified_ok)"
+    echo
+    echo "## K: the crate's tests with every feature on and EMEND_KEEP_DIR set, host (change TF)"
+    KEEPD=$(mktemp -d "$B/keep.XXXXXX") || fail=1
+    # Change XG (ruling 12): the keep directory, the script's second mktemp
+    # call, lies under TMPDIR.
+    under_tmpdir() { case "$1" in "$TMPDIR"/*) return 0 ;; *) return 1 ;; esac; }
+    echo "command: the keep directory mktemp -d made, against TMPDIR: $KEEPD under $TMPDIR"
+    check "the keep directory mktemp -d made lies under TMPDIR, <scratch>/tmp (ruling 12; change XG)" "$(yn under_tmpdir "$KEEPD")"
+    check "control: the same check refuses <build>/keep.x, beside TMPDIR, not under it" "$(ynnot under_tmpdir "$BUILD_ROOT/keep.x")"
+    echo "command: env EMEND_KEEP_DIR=<scratch>/w/keep.<random> CARGO_TARGET_DIR=<target>/main cargo test -p emend --all-features (host)"
+    env EMEND_KEEP_DIR="$KEEPD" CARGO_TARGET_DIR="$CT" cargo test -p emend --all-features >"$B/keep-with.out" 2>&1 </dev/null
+    echo "$?" >"$B/keep-with.rc"
+    echo "  exit: $(cat "$B/keep-with.rc")"
+    LC_ALL=C "$G" -a -E '^test result: ' "$B/keep-with.out" | sed 's/^/    /'
+    failed_names "$B/keep-with.out"
+    LC_ALL=C "$G" -a -E '^test .* \.\.\. ok$' "$B/keep-with.out" | sed -E 's/^test (.*) \.\.\. ok$/\1/' | LC_ALL=C sort >"$B/keep-with.names"
+    nkeep_files=$(find "$KEEPD" -type f | count_lines /dev/stdin)
+    echo "  tests passed with the variable: $(count_lines "$B/keep-with.names"); F's host all run without it: $(count_lines "$B/f-host-all.names"); files the keep holds after the run: $nkeep_files"
+    keep_same() {
+      [ "$(cat "$B/keep-with.rc")" = 0 ] && [ "$(count_lines "$B/keep-with.names")" -ge 1 ] && cmp -s "$B/keep-with.names" "$B/f-host-all.names"
+    }
+    check "with EMEND_KEEP_DIR set the crate's tests exit 0 and pass the names F's host all run passed without it" "$(yn keep_same)"
+    check "the run with the variable wrote files into the keep, so the variable was read" "$(yn [ "$nkeep_files" -ge 1 ])"
+    check "the variable is still unset in this script's own environment" "$(yn [ -z "${EMEND_KEEP_DIR+x}" ])"
+    sed '1d' "$B/keep-with.names" >"$B/c-keep-short"
+    check "control: the same comparison refuses the names one short" "$(ynnot cmp -s "$B/c-keep-short" "$B/f-host-all.names")"
+    echo
+    echo "## R: each F run's doc-tests result, 0 passed and 0 failed (change RC, kept: the phase's doc comments hold no doctest)"
+    # doc_result <cargo output>: "<passed> <failed>" of the first "test result:"
+    # line after cargo's "Doc-tests emend" line, or "none". It prints, so its
+    # value is compared.
+    doc_result() {
+      local r
+      r=$(awk '/^[[:space:]]*Doc-tests emend[[:space:]]*$/ { d = 1; next }
+        d && /^test result: / { p = 0; f = 0; for (i = 1; i < NF; i++) { if ($(i + 1) ~ /^passed;$/) p = $i; if ($(i + 1) ~ /^failed;$/) f = $i }; print p, f; exit }' "$1")
+      if [ -n "$r" ]; then echo "$r"; else echo none; fi
+    }
+    printf 'test result: ok. 5 passed; 0 failed; 0 ignored\n   Doc-tests emend\n\nrunning 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored\n' >"$B/c-doc1"
+    check "control: doc_result reads 1 0 for a fixture with one doctest, not the lib line before it" "$(yn [ "$(doc_result "$B/c-doc1")" = "1 0" ])"
+    printf 'test result: ok. 5 passed; 0 failed; 0 ignored\n' >"$B/c-doc2"
+    check "control: doc_result reads none for an output with no Doc-tests line" "$(yn [ "$(doc_result "$B/c-doc2")" = none ])"
+    for target in host i686; do
+      for set in $SETS; do
+        dl=$(count_matches -E '^[[:space:]]*Doc-tests emend[[:space:]]*$' "$B/f-$target-$set.out")
+        dr=$(doc_result "$B/f-$target-$set.out")
+        echo "  R $target, features $set: Doc-tests emend lines $dl; its result (passed failed) $dr"
+        check "R $target, features $set: one Doc-tests emend line, its result 0 passed 0 failed" "$(yn [ "$dl:$dr" = "1:0 0" ])"
+      done
+    done
+    
+    # clean_run <name>: exit 0 and no diagnostic line in the output.
+    clean_run() { [ "$(cat "$B/$1.rc")" = 0 ] && [ "$(diag_lines "$B/$1.out")" = 0 ]; }
+    # lint_run <name> <env...> -- <cargo args...>: runs cargo into <target>/main,
+    # prints the exit and the diagnostic line count, writes <name>.rc.
+    lint_run() {
+      local name=$1 rc
+      shift
+      echo "command: CARGO_TARGET_DIR=<target>/main $*"
+      env CARGO_TARGET_DIR="$CT" "$@" >"$B/$name.out" 2>&1 </dev/null
+      rc=$?
+      echo "$rc" >"$B/$name.rc"
+      echo "  $name: exit $rc; diagnostic lines $(diag_lines "$B/$name.out")"
+      LC_ALL=C "$G" -a -E "$DIAG" "$B/$name.out" | sed 's/^/    /'
+    }
+    echo 0 >"$B/c-lint.rc"; printf 'warning: unused variable\n    Finished x\n' >"$B/c-lint.out"
+    check "control: clean_run refuses an exit-0 run with one warning line" "$(ynnot clean_run c-lint)"
+    echo 0 >"$B/c-lint2.rc"; printf '    Checking x\n    Finished x\n' >"$B/c-lint2.out"
+    check "control: clean_run takes an exit-0 run with none" "$(yn clean_run c-lint2)"
+    
+    echo
+    echo "## C: clippy with -D warnings, the crate's four sets and the workspace (change TC)"
+    for set in $SETS; do
+      # shellcheck disable=SC2207
+      sa=($(set_args "$set"))
+      lint_run "c-$set" cargo clippy -p emend --all-targets "${sa[@]}" -- -D warnings
+      check "C features $set: exit 0, 0 diagnostic lines" "$(yn clean_run "c-$set")"
+    done
+    lint_run c-workspace cargo clippy --workspace --all-targets -- -D warnings
+    check "C workspace: exit 0, 0 diagnostic lines" "$(yn clean_run c-workspace)"
+    
+    echo
+    echo "## D: rustdoc with -D warnings, the crate's four sets (change TC)"
+    for set in $SETS; do
+      # shellcheck disable=SC2207
+      sa=($(set_args "$set"))
+      lint_run "d-$set" RUSTDOCFLAGS='-D warnings' cargo doc -p emend --no-deps "${sa[@]}"
+      check "D features $set: exit 0, 0 diagnostic lines" "$(yn clean_run "d-$set")"
+    done
+    
+    echo
+    echo "## P: eight planted changes to this phase's code, each against the set of tests it must fail (FACTS.md P1 to P8; changes TG, UE, WE and XE)"
+    # An archive copy of the phase commit, never <repo>. Each plant replaces one
+    # exact text, found once, in its file of the copy; the crate's library tests
+    # with read,rules and the tool's pivot sample tests run; the file is
+    # restored. The control is the same two runs in the unplanted copy.
+    SRC=$B/src
+    mkdir -p "$SRC" || fail=1
+    echo "command: git archive <phase commit> | tar -x -m -C <scratch>/w/src (-m: each file takes the extraction's time, not the commit's, so no build an earlier run left in <target>/plant is taken for current)"
+    git archive "$C" | tar -x -m -C "$SRC"
+    echo "  files extracted: $(find "$SRC" -type f | count_lines /dev/stdin)"
+    # The tool's pivot sample tests, read from the source at the phase commit
+    # (P3's change VF, changes WE and XE): the tests of null_rewrite.rs named
+    # the_pivot_sample_.
+    tests_attr "$C" "$TOOL_RS" | LC_ALL=C "$G" -E '^the_pivot_sample_' >"$B/tool-sample"
+    ntool=$(count_lines "$B/tool-sample")
+    echo "  the tool's pivot sample tests at the phase commit: $ntool"
+    sed 's/^/    /' "$B/tool-sample"
+    check "the tool holds pivot sample tests" "$(yn [ "$ntool" -ge 1 ])"
+    PLANT_TARGET=$TARGET_DIR/plant
+    # plant_apply <id> <file>: replaces the plant's text in <file>, printing the
+    # number of times the text was found before the replacement.
+    plant_apply() {
+      python3 -I -B - "$1" "$2" <<'PLANTS'
+    import sys
+    pid, path = sys.argv[1:3]
+    plants = {
+        'P1': ('data_field: boolean(field.value(b"dataField"))?.unwrap_or(false),',
+               'data_field: boolean(field.value(b"dataField")).map(|_| false)?,'),
+        'P2': ('    if value == "-2" {\n        return Ok(FieldRef::Values);\n    }',
+               '    if value == "-2" {\n        return Ok(FieldRef::Field(u32::MAX));\n    }'),
+        'P3': ('.and_then(|cache| cache.fields.get(list.len()))',
+               '.and_then(|cache| cache.fields.get(list.len() + 1))'),
+        'P4': ('    if !fits {\n        return Err(PIVOT_UNREADABLE);\n    }',
+               '    if !fits && count == usize::MAX {\n        return Err(PIVOT_UNREADABLE);\n    }'),
+        'P5': ('let main = MAIN.contains(&namespace.unwrap_or_default());',
+               'let main = MAIN[0] == namespace.unwrap_or_default();'),
+        'P6': ('None | Some("sum") => Subtotal::Sum,',
+               'Some("sum") => Subtotal::Sum,\n                        None => Subtotal::Count,'),
+        'P7': ('.find(|(target, _)| *target == part)',
+               '.find(|(target, _)| *target == part && part.is_empty())'),
+        'P8': ('                if location.is_some() {\n                    return Err(PIVOT_UNREADABLE);\n                }',
+               '                if location.is_some() && fields.is_some() && fields.is_none() {\n                    return Err(PIVOT_UNREADABLE);\n                }'),
+    }
+    old, new = plants[pid]
+    text = open(path).read()
+    print(text.count(old))
+    if text.count(old) == 1:
+        open(path, "w").write(text.replace(old, new))
+    PLANTS
+    }
+    # The plants: id | file | what the plant does.
+    cat >"$B/plants" <<'TABLE'
+    P1|crates/emend/src/package/pivot.rs|the dataField flag never read, always false
+    P2|crates/emend/src/package/pivot.rs|-2 read as a field past the fields, never the values field
+    P3|crates/emend/src/package/pivot.rs|the cache join off by one
+    P4|crates/emend/src/package/pivot.rs|the past-the-fields check removed
+    P5|crates/emend/src/package/pivot.rs|the strict namespace dropped, the transitional alone compared
+    P6|crates/emend/src/package/pivot.rs|the default subtotal Count, not Sum, when absent
+    P7|crates/emend/src/package/pivot.rs|the sheet join dropped, every sheet None
+    P8|crates/emend/src/package/pivot.rs|a second location accepted
+    TABLE
+    # Each plant's expected failing tests, gen/test_plants.py's EXPECTED:
+    # id | crate or tool | the test (the crate's by its path, the tool's by
+    # its bare name), as the dry run confirmed them.
+    cat >"$B/plant-expect" <<'TABLE'
+    P1|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    P1|crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    P1|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    P2|crate|package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list
+    P2|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    P3|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    P3|crate|package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name
+    P3|crate|package::tests::pivot::the_strict_namespace_is_read
+    P3|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    P4|crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    P4|tool|the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+    P5|crate|package::tests::pivot::the_strict_namespace_is_read
+    P6|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    P6|crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    P6|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    P7|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    P7|crate|package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates
+    P7|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    P8|crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    TABLE
+    # run_both <label>: the crate's library tests with read,rules, then the
+    # tool's pivot sample tests, in the archive copy into <target>/plant;
+    # each output and exit status to <scratch>/w/plant-<label>-crate and -tool.
+    run_both() {
+      local label=$1
+      ( cd "$SRC" && CARGO_TARGET_DIR=$PLANT_TARGET cargo test -p emend --features read,rules --lib ) \
+        >"$B/plant-$label-crate.out" 2>&1 </dev/null
+      echo $? >"$B/plant-$label-crate.rc"
+      ( cd "$SRC" && CARGO_TARGET_DIR=$PLANT_TARGET cargo test -p emend-copy --test null_rewrite the_pivot_sample_ ) \
+        >"$B/plant-$label-tool.out" 2>&1 </dev/null
+      echo $? >"$B/plant-$label-tool.rc"
+    }
+    # got_failed <label>: the tests the two runs failed, "crate|<name>" and
+    # "tool|<name>", sorted. It prints, so it writes a file, never a condition.
+    got_failed() {
+      {
+        LC_ALL=C "$G" -a -E '^test .* \.\.\. FAILED$' "$B/plant-$1-crate.out" | sed -E 's/^test (.*) \.\.\. FAILED$/crate|\1/'
+        LC_ALL=C "$G" -a -E '^test .* \.\.\. FAILED$' "$B/plant-$1-tool.out" | sed -E 's/^test (.*) \.\.\. FAILED$/tool|\1/'
+      } | LC_ALL=C sort
+    }
+    # want_failed <id>: the plant table's expectation, the same form, sorted.
+    want_failed() { awk -F'|' -v id="$1" '$1 == id { print $2 "|" $3 }' "$B/plant-expect" | LC_ALL=C sort; }
+    # ran_ok <label> <crate|tool>: the run compiled and ran: a test result line,
+    # no could-not-compile line.
+    ran_ok() {
+      [ "$(count_matches -E '^test result: ' "$B/plant-$1-$2.out")" -ge 1 ] && [ "$(count_matches -F 'could not compile' "$B/plant-$1-$2.out")" = 0 ]
+    }
+    # rc_agrees <label> <crate|tool>: the run's exit status is 0 exactly when it
+    # failed no test.
+    rc_agrees() {
+      local n
+      n=$(count_matches -E '^test .* \.\.\. FAILED$' "$B/plant-$1-$2.out")
+      if [ "$n" = 0 ]; then [ "$(cat "$B/plant-$1-$2.rc")" = 0 ]; else [ "$(cat "$B/plant-$1-$2.rc")" != 0 ]; fi
+    }
+    # show_runs <label>: each run's exit, its result lines and its failed names.
+    show_runs() {
+      local kind
+      for kind in crate tool; do
+        echo "    $kind run: exit $(cat "$B/plant-$1-$kind.rc")"
+        LC_ALL=C "$G" -a -E '^test result: ' "$B/plant-$1-$kind.out" | sed 's/^/      /'
+        failed_names "$B/plant-$1-$kind.out" | sed 's/^/  /'
+      done
+    }
+    sed 's/^/    plant: /' "$B/plants"
+    sed 's/^/    expected to fail: /' "$B/plant-expect"
+    nplants=$(count_lines "$B/plants")
+    echo "  plants in the table: $nplants"
+    check "the table holds eight plants (FACTS.md P1 to P8)" "$(yn [ "$nplants" = 8 ])"
+    # every_plant_expects: each plant of the table names at least one test it
+    # must fail, so no plant can pass by failing nothing.
+    every_plant_expects() {
+      local id
+      for id in $(cut -d'|' -f1 "$B/plants"); do
+        [ -n "$(want_failed "$id")" ] || return 1
+      done
+    }
+    check "every plant of the table names some test it must fail" "$(yn every_plant_expects)"
+    echo "command (control, unplanted, in <scratch>/w/src): CARGO_TARGET_DIR=<target>/plant cargo test -p emend --features read,rules --lib; then CARGO_TARGET_DIR=<target>/plant cargo test -p emend-copy --test null_rewrite the_pivot_sample_"
+    run_both clean
+    show_runs clean
+    got_failed clean >"$B/plant-clean.got"
+    pv_clean=$(count_matches -E "^test ${PV_MOD}[a-z0-9_]+ \.\.\. ok\$" "$B/plant-clean-crate.out")
+    tool_clean=$(count_matches -E '^test the_pivot_sample_[a-z0-9_]+ \.\.\. ok$' "$B/plant-clean-tool.out")
+    echo "  unplanted: failed $(count_lines "$B/plant-clean.got"); pivot tests passed $pv_clean of $PV_ALL; tool sample tests passed $tool_clean of $ntool"
+    clean_ok() {
+      ran_ok clean crate && ran_ok clean tool && [ "$(cat "$B/plant-clean-crate.rc")" = 0 ] &&
+        [ "$(cat "$B/plant-clean-tool.rc")" = 0 ] && [ "$(count_lines "$B/plant-clean.got")" = 0 ] &&
+        [ "$pv_clean" = "$PV_ALL" ] && [ "$tool_clean" = "$ntool" ]
+    }
+    check "control: the unplanted copy builds and passes both runs, every pivot test and every tool sample test among them" "$(yn clean_ok)"
+    # plant_ok <id>: the text found once, both runs compiled and ran, each exit
+    # status agreeing with its failures, and the failed names exactly the
+    # table's.
+    plant_ok() {
+      [ "$(cat "$B/plant-$1.found")" = 1 ] && ran_ok "$1" crate && ran_ok "$1" tool &&
+        rc_agrees "$1" crate && rc_agrees "$1" tool && cmp -s "$B/plant-$1.got" "$B/plant-$1.want"
+    }
+    while IFS='|' read -r id file what; do
+      echo "  plant $id: $what ($file)"
+      cp "$SRC/$file" "$B/pristine"
+      plant_apply "$id" "$SRC/$file" >"$B/plant-$id.found"
+      echo "    the plant's text found in the file: $(cat "$B/plant-$id.found") time(s)"
+      echo "    command (planted, in <scratch>/w/src): the two runs of the control"
+      run_both "$id"
+      show_runs "$id"
+      got_failed "$id" >"$B/plant-$id.got"
+      want_failed "$id" >"$B/plant-$id.want"
+      sed 's/^/    failed: /' "$B/plant-$id.got"
+      sed 's/^/    the table expects: /' "$B/plant-$id.want"
+      cp "$B/pristine" "$SRC/$file"
+      check "  plant $id: found once, both runs built and ran, and the failed tests are exactly the table's, as a set" "$(yn plant_ok "$id")"
+    done <"$B/plants"
+    restored() {
+      local f
+      for f in $(cut -d'|' -f2 "$B/plants" | LC_ALL=C sort -u); do
+        git show "$C:$f" | cmp -s - "$SRC/$f" || return 1
+      done
+    }
+    check "the planted files are restored to the phase commit's bytes" "$(yn restored)"
+    nplant_files=$(find "$PLANT_TARGET" -type f 2>/dev/null | count_lines /dev/stdin)
+    nmain_files=$(find "$CT" -type f 2>/dev/null | count_lines /dev/stdin)
+    echo "  files under <target>/plant after the plants: $nplant_files; under <target>/main: $nmain_files"
+    check "the plants' builds went into their own subdirectory, <target>/plant" "$(yn [ "$nplant_files" -ge 1 ])"
+    check "the main tree's builds went into <target>/main" "$(yn [ "$nmain_files" -ge 1 ])"
+    check "<target>/main and <target>/plant are apart, neither inside the other" "$(yn apart "$CT" "$PLANT_TARGET")"
+    echo "command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --features read,rules --lib $PV_MOD (host, the main tree, after the plants)"
+    CARGO_TARGET_DIR=$CT cargo test -p emend --features read,rules --lib "$PV_MOD" >"$B/after-plants-crate.out" 2>&1 </dev/null
+    echo "$?" >"$B/after-plants-crate.rc"
+    echo "  exit: $(cat "$B/after-plants-crate.rc")"
+    LC_ALL=C "$G" -a -E '^test result: ' "$B/after-plants-crate.out" | sed 's/^/    /'
+    failed_names "$B/after-plants-crate.out"
+    LC_ALL=C "$G" -a -E '^test .* \.\.\. ok$' "$B/after-plants-crate.out" | sed -E 's/^test (.*) \.\.\. ok$/\1/' | LC_ALL=C sort >"$B/after-plants-crate.names"
+    LC_ALL=C "$G" -F "$PV_MOD" "$B/f-host-read,rules.names" | LC_ALL=C sort >"$B/before-plants-crate.names"
+    echo "command: CARGO_TARGET_DIR=<target>/main cargo test -p emend-copy --test null_rewrite the_pivot_sample_ (host, the main tree, after the plants)"
+    CARGO_TARGET_DIR=$CT cargo test -p emend-copy --test null_rewrite the_pivot_sample_ >"$B/after-plants-tool.out" 2>&1 </dev/null
+    echo "$?" >"$B/after-plants-tool.rc"
+    echo "  exit: $(cat "$B/after-plants-tool.rc")"
+    LC_ALL=C "$G" -a -E '^test .* \.\.\. |^test result: ' "$B/after-plants-tool.out" | sed 's/^/    /'
+    failed_names "$B/after-plants-tool.out"
+    ntool_after=$(count_matches -E '^test the_pivot_sample_[a-z0-9_]+ \.\.\. ok$' "$B/after-plants-tool.out")
+    echo "  pivot tests passed after the plants: $(count_lines "$B/after-plants-crate.names") (before them, in F's host read,rules run: $(count_lines "$B/before-plants-crate.names")); tool sample tests passed: $ntool_after (the_pivot_sample_ tests in null_rewrite.rs at the phase commit: $ntool)"
+    after_plants_ok() {
+      [ "$(cat "$B/after-plants-crate.rc")" = 0 ] && [ "$(cat "$B/after-plants-tool.rc")" = 0 ] &&
+        [ "$(count_lines "$B/after-plants-crate.names")" -ge 1 ] &&
+        cmp -s "$B/after-plants-crate.names" "$B/before-plants-crate.names" && [ "$ntool_after" = "$ntool" ]
+    }
+    check "control: after the plants the main tree's pivot tests and tool sample tests pass, the same names as before them, so no mutant leaked into the main tree's artifacts" "$(yn after_plants_ok)"
+    printf 'no such text\n' >"$B/c-plant.rs"
+    check "control: plant_apply finds P1's text 0 times in a file without it" "$(yn [ "$(plant_apply P1 "$B/c-plant.rs")" = 0 ])"
+    check "control: the file without the text is left as it was" "$(yn [ "$(cat "$B/c-plant.rs")" = 'no such text' ])"
+    printf 'test a::x ... ok\ntest a::y ... FAILED\n' >"$B/plant-ctl-crate.out"
+    printf 'test t_z ... FAILED\n' >"$B/plant-ctl-tool.out"
+    check "control: got_failed reads one crate and one tool failure, sorted" "$(yn [ "$(got_failed ctl | tr '\n' ' ')" = "crate|a::y tool|t_z " ])"
+    echo 101 >"$B/plant-ctl-crate.rc"; echo 0 >"$B/plant-ctl-tool.rc"
+    check "control: rc_agrees refuses a run that failed a test and exited 0" "$(ynnot rc_agrees ctl tool)"
+    check "control: rc_agrees takes a run that failed a test and exited non-zero" "$(yn rc_agrees ctl crate)"
+    printf 'error: could not compile `emend` (lib test) due to 1 previous error\n' >"$B/plant-ctl2-crate.out"
+    check "control: ran_ok refuses an output that did not compile" "$(ynnot ran_ok ctl2 crate)"
+    printf 'test result: FAILED. 1 passed; 1 failed\n' >>"$B/plant-ctl-crate.out"
+    check "control: ran_ok takes an output with a test result line" "$(yn ran_ok ctl crate)"
+    printf 'crate|a::y\n' >"$B/c-want"; printf 'crate|a::y\ntool|t_z\n' >"$B/c-got"
+    check "control: the set comparison refuses a failure the table does not expect" "$(ynnot cmp -s "$B/c-got" "$B/c-want")"
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.out; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's log directory, its record pairs or specs/0033 modified: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's log directory, its untracked record pairs or specs/0033 modified (changes TB and WB)" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/test.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "${d:?}"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  command: count_matches -F mktemp <scratch>/w/counting.sh: 1; printenv TMPDIR: <scratch>/tmp
+  the sourced library holds one mktemp call, counting_controls' mktemp -d (change XG): yes
+  the library's mktemp -d runs with TMPDIR exported as <build>/tmp, so its directory lies under TMPDIR (ruling 12; change XG): yes
+  control: the same check refuses an environment whose TMPDIR is <phase>: yes
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+  control: failed_names prints the name of the one FAILED line of two: yes
+  control: failed_names prints none for a run with no FAILED line: yes
+  control: diag_lines counts the two diagnostic lines of a four-line fixture: yes
+  control: run_passed refuses a run with one failed test: yes
+  control: run_passed refuses a run whose passed count is not its ok lines: yes
+  control: run_passed takes a clean run of three: yes
+
+## W: cargo test --workspace on both targets (the gate's own test steps)
+command: CARGO_TARGET_DIR=<target>/main cargo test --workspace
+    test result: ok. 980 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.17s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 116 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+    test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+    test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.50s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  ws-host: exit 0; passed 1184; failed 0; executed (passed plus failed) 1184; test lines ending ok 1184
+  W host: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test --workspace --target i686-unknown-linux-musl
+    test result: ok. 980 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 6.77s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 116 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+    test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+    test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+    test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.06s
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+    test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.88s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  ws-i686: exit 0; passed 1184; failed 0; executed (passed plus failed) 1184; test lines ending ok 1184
+  W i686: exit 0, none failed, some ran, passed equals the ok lines: yes
+
+## F: cargo test -p emend with the features off, read, read,rules and every feature, on both targets (change TC)
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend
+    test result: ok. 515 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.46s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-host-off: exit 0; passed 515; failed 0; executed (passed plus failed) 515; test lines ending ok 515
+  F host, features off: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --features read
+    test result: ok. 608 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.66s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-host-read: exit 0; passed 608; failed 0; executed (passed plus failed) 608; test lines ending ok 608
+  F host, features read: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --features read,rules
+    test result: ok. 646 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.59s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-host-read,rules: exit 0; passed 646; failed 0; executed (passed plus failed) 646; test lines ending ok 646
+  F host, features read,rules: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --all-features
+    test result: ok. 980 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.21s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-host-all: exit 0; passed 980; failed 0; executed (passed plus failed) 980; test lines ending ok 980
+  F host, features all: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --target i686-unknown-linux-musl
+    test result: ok. 515 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 5.04s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-i686-off: exit 0; passed 515; failed 0; executed (passed plus failed) 515; test lines ending ok 515
+  F i686, features off: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --target i686-unknown-linux-musl --features read
+    test result: ok. 608 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 5.78s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-i686-read: exit 0; passed 608; failed 0; executed (passed plus failed) 608; test lines ending ok 608
+  F i686, features read: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --target i686-unknown-linux-musl --features read,rules
+    test result: ok. 646 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 5.88s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-i686-read,rules: exit 0; passed 646; failed 0; executed (passed plus failed) 646; test lines ending ok 646
+  F i686, features read,rules: exit 0, none failed, some ran, passed equals the ok lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --target i686-unknown-linux-musl --all-features
+    test result: ok. 980 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 6.69s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  f-i686-all: exit 0; passed 980; failed 0; executed (passed plus failed) 980; test lines ending ok 980
+  F i686, features all: exit 0, none failed, some ran, passed equals the ok lines: yes
+  F host: the all-features run passes more tests than the run with none (the sets differ): yes
+  F i686: the all-features run passes more tests than the run with none: yes
+  control: the same comparison refuses the reverse order: yes
+
+## E: each F run's count by property, against M5 part 2 P1's committed test.log and the source (changes WC and XC)
+command: git show <phase commit>:records/logs/m5p2-p1/test.log > <scratch>/w/prev-test.log; grep -E '^  E (host|i686), features [a-z,]+: this run passed [0-9]+;' <scratch>/w/prev-test.log
+  exit 0; matching lines 8:
+      E host, features off: this run passed 515; P3's figure 515, plus the tests this phase adds that the set compiles 0, 515; survey tests passed 0 of the 0 the set compiles
+      E host, features read: this run passed 594; P3's figure 585, plus the tests this phase adds that the set compiles 9, 594; survey tests passed 9 of the 9 the set compiles
+      E host, features read,rules: this run passed 632; P3's figure 623, plus the tests this phase adds that the set compiles 9, 632; survey tests passed 9 of the 9 the set compiles
+      E host, features all: this run passed 966; P3's figure 957, plus the tests this phase adds that the set compiles 9, 966; survey tests passed 9 of the 9 the set compiles
+      E i686, features off: this run passed 515; P3's figure 515, plus the tests this phase adds that the set compiles 0, 515; survey tests passed 0 of the 0 the set compiles
+      E i686, features read: this run passed 594; P3's figure 585, plus the tests this phase adds that the set compiles 9, 594; survey tests passed 9 of the 9 the set compiles
+      E i686, features read,rules: this run passed 632; P3's figure 623, plus the tests this phase adds that the set compiles 9, 632; survey tests passed 9 of the 9 the set compiles
+      E i686, features all: this run passed 966; P3's figure 957, plus the tests this phase adds that the set compiles 9, 966; survey tests passed 9 of the 9 the set compiles
+  M5 part 2 P1's test.log was read at the phase commit and holds one E line per target and set, eight: yes
+  control: prev_count reads the host off figure of a planted file, not the host all one after it: yes
+  control: prev_count reads the host all figure, not an indented copy of its line (a printed script's): yes
+  control: prev_count reads none for a target and set the file gives twice (i686 off): yes
+  control: prev_count reads none for a set the file does not give (host read,rules), not the read line's figure: yes
+  control: prev_count reads the host read figure: yes
+  control: same_count refuses 594 against 595: yes
+  control: same_count refuses none against none: yes
+  control: same_count takes 594 against 594: yes
+  #[test] functions in crates/emend/src/package/tests/pivot.rs at the phase commit: 14; at the base: 0; added by this phase: 14; at the phase commit gated on rules: 0
+    the added pivot test: a_cache_relationship_naming_no_entry_is_no_such_part
+    the added pivot test: a_package_with_no_pivot_table_part_has_none
+    the added pivot test: a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    the added pivot test: a_root_outside_the_main_namespace_or_of_another_name_is_refused
+    the added pivot test: a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates
+    the added pivot test: a_table_with_no_cache_relationship_has_no_cache_and_no_field_names
+    the added pivot test: each_cache_source_is_read_as_written
+    the added pivot test: every_axis_and_every_subtotal_and_the_default_are_read
+    the added pivot test: fields_join_the_cache_by_position_and_past_its_fields_have_no_name
+    the added pivot test: minus_two_is_the_values_field_in_each_axis_list
+    the added pivot test: the_list_is_read_once_and_lent
+    the added pivot test: the_spec_s_refusals_are_refused_with_the_message
+    the added pivot test: the_strict_namespace_is_read
+    the added pivot test: unmodelled_children_with_content_are_walked_past
+  the pivot test file holds tests, none gated on rules, so every one is compiled with read (FACTS.md): yes
+  the pivot test file is new: no test of it at the base, every test of it added by this phase: yes
+  control: the same check refuses a base that held one of its tests: yes
+  #[test] functions added to tools/emend-copy/tests/null_rewrite.rs by this phase: 2
+    the added tool test: the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    the added tool test: the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+  control: tests_in reads all four tests of a fixture, one with a second attribute: yes
+  control: cfg_tests reads the one test gated on rules, not the plain ones: yes
+  control: pv_got reads the two pivot names of three, sorted, the module path dropped: yes
+  E host, features off: this run passed 515; P1's figure 515, plus the tests this phase adds that the set compiles 0, 515; pivot tests passed 0 of the 0 the set compiles
+  E host, features off: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E host, features off: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  E host, features read: this run passed 608; P1's figure 594, plus the tests this phase adds that the set compiles 14, 608; pivot tests passed 14 of the 14 the set compiles
+  E host, features read: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E host, features read: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  E host, features read,rules: this run passed 646; P1's figure 632, plus the tests this phase adds that the set compiles 14, 646; pivot tests passed 14 of the 14 the set compiles
+  E host, features read,rules: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E host, features read,rules: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  E host, features all: this run passed 980; P1's figure 966, plus the tests this phase adds that the set compiles 14, 980; pivot tests passed 14 of the 14 the set compiles
+  E host, features all: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E host, features all: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  E i686, features off: this run passed 515; P1's figure 515, plus the tests this phase adds that the set compiles 0, 515; pivot tests passed 0 of the 0 the set compiles
+  E i686, features off: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E i686, features off: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  E i686, features read: this run passed 608; P1's figure 594, plus the tests this phase adds that the set compiles 14, 608; pivot tests passed 14 of the 14 the set compiles
+  E i686, features read: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E i686, features read: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  E i686, features read,rules: this run passed 646; P1's figure 632, plus the tests this phase adds that the set compiles 14, 646; pivot tests passed 14 of the 14 the set compiles
+  E i686, features read,rules: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E i686, features read,rules: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  E i686, features all: this run passed 980; P1's figure 966, plus the tests this phase adds that the set compiles 14, 980; pivot tests passed 14 of the 14 the set compiles
+  E i686, features all: the run passes P1's figure plus the tests this phase adds that the set compiles: yes
+  E i686, features all: the pivot tests the run passed are exactly the ones the set compiles, by name: yes
+  control: the same comparison refuses the i686 all run's count plus one: yes
+  control: the name comparison refuses the pivot names one short: yes
+  control: the name comparison refuses the off set's want (none) for a set that compiles the pivot tests: yes
+  E features off: host and i686 pass the same names: yes
+  E features read: host and i686 pass the same names: yes
+  E features read,rules: host and i686 pass the same names: yes
+  E features all: host and i686 pass the same names: yes
+  control: the same comparison refuses the host all run's names one short: yes
+### W's figure, against M5 part 2 P1's committed W line, plus the tests this phase adds (changes VC, WC and XC)
+  control: ws_prev reads the host figure, not an indented copy of its line: yes
+  control: ws_prev reads none for a target the file gives twice: yes
+  W host: this run passed 1184; P1's W figure 1168, plus the tests this phase adds, each compiled in the workspace (the pivot tests, its crate built with the tool's features, read among them, 14; the tool's added tests 2) 16, 1184
+  W host: the run passes P1's W figure plus the tests this phase adds: yes
+  W i686: this run passed 1184; P1's W figure 1168, plus the tests this phase adds, each compiled in the workspace (the pivot tests, its crate built with the tool's features, read among them, 14; the tool's added tests 2) 16, 1184
+  W i686: the run passes P1's W figure plus the tests this phase adds: yes
+  control: the same comparison refuses the host W count plus one: yes
+
+## N: the tests the phase adds and removes, derived from the source (changes WD and XD)
+command: git diff --name-only <base> <phase commit> -- '*.rs'
+  the .rs files the phase changed: 6
+    crates/emend/src/package.rs
+    crates/emend/src/package/pivot.rs
+    crates/emend/src/package/tests.rs
+    crates/emend/src/package/tests/pivot.rs
+    tools/emend-copy/src/main.rs
+    tools/emend-copy/tests/null_rewrite.rs
+  #[test] functions at the phase commit and not at the base, by file:
+    crates/emend/src/package/tests/pivot.rs a_cache_relationship_naming_no_entry_is_no_such_part
+    crates/emend/src/package/tests/pivot.rs a_package_with_no_pivot_table_part_has_none
+    crates/emend/src/package/tests/pivot.rs a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    crates/emend/src/package/tests/pivot.rs a_root_outside_the_main_namespace_or_of_another_name_is_refused
+    crates/emend/src/package/tests/pivot.rs a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates
+    crates/emend/src/package/tests/pivot.rs a_table_with_no_cache_relationship_has_no_cache_and_no_field_names
+    crates/emend/src/package/tests/pivot.rs each_cache_source_is_read_as_written
+    crates/emend/src/package/tests/pivot.rs every_axis_and_every_subtotal_and_the_default_are_read
+    crates/emend/src/package/tests/pivot.rs fields_join_the_cache_by_position_and_past_its_fields_have_no_name
+    crates/emend/src/package/tests/pivot.rs minus_two_is_the_values_field_in_each_axis_list
+    crates/emend/src/package/tests/pivot.rs the_list_is_read_once_and_lent
+    crates/emend/src/package/tests/pivot.rs the_spec_s_refusals_are_refused_with_the_message
+    crates/emend/src/package/tests/pivot.rs the_strict_namespace_is_read
+    crates/emend/src/package/tests/pivot.rs unmodelled_children_with_content_are_walked_past
+    tools/emend-copy/tests/null_rewrite.rs the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    tools/emend-copy/tests/null_rewrite.rs the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+  #[test] functions at the base and not at the phase commit, by file: 0
+  the source removes no test in this phase: yes
+  new .rs files: 2
+    new .rs file: crates/emend/src/package/pivot.rs
+    new .rs file: crates/emend/src/package/tests/pivot.rs
+  the phase adds exactly two .rs files, the pivot module and its test module: yes
+  the tests added to the pivot test module are exactly the ones block E derived (14 of 14): yes
+  the pivot module itself adds no test: yes
+  tests added to tools/emend-copy/tests/null_rewrite.rs: 2; of them named for the pivot sample: 2
+  the tool's added tests are each named for the pivot sample, and some, the ones block E counted for W: yes
+  no other file gains a test (0): yes
+  control: the same filter finds one test outside the two files in a list of three: yes
+  each added test, by its module path, and whether it ran and passed on each target in W:
+    package::tests::pivot::a_cache_relationship_naming_no_entry_is_no_such_part (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::a_cache_relationship_naming_no_entry_is_no_such_part passed on both targets: yes
+    package::tests::pivot::a_package_with_no_pivot_table_part_has_none (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::a_package_with_no_pivot_table_part_has_none passed on both targets: yes
+    package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read passed on both targets: yes
+    package::tests::pivot::a_root_outside_the_main_namespace_or_of_another_name_is_refused (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::a_root_outside_the_main_namespace_or_of_another_name_is_refused passed on both targets: yes
+    package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates passed on both targets: yes
+    package::tests::pivot::a_table_with_no_cache_relationship_has_no_cache_and_no_field_names (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::a_table_with_no_cache_relationship_has_no_cache_and_no_field_names passed on both targets: yes
+    package::tests::pivot::each_cache_source_is_read_as_written (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::each_cache_source_is_read_as_written passed on both targets: yes
+    package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read passed on both targets: yes
+    package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name passed on both targets: yes
+    package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list passed on both targets: yes
+    package::tests::pivot::the_list_is_read_once_and_lent (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::the_list_is_read_once_and_lent passed on both targets: yes
+    package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message passed on both targets: yes
+    package::tests::pivot::the_strict_namespace_is_read (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::the_strict_namespace_is_read passed on both targets: yes
+    package::tests::pivot::unmodelled_children_with_content_are_walked_past (ws-host, ws-i686): host 1, i686 1
+    package::tests::pivot::unmodelled_children_with_content_are_walked_past passed on both targets: yes
+    the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited (ws-host, ws-i686): host 1, i686 1
+    the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited passed on both targets: yes
+    the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing (ws-host, ws-i686): host 1, i686 1
+    the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing passed on both targets: yes
+  control: both_passed refuses a name no run holds: yes
+    package::tests::pivot::a_cache_relationship_naming_no_entry_is_no_such_part in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::a_package_with_no_pivot_table_part_has_none in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::a_root_outside_the_main_namespace_or_of_another_name_is_refused in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::a_table_with_no_cache_relationship_has_no_cache_and_no_field_names in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::each_cache_source_is_read_as_written in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::the_list_is_read_once_and_lent in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::the_strict_namespace_is_read in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+    package::tests::pivot::unmodelled_children_with_content_are_walked_past in F's host off run (not compiled there): 0
+  control: both_passed refuses the added pivot test in F's off runs, which do not compile it: yes
+  control: qualified gives a crate test its module path and an integration test its bare name: yes
+
+## K: the crate's tests with every feature on and EMEND_KEEP_DIR set, host (change TF)
+command: the keep directory mktemp -d made, against TMPDIR: <scratch>/w/keep.HyZmHl under <scratch>/tmp
+  the keep directory mktemp -d made lies under TMPDIR, <scratch>/tmp (ruling 12; change XG): yes
+  control: the same check refuses <build>/keep.x, beside TMPDIR, not under it: yes
+command: env EMEND_KEEP_DIR=<scratch>/w/keep.<random> CARGO_TARGET_DIR=<target>/main cargo test -p emend --all-features (host)
+  exit: 0
+    test result: ok. 980 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.33s
+    test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    failed tests: none
+  tests passed with the variable: 980; F's host all run without it: 980; files the keep holds after the run: 1990
+  with EMEND_KEEP_DIR set the crate's tests exit 0 and pass the names F's host all run passed without it: yes
+  the run with the variable wrote files into the keep, so the variable was read: yes
+  the variable is still unset in this script's own environment: yes
+  control: the same comparison refuses the names one short: yes
+
+## R: each F run's doc-tests result, 0 passed and 0 failed (change RC, kept: the phase's doc comments hold no doctest)
+  control: doc_result reads 1 0 for a fixture with one doctest, not the lib line before it: yes
+  control: doc_result reads none for an output with no Doc-tests line: yes
+  R host, features off: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R host, features off: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  R host, features read: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R host, features read: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  R host, features read,rules: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R host, features read,rules: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  R host, features all: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R host, features all: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  R i686, features off: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R i686, features off: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  R i686, features read: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R i686, features read: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  R i686, features read,rules: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R i686, features read,rules: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  R i686, features all: Doc-tests emend lines 1; its result (passed failed) 0 0
+  R i686, features all: one Doc-tests emend line, its result 0 passed 0 failed: yes
+  control: clean_run refuses an exit-0 run with one warning line: yes
+  control: clean_run takes an exit-0 run with none: yes
+
+## C: clippy with -D warnings, the crate's four sets and the workspace (change TC)
+command: CARGO_TARGET_DIR=<target>/main cargo clippy -p emend --all-targets -- -D warnings
+  c-off: exit 0; diagnostic lines 0
+  C features off: exit 0, 0 diagnostic lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo clippy -p emend --all-targets --features read -- -D warnings
+  c-read: exit 0; diagnostic lines 0
+  C features read: exit 0, 0 diagnostic lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo clippy -p emend --all-targets --features read,rules -- -D warnings
+  c-read,rules: exit 0; diagnostic lines 0
+  C features read,rules: exit 0, 0 diagnostic lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo clippy -p emend --all-targets --all-features -- -D warnings
+  c-all: exit 0; diagnostic lines 0
+  C features all: exit 0, 0 diagnostic lines: yes
+command: CARGO_TARGET_DIR=<target>/main cargo clippy --workspace --all-targets -- -D warnings
+  c-workspace: exit 0; diagnostic lines 0
+  C workspace: exit 0, 0 diagnostic lines: yes
+
+## D: rustdoc with -D warnings, the crate's four sets (change TC)
+command: CARGO_TARGET_DIR=<target>/main RUSTDOCFLAGS=-D warnings cargo doc -p emend --no-deps
+  d-off: exit 0; diagnostic lines 0
+  D features off: exit 0, 0 diagnostic lines: yes
+command: CARGO_TARGET_DIR=<target>/main RUSTDOCFLAGS=-D warnings cargo doc -p emend --no-deps --features read
+  d-read: exit 0; diagnostic lines 0
+  D features read: exit 0, 0 diagnostic lines: yes
+command: CARGO_TARGET_DIR=<target>/main RUSTDOCFLAGS=-D warnings cargo doc -p emend --no-deps --features read,rules
+  d-read,rules: exit 0; diagnostic lines 0
+  D features read,rules: exit 0, 0 diagnostic lines: yes
+command: CARGO_TARGET_DIR=<target>/main RUSTDOCFLAGS=-D warnings cargo doc -p emend --no-deps --all-features
+  d-all: exit 0; diagnostic lines 0
+  D features all: exit 0, 0 diagnostic lines: yes
+
+## P: eight planted changes to this phase's code, each against the set of tests it must fail (FACTS.md P1 to P8; changes TG, UE, WE and XE)
+command: git archive <phase commit> | tar -x -m -C <scratch>/w/src (-m: each file takes the extraction's time, not the commit's, so no build an earlier run left in <target>/plant is taken for current)
+  files extracted: 1626
+  the tool's pivot sample tests at the phase commit: 2
+    the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+  the tool holds pivot sample tests: yes
+    plant: P1|crates/emend/src/package/pivot.rs|the dataField flag never read, always false
+    plant: P2|crates/emend/src/package/pivot.rs|-2 read as a field past the fields, never the values field
+    plant: P3|crates/emend/src/package/pivot.rs|the cache join off by one
+    plant: P4|crates/emend/src/package/pivot.rs|the past-the-fields check removed
+    plant: P5|crates/emend/src/package/pivot.rs|the strict namespace dropped, the transitional alone compared
+    plant: P6|crates/emend/src/package/pivot.rs|the default subtotal Count, not Sum, when absent
+    plant: P7|crates/emend/src/package/pivot.rs|the sheet join dropped, every sheet None
+    plant: P8|crates/emend/src/package/pivot.rs|a second location accepted
+    expected to fail: P1|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    expected to fail: P1|crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    expected to fail: P1|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    expected to fail: P2|crate|package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list
+    expected to fail: P2|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    expected to fail: P3|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    expected to fail: P3|crate|package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name
+    expected to fail: P3|crate|package::tests::pivot::the_strict_namespace_is_read
+    expected to fail: P3|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    expected to fail: P4|crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    expected to fail: P4|tool|the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+    expected to fail: P5|crate|package::tests::pivot::the_strict_namespace_is_read
+    expected to fail: P6|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    expected to fail: P6|crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    expected to fail: P6|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    expected to fail: P7|crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    expected to fail: P7|crate|package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates
+    expected to fail: P7|tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    expected to fail: P8|crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+  plants in the table: 8
+  the table holds eight plants (FACTS.md P1 to P8): yes
+  every plant of the table names some test it must fail: yes
+command (control, unplanted, in <scratch>/w/src): CARGO_TARGET_DIR=<target>/plant cargo test -p emend --features read,rules --lib; then CARGO_TARGET_DIR=<target>/plant cargo test -p emend-copy --test null_rewrite the_pivot_sample_
+    crate run: exit 0
+      test result: ok. 646 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.58s
+      failed tests: none
+    tool run: exit 0
+      test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.01s
+      failed tests: none
+  unplanted: failed 0; pivot tests passed 14 of 14; tool sample tests passed 2 of 2
+  control: the unplanted copy builds and passes both runs, every pivot test and every tool sample test among them: yes
+  plant P1: the dataField flag never read, always false (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 644 passed; 2 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.59s
+      failed test: package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+      failed test: package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    tool run: exit 101
+      test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.02s
+      failed test: the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    failed: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    failed: crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    failed: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    the table expects: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    the table expects: crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    the table expects: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    plant P1: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  plant P2: -2 read as a field past the fields, never the values field (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 645 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.59s
+      failed test: package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list
+    tool run: exit 101
+      test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.01s
+      failed test: the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    failed: crate|package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list
+    failed: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    the table expects: crate|package::tests::pivot::minus_two_is_the_values_field_in_each_axis_list
+    the table expects: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    plant P2: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  plant P3: the cache join off by one (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 643 passed; 3 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.59s
+      failed test: package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+      failed test: package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name
+      failed test: package::tests::pivot::the_strict_namespace_is_read
+    tool run: exit 101
+      test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.01s
+      failed test: the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    failed: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    failed: crate|package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name
+    failed: crate|package::tests::pivot::the_strict_namespace_is_read
+    failed: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    the table expects: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    the table expects: crate|package::tests::pivot::fields_join_the_cache_by_position_and_past_its_fields_have_no_name
+    the table expects: crate|package::tests::pivot::the_strict_namespace_is_read
+    the table expects: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    plant P3: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  plant P4: the past-the-fields check removed (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 645 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.64s
+      failed test: package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    tool run: exit 101
+      test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.02s
+      failed test: the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+    failed: crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    failed: tool|the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+    the table expects: crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    the table expects: tool|the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing
+    plant P4: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  plant P5: the strict namespace dropped, the transitional alone compared (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 645 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.58s
+      failed test: package::tests::pivot::the_strict_namespace_is_read
+    tool run: exit 0
+      test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.01s
+      failed tests: none
+    failed: crate|package::tests::pivot::the_strict_namespace_is_read
+    the table expects: crate|package::tests::pivot::the_strict_namespace_is_read
+    plant P5: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  plant P6: the default subtotal Count, not Sum, when absent (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 644 passed; 2 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.59s
+      failed test: package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+      failed test: package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    tool run: exit 101
+      test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.01s
+      failed test: the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    failed: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    failed: crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    failed: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    the table expects: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    the table expects: crate|package::tests::pivot::every_axis_and_every_subtotal_and_the_default_are_read
+    the table expects: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    plant P6: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  plant P7: the sheet join dropped, every sheet None (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 644 passed; 2 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.57s
+      failed test: package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+      failed test: package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates
+    tool run: exit 101
+      test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.01s
+      failed test: the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    failed: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    failed: crate|package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates
+    failed: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    the table expects: crate|package::tests::pivot::a_pivot_table_with_every_modelled_attribute_and_child_is_read
+    the table expects: crate|package::tests::pivot::a_table_the_workbook_relates_has_no_sheet_beside_one_the_sheet_relates
+    the table expects: tool|the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited
+    plant P7: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  plant P8: a second location accepted (crates/emend/src/package/pivot.rs)
+    the plant's text found in the file: 1 time(s)
+    command (planted, in <scratch>/w/src): the two runs of the control
+    crate run: exit 101
+      test result: FAILED. 645 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.61s
+      failed test: package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    tool run: exit 0
+      test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.01s
+      failed tests: none
+    failed: crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    the table expects: crate|package::tests::pivot::the_spec_s_refusals_are_refused_with_the_message
+    plant P8: found once, both runs built and ran, and the failed tests are exactly the table's, as a set: yes
+  the planted files are restored to the phase commit's bytes: yes
+  files under <target>/plant after the plants: 1633; under <target>/main: 13979
+  the plants' builds went into their own subdirectory, <target>/plant: yes
+  the main tree's builds went into <target>/main: yes
+  <target>/main and <target>/plant are apart, neither inside the other: yes
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend --features read,rules --lib package::tests::pivot:: (host, the main tree, after the plants)
+  exit: 0
+    test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 633 filtered out; finished in 0.04s
+    failed tests: none
+command: CARGO_TARGET_DIR=<target>/main cargo test -p emend-copy --test null_rewrite the_pivot_sample_ (host, the main tree, after the plants)
+  exit: 0
+    test the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing ... ok
+    test the_pivot_sample_counts_and_digests_every_table_and_writes_the_input_back_unedited ... ok
+    test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.02s
+    failed tests: none
+  pivot tests passed after the plants: 14 (before them, in F's host read,rules run: 14); tool sample tests passed: 2 (the_pivot_sample_ tests in null_rewrite.rs at the phase commit: 2)
+  control: after the plants the main tree's pivot tests and tool sample tests pass, the same names as before them, so no mutant leaked into the main tree's artifacts: yes
+  control: plant_apply finds P1's text 0 times in a file without it: yes
+  control: the file without the text is left as it was: yes
+  control: got_failed reads one crate and one tool failure, sorted: yes
+  control: rc_agrees refuses a run that failed a test and exited 0: yes
+  control: rc_agrees takes a run that failed a test and exited non-zero: yes
+  control: ran_ok refuses an output that did not compile: yes
+  control: ran_ok takes an output with a test result line: yes
+  control: the set comparison refuses a failure the table does not expect: yes
+
+## the log itself
+  captured outputs: 45; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+status lines: 0; of them this phase's log directory, its record pairs or specs/0033 modified: 0
+  every change in the working tree is this phase's log directory, its untracked record pairs or specs/0033 modified (changes TB and WB): yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/test.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-12T20:22:26Z
+test log checks all as expected: yes
