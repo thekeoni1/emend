@@ -79,3 +79,8 @@ read = []
 # with `comments` too. Off by default, with no dependency of its own,
 # measured beside the core as `read` is.
 copy = []
+# The charts read of specs/0034-charts-read.md (decision 1 A): every chart a
+# worksheet's drawing holds, read typed. Off by default, with no dependency of
+# its own, measured beside the core as `read` is; the drawing walk it shares
+# with `images` is gated on either (P1 ruling A).
+charts = []

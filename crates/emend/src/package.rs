@@ -2015,6 +2015,8 @@
 //! memory, as some of the harness tool's read-backs do, holds the whole
 //! output archive itself; that is the caller's memory, not this layer's.
 
+#[cfg(feature = "charts")]
+mod chart;
 #[cfg(feature = "read")]
 mod extlink;
 #[cfg(feature = "read")]
@@ -2023,6 +2025,11 @@ mod pivot;
 mod sheet_read;
 #[cfg(feature = "read")]
 mod survey;
+#[cfg(feature = "charts")]
+pub use chart::{
+    BarDirection, Chart, ChartAnchor, ChartEntry, ChartKind, Data, Grouping, Plot, ScatterStyle,
+    Series, SeriesName,
+};
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};
 #[cfg(feature = "read")]
@@ -2208,7 +2215,7 @@ const VML_NAMESPACES: [&[u8]; 3] = [
 /// worksheet's `<drawing>` names (the Cargo feature `images`;
 /// `specs/0022-comments-and-images.md`, "Images: the parts"; the Cargo
 /// feature `read` counts it).
-#[cfg(any(feature = "images", feature = "read"))]
+#[cfg(any(feature = "images", feature = "read", feature = "charts"))]
 pub const DRAWING: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/drawing",
@@ -2230,12 +2237,12 @@ const DRAWING_CONTENT_TYPE: &[u8] = b"application/vnd.openxmlformats-officedocum
 
 /// The spreadsheet-drawing namespace and the DrawingML one, transitional
 /// then strict (ECMA-376 Part 1, 20.5 and 20.1; the Cargo feature `images`).
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 const SPREADSHEET_DRAWING: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing",
     b"http://purl.oclc.org/ooxml/drawingml/spreadsheetDrawing",
 ];
-#[cfg(any(feature = "images", feature = "read"))]
+#[cfg(any(feature = "images", feature = "read", feature = "charts"))]
 const DRAWINGML: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/drawingml/2006/main",
     b"http://purl.oclc.org/ooxml/drawingml/main",
@@ -2244,7 +2251,7 @@ const DRAWINGML: [&[u8]; 2] = [
 /// The markup-compatibility namespace, whose `AlternateContent` a drawing
 /// may wrap an anchor or a picture in (the Cargo feature `images`), and a
 /// worksheet a root child (the Cargo feature `copy`).
-#[cfg(any(feature = "images", feature = "copy"))]
+#[cfg(any(feature = "images", feature = "copy", feature = "charts"))]
 const MARKUP_COMPATIBILITY: &[u8] = b"http://schemas.openxmlformats.org/markup-compatibility/2006";
 
 /// EMU per pixel at Excel's 96 dpi (the Cargo feature `images`).
@@ -2288,8 +2295,8 @@ pub const PIVOT_CACHE_DEFINITION: [&[u8]; 2] = [
 ];
 
 /// The `chart` relationship type, a drawing's to a chart part, transitional
-/// then strict (the Cargo feature `read`).
-#[cfg(feature = "read")]
+/// then strict (the Cargo features `read` and `charts`).
+#[cfg(any(feature = "read", feature = "charts"))]
 pub const CHART: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/chart",
@@ -4277,8 +4284,9 @@ pub struct Image<'a> {
     pub size: Option<(u32, u32)>,
 }
 
-/// The anchor a drawing's picture sits in. The Cargo feature `images`.
-#[cfg(feature = "images")]
+/// The anchor a drawing's picture or chart sits in. The Cargo feature
+/// `images` or `charts`.
+#[cfg(any(feature = "images", feature = "charts"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Anchor {
     /// `oneCellAnchor`: a cell and an extent.
@@ -4329,8 +4337,8 @@ pub enum ImageAnchor {
 
 /// A two-cell anchor's `editAs`, written always
 /// (`specs/0028-images-and-comments-second-half.md`, "Anchors"). The Cargo
-/// feature `images`.
-#[cfg(feature = "images")]
+/// feature `images` or `charts`.
+#[cfg(any(feature = "images", feature = "charts"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditAs {
     /// `twoCell`: moved and sized with the cells.
@@ -9820,7 +9828,7 @@ impl<'a> Parts<'a> {
     /// order, are refused with the two-elements message; an element without
     /// `r:id`, or one naming no such relationship or a target outside the
     /// package, with the drawing read message.
-    #[cfg(feature = "images")]
+    #[cfg(any(feature = "images", feature = "charts"))]
     fn drawing_of(&mut self, part: &[u8], index: usize) -> Result<Option<Vec<u8>>, Error> {
         let element = element_rel_id(
             self.archive.read(index)?,
@@ -12102,7 +12110,7 @@ const IMAGE_SIZE_TWO_CELL: Error =
     Error::Package("an image size does not apply to a two-cell anchor");
 #[cfg(feature = "images")]
 const NO_IMAGE_AT: Error = Error::Package("no image at that position");
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 const TWO_DRAWINGS: Error = Error::Package("a worksheet has two drawing elements");
 
 /// What a sheet copy refuses (`specs/0028-images-and-comments-second-
@@ -12150,7 +12158,7 @@ const PRINT_INVALID: Error = Error::Package("a print area or title is not valid"
 const TWO_SETTINGS: Error = Error::Package(
     "a worksheet has two sheetPr, autoFilter, printOptions, pageMargins, pageSetup or headerFooter elements",
 );
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 const DRAWING_UNREADABLE: Error =
     Error::Package("a drawing part or its relationship cannot be read");
 
@@ -18731,7 +18739,7 @@ impl<'w> TablesPass<'w> {
 const LEGACY_DRAWING: &[u8] = b"legacyDrawing";
 
 /// The `<drawing>` of a worksheet name, its place in [`WORKSHEET_CHILDREN`].
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 const DRAWING_ELEMENT: &[u8] = b"drawing";
 
 /// The `r:id` of the worksheet's root child `name`, `<legacyDrawing>` or
@@ -18739,7 +18747,7 @@ const DRAWING_ELEMENT: &[u8] = b"drawing";
 /// "Comments: the parts" and "Images: the calls"): a second such element,
 /// or one after a root child that follows it in schema order, is refused
 /// with `two`, and one without an `r:id` with `unreadable`.
-#[cfg(any(feature = "comments", feature = "images"))]
+#[cfg(any(feature = "comments", feature = "images", feature = "charts"))]
 fn element_rel_id(
     input: impl Read,
     index: usize,
@@ -19402,7 +19410,7 @@ fn shape_number(value: &[u8]) -> Option<u64> {
 
 /// The value of one or more ASCII digits, `None` for anything else or a
 /// value past `u64`.
-#[cfg(any(feature = "comments", feature = "images"))]
+#[cfg(any(feature = "comments", feature = "images", feature = "charts"))]
 fn digits_value(value: &[u8]) -> Option<u64> {
     if value.is_empty() || !value.iter().all(u8::is_ascii_digit) {
         return None;
