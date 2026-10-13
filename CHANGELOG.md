@@ -61,6 +61,9 @@
   parts each sheet relates, counted; the pivot tables read with their caches'
   sources and field names; and the external links read with their targets as
   written (`specs/0033-read-breadth-survey.md`).
+- Charts read, with the feature `charts`: each chart a sheet's drawing anchors,
+  with its plots and their series references, its title, axes, legend, pivot
+  source and style (`specs/0034-charts-read.md`).
 
 ### Changed
 
