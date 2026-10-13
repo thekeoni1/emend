@@ -1015,7 +1015,7 @@ grouping, scatter style, series with their references, names,
 cached point counts, solid fill and flags), its title, axes (kind,
 position, title, number format, bounds), legend, pivot source and
 style, read from the drawing and chart parts (`Package::charts`).
-The corpus holds 26 charts in 11 workbooks (28 plots, 39 series,
+The corpus holds 26 charts in 11 workbooks (28 plots, 38 series,
 44 axes, 5 pivot charts), every one reached from a worksheet's
 drawing; chartsheets (corpus 0) and the cached values stay out
 (decisions 2 and 3 A). Proven by reading every chart in the corpus
@@ -1023,7 +1023,7 @@ and writing each workbook back byte-identical.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | the feature, the drawing walk shared with `images`, `ChartEntry`, `ChartAnchor`, `Chart`, `Plot`, `Series`, `Data` and the enumerations, `charts`, "a chart cannot be read"; `--charts-sample`; the prune of part 2's four target roots | PLANNED |
+| P1 | the feature, the drawing walk shared with `images`, `ChartEntry`, `ChartAnchor`, `Chart`, `Plot`, `Series`, `Data` and the enumerations, `charts`, "a chart cannot be read"; `--charts-sample`; the prune of part 2's four target roots | DONE 2026-10-13 (doc 266c410, crate c566a01, tool 54bf510, record cf8f145; 27 chart tests, 11 of 11 plants caught; 26 charts in 11 workbooks, series 38, 27 of 27 equal to the kinds sample; scan PASS; rulings E to L) |
 | P2 | `ChartAxis`, `LegendPosition`, the `axes`, `legend`, `pivot_source` and `style` fields; the sample's remaining fields; the catalogue | PLANNED |
 | P3 | `probe-emend-charts-write-xml`, the size record, the API listing rerun, the CHANGELOG bullet, the samples with the release binaries | PLANNED |
 | Close | close-out push after P3, carrying 017e480, base 742051b by its subject, `PREV` `^M5 part 2 close-out record`, no Excel-record check | PLANNED |

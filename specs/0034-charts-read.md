@@ -76,11 +76,12 @@ no code.
   `firstSliceAng`); no 3D, area, radar, bubble, stock, surface or
   `ofPie` plot. 24 charts hold one plot and 2 hold two (combined:
   a bar and a line in each). Series per chart: 1 in 19 charts, 2 in
-  4, 3 in 2, 5 in 1; 39 series in all.
+  4, 3 in 2, 5 in 1; 38 series in all (ruling D).
 - Series: `tx` from `strRef` 26 in 8, a literal `v` 9 in 3, none 3
   in 2; `cat` `strRef` 28 in 10 and `strLit` 1 in 1; `val` `numRef`
   33 in 10 and `numLit` 1 in 1; the scatter plots' `yVal` `numRef` 4
-  in 3 (their `xVal` the same form); every `numRef`, `strRef` and
+  in 3, their categories in `cat`, no `xVal` anywhere (ruling D);
+  every `numRef`, `strRef` and
   `multiLvlStrRef` carries an `f` and a cache (65 in 10; none
   without). Formatting: `spPr` with `solidFill` 30 in 10 (`srgbClr`
   12 in 4, `schemeClr` 18 in 6) and `ln` 35 in 10; `dLbls` 15 in 5;
@@ -90,7 +91,9 @@ no code.
 - Titles: a chart `title` 11 in 5, each `rich` (none `strRef`, none
   without `tx`); `autoTitleDeleted` `0` 14 in 7 and `1` 12 in 6;
   an axis `title` 2 in 1.
-- Axes: `catAx` 20, `valAx` 24, no `dateAx` and no `serAx`;
+- Axes: `catAx` 20, `valAx` 24, no `dateAx` and no `serAx`; 12 of
+  the 136 `axId` and `crossAx` values are negative, in 1 workbook
+  (ruling C);
   `numFmt` 43 in 10; `majorGridlines` 17 in 9; `scaling` `min` or
   `max` 6 in 3; `delete` `1` 5 in 3.
 - The chart: `legend` 15 in 8; `plotVisOnly` 26, `dispBlanksAs` 25,
@@ -178,7 +181,7 @@ pub struct Plot {
     pub scatter_style: Option<ScatterStyle>, // scatter plots
     pub vary_colors: bool,                   // `varyColors`
     pub series: Vec<Series>,
-    pub axis_ids: Vec<u32>,                  // the plot's `axId`s
+    pub axis_ids: Vec<i64>,                  // `axId`s (ruling C)
 }
 pub enum ChartKind {
     Bar, Bar3D, Line, Line3D, Pie, Pie3D, Doughnut, OfPie, Scatter,
@@ -209,10 +212,10 @@ pub enum Data {
     Literal { count: u64 },
 }
 pub struct ChartAxis {
-    pub id: u32,
+    pub id: i64,                  // `axId` (ruling C)
     pub kind: AxisKind,           // Category, Value, Date, Series
     pub position: AxisPosition,   // `axPos`: Bottom, Left, Right, Top
-    pub crosses: u32,             // `crossAx`
+    pub crosses: i64,             // `crossAx` (ruling C)
     pub title: Option<String>,
     pub number_format: Option<String>, // `numFmt` `formatCode`
     pub min: Option<f64>,
@@ -276,7 +279,10 @@ feature:
   `axId`, `axPos` or `crossAx`; an `axPos`, `grouping`, `barDir`,
   `scatterStyle`, `legendPos` or `crosses` value outside its
   enumeration; a `ptCount` or `val` that is not a number where one
-  is required; an `axId` naming no axis of the chart.
+  is required; an `axId` naming no axis of the chart; an `idx` or
+  `order` that is not a number; an `srgbClr` `val` that is not six
+  hex digits; a boolean `val` outside `0`, `1`, `true` and `false`
+  (P1 ruling F).
 
 Shared: "no such part"; "a worksheet has two drawing elements" and
 "a drawing part or its relationship cannot be read" as `images`
@@ -305,7 +311,8 @@ and a pivot source are corpus content and are never printed.
 - `--charts-sample <in> <out>`: writes the input back unedited;
   `charts` of every worksheet of `Workbook::sheets`; prints
   `charts` with `sheets`, `charts`, `plots`, `kind_bar`,
-  `kind_line`, `kind_pie`, `kind_doughnut`, `kind_scatter`,
+  `kind_line`, `kind_pie` (each with its 3D kind, P1 ruling H),
+  `kind_doughnut`, `kind_scatter`,
   `kind_other`, `combined` (charts with two or more plots),
   `bar_dir_bar`, `bar_dir_col`, `grouping_clustered`,
   `grouping_stacked`, `grouping_standard`, `grouping_percent`,
@@ -324,10 +331,11 @@ and a pivot source are corpus content and are never printed.
   equal in every workbook to the kinds sample's `sheet_charts`
   (`records/m5p2-p3-kinds-2026-10-13-f35de0d.txt`'s run directory,
   the per-workbook value read from part 2's record and compared in
-  the run log); `plots` 28; `combined` 2; `series` 39; `kind_bar`
+  the run log); `plots` 28; `combined` 2; `series` 38 (ruling D);
+  `kind_bar`
   17, `kind_line` 4, `kind_pie` 3, `kind_scatter` 3,
   `kind_doughnut` 1, `kind_other` 0; `name_ref` 26, `name_text` 9,
-  `unnamed` 3 (the 39); `titles` 11; `axes` 44 (`axis_cat` 20,
+  `unnamed` 3 (the 38); `titles` 11; `axes` 44 (`axis_cat` 20,
   `axis_val` 24, `axis_other` 0); `legends` 15; `pivot_charts` 5;
   `anchor_two` 26, `edit_as_onecell` 21. The keep and the edit
   open check as every run log.
@@ -405,7 +413,9 @@ check, recorded as `records/m5p3-p1-<utc-date>-<shortsha>.md` and
 
 ### P2: axes, legend, pivot source, style; the catalogue
 
-The doc commit (the P1 verification rulings); the carry, if any;
+The doc commit (the P1 verification rulings); the carry (P1
+rulings E and G: the negative `axId` joined to a negative
+`crossAx`, and `multiLvlStrRef` without a cache);
 then `ChartAxis`, `AxisKind`, `AxisPosition`, `LegendPosition`, the
 `axes`, `legend`, `pivot_source` and `style` fields, the axis
 refusals, the sample's P2 fields; then the `package` header's
@@ -443,7 +453,8 @@ negative log through the binary for every message of the part
 reachable there, the unreachable ones stated with the test that
 covers each. The run log: `--charts-sample` on both targets over
 the corpus with the size log's release binaries, byte-identical to
-P2's debug run by sha256, and `--kinds-sample` once more with the
+P2's run by sha256 (P2 runs the release binaries, as P1 did; P1
+ruling K), and `--kinds-sample` once more with the
 release binaries (byte-identical to part 2's record by sha256),
 recorded as `records/m5p3-p3-<sample>-<utc-date>-<shortsha>.md`
 and `.txt`. The open record of the part's keep.
@@ -469,6 +480,149 @@ mode on a clean tree; one independent check before the report. The
 push carries 017e480 and this part's commits, on planning's word
 and the maintainer's authorisation typed in the implementing
 session.
+
+## Planning rulings during P1 (2026-10-13)
+
+A. The shared walk ("Crate"): planning read `read_drawing_roots`,
+   `DrawingRoot` and `read_images` in `package.rs` after the doc
+   commit (37cf313, re-made as 266c410 with the same tree).
+   `read_drawing_roots` records each root's byte
+   span, whether it is an anchor, and its `r:` attribute values, for
+   `remove_image`; it reads no `from`, `to` or `editAs` and no
+   `graphicFrame`; the anchor reading `images` uses lives in
+   `read_images`, which is picture-specific. Widening either to
+   `charts` would gate dead code under a charts-only build. Ruled:
+   `read_drawing_roots`, `DrawingRoot` and `read_images` stay under
+   `images`; `package/chart.rs` streams the drawing itself, taking
+   the anchors exactly as "The call" says (the root anchors and the
+   first anchor of a root `AlternateContent`'s first `Choice`, as
+   `images` takes them; `from`, `to`, `editAs`; a `graphicFrame`'s
+   `graphicData` and its `c:chart` `r:id`). Under
+   `any(feature = "images", feature = "charts")` go only the items
+   both features call, each where its current gate lacks `charts`:
+   `Anchor`, `EditAs`, `drawing_of`, `element_rel_id`,
+   `DRAWING_ELEMENT`, `TWO_DRAWINGS`, `DRAWING_UNREADABLE`,
+   `SPREADSHEET_DRAWING`, `MARKUP_COMPATIBILITY`, `digits_value` and
+   `DRAWING`. No line `images` compiles changes, so the `images`
+   cost's expected movement at P3 is 0. The spec's "Crate" sentence
+   naming `read_drawing_roots` is read as this ruling.
+B. Decision 2 A, the chartsheet refusal: the crate has no "not a
+   worksheet" message; a chartsheet part handed to `charts` meets
+   `element_rel_id`'s existing "the worksheet part's root is not
+   worksheet", as `images` does today. Ruled: that message, named
+   in P1's report and covered by one test; the sample calls
+   `charts` on worksheets only.
+
+C. Negative `axId` values (P1 finding, before the logged runs): the
+   implementing session's unlogged dev sample refused one corpus
+   workbook with "a chart cannot be read"; planning recounted with
+   ElementTree (counts only): of the corpus's 136 `axId` and
+   `crossAx` values, 12 are negative, all in 2 chart parts of 1
+   workbook, each a sign and 10 digits inside the i32 range, and
+   every plot's `axId` joins an axis of its chart (48 of 48). The
+   schema types `axId` as `unsignedInt`; Excel writes the signed
+   32-bit value it holds. An axis id is compared by equality and
+   never computed with. Ruled, option (b): `Plot::axis_ids` is
+   `Vec<i64>`, and in P2 `ChartAxis::id` and `ChartAxis::crosses`
+   are `i64`, read from an optionally signed decimal integer the
+   `i64` holds (anything else refused as "a chart cannot be read");
+   the value is kept as written so parts 4 and 5 write back the
+   form they read. Not (a): a bit pattern in a `u32` prints 10
+   digits for a value the file wrote with a sign, and the writers
+   would have to choose a form. Not (c): the 3 charts are real.
+   The "Harness runs" figures stand (26 charts); the facts bullet
+   on axes gains "12 of the 136 `axId` and `crossAx` values are
+   negative, in 1 workbook". Tests: a negative `axId` joined to a
+   negative `crossAx`, a `val` of `+1` refused or accepted as the
+   implementing session's integer form decides (named in the
+   report), a `val` of `1.0` refused.
+
+D. The series figure (P1 finding, before the logged run log): the
+   spec's "39 series in all" and "`series` 39" were planning's
+   arithmetic slip over its own histogram (1 in 19 charts, 2 in 4,
+   3 in 2, 5 in 1 is 38), and the name forms 26, 9 and 3 sum to 38;
+   planning recounted `ser` over the 26 chart parts: 38. Ruled: the
+   run log expects `series` 38; the spec's two figures and the
+   facts bullet read 38. The same recount finds no `xVal` in the
+   corpus (the 4 scatter series carry `cat` and `yVal`), so the
+   facts bullet on series data is corrected; no "Harness runs"
+   figure depends on it. Ruling C's integer form: Rust's
+   `i64::from_str`, a leading `+` accepted, named in the report;
+   accepted.
+
+## Planning verification of P1 (2026-10-13)
+
+Verified from primaries: the five logs at the record commit
+cf8f145 (gate 0921ea16, test 15f70960, negative b2c054fa, run
+25c1c24a, scan bd2cf684 PASS, 0 hits, 0 structural failures; each
+of the four "all as expected: yes"); the diff 017e480..54bf510 (11
+files, 3210 insertions, 27 deletions; the `cfg` widenings read
+line by line); the record commit's four record files and
+independent-check-1.md (8811f7d2); every commit message ASCII
+with the Co-Authored-By line only; the working tree at the record
+commit holding only this spec; the privacy scan of
+017e480..cf8f145 (4 commits, 1671 blobs, 0 findings, PASS);
+planning's own build at 54bf510 in a detached worktree with its
+own target (`<home>/.cache/emend-planning/m5p3-p1-build.txt`): the
+five feature sets on both targets and the workspace at the log's
+figures (515, 542, 578, 645, 1017; 1225), clippy and doc clean,
+release emend-copy on both targets, `--charts-sample` over the
+corpus byte-identical to the run directory's outputs and lines on
+both targets, and planning's host totals equal to the record's.
+The figures stand: charts 26 in 11, plots 28, combined 2, series
+38, the kind, name, title and anchor figures as "Harness runs";
+the largest chart part 28215 bytes; the four part 2 target roots
+pruned (du -sb then rm -r, no -f).
+
+The disclosures. Attempt 1's scan pre-check refused two undeclared
+placeholders (`<api>` carried in test.log's change notes,
+`<sheets>` in chartscmp.py's docstring); the fixes changed a root
+line and a docstring, the reruns carry RERUN_NOTE/RERUN_FILES, and
+the attempt is kept under the phase directory: the rerun form was
+followed. The report's 19743143592 sum and the two new script
+hashes are stated as the implementer's own, not a log's: accepted.
+The superseded commits (0edc2df, cbc5664, ca48df1, fbb11a8,
+37cf313) were never logged; 54bf510's tree equals fbb11a8's, and
+266c410's message carries the three sha256 lines.
+
+Rulings:
+
+E. Ruling C's test of a negative `axId` joined to a negative
+   `crossAx` needs `ChartAxis`, so it is carried to P2 (its test
+   list gains it; "the carry" in "P2").
+F. Three refusals P1 documents and tests beyond "Errors": an
+   `srgbClr` `val` that is not six hex digits, a boolean `val`
+   outside `0`, `1`, `true` and `false`, and a non-numeric `idx`
+   or `order`. Each is a malformed value the schema forbids, each
+   gives the part's one message, and "Nothing is checked twice"
+   holds. Accepted; "Errors" names them. The anchor refusals (no
+   `col` or `row`, `editAs` outside its set) are `images`'s own,
+   under "the drawing part is read as `images` reads it".
+G. "Each data form with and without a cache": `multiLvlStrRef` is
+   tested with a cache only. Carried to P2 as one test (the form
+   without a cache, `cached` `None`).
+H. The sample counts `Bar3D`, `Line3D` and `Pie3D` into `kind_bar`,
+   `kind_line` and `kind_pie`, and asserts the six kind counts sum
+   to `plots`. Accepted: the corpus holds no 3D plot, so no
+   "Harness runs" figure moves; "Harness runs" says so.
+I. The `DRAWINGML` widening to `any(images, read, charts)`, one
+   more than ruling A's list: chart.rs needs the DrawingML main
+   namespace; an `images` build already compiles it, so the
+   `images` cost's expected movement stays 0. Accepted; ruling A's
+   list is read with `DRAWINGML` added.
+J. ROADMAP.md's part 3 paragraph said "39 series" at 266c410
+   (planning's text, ruling D's slip); it reads 38 from P2's doc
+   commit. Ruling A's text cited the doc commit as 37cf313; it now
+   names the re-made 266c410 as well.
+K. P1's run used the release binaries, as part 2's P2 and P3 did.
+   P2 runs the release binaries too, and "P3" reads "byte-identical
+   to P2's run" (not "debug run").
+L. The integer form: `idx`, `order` and `ptCount` share `axId`'s
+   `from_str`, so a leading `+` is accepted there too. Accepted as
+   ruling D's form; no spec text changes.
+
+P1 is DONE. P2's doc commit carries this spec (rulings A to L and
+this section) and ROADMAP.md (P1 DONE, the series figure).
 
 ## Decisions for the maintainer
 
