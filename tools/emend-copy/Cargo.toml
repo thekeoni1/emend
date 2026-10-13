@@ -35,5 +35,7 @@ publish = false
 # It enables the core's `copy` feature for --copy-sample
 # (specs/0028-images-and-comments-second-half.md, decision 1 A), which has
 # none either.
+# It enables the core's `charts` feature for --charts-sample
+# (specs/0034-charts-read.md, decision 1 A), which has none either.
 [dependencies]
-emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images", "richtext", "sheetprops", "read", "copy"] }
+emend = { path = "../../crates/emend", features = ["dates", "rowcol", "metadata", "rules", "tables", "comments", "images", "richtext", "sheetprops", "read", "copy", "charts"] }

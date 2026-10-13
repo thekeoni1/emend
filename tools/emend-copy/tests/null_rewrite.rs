@@ -6049,6 +6049,163 @@ fn the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing() {
     assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
 }
 
+/// The package of `package_specs_with` whose worksheet's drawing holds two
+/// charts: a combined bar and line chart with a title in a two-cell anchor
+/// (`editAs` `oneCell`), and a pie chart in a one-cell anchor. `second` is
+/// the second frame's `c:chart` `r:id`; the drawing's rels part relates
+/// `rId1` and `rId2`.
+fn charts_specs(second: &str) -> Vec<Spec> {
+    let vnd = "application/vnd.openxmlformats-officedocument";
+    let mut specs = package_specs_with(&format!(
+        "<Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"{vnd}.drawing+xml\"/>\
+         <Override PartName=\"/xl/charts/chart1.xml\" ContentType=\"{vnd}.drawingml.chart+xml\"/>\
+         <Override PartName=\"/xl/charts/chart2.xml\" ContentType=\"{vnd}.drawingml.chart+xml\"/>"
+    ));
+    let c_ns = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+    let sheet = format!(
+        "<worksheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\"><sheetData/>\
+         <drawing r:id=\"rId1\"/></worksheet>"
+    );
+    for spec in &mut specs {
+        if spec.name == b"xl/worksheets/sheet1.xml" {
+            *spec = Spec::deflated(b"xl/worksheets/sheet1.xml", sheet.as_bytes());
+        }
+    }
+    let sheet_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/drawing\" \
+         Target=\"../drawings/drawing1.xml\"/></Relationships>"
+    );
+    let frame = |id: &str| {
+        format!(
+            "<xdr:graphicFrame macro=\"\"><xdr:nvGraphicFramePr><xdr:cNvPr id=\"2\" \
+             name=\"Chart\"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>\
+             <a:graphic><a:graphicData uri=\"{c_ns}\"><c:chart r:id=\"{id}\"/></a:graphicData>\
+             </a:graphic></xdr:graphicFrame>"
+        )
+    };
+    let drawing = format!(
+        "<xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" \
+         xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:c=\"{c_ns}\" \
+         xmlns:r=\"{ATTR_NS}\"><xdr:twoCellAnchor editAs=\"oneCell\"><xdr:from><xdr:col>1</xdr:col>\
+         <xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>\
+         <xdr:to><xdr:col>8</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>15</xdr:row>\
+         <xdr:rowOff>0</xdr:rowOff></xdr:to>{}<xdr:clientData/></xdr:twoCellAnchor>\
+         <xdr:oneCellAnchor><xdr:from><xdr:col>10</xdr:col><xdr:colOff>0</xdr:colOff>\
+         <xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx=\"9525\" \
+         cy=\"9525\"/>{}<xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>",
+        frame("rId1"),
+        frame(second)
+    );
+    let drawing_rels = format!(
+        "<Relationships xmlns=\"{RELS_NS}\">\
+         <Relationship Id=\"rId1\" Type=\"{ATTR_NS}/chart\" Target=\"../charts/chart1.xml\"/>\
+         <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/chart\" Target=\"../charts/chart2.xml\"/>\
+         </Relationships>"
+    );
+    let space = |body: &str| {
+        format!(
+            "<c:chartSpace xmlns:c=\"{c_ns}\" \
+             xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">\
+             <c:chart>{body}</c:chart></c:chartSpace>"
+        )
+    };
+    let first = space(
+        "<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Sales</a:t></a:r></a:p></c:rich>\
+         </c:tx></c:title><c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/>\
+         <c:barChart><c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>\
+         <c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:strRef><c:f>Data!$B$1</c:f>\
+         </c:strRef></c:tx><c:spPr><a:solidFill><a:srgbClr val=\"4472C4\"/></a:solidFill>\
+         </c:spPr><c:dLbls><c:showVal val=\"1\"/></c:dLbls><c:cat><c:strRef>\
+         <c:f>Data!$A$2:$A$4</c:f><c:strCache><c:ptCount val=\"3\"/></c:strCache></c:strRef>\
+         </c:cat><c:val><c:numRef><c:f>Data!$B$2:$B$4</c:f><c:numCache><c:ptCount val=\"3\"/>\
+         </c:numCache></c:numRef></c:val></c:ser><c:axId val=\"1\"/><c:axId val=\"2\"/>\
+         </c:barChart><c:lineChart><c:grouping val=\"standard\"/><c:ser><c:idx val=\"1\"/>\
+         <c:order val=\"1\"/><c:tx><c:v>Plan</c:v></c:tx><c:marker><c:symbol val=\"circle\"/>\
+         </c:marker><c:val><c:numLit><c:ptCount val=\"2\"/></c:numLit></c:val>\
+         <c:smooth val=\"1\"/></c:ser><c:axId val=\"1\"/><c:axId val=\"2\"/></c:lineChart>\
+         </c:plotArea>",
+    );
+    let second_chart = space(
+        "<c:autoTitleDeleted val=\"1\"/><c:plotArea><c:pieChart><c:varyColors val=\"1\"/>\
+         <c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:spPr><a:solidFill>\
+         <a:schemeClr val=\"accent1\"/></a:solidFill></c:spPr><c:cat><c:strLit>\
+         <c:ptCount val=\"2\"/></c:strLit></c:cat><c:val><c:numRef><c:f>Data!$D$2:$D$3</c:f>\
+         </c:numRef></c:val></c:ser></c:pieChart></c:plotArea>",
+    );
+    specs.push(Spec::stored(
+        b"xl/worksheets/_rels/sheet1.xml.rels",
+        sheet_rels.as_bytes(),
+    ));
+    specs.push(Spec::deflated(
+        b"xl/drawings/drawing1.xml",
+        drawing.as_bytes(),
+    ));
+    specs.push(Spec::stored(
+        b"xl/drawings/_rels/drawing1.xml.rels",
+        drawing_rels.as_bytes(),
+    ));
+    specs.push(Spec::deflated(b"xl/charts/chart1.xml", first.as_bytes()));
+    specs.push(Spec::deflated(
+        b"xl/charts/chart2.xml",
+        second_chart.as_bytes(),
+    ));
+    specs
+}
+
+#[test]
+fn the_charts_sample_counts_and_digests_every_chart_and_writes_the_input_back_unedited() {
+    // `specs/0034-charts-read.md`, "Harness runs", `--charts-sample`, the
+    // fields P1 fills. Two charts: a combined bar and line chart titled in
+    // a two-cell anchor (`editAs` `oneCell`), its bar series named by a
+    // reference with a solid fill, labels and cached category and value
+    // references, its line series named by text with a marker, smoothing
+    // and literal values; and a pie chart in a one-cell anchor with its
+    // automatic title deleted, its one series unnamed with literal
+    // categories, a scheme fill and a value reference with no cache.
+    let dir = TempDir::new("charts-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    let specs = charts_specs("rId2");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--charts-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        format!(
+            "charts\tsheets=1\tcharts=2\tplots=3\tkind_bar=1\tkind_line=1\tkind_pie=1\
+             \tkind_doughnut=0\tkind_scatter=0\tkind_other=0\tcombined=1\tbar_dir_bar=0\
+             \tbar_dir_col=1\tgrouping_clustered=1\tgrouping_stacked=0\tgrouping_standard=1\
+             \tgrouping_percent=0\tseries=3\tname_ref=1\tname_text=1\tunnamed=1\tcat_ref=1\
+             \tcat_lit=1\tval_ref=2\tval_lit=1\tsizes=0\tcached=2\tfills=1\tsmooth=1\
+             \tmarkers=1\tlabels=1\ttitles=1\tauto_title_deleted=1\tanchor_two=1\
+             \tanchor_one=1\tanchor_abs=0\tedit_as_onecell=1\tedit_as_twocell=0\
+             \tedit_as_abs=0\tdigest_titles={}\tdigest_names={}\tdigest_formulas={}\n",
+            fnv(&["Sales"]),
+            fnv(&["Data!$B$1", "Plan"]),
+            fnv(&["Data!$A$2:$A$4", "Data!$B$2:$B$4", "Data!$D$2:$D$3"]),
+        ),
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    untouched_but(&entries, &specs, &[]);
+}
+
+#[test]
+fn the_charts_sample_refuses_a_chart_naming_no_relationship_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0034-charts-read.md`, "P1").
+    let dir = TempDir::new("charts-sample-no-rel");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&charts_specs("rId9"))).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--charts-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(ran.stderr, "error: a chart cannot be read\n", "the message");
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
 /// The package of `package_specs_with` with three external links in
 /// `<externalReferences>` order: a book with two sheet names, one defined
 /// name and cached values, a DDE link, and an OLE link. `book_mode` is the

@@ -710,6 +710,29 @@
 //!   topic or program id is printed. Asserted: `books`, `dde` and `ole`
 //!   summing to `links`; a failure is exit 2 with the message and no
 //!   output, and so is a refusal by the layer.
+//! - `--charts-sample`: the charts sample of `specs/0034-charts-read.md`,
+//!   "Harness runs", with the fields P1 fills: the input written back
+//!   unedited and `Package::charts` of every worksheet of the workbook's
+//!   sheet list. One line: the word `charts` then `sheets` (worksheets
+//!   read), `charts`, `plots`, `kind_bar` (bar and 3D bar plots),
+//!   `kind_line` (line and 3D line), `kind_pie` (pie and 3D pie),
+//!   `kind_doughnut`, `kind_scatter`, `kind_other` (every other kind),
+//!   `combined` (charts with two or more plots), `bar_dir_bar`,
+//!   `bar_dir_col`, `grouping_clustered`, `grouping_stacked`,
+//!   `grouping_standard`, `grouping_percent`, `series`, `name_ref`,
+//!   `name_text`, `unnamed`, `cat_ref`, `cat_lit`, `val_ref`, `val_lit`,
+//!   `sizes`, `cached` (references with a cache, over categories, values
+//!   and sizes), `fills`, `smooth`, `markers`, `labels`, `titles`,
+//!   `auto_title_deleted`, `anchor_two`, `anchor_one`, `anchor_abs`,
+//!   `edit_as_onecell`, `edit_as_twocell`, `edit_as_abs`, and
+//!   `digest_titles`, `digest_names` and `digest_formulas`: 64-bit FNV-1a
+//!   over the chart titles, over the series names (a reference's formula
+//!   or the text) and over every reference's formula (categories, values,
+//!   sizes, series in order), each followed by a newline. COUNTS, FLAGS AND
+//!   DIGESTS ONLY: no title, name, formula or part name is printed.
+//!   Asserted: the six kind counts summing to `plots`, and `name_ref`,
+//!   `name_text` and `unnamed` to `series`; a failure is exit 2 with the
+//!   message and no output, and so is a refusal by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -826,7 +849,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --richcomment-sample | --sheetview-sample | --pagesetup-sample | --printarea-sample \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
-| --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample]";
+| --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
+| --charts-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -942,6 +966,9 @@ enum Operation {
     /// Every external link read, the input written back unedited, and the
     /// counts and digests.
     ExtlinkSample,
+    /// Every worksheet's charts read, the input written back unedited, and
+    /// the counts and digests.
+    ChartsSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -1002,6 +1029,7 @@ enum Error {
     KindsSample(&'static str),
     PivotSample(&'static str),
     ExtlinkSample(&'static str),
+    ChartsSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1123,6 +1151,9 @@ impl fmt::Display for Error {
             }
             Error::ExtlinkSample(what) => {
                 write!(f, "the input's {what} is not what the external links imply")
+            }
+            Error::ChartsSample(what) => {
+                write!(f, "the input's {what} is not what the charts imply")
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
@@ -1327,6 +1358,9 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ExtlinkSample,
         ),
+        [input, output, flag] if flag == "--charts-sample" => {
+            run(Path::new(input), Path::new(output), Operation::ChartsSample)
+        }
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1496,6 +1530,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ExtlinkSample) {
         return extlink_sample(input, output);
     }
+    if matches!(operation, Operation::ChartsSample) {
+        return charts_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1575,6 +1612,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::KindsSample => unreachable!("the survey sample has its own path"),
         Operation::PivotSample => unreachable!("the pivot sample has its own path"),
         Operation::ExtlinkSample => unreachable!("the external link sample has its own path"),
+        Operation::ChartsSample => unreachable!("the charts sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -7472,6 +7510,194 @@ fn extlink_sample(input: &Path, output: &Path) -> Result<(), Error> {
         ("defined_names", defined_names.to_string()),
         ("digest_targets", fnv_digest(&targets)),
         ("digest_sheets", fnv_digest(&sheets)),
+    ] {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value);
+    }
+    print_line(&line)
+}
+
+/// The charts sample (`specs/0034-charts-read.md`, "Harness runs",
+/// `--charts-sample`, the fields P1 fills). The input is written back
+/// unedited; a refusal by the layer is exit 2 with no output.
+fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{Anchor, BarDirection, ChartKind, Data, EditAs, Grouping, SeriesName};
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let parts: Vec<Vec<u8>> = package
+        .workbook()?
+        .sheets
+        .iter()
+        .filter(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .collect();
+    let mut counts: [(&str, u64); 38] = [
+        ("sheets", 0),
+        ("charts", 0),
+        ("plots", 0),
+        ("kind_bar", 0),
+        ("kind_line", 0),
+        ("kind_pie", 0),
+        ("kind_doughnut", 0),
+        ("kind_scatter", 0),
+        ("kind_other", 0),
+        ("combined", 0),
+        ("bar_dir_bar", 0),
+        ("bar_dir_col", 0),
+        ("grouping_clustered", 0),
+        ("grouping_stacked", 0),
+        ("grouping_standard", 0),
+        ("grouping_percent", 0),
+        ("series", 0),
+        ("name_ref", 0),
+        ("name_text", 0),
+        ("unnamed", 0),
+        ("cat_ref", 0),
+        ("cat_lit", 0),
+        ("val_ref", 0),
+        ("val_lit", 0),
+        ("sizes", 0),
+        ("cached", 0),
+        ("fills", 0),
+        ("smooth", 0),
+        ("markers", 0),
+        ("labels", 0),
+        ("titles", 0),
+        ("auto_title_deleted", 0),
+        ("anchor_two", 0),
+        ("anchor_one", 0),
+        ("anchor_abs", 0),
+        ("edit_as_onecell", 0),
+        ("edit_as_twocell", 0),
+        ("edit_as_abs", 0),
+    ];
+    let mut add = |key: &str, by: u64| {
+        // Every key below is one of the array's.
+        let slot = counts.iter_mut().find(|(name, _)| *name == key).unwrap();
+        slot.1 = slot.1.saturating_add(by);
+    };
+    let flag = |yes: bool| u64::from(yes);
+    let (mut titles, mut names, mut formulas) = (Vec::new(), Vec::new(), Vec::new());
+    for part in &parts {
+        add("sheets", 1);
+        for entry in package.charts(part)? {
+            add("charts", 1);
+            match entry.anchor.kind {
+                Anchor::TwoCell => add("anchor_two", 1),
+                Anchor::OneCell => add("anchor_one", 1),
+                Anchor::Absolute => add("anchor_abs", 1),
+            }
+            match entry.anchor.edit_as {
+                Some(EditAs::OneCell) => add("edit_as_onecell", 1),
+                Some(EditAs::TwoCell) => add("edit_as_twocell", 1),
+                Some(EditAs::Absolute) => add("edit_as_abs", 1),
+                None => {}
+            }
+            let chart = entry.chart;
+            if let Some(title) = chart.title {
+                add("titles", 1);
+                titles.push(title);
+            }
+            add("auto_title_deleted", flag(chart.auto_title_deleted));
+            add("plots", chart.plots.len() as u64);
+            add("combined", flag(chart.plots.len() >= 2));
+            for plot in chart.plots {
+                add(
+                    match plot.kind {
+                        ChartKind::Bar | ChartKind::Bar3D => "kind_bar",
+                        ChartKind::Line | ChartKind::Line3D => "kind_line",
+                        ChartKind::Pie | ChartKind::Pie3D => "kind_pie",
+                        ChartKind::Doughnut => "kind_doughnut",
+                        ChartKind::Scatter => "kind_scatter",
+                        _ => "kind_other",
+                    },
+                    1,
+                );
+                match plot.bar_direction {
+                    Some(BarDirection::Bar) => add("bar_dir_bar", 1),
+                    Some(BarDirection::Column) => add("bar_dir_col", 1),
+                    None => {}
+                }
+                match plot.grouping {
+                    Some(Grouping::Clustered) => add("grouping_clustered", 1),
+                    Some(Grouping::Stacked) => add("grouping_stacked", 1),
+                    Some(Grouping::Standard) => add("grouping_standard", 1),
+                    Some(Grouping::PercentStacked) => add("grouping_percent", 1),
+                    None => {}
+                }
+                for series in plot.series {
+                    add("series", 1);
+                    match series.name {
+                        Some(SeriesName::Reference(formula)) => {
+                            add("name_ref", 1);
+                            names.push(formula);
+                        }
+                        Some(SeriesName::Text(text)) => {
+                            add("name_text", 1);
+                            names.push(text);
+                        }
+                        None => add("unnamed", 1),
+                    }
+                    for (data, reference, literal) in [
+                        (series.categories, "cat_ref", "cat_lit"),
+                        (series.values, "val_ref", "val_lit"),
+                        (series.sizes, "sizes", "sizes"),
+                    ] {
+                        match data {
+                            Some(Data::Reference { formula, cached }) => {
+                                add(reference, 1);
+                                add("cached", flag(cached.is_some()));
+                                formulas.push(formula);
+                            }
+                            Some(Data::Literal { .. }) => add(literal, 1),
+                            None => {}
+                        }
+                    }
+                    add("fills", flag(series.fill.is_some()));
+                    add("smooth", flag(series.smooth));
+                    add("markers", flag(series.marker));
+                    add("labels", flag(series.labels));
+                }
+            }
+        }
+    }
+    let count = |key: &str| {
+        counts
+            .iter()
+            .find(|(name, _)| *name == key)
+            .map_or(0, |(_, value)| *value)
+    };
+    let kinds: u64 = [
+        "kind_bar",
+        "kind_line",
+        "kind_pie",
+        "kind_doughnut",
+        "kind_scatter",
+        "kind_other",
+    ]
+    .iter()
+    .map(|key| count(key))
+    .sum();
+    if kinds != count("plots") {
+        return Err(Error::ChartsSample("plot count"));
+    }
+    if count("name_ref") + count("name_text") + count("unnamed") != count("series") {
+        return Err(Error::ChartsSample("series count"));
+    }
+    write_into(package, output)?;
+    let mut line = String::from("charts");
+    for (key, value) in counts {
+        line.push('\t');
+        line.push_str(key);
+        line.push('=');
+        line.push_str(&value.to_string());
+    }
+    for (key, value) in [
+        ("digest_titles", fnv_digest(&titles)),
+        ("digest_names", fnv_digest(&names)),
+        ("digest_formulas", fnv_digest(&formulas)),
     ] {
         line.push('\t');
         line.push_str(key);
