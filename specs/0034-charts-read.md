@@ -282,7 +282,8 @@ feature:
   is required; an `axId` naming no axis of the chart; an `idx` or
   `order` that is not a number; an `srgbClr` `val` that is not six
   hex digits; a boolean `val` outside `0`, `1`, `true` and `false`
-  (P1 ruling F).
+  (P1 ruling F); a `crosses` with no `val`, a `numFmt` with no
+  `formatCode` and a `pivotSource` with no `name` (P2 ruling N).
 
 Shared: "no such part"; "a worksheet has two drawing elements" and
 "a drawing part or its relationship cannot be read" as `images`
@@ -438,7 +439,9 @@ the checks as "Harness runs", recorded as
 
 ### P3: the probe, the size record, the API listing, the CHANGELOG
 
-The doc commit (the P2 verification rulings); the carry, if any;
+The doc commit (the P2 verification rulings); the carry (P2
+rulings T, U and X: `c:style` inside the `Choice`, the header's
+three test names, the `min` and `max` spellings);
 then `probe-emend-charts-write-xml` as "Size and packaging" says
 (its manifest, `required-features`, its classification); the size
 log, recorded as `records/size-m5p3-<utc-date>-<shortsha>.md`, with
@@ -623,6 +626,114 @@ L. The integer form: `idx`, `order` and `ptCount` share `axId`'s
 
 P1 is DONE. P2's doc commit carries this spec (rulings A to L and
 this section) and ROADMAP.md (P1 DONE, the series figure).
+
+## Planning rulings during P2 (2026-10-13)
+
+Before the logged runs, on the implementing session's dev report
+(commits d148ad1, f659089, b30ebbd; dev figures axes 44, legends
+15, pivot charts 5, styles 16 in 7, every P1 figure unchanged, the
+P1 fields of each line equal to P1's run lines 27 of 27).
+
+M. The catalogue test gains `package/chart.rs` as its tenth source,
+   and `text_of`'s error match is rewritten so the extractor sees
+   no `Error::Package(_)` arm (`Xml` and `Io` pass through,
+   anything else is the refusal); `text_of` raises only those and
+   its two `Package` messages, so the behaviour is the same. This
+   P1 code change in the P2 crate commit is accepted, named in the
+   message and the report.
+N. Three forms the schema requires and the implementing session
+   proposed to accept: a `crosses` with no `val`, a `numFmt` with
+   no `formatCode`, a `pivotSource` with no `name`. Ruled: each is
+   refused with "a chart cannot be read", as "a reference form with
+   no `f`" and "a `ser` with no `idx`" are: a required value absent
+   is refused, a value outside its set is refused, and nothing else
+   is checked. "Errors" names the three; one test each (the
+   `number_format` doc comment reads "`None` for no `numFmt`").
+O. A `legendPos` with no `val` is `Right`, the schema default, as
+   "P2" says. Accepted.
+P. `min` and `max` are parsed by Rust's `f64::from_str`, which
+   takes the `xsd:double` spellings `INF`, `-INF` and `NaN` and
+   some more; the value is held, never computed with. Accepted as
+   ruling L's form; named in the report.
+Q. `digest_titles` stays the chart titles; axis titles are counted
+   (`axis_titles`) and not digested, as "Harness runs" lists.
+   Accepted.
+R. `style` is `c:style` at the root, or `c:style` or `c14:style`
+   inside the first `Choice` of a root `mc:AlternateContent`,
+   whatever the `Choice`'s `Requires`; the `Fallback` is never
+   entered. Accepted (the corpus's 16 styles all sit in a `Choice`
+   holding `c14:style`).
+S. P1's fixtures named axis ids with no axes; P2's join check
+   refuses that, so the fixtures gain a `catAx` and a `valAx`, the
+   signed-id test three axes, and the tool test's first chart its
+   two axes, with the P1 assertions unchanged. Accepted. The keep
+   against P1's open record: 0 new pairs, exactly 1 changed (the
+   charts-sample tool test's, its input bytes changed), 0 gone;
+   the open check covers the changed pair. The negative fixture is
+   the tool test's form with the `valAx` lacking `axPos`, its
+   control the same with `axPos` `l`.
+
+## Planning verification of P2 (2026-10-13)
+
+Verified from primaries: the five logs at the record commit
+1e0b03c (gate 0ac53788, test ba1f1d56, negative 8335ee02, run
+124a4939, scan a9ae035e PASS, 0 hits, 0 structural failures; each
+of the four "all as expected: yes"); the diff d148ad1..27569d2
+and the ruling N diff b30ebbd..27569d2 (3 files, 53 insertions,
+11 deletions; the tool's content unchanged); d148ad1 holding
+planning's two files unedited by hash; the record files and
+independent-check-1.md (467967c4); every commit message ASCII with
+the Co-Authored-By line only; the privacy scan of cf8f145..1e0b03c
+(4 commits, 1681 blobs, 0 findings, PASS); planning's own build at
+27569d2 in its detached worktree
+(`<home>/.cache/emend-planning/m5p3-p2-build.txt`): the five
+feature sets and the workspace on both targets at the log's
+figures (515, 553, 589, 656, 1028; 1237), clippy and doc clean,
+release emend-copy on both targets (the i686 binary's sha256
+equal to run.log's), `--charts-sample` over the corpus
+byte-identical to the run directory's outputs and lines on both
+targets, 27 of 27, and planning's host totals at the figures:
+axes 44 (cat 20, val 24, other 0), legends 15, pivot charts 5,
+styles 16, axis number formats 43, bounds 6, deleted 5, gridlines
+17, axis titles 2, every P1 figure unchanged. The keep: 0 new, 1
+changed (the charts-sample tool test's), 0 gone, as ruling S.
+
+The disclosures. The final scan's attempt 1 found one `f_home` hit
+in the check's answer (the phase directory written absolute); the
+path is now `<phase>`, the attempt is kept under the phase
+directory and named by RERUN_NOTE/RERUN_FILES: the rerun form was
+followed. The superseded f659089 and b30ebbd were never logged.
+The run's dry run 1 expected 21 figures by the implementer's
+miscount (22 is right); unlogged, disclosed. The report's
+statements with no primary (the variable name, the dry-run
+hashes, the test breakdown 2 + 6 + 3) are stated as the
+implementer's own: accepted.
+
+Rulings:
+
+T. The check's note (a): ruling R's `c:style` inside the `Choice`
+   has no test (only `c14:style` there). Carried to P3 as one test.
+   Note (b): the `Fallback` is shown unread both when the `Choice`
+   holds a style and when it holds none; nothing more is needed.
+U. Note (c): the package header's Errors list does not name the
+   three ruling N tests. Carried to P3 (a header edit, no code).
+V. Note (d): a repeated `legend` or `pivotSource` keeps the last
+   read. The schema allows one; nothing is checked twice.
+   Accepted, no change.
+W. Note (e), ruling M's "same behaviour": planning read `text_of`
+   in `cells.rs`; it raises one `Package` literal, `Error::Xml`,
+   and what the stream and `expand` raise (`Xml`, `Io`, `Package`),
+   so the two mappings agree on every error it can return.
+   Confirmed.
+X. Ruling P's spellings are shown by no test. Carried to P3 as one
+   test (`INF`, `-INF`, `NaN` and an exponent form read as `min`
+   or `max`).
+Y. The check brief: the checker writes every path under the
+   placeholders the scan declares (`<phase>` among them); P3's
+   brief says so before the check runs.
+
+P2 is DONE. P3's doc commit carries this spec (rulings A to Y and
+the two verification sections) and ROADMAP.md (P2 DONE).
 
 ## Decisions for the maintainer
 

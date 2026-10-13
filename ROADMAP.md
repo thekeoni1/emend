@@ -1024,7 +1024,7 @@ and writing each workbook back byte-identical.
 | Phase | Scope | Status |
 | --- | --- | --- |
 | P1 | the feature, the drawing walk shared with `images`, `ChartEntry`, `ChartAnchor`, `Chart`, `Plot`, `Series`, `Data` and the enumerations, `charts`, "a chart cannot be read"; `--charts-sample`; the prune of part 2's four target roots | DONE 2026-10-13 (doc 266c410, crate c566a01, tool 54bf510, record cf8f145; 27 chart tests, 11 of 11 plants caught; 26 charts in 11 workbooks, series 38, 27 of 27 equal to the kinds sample; scan PASS; rulings E to L) |
-| P2 | `ChartAxis`, `LegendPosition`, the `axes`, `legend`, `pivot_source` and `style` fields; the sample's remaining fields; the catalogue | PLANNED |
+| P2 | `ChartAxis`, `LegendPosition`, the `axes`, `legend`, `pivot_source` and `style` fields; the sample's remaining fields; the catalogue | DONE 2026-10-13 (doc d148ad1, crate 60ad190, tool 27569d2, record 1e0b03c; 38 chart tests, 14 of 14 plants caught; axes 44, legends 15, pivot charts 5, 22 of 22 figures met; scan PASS; rulings M to Y) |
 | P3 | `probe-emend-charts-write-xml`, the size record, the API listing rerun, the CHANGELOG bullet, the samples with the release binaries | PLANNED |
 | Close | close-out push after P3, carrying 017e480, base 742051b by its subject, `PREV` `^M5 part 2 close-out record`, no Excel-record check | PLANNED |
 
