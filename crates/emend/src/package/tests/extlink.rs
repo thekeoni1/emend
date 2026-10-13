@@ -81,7 +81,7 @@ fn link_parts_in(
         ));
         workbook_rels.push_str(&relationship(
             &format!("rIdE{n}"),
-            &format!("{ATTR_NS}/externalLink"),
+            &format!("{attr}/externalLink"),
             &link_part(n)[3..],
         ));
         parts.push((link_part(n).into_bytes(), link.body.clone().into_bytes()));
@@ -283,7 +283,13 @@ fn the_strict_namespace_is_read() {
             ATTR_STRICT,
             "<externalBook r:id=\"rId1\"><sheetNames><sheetName val=\"S\"/></sheetNames></externalBook>",
         ),
-        rels: path_rels("e.xlsx"),
+        // The relationship types strict as well, the workbook's to the link
+        // part among them.
+        rels: rels(&external(
+            "rId1",
+            &format!("{ATTR_STRICT}/externalLinkPath"),
+            "e.xlsx",
+        )),
     };
     let references = "<externalReferences><externalReference r:id=\"rIdE1\"/></externalReferences>";
     let mut package = package(link_parts_in(MAIN_STRICT, ATTR_STRICT, references, &[link]));
@@ -306,20 +312,51 @@ fn a_reference_with_no_id_or_naming_no_link_relationship_is_refused() {
         "<externalReferences><externalReference/></externalReferences>",
         // An r:id naming no relationship.
         "<externalReferences><externalReference r:id=\"rIdX\"/></externalReferences>",
-        // An r:id of another type: the worksheet's.
-        "<externalReferences><externalReference r:id=\"rId1\"/></externalReferences>",
+        // An r:id of another type naming the link part itself, which reads
+        // when its type is not checked.
+        "<externalReferences><externalReference r:id=\"rIdW\"/></externalReferences>",
     ] {
-        let mut package = package(link_parts_in(MAIN_NS, ATTR_NS, references, &links));
+        let mut parts = link_parts_in(MAIN_NS, ATTR_NS, references, &links);
+        set(
+            &mut parts,
+            b"xl/_rels/workbook.xml.rels",
+            rels(&format!(
+                "{}{}{}{}",
+                relationship(
+                    "rId1",
+                    &format!("{ATTR_NS}/worksheet"),
+                    "worksheets/sheet1.xml"
+                ),
+                relationship("rId2", &format!("{ATTR_NS}/styles"), "styles.xml"),
+                relationship(
+                    "rIdE1",
+                    &format!("{ATTR_NS}/externalLink"),
+                    "externalLinks/externalLink1.xml"
+                ),
+                relationship(
+                    "rIdW",
+                    &format!("{ATTR_NS}/styles"),
+                    "externalLinks/externalLink1.xml"
+                ),
+            )),
+        );
+        let mut package = package(parts);
         assert_package(package.external_links().expect_err("refused"), UNREADABLE);
     }
 }
 
 #[test]
 fn a_root_outside_the_main_namespace_or_of_another_name_is_refused() {
+    // Each root holds a book the main namespace names, so only the root's
+    // own namespace or name refuses the part.
     for body in [
-        link_in("urn:other", ATTR_NS, "<externalBook r:id=\"rId1\"/>"),
         format!(
-            "{DECLARATION}\n<externalBook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\" r:id=\"rId1\"/>"
+            "{DECLARATION}\n<o:externalLink xmlns:o=\"urn:other\" xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             <externalBook r:id=\"rId1\"/></o:externalLink>"
+        ),
+        format!(
+            "{DECLARATION}\n<externalLinks xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             <externalBook r:id=\"rId1\"/></externalLinks>"
         ),
     ] {
         let link = Link {
