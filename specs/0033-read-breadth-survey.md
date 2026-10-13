@@ -944,6 +944,87 @@ planning's i686 release emend-copy hashed as the run log's
 (bcbda148); planning's privacy scan of the eight commits through
 the record: 1661 blobs, 0 findings. P3 DONE.
 
+## Planning rulings on the close-out (2026-10-13)
+
+Verified by planning from the phase directory: the doc commit 742051b
+holds specs/0033 (9ab1e5b5) and ROADMAP.md (6a37d58a) and nothing
+else, the tree clean; gen.py (b3ca0a8c) replayed by planning with
+python3 -I -B gives the three scripts byte-equal (push 02495bd2, ci
+7fec4eea, scan b1ac5357); the generated scripts differ from the
+carried ones only by changes 33 to 36 (non-comment lines; 34 the
+target root, 35 the TMPDIR block of P1 ruling 12); push.log (a9f94952)
+prints the 19 commits of c02942e..742051b, 3f2082e once, identity 19
+of 19, privacy 19 commits 1680 blobs 0 findings, the nine PASS lines,
+the tree clean before and after, no ": no" line; scan-pre.log
+(e2d0722e) RESULT PASS, 0 hits, 0 structural failures.
+
+1. Check 1a BLOCKING, accepted: dry run 1 FAILED (change 35's count
+   matched its own fixture literal) and is hashed only in the report
+   and superseded/dry-1 (SHA256SUMS 0a1cbf57), not in a logged step's
+   own log through RERUN (specs/0032 P3 verification ruling 1). The
+   fix as proposed: the logged attempt 1 (push.log a9f94952,
+   scan-pre.log e2d0722e) superseded with hashes; run-pre.sh rerun
+   with RERUN_NOTE naming dry run 1 as the failed attempt and attempt
+   1 as passed and superseded by this rerun, RERUN_FILES naming dry-1's
+   push.log, scan-pre.log and SHA256SUMS.txt and attempt 1's two logs;
+   no script change. NO second check: the scripts are unchanged and
+   the check found every required line; planning verifies the rerun's
+   logs against attempt 1's (the rerun lines, the times and the hashes
+   derived from them the only differences).
+2. Check point 2 (the draft's "no gate in the close-out"): corrected
+   in the report, the unsourced items marked as the session's
+   statements; accepted.
+3. 1b (the counting library's mktemp not counted in the close-out):
+   as P2 ruling 7 reads, the gate log's line alone; the close-out has
+   no gate log; the "one mktemp" wording means the script's own call.
+4. 1c (the TMPDIR-equals check cannot fail) and 1e (the count's
+   pattern fits only the form these scripts use): accepted as
+   harmless; a script that uses another mktemp form widens the
+   pattern then.
+5. The prune of this part's four target roots (m5p2-p1, p2, p3 and
+   m5p2-close) at the next part's first gate that builds: ruled in
+   planning's brief of 2026-10-13, recorded here, in the spec at the
+   next doc commit; the report cites the brief, not the spec.
+6. Attempt 2 verified by planning (2026-10-13): push.log 18aaf756
+   (1280 lines) and scan-pre.log 48dab2ef (2101 lines) differ from
+   attempt 1's only by the run times, the rerun line, the five hash
+   lines of the superseded files (dry-1 push.log 9d7ceba3, scan-pre.log
+   113daa13, SHA256SUMS 0a1cbf57; attempt-1 push.log a9f94952,
+   scan-pre.log e2d0722e), the line naming push.log's hash and "run
+   ended"; both exit 0, stderr 0 bytes, no ": no" line, RESULT PASS 0
+   hits 0 structural; the scripts and gen.py unchanged; the report
+   (42676829) ASCII. Planning's word: the scripts and the pre-mode
+   logs are accepted; the push of c02942e..742051b (19 commits,
+   carrying 3f2082e) may proceed once the maintainer types
+   MAINTAINER_AUTH in the implementing session. After the push: the CI
+   run log, the post-push scan, the record commit "M5 part 2
+   close-out record: the push, the CI run and the scan" holding the
+   three logs only.
+7. The push, the CI run, the scan and the record commit verified by
+   planning (2026-10-13) from git, gh, the three committed logs and
+   its own blob scan: push.log (2178e73a, 1363 lines) is attempt 2's
+   pre log (its first 1280 lines hash 18aaf756) with push mode
+   appended; push mode records the maintainer's words typed in the
+   implementing session, "push 10/13/2026" (10/13/2026), the hook's
+   range c02942e..742051b, 19 commits 1680 blobs 0 findings, git's
+   "c02942e..742051b  main -> main", remote main equal to local,
+   the repository PRIVATE, the tree clean, stderr 0 bytes, no ": no"
+   line; ci-run.log (9d201ab8, 730 lines): one ci.yml run on
+   742051b, run 38392560343, main push success, 0 steps other than
+   success or skipped, the privacy step skipped as CI mode requires;
+   planning's own gh query agrees (completed, success, push, main,
+   742051b); scan.log (ece53b9c, 2110 lines): stage post, origin/main
+   the phase commit, RESULT PASS, 0 hits, 0 errors, 0 structural;
+   it differs from scan-pre.log only by the stage, origin/main, the
+   times, the absent rerun block (the post run is no rerun) and the
+   scan of ci-run.log. The record commit 017e480 holds the three logs
+   only, each cmp-equal to the phase directory's; its message (ASCII,
+   Co-Authored-By only) names gen.py, the three scripts, dry run 1 and
+   attempt 1 by full hash; planning's privacy scan of 742051b..017e480:
+   1 commit, 1652 blobs, 0 findings. No independent check on this
+   step (ruling 1). origin/main is 742051b; 017e480 is local and goes
+   with part 3's push. M5 part 2 close-out DONE.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-12: 1, 2 and 3 as recommended (A

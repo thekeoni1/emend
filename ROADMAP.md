@@ -951,7 +951,7 @@ restored by the part whose push the maintainer makes it gate.
 | P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | DONE (phase 2c31aad, record 24b927c, 2026-10-10; `records/size-m4p2-2026-10-10-2c31aad.md` 0 of 28 moved; the package 56 files, 522253 bytes, verify build and publish dry run exit 0; finding: a package built outside a git checkout drops `template/_rels/.rels`, carried to the publish step, `specs/0031` P2 rulings 1 and 7) |
 | Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | DONE (doc ac5dc0d, pushed e4ab25b..ac5dc0d 10 commits 2026-10-11, 1568 blobs, 0 findings; CI run 38161194914 success; scan PASS with change 27's whole-word denylist form; pre attempt 1 superseded on the scan's own placeholder check, kept outside the repository; record b0f0b1f local, goes with the next push; decision 1 HOLD, `publish = false` stays; verified by planning from git, `gh`, the three logs and its own scan; `specs/0031` "Planning verification and rulings on the close-out") |
 
-## Milestone 5: charts and read breadth (APPROVED 2026-10-11; part 1 DONE 2026-10-12; part 2 IN PROGRESS from 2026-10-12)
+## Milestone 5: charts and read breadth (APPROVED 2026-10-11; part 1 DONE 2026-10-12; part 2 DONE 2026-10-13; part 3 IN PROGRESS from 2026-10-13)
 
 Theme chosen by the maintainer 2026-10-11 after Milestone 4's
 close-out, from planning's reading of emend against openpyxl: the
@@ -985,7 +985,7 @@ A); a colour the file defines no RGB for resolves to `None`
 | P3 | the catalogue, the probe grown, the size record, the API listing rerun, the CHANGELOG bullet, both samples with the release binaries; the carry from P2 (the long-override test and doc clause, the catalogue reflow) | DONE (phase 6f51899, record 2dfca6c, 2026-10-12; `records/size-m5p1-2026-10-12-6f51899.md`: core growth 0, budget 436992 with 21760 under, `read` costs 70044 section bytes; `records/api-review-m5p1-2026-10-12-6f51899.md` 567 rows, 24 new; both samples byte-identical to P1's and P2's runs on both targets; tests 515, 585, 623, 957, workspace 1157; verified by planning from the diffs, the six logs, its own build, its own sample runs and its own three size probes reproducing the record's figures to the byte; `specs/0032` "Planning verification and rulings on P3", rulings 1 to 10) |
 | Close | close-out push after P3, carrying b0f0b1f, base ac5dc0d by its subject, `PREV` `^M4 part 2 close-out record`, no Excel-record check | DONE 2026-10-12 (doc c02942e pushed, origin/main ac5dc0d..c02942e, 15 commits, 1630 blobs, 0 findings; CI run 38245207259 success; the post-push scan PASS; record 3f2082e local, goes with part 2's push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0032` "Planning rulings on the close-out", rulings 1 to 9) |
 
-### Part 2: read breadth B (`specs/0033-read-breadth-survey.md`, APPROVED 2026-10-12, decisions 1 to 3 A; IN PROGRESS from 2026-10-12)
+### Part 2: read breadth B (`specs/0033-read-breadth-survey.md`, APPROVED 2026-10-12, decisions 1 to 3 A; DONE 2026-10-13)
 
 A workbook survey call naming which part kinds the package holds,
 with counts, from the content types and the relationships alone
@@ -1005,14 +1005,28 @@ only; the `read` feature grows (decision 1 A); no writer changes.
 | P1 | `PartKinds`, `part_kinds`, `SheetParts`, `sheet_parts`, the relationship constants; `--kinds-sample`; the prune of part 1's four target roots; the `TMPDIR` line and the `python3 -B` gate check | DONE (phase 3865f30, record 0264870, 2026-10-12; 27 of 27 ok on both targets, 870 entries identical, the tool and the check agree 27, planning's figures met 24 of 24 after ruling 1 (custom_xml 30 in 10 was the right count); tests 515, 594, 632, 966 both targets, workspace 1168; 9 crate tests and 2 tool tests added; the committed scripts call `python3 -I -B`, the gate self-test 50 cases PASS; verified by planning from the diffs, the six logs, its own build, its own corpus run byte-identical and its own privacy scan of 1624 blobs; `specs/0033` "Planning rulings on P1", rulings 1 to 12: the tool test's comment fix carried to P2, the mktemp file check from P2) |
 | P2 | the pivot types, `pivot_tables`, "a pivot table cannot be read"; `--pivot-sample`; the carry from P1 (the tool test's comment) | DONE (phase 61d23fc, record c4d67b6, 2026-10-12; 27 of 27 ok on both targets, outputs byte-identical across targets, the tool and the check agree 27, planning's pivot figures met 18 of 18 after ruling 1 (`data_field_flags` 10 in 3 was the right count), kinds 24 of 24; tests 515, 608, 646, 980 both targets, workspace 1184; 14 crate tests and 2 tool tests added; the keep one new pair, 0 changed, open check 0 findings; verified by planning from the diffs, the six logs, its own build, its own corpus run byte-identical and its own privacy scan of 1633 blobs; `specs/0033` "Planning rulings on P2", rulings 1 to 10: the catalogue entry and the counting library's mktemp line to P3) |
 | P3 | the external link types, `external_links`, "an external link cannot be read"; `--extlink-sample` with the generated fixture; the catalogue, the probe grown, the size record, the API listing rerun, the CHANGELOG bullet, the three samples with the release binaries | DONE (phase f35de0d, record 38b01c7, 2026-10-13; the phase ran twice: the first independent check found two refusals with no failing test, fixed in the tests-only phase commit and every log rerun; extlinks 0 in 27 workbooks, 9 of 9 figures, the generated fixture read on both targets; kinds 24 of 24, pivots 18 of 18; the three samples with the release binaries byte-identical to P1's, P2's and this phase's runs on both targets; tests 515, 618, 656, 990 both targets, workspace 1196; 10 crate tests and 2 tool tests added; API listing 660 (7 cfg-widened, 93 new); size: core growth 0, budget 436992 (21760 under), the feature `read` 112600, a FINDING above the 110000 line (planning's estimate missed; ruling 1); verified by planning from the diffs, the eight logs, its own build, its own corpus runs byte-identical and its own privacy scan of 1661 blobs; `specs/0033` "Planning rulings during P3" A to C and "Planning verification and rulings on P3" 1 to 6) |
-| Close | close-out push after P3, carrying 3f2082e, base c02942e by its subject, `PREV` `^M5 part 1 close-out record`, no Excel-record check | IN PROGRESS (from 2026-10-13) |
+| Close | close-out push after P3, carrying 3f2082e, base c02942e by its subject, `PREV` `^M5 part 1 close-out record`, no Excel-record check | DONE 2026-10-13 (doc 742051b pushed, origin/main c02942e..742051b, 19 commits, 1680 blobs, 0 findings; CI run 38392560343 success; the post-push scan PASS; record 017e480 local, goes with part 3's push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0033` "Planning rulings on the close-out") |
 
-### Part 3: charts read (planned)
+### Part 3: charts read (`specs/0034-charts-read.md`, APPROVED 2026-10-13, decisions 1 to 3 A; IN PROGRESS from 2026-10-13)
 
-The feature `charts`: per sheet, each chart's kind, title, series
-with their cell ranges, axes and anchor, read from the drawing and
-chart parts. Proven by reading every chart in the corpus and
-writing each workbook back byte-identical.
+The feature `charts`, off by default, measured by a new probe: per
+worksheet, each chart's anchor, its plots (kind, bar direction,
+grouping, scatter style, series with their references, names,
+cached point counts, solid fill and flags), its title, axes (kind,
+position, title, number format, bounds), legend, pivot source and
+style, read from the drawing and chart parts (`Package::charts`).
+The corpus holds 26 charts in 11 workbooks (28 plots, 39 series,
+44 axes, 5 pivot charts), every one reached from a worksheet's
+drawing; chartsheets (corpus 0) and the cached values stay out
+(decisions 2 and 3 A). Proven by reading every chart in the corpus
+and writing each workbook back byte-identical.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the feature, the drawing walk shared with `images`, `ChartEntry`, `ChartAnchor`, `Chart`, `Plot`, `Series`, `Data` and the enumerations, `charts`, "a chart cannot be read"; `--charts-sample`; the prune of part 2's four target roots | PLANNED |
+| P2 | `ChartAxis`, `LegendPosition`, the `axes`, `legend`, `pivot_source` and `style` fields; the sample's remaining fields; the catalogue | PLANNED |
+| P3 | `probe-emend-charts-write-xml`, the size record, the API listing rerun, the CHANGELOG bullet, the samples with the release binaries | PLANNED |
+| Close | close-out push after P3, carrying 017e480, base 742051b by its subject, `PREV` `^M5 part 2 close-out record`, no Excel-record check | PLANNED |
 
 ### Part 4: charts write, the first set (planned)
 
