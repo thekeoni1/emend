@@ -6,12 +6,15 @@
 //! once for its anchors: each root anchor, or the first anchor in a root
 //! `AlternateContent`'s first `Choice` (P1 ruling A), whose `graphicFrame`
 //! holds a `c:chart`, gives one chart. Each chart part the anchors name is
-//! then streamed once: the title, the plots and their series are kept and
-//! every other child is walked past with its subtree, so what is held is
-//! bounded by the series and their strings, not by the caches, whose points
-//! are never read. No `AlternateContent` below the drawing's root anchors
-//! or the chart part's root is entered, its `Fallback` never. The chart
-//! style, colour style and user shapes parts are never opened.
+//! then streamed once: the title, the plots and their series, the axes, the
+//! legend's position, the pivot source and the style are kept and every
+//! other child is walked past with its subtree, so what is held is bounded
+//! by the series, the axes and their strings, not by the caches, whose
+//! points are never read. An `AlternateContent` at the chart part's root
+//! is entered at its first `Choice` for the style alone; none below the
+//! drawing's root anchors or the chart part's root children is entered,
+//! and a `Fallback` never. The chart style, colour style and user shapes
+//! parts are never opened.
 
 use std::io::{Read, Seek};
 
@@ -35,6 +38,10 @@ const CHART_NAMESPACE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/drawingml/2006/chart",
     b"http://purl.oclc.org/ooxml/drawingml/chart",
 ];
+
+/// The Office 2007 chart extension namespace, whose `style` an `mc:Choice`
+/// at the chart part's root carries (`c14:style`).
+const CHART_2007_NAMESPACE: &[u8] = b"http://schemas.microsoft.com/office/drawing/2007/8/2/chart";
 
 /// One chart of a worksheet's drawing: its part, its anchor and what the
 /// part says. The Cargo feature `charts`.
@@ -77,6 +84,19 @@ pub struct Chart {
     pub auto_title_deleted: bool,
     /// The `plotArea`'s plot children, in order.
     pub plots: Vec<Plot>,
+    /// The `plotArea`'s axes (`catAx`, `valAx`, `dateAx`, `serAx`), in
+    /// order.
+    pub axes: Vec<ChartAxis>,
+    /// The `legend`'s `legendPos`, `Right` (the schema's default) for a
+    /// legend without one; `None` for no `legend`.
+    pub legend: Option<LegendPosition>,
+    /// `pivotSource`'s `name`, as written: the pivot table a pivot chart
+    /// shows; `None` for no `pivotSource`.
+    pub pivot_source: Option<String>,
+    /// The chart part's `style` `val`: a root `c:style`, or the `style` of
+    /// the first `Choice` of a root `mc:AlternateContent` (`c14:style`), its
+    /// `Fallback` not read; `None` for neither.
+    pub style: Option<u32>,
 }
 
 /// One plot of a chart's `plotArea`. The Cargo feature `charts`.
@@ -100,6 +120,74 @@ pub struct Plot {
     /// signed decimal integer, since Excel writes the signed 32-bit value it
     /// holds where the schema says unsigned (P1 ruling C).
     pub axis_ids: Vec<i64>,
+}
+
+/// One axis of a chart's `plotArea`. The Cargo feature `charts`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChartAxis {
+    /// `axId`, as written: an optionally signed decimal integer (P1 ruling
+    /// C).
+    pub id: i64,
+    /// The axis element read.
+    pub kind: AxisKind,
+    /// `axPos`.
+    pub position: AxisPosition,
+    /// `crossAx`: the `id` of the axis this one crosses, as written (P1
+    /// ruling C).
+    pub crosses: i64,
+    /// The axis title's text, as [`Chart::title`] reads a title.
+    pub title: Option<String>,
+    /// `numFmt`'s `formatCode`, as written; `None` for no `numFmt`.
+    pub number_format: Option<String>,
+    /// `scaling/min`'s `val`.
+    pub min: Option<f64>,
+    /// `scaling/max`'s `val`.
+    pub max: Option<f64>,
+    /// `delete`; false when absent.
+    pub deleted: bool,
+    /// Whether a `majorGridlines` element is present.
+    pub major_gridlines: bool,
+}
+
+/// The axis elements of a `plotArea`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AxisKind {
+    /// `catAx`.
+    Category,
+    /// `valAx`.
+    Value,
+    /// `dateAx`.
+    Date,
+    /// `serAx`.
+    Series,
+}
+
+/// An axis's `axPos`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AxisPosition {
+    /// `b`.
+    Bottom,
+    /// `l`.
+    Left,
+    /// `r`.
+    Right,
+    /// `t`.
+    Top,
+}
+
+/// A legend's `legendPos`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LegendPosition {
+    /// `b`.
+    Bottom,
+    /// `l`.
+    Left,
+    /// `r`, the schema's default.
+    Right,
+    /// `t`.
+    Top,
+    /// `tr`.
+    TopRight,
 }
 
 /// The plot elements of a `plotArea`. The Cargo feature `charts`.
@@ -250,11 +338,15 @@ impl<R: Read + Seek> Package<R> {
     /// `r:id` or naming no internal `chart` relationship, or one whose part
     /// is missing; a chart part whose root is not `chartSpace`, with no
     /// `chart` or no `plotArea`; a `ser` with no `idx` or `order`; a
-    /// reference form with no `f`; a series with both `cat` and `xVal`; a
-    /// `grouping`, `barDir` or `scatterStyle` value outside its set; an
-    /// `idx`, `order`, `ptCount` or `srgbClr` value that is not a number, an
-    /// `axId` that is not a decimal integer an `i64` holds (P1 ruling C),
-    /// and a boolean `val` that is not one. "no such part" for a part the
+    /// reference form with no `f`; a series with both `cat` and `xVal`; an
+    /// axis with no `axId`, `axPos` or `crossAx`; a `crosses` with no `val`,
+    /// a `numFmt` with no `formatCode` and a `pivotSource` with no `name`
+    /// (P2 ruling N); a `grouping`, `barDir`,
+    /// `scatterStyle`, `axPos`, `legendPos` or `crosses` value outside its
+    /// set; an `idx`, `order`, `ptCount`, `style`, `min`, `max` or `srgbClr`
+    /// value that is not a number, an `axId` or `crossAx` that is not a
+    /// decimal integer an `i64` holds (P1 ruling C), and a boolean `val`
+    /// that is not one; a plot's `axId` naming no axis of the chart. "no such part" for a part the
     /// archive lacks; "the worksheet part's root is not worksheet"
     /// for any other part, a chartsheet included (P1 ruling B); "a
     /// worksheet has two drawing elements" and "a drawing part or its
@@ -308,6 +400,7 @@ impl Parts<'_> {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Space {
     Chart,
+    Chart2007,
     Main,
     Drawing,
     Compat,
@@ -330,6 +423,7 @@ impl Node {
         let (namespace, local) = scope.resolve_element(start.name())?;
         let space = match namespace {
             Some(namespace) if CHART_NAMESPACE.contains(&namespace) => Space::Chart,
+            Some(CHART_2007_NAMESPACE) => Space::Chart2007,
             Some(namespace) if DRAWINGML.contains(&namespace) => Space::Main,
             Some(namespace) if SPREADSHEET_DRAWING.contains(&namespace) => Space::Drawing,
             Some(namespace) if namespace == MARKUP_COMPATIBILITY => Space::Compat,
@@ -490,9 +584,11 @@ fn text<R: Read>(
     if !open(scope, node) {
         return Ok(String::new());
     }
+    // `text_of`'s own refusals (an element inside, a reference it cannot
+    // expand) become `refusal`; a stream's error passes through.
     text_of(stream, scope, index).map_err(|error| match error {
-        Error::Package(_) => refusal,
-        other => other,
+        Error::Xml(_) | Error::Io(_) => error,
+        _ => refusal,
     })
 }
 
@@ -697,16 +793,79 @@ fn read_chart(input: impl Read, index: usize) -> Result<Chart, Error> {
         return Err(CHART_UNREADABLE);
     }
     let mut chart = None;
+    let (mut pivot_source, mut style) = (None, None);
     if open(&mut scope, &root) {
         while let Some(node) = child(&mut stream, &mut scope, index)? {
             if chart.is_none() && node.chart(b"chart") {
                 chart = Some(read_chart_element(&mut stream, &mut scope, index, &node)?);
+            } else if node.chart(b"pivotSource") {
+                pivot_source = Some(read_pivot_source(&mut stream, &mut scope, index, &node)?);
+            } else if style.is_none() && node.chart(b"style") {
+                style = Some(node.val()?);
+                past(&mut stream, &mut scope, index, &node)?;
+            } else if style.is_none() && node.is(Space::Compat, b"AlternateContent") {
+                style = read_style_choice(&mut stream, &mut scope, index, &node)?;
             } else {
                 past(&mut stream, &mut scope, index, &node)?;
             }
         }
     }
-    chart.ok_or(CHART_UNREADABLE)
+    let mut chart = chart.ok_or(CHART_UNREADABLE)?;
+    chart.pivot_source = pivot_source;
+    chart.style = style;
+    Ok(chart)
+}
+
+/// Reads a `pivotSource`, its start given to `scope`, through its end tag:
+/// its `name`'s text, which it must have (P2 ruling N).
+fn read_pivot_source<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    node: &Node,
+) -> Result<String, Error> {
+    let mut name = None;
+    if open(scope, node) {
+        while let Some(inner) = child(stream, scope, index)? {
+            if inner.chart(b"name") {
+                name = Some(text(stream, scope, index, &inner, CHART_UNREADABLE)?);
+            } else {
+                past(stream, scope, index, &inner)?;
+            }
+        }
+    }
+    name.ok_or(CHART_UNREADABLE)
+}
+
+/// Reads a root `mc:AlternateContent`, its start given to `scope`, through
+/// its end tag: the `val` of the first `style` (either chart namespace or
+/// the 2007 extension's) in its first `Choice`; the other branches and the
+/// `Fallback` are walked past.
+fn read_style_choice<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    node: &Node,
+) -> Result<Option<u32>, Error> {
+    let mut style = None;
+    let mut choices = 0u32;
+    if !open(scope, node) {
+        return Ok(style);
+    }
+    while let Some(branch) = child(stream, scope, index)? {
+        let choice = branch.is(Space::Compat, b"Choice");
+        choices += u32::from(choice);
+        if !enter(stream, scope, index, &branch, choice && choices == 1)? {
+            continue;
+        }
+        while let Some(inner) = child(stream, scope, index)? {
+            if style.is_none() && (inner.chart(b"style") || inner.is(Space::Chart2007, b"style")) {
+                style = Some(inner.val()?);
+            }
+            past(stream, scope, index, &inner)?;
+        }
+    }
+    Ok(style)
 }
 
 /// Reads a `c:chart`, its start given to `scope`, through its end tag.
@@ -719,6 +878,7 @@ fn read_chart_element<R: Read>(
     let mut title = None;
     let mut auto_title_deleted = false;
     let mut plots = None;
+    let mut legend = None;
     if open(scope, node) {
         while let Some(inner) = child(stream, scope, index)? {
             if inner.chart(b"title") {
@@ -728,16 +888,50 @@ fn read_chart_element<R: Read>(
                 past(stream, scope, index, &inner)?;
             } else if plots.is_none() && inner.chart(b"plotArea") {
                 plots = Some(read_plot_area(stream, scope, index, &inner)?);
+            } else if inner.chart(b"legend") {
+                legend = Some(read_legend(stream, scope, index, &inner)?);
             } else {
                 past(stream, scope, index, &inner)?;
             }
         }
     }
+    let (plots, axes) = plots.ok_or(CHART_UNREADABLE)?;
     Ok(Chart {
         title,
         auto_title_deleted,
-        plots: plots.ok_or(CHART_UNREADABLE)?,
+        plots,
+        axes,
+        legend,
+        pivot_source: None,
+        style: None,
     })
+}
+
+/// Reads a `legend`, its start given to `scope`, through its end tag: its
+/// `legendPos`, `Right` without one.
+fn read_legend<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    node: &Node,
+) -> Result<LegendPosition, Error> {
+    let mut position = LegendPosition::Right;
+    if open(scope, node) {
+        while let Some(inner) = child(stream, scope, index)? {
+            if inner.chart(b"legendPos") {
+                position = match inner.value(b"val") {
+                    Some("b") => LegendPosition::Bottom,
+                    Some("l") => LegendPosition::Left,
+                    None | Some("r") => LegendPosition::Right,
+                    Some("t") => LegendPosition::Top,
+                    Some("tr") => LegendPosition::TopRight,
+                    Some(_) => return Err(CHART_UNREADABLE),
+                };
+            }
+            past(stream, scope, index, &inner)?;
+        }
+    }
+    Ok(position)
 }
 
 /// Reads a `title`, its start given to `scope`, through its end tag: its
@@ -872,24 +1066,137 @@ fn plot_kind(node: &Node) -> Option<ChartKind> {
     })
 }
 
+/// The axis kind of a `plotArea` child.
+fn axis_kind(node: &Node) -> Option<AxisKind> {
+    if node.space != Space::Chart {
+        return None;
+    }
+    Some(match node.local.as_slice() {
+        b"catAx" => AxisKind::Category,
+        b"valAx" => AxisKind::Value,
+        b"dateAx" => AxisKind::Date,
+        b"serAx" => AxisKind::Series,
+        _ => return None,
+    })
+}
+
 /// Reads a `plotArea`, its start given to `scope`, through its end tag: its
-/// plots, every other child walked past.
+/// plots and its axes, every other child walked past; a plot's `axId`
+/// naming no axis cannot be read.
 fn read_plot_area<R: Read>(
     stream: &mut Stream<R>,
     scope: &mut Scope,
     index: usize,
     node: &Node,
-) -> Result<Vec<Plot>, Error> {
+) -> Result<(Vec<Plot>, Vec<ChartAxis>), Error> {
     let mut plots = Vec::new();
+    let mut axes = Vec::new();
     if open(scope, node) {
         while let Some(inner) = child(stream, scope, index)? {
-            match plot_kind(&inner) {
-                Some(kind) => plots.push(read_plot(stream, scope, index, &inner, kind)?),
-                None => past(stream, scope, index, &inner)?,
+            if let Some(kind) = plot_kind(&inner) {
+                plots.push(read_plot(stream, scope, index, &inner, kind)?);
+            } else if let Some(kind) = axis_kind(&inner) {
+                axes.push(read_axis(stream, scope, index, &inner, kind)?);
+            } else {
+                past(stream, scope, index, &inner)?;
             }
         }
     }
-    Ok(plots)
+    let joined = plots
+        .iter()
+        .flat_map(|plot: &Plot| plot.axis_ids.iter())
+        .all(|id| axes.iter().any(|axis: &ChartAxis| axis.id == *id));
+    if !joined {
+        return Err(CHART_UNREADABLE);
+    }
+    Ok((plots, axes))
+}
+
+/// Reads an axis, its start given to `scope`, through its end tag; one with
+/// no `axId`, `axPos` or `crossAx` cannot be read.
+fn read_axis<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    node: &Node,
+    kind: AxisKind,
+) -> Result<ChartAxis, Error> {
+    let (mut id, mut position, mut crosses) = (None, None, None);
+    let mut axis = ChartAxis {
+        id: 0,
+        kind,
+        position: AxisPosition::Bottom,
+        crosses: 0,
+        title: None,
+        number_format: None,
+        min: None,
+        max: None,
+        deleted: false,
+        major_gridlines: false,
+    };
+    if open(scope, node) {
+        while let Some(inner) = child(stream, scope, index)? {
+            if inner.chart(b"axId") {
+                id = Some(inner.val()?);
+            } else if inner.chart(b"crossAx") {
+                crosses = Some(inner.val()?);
+            } else if inner.chart(b"axPos") {
+                position = Some(match inner.value(b"val") {
+                    Some("b") => AxisPosition::Bottom,
+                    Some("l") => AxisPosition::Left,
+                    Some("r") => AxisPosition::Right,
+                    Some("t") => AxisPosition::Top,
+                    _ => return Err(CHART_UNREADABLE),
+                });
+            } else if inner.chart(b"crosses") {
+                // A `crosses` with no `val` is refused (P2 ruling N).
+                if !matches!(inner.value(b"val"), Some("autoZero" | "max" | "min")) {
+                    return Err(CHART_UNREADABLE);
+                }
+            } else if inner.chart(b"delete") {
+                axis.deleted = inner.flag()?;
+            } else if inner.chart(b"majorGridlines") {
+                axis.major_gridlines = true;
+            } else if inner.chart(b"numFmt") {
+                // A `numFmt` with no `formatCode` is refused (P2 ruling N).
+                let format = inner.value(b"formatCode").ok_or(CHART_UNREADABLE)?;
+                axis.number_format = Some(format.to_owned());
+            } else if inner.chart(b"title") {
+                axis.title = read_title(stream, scope, index, &inner)?;
+                continue;
+            } else if inner.chart(b"scaling") {
+                (axis.min, axis.max) = read_scaling(stream, scope, index, &inner)?;
+                continue;
+            }
+            past(stream, scope, index, &inner)?;
+        }
+    }
+    axis.id = id.ok_or(CHART_UNREADABLE)?;
+    axis.position = position.ok_or(CHART_UNREADABLE)?;
+    axis.crosses = crosses.ok_or(CHART_UNREADABLE)?;
+    Ok(axis)
+}
+
+/// Reads an axis's `scaling`, its start given to `scope`, through its end
+/// tag: its `min` and `max` values.
+fn read_scaling<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    node: &Node,
+) -> Result<(Option<f64>, Option<f64>), Error> {
+    let (mut min, mut max) = (None, None);
+    if open(scope, node) {
+        while let Some(inner) = child(stream, scope, index)? {
+            if inner.chart(b"min") {
+                min = Some(inner.val()?);
+            } else if inner.chart(b"max") {
+                max = Some(inner.val()?);
+            }
+            past(stream, scope, index, &inner)?;
+        }
+    }
+    Ok((min, max))
 }
 
 /// Reads a plot, its start given to `scope`, through its end tag.

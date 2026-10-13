@@ -1,5 +1,7 @@
 //! Charts on byte-built packages (`specs/0034-charts-read.md`, "P1: the
-//! feature, the anchors, the plots and series", and P1 rulings A and B):
+//! feature, the anchors, the plots and series", "P2: axes, legend, pivot
+//! source, style; the catalogue", P1 rulings A and B, and the P1
+//! verification's rulings E and G, carried to P2):
 //! each test builds the smallest package whose worksheet names a drawing
 //! part holding the anchors it gives, with a chart part per `c:chart`, and
 //! reads the sheet's charts. Every content is fictional. The Cargo feature
@@ -7,8 +9,8 @@
 
 use super::*;
 use crate::package::{
-    Anchor, BarDirection, Chart, ChartAnchor, ChartEntry, ChartKind, Data, EditAs, Grouping, Plot,
-    ScatterStyle, Series, SeriesName,
+    Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
+    ChartKind, Data, EditAs, Grouping, LegendPosition, Plot, ScatterStyle, Series, SeriesName,
 };
 
 /// The drawing and chart parts' content types.
@@ -128,9 +130,15 @@ fn anchored(id: &str) -> String {
 
 /// A chart part in `c`'s namespace whose `c:chart` holds `body`.
 fn chart_in(c: &str, body: &str) -> String {
+    chart_space(c, "", body)
+}
+
+/// A chart part in `c`'s namespace with the root children `before` ahead
+/// of its `c:chart`, which holds `body`, as Excel orders them.
+fn chart_space(c: &str, before: &str, body: &str) -> String {
     format!(
         "{DECLARATION}\n<c:chartSpace xmlns:c=\"{c}\" xmlns:a=\"{A_NS}\" xmlns:r=\"{ATTR_NS}\">\
-         <c:date1904 val=\"0\"/><c:lang val=\"en-US\"/><c:roundedCorners val=\"0\"/>\
+         <c:date1904 val=\"0\"/><c:lang val=\"en-US\"/><c:roundedCorners val=\"0\"/>{before}\
          <c:chart>{body}</c:chart><c:printSettings><c:headerFooter/></c:printSettings>\
          </c:chartSpace>"
     )
@@ -139,12 +147,35 @@ fn chart_xml(body: &str) -> String {
     chart_in(C_NS, body)
 }
 
-/// A chart part whose `plotArea` holds `plots`.
+/// A chart part whose `plotArea` holds `plots` and the two axes `plot`'s
+/// ids name.
 fn plots_xml(plots: &str) -> String {
+    axes_xml(
+        plots,
+        &format!(
+            "{}{}",
+            axis("catAx", 10, "b", 20, ""),
+            axis("valAx", 20, "l", 10, "")
+        ),
+    )
+}
+
+/// A chart part whose `plotArea` holds `plots` and then `axes`.
+fn axes_xml(plots: &str, axes: &str) -> String {
     chart_xml(&format!(
-        "<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/>{plots}</c:plotArea>\
+        "<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/>{plots}{axes}</c:plotArea>\
          <c:plotVisOnly val=\"1\"/>"
     ))
+}
+
+/// An axis `kind` with `axId` `id`, `axPos` `position`, `crossAx` `crosses`
+/// and the children `inner` after `axPos`, in the schema's order.
+fn axis(kind: &str, id: i64, position: &str, crosses: i64, inner: &str) -> String {
+    format!(
+        "<c:{kind}><c:axId val=\"{id}\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling>\
+         <c:delete val=\"0\"/><c:axPos val=\"{position}\"/>{inner}<c:majorTickMark val=\"out\"/>\
+         <c:crossAx val=\"{crosses}\"/><c:crosses val=\"autoZero\"/></c:{kind}>"
+    )
 }
 
 /// A `ser` with `idx` and `order` both `n` and the children `inner`.
@@ -453,7 +484,7 @@ fn the_strict_namespaces_and_relationship_type_read() {
 /// The `c:chart` body of [`simple`].
 fn simple_body() -> String {
     format!(
-        "<c:plotArea><c:layout/>{}</c:plotArea>",
+        "<c:plotArea><c:layout/>{}{}{}</c:plotArea>",
         plot(
             "barChart",
             "<c:barDir val=\"col\"/>",
@@ -461,7 +492,9 @@ fn simple_body() -> String {
                 0,
                 &format!("<c:val>{}</c:val>", num_ref("Data!$B$2:$B$4", 3))
             )
-        )
+        ),
+        axis("catAx", 10, "b", 20, ""),
+        axis("valAx", 20, "l", 10, "")
     )
 }
 
@@ -512,7 +545,7 @@ fn each_chart_kind_reads() {
 #[test]
 fn a_combined_chart_reads_each_plot_with_its_axis_ids() {
     let plots = plots_of(&format!(
-        "{}{}<c:catAx><c:axId val=\"10\"/></c:catAx><c:valAx><c:axId val=\"20\"/></c:valAx>",
+        "{}{}",
         plot(
             "barChart",
             "<c:barDir val=\"col\"/><c:grouping val=\"clustered\"/><c:varyColors val=\"0\"/>",
@@ -540,10 +573,17 @@ fn a_combined_chart_reads_each_plot_with_its_axis_ids() {
 fn an_axis_id_reads_as_a_signed_integer_as_written() {
     // P1 ruling C: Excel writes the signed 32-bit value it holds; a `+`
     // sign is accepted, as Rust's integer parse accepts it.
-    let plots = plots_of(
+    let plots = one_chart(axes_xml(
         "<c:lineChart><c:axId val=\"-2028358176\"/><c:axId val=\"+7\"/>\
          <c:axId val=\"4294967295\"/></c:lineChart>",
-    );
+        &format!(
+            "{}{}{}",
+            axis("catAx", -2_028_358_176, "b", 7, ""),
+            axis("valAx", 7, "l", -2_028_358_176, ""),
+            axis("serAx", 4_294_967_295, "b", 7, "")
+        ),
+    ))
+    .plots;
     assert_eq!(plots[0].axis_ids, vec![-2_028_358_176, 7, 4_294_967_295]);
 }
 
@@ -1017,4 +1057,268 @@ fn the_series_and_value_refusals_are_refused_with_the_message() {
 #[test]
 fn a_chart_part_that_is_not_well_formed_is_an_xml_error() {
     assert_xml(refused_chart(simple().replace("</c:chartSpace>", "")));
+}
+
+#[test]
+fn a_multi_level_string_reference_without_a_cache_reads_none_cached() {
+    // The P1 verification's ruling G, carried to P2.
+    let series = series_of(&ser(
+        0,
+        "<c:cat><c:multiLvlStrRef><c:f>Data!$A$1:$B$4</c:f></c:multiLvlStrRef></c:cat>",
+    ));
+    assert_eq!(
+        series[0].categories,
+        Some(Data::Reference {
+            formula: "Data!$A$1:$B$4".to_owned(),
+            cached: None,
+        })
+    );
+}
+
+// ------------------------------------------------------------------ the axes
+
+/// The axes of a chart with one line plot naming `ids` and the axes `axes`.
+#[track_caller]
+fn axes_of(ids: &[i64], axes: &str) -> Vec<ChartAxis> {
+    let ids: String = ids
+        .iter()
+        .map(|id| format!("<c:axId val=\"{id}\"/>"))
+        .collect();
+    one_chart(axes_xml(&format!("<c:lineChart>{ids}</c:lineChart>"), axes)).axes
+}
+
+#[test]
+fn a_negative_axis_id_joins_a_negative_cross_axis() {
+    // The P1 verification's ruling E (P1 ruling C's test), carried to P2:
+    // the ids as Excel writes the signed 32-bit values it holds.
+    let axes = axes_of(
+        &[-2_028_358_176, -2_028_359_712],
+        &format!(
+            "{}{}",
+            axis("catAx", -2_028_358_176, "b", -2_028_359_712, ""),
+            axis("valAx", -2_028_359_712, "l", -2_028_358_176, "")
+        ),
+    );
+    assert_eq!(
+        axes.iter()
+            .map(|axis| (axis.id, axis.crosses))
+            .collect::<Vec<_>>(),
+        vec![
+            (-2_028_358_176, -2_028_359_712),
+            (-2_028_359_712, -2_028_358_176)
+        ]
+    );
+}
+
+#[test]
+fn each_axis_kind_and_position_reads() {
+    let axes = axes_of(
+        &[1, 2],
+        &format!(
+            "{}{}{}{}",
+            axis("catAx", 1, "b", 2, ""),
+            axis("valAx", 2, "l", 1, ""),
+            axis("dateAx", 3, "r", 2, ""),
+            axis("serAx", 4, "t", 2, "")
+        ),
+    );
+    assert_eq!(
+        axes.iter()
+            .map(|axis| (axis.id, axis.kind, axis.position))
+            .collect::<Vec<_>>(),
+        vec![
+            (1, AxisKind::Category, AxisPosition::Bottom),
+            (2, AxisKind::Value, AxisPosition::Left),
+            (3, AxisKind::Date, AxisPosition::Right),
+            (4, AxisKind::Series, AxisPosition::Top),
+        ]
+    );
+}
+
+#[test]
+fn an_axis_s_title_number_format_bounds_deletion_and_gridlines_read() {
+    let full = "<c:valAx><c:axId val=\"2\"/><c:scaling><c:orientation val=\"minMax\"/>\
+                <c:max val=\"100.5\"/><c:min val=\"-3\"/></c:scaling><c:delete val=\"1\"/>\
+                <c:axPos val=\"l\"/><c:majorGridlines/><c:title><c:tx><c:rich><a:bodyPr/>\
+                <a:p><a:r><a:t>Units</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/>\
+                </c:title><c:numFmt formatCode=\"0.0%\" sourceLinked=\"0\"/>\
+                <c:majorTickMark val=\"out\"/><c:crossAx val=\"1\"/><c:crosses val=\"max\"/>\
+                </c:valAx>";
+    let axes = axes_of(&[1, 2], &format!("{}{full}", axis("catAx", 1, "b", 2, "")));
+    assert_eq!(
+        axes,
+        vec![
+            ChartAxis {
+                id: 1,
+                kind: AxisKind::Category,
+                position: AxisPosition::Bottom,
+                crosses: 2,
+                title: None,
+                number_format: None,
+                min: None,
+                max: None,
+                deleted: false,
+                major_gridlines: false,
+            },
+            ChartAxis {
+                id: 2,
+                kind: AxisKind::Value,
+                position: AxisPosition::Left,
+                crosses: 1,
+                title: Some("Units".to_owned()),
+                number_format: Some("0.0%".to_owned()),
+                min: Some(-3.0),
+                max: Some(100.5),
+                deleted: true,
+                major_gridlines: true,
+            },
+        ]
+    );
+}
+
+// -------------------------------------------- the legend, pivot source, style
+
+#[test]
+fn each_legend_position_reads_and_one_without_a_position_is_right() {
+    let legend_of = |legend: &str| {
+        one_chart(chart_xml(&format!(
+            "<c:plotArea><c:layout/></c:plotArea>{legend}<c:plotVisOnly val=\"1\"/>"
+        )))
+        .legend
+    };
+    for (value, position) in [
+        ("b", LegendPosition::Bottom),
+        ("l", LegendPosition::Left),
+        ("r", LegendPosition::Right),
+        ("t", LegendPosition::Top),
+        ("tr", LegendPosition::TopRight),
+    ] {
+        assert_eq!(
+            legend_of(&format!(
+                "<c:legend><c:legendPos val=\"{value}\"/><c:overlay val=\"0\"/></c:legend>"
+            )),
+            Some(position)
+        );
+    }
+    assert_eq!(
+        legend_of("<c:legend><c:overlay val=\"0\"/></c:legend>"),
+        Some(LegendPosition::Right)
+    );
+    assert_eq!(legend_of(""), None);
+}
+
+/// A chart part with the root children `before`, around [`simple`]'s body.
+fn with_root(before: &str) -> Chart {
+    one_chart(chart_space(C_NS, before, &simple_body()))
+}
+
+#[test]
+fn a_pivot_source_reads_its_name() {
+    let chart = with_root(
+        "<c:pivotSource><c:name>[Book.xlsx]Pivot!PivotTable1</c:name><c:fmtId val=\"0\"/>\
+         </c:pivotSource>",
+    );
+    assert_eq!(
+        chart.pivot_source.as_deref(),
+        Some("[Book.xlsx]Pivot!PivotTable1")
+    );
+    assert_eq!(with_root("").pivot_source, None);
+}
+
+#[test]
+fn a_style_reads_plain_and_from_the_first_choice_not_the_fallback() {
+    const C14: &str = "http://schemas.microsoft.com/office/drawing/2007/8/2/chart";
+    assert_eq!(with_root("<c:style val=\"2\"/>").style, Some(2));
+    let alternate = |choice: &str| {
+        format!(
+            "<mc:AlternateContent xmlns:mc=\"{MC_NS}\"><mc:Choice Requires=\"c14\" \
+             xmlns:c14=\"{C14}\">{choice}</mc:Choice><mc:Fallback><c:style val=\"2\"/>\
+             </mc:Fallback></mc:AlternateContent>"
+        )
+    };
+    assert_eq!(
+        with_root(&alternate("<c14:style val=\"102\"/>")).style,
+        Some(102)
+    );
+    // A Choice holding no style: the Fallback's is not read.
+    assert_eq!(with_root(&alternate("")).style, None);
+    assert_eq!(with_root("").style, None);
+}
+
+#[test]
+fn the_axis_and_legend_refusals_are_refused_with_the_message() {
+    let line = "<c:lineChart><c:axId val=\"1\"/><c:axId val=\"2\"/></c:lineChart>";
+    let cat = axis("catAx", 1, "b", 2, "");
+    let val = axis("valAx", 2, "l", 1, "");
+    for axes in [
+        // No axId, no axPos, no crossAx.
+        format!("{cat}{}", val.replace("<c:axId val=\"2\"/>", "")),
+        format!("{cat}{}", val.replace("<c:axPos val=\"l\"/>", "")),
+        format!("{cat}{}", val.replace("<c:crossAx val=\"1\"/>", "")),
+        // Values outside their enumerations.
+        format!("{cat}{}", val.replace("val=\"l\"", "val=\"middle\"")),
+        format!("{cat}{}", val.replace("val=\"autoZero\"", "val=\"centre\"")),
+        // Numbers that are not numbers.
+        format!(
+            "{cat}{}",
+            val.replace("<c:axId val=\"2\"/>", "<c:axId val=\"two\"/>")
+        ),
+        format!(
+            "{cat}{}",
+            val.replace("<c:crossAx val=\"1\"/>", "<c:crossAx val=\"1.0\"/>")
+        ),
+        format!(
+            "{cat}{}",
+            val.replace("</c:scaling>", "<c:min val=\"low\"/></c:scaling>")
+        ),
+        // A plot's axId naming no axis of the chart.
+        cat.clone(),
+    ] {
+        assert_package(refused_chart(axes_xml(line, &axes)), UNREADABLE);
+    }
+    for chart in [
+        chart_xml(
+            "<c:plotArea><c:layout/></c:plotArea><c:legend><c:legendPos val=\"centre\"/>\
+             </c:legend>",
+        ),
+        chart_space(C_NS, "<c:style val=\"plain\"/>", &simple_body()),
+    ] {
+        assert_package(refused_chart(chart), UNREADABLE);
+    }
+}
+
+// The three refusals of P2 ruling N: a required value absent.
+
+#[test]
+fn a_crosses_without_a_val_is_refused() {
+    let line = "<c:lineChart><c:axId val=\"1\"/><c:axId val=\"2\"/></c:lineChart>";
+    let axes = format!(
+        "{}{}",
+        axis("catAx", 1, "b", 2, ""),
+        axis("valAx", 2, "l", 1, "").replace("<c:crosses val=\"autoZero\"/>", "<c:crosses/>")
+    );
+    assert_package(refused_chart(axes_xml(line, &axes)), UNREADABLE);
+}
+
+#[test]
+fn a_number_format_without_a_format_code_is_refused() {
+    let line = "<c:lineChart><c:axId val=\"1\"/><c:axId val=\"2\"/></c:lineChart>";
+    let axes = format!(
+        "{}{}",
+        axis("catAx", 1, "b", 2, "<c:numFmt sourceLinked=\"1\"/>"),
+        axis("valAx", 2, "l", 1, "")
+    );
+    assert_package(refused_chart(axes_xml(line, &axes)), UNREADABLE);
+}
+
+#[test]
+fn a_pivot_source_without_a_name_is_refused() {
+    assert_package(
+        refused_chart(chart_space(
+            C_NS,
+            "<c:pivotSource><c:fmtId val=\"0\"/></c:pivotSource>",
+            &simple_body(),
+        )),
+        UNREADABLE,
+    );
 }

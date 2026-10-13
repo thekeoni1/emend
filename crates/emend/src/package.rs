@@ -772,6 +772,44 @@
 //!   `extlink::a_root_outside_the_main_namespace_or_of_another_name_is_refused`,
 //!   `extlink::the_spec_s_refusals_are_refused_with_the_message`).
 //!
+//! Charts add one more, the Cargo feature `charts`'s
+//! (`specs/0034-charts-read.md`, "Errors", and the rulings of P1; without
+//! the feature it is not raised), raised at `Package::charts`, which
+//! streams the sheet's drawing and each chart part it names once per call:
+//!
+//! - "a chart cannot be read", for a `graphicFrame`'s `c:chart` without
+//!   `r:id` or naming no internal `chart` relationship, or one whose part
+//!   is missing; a chart part whose root is not `chartSpace`, or with no
+//!   `chart` or no `plotArea`; a `ser` with no `idx` or `order`; a
+//!   reference form with no `f`; a series with both `cat` and `xVal`; an
+//!   axis with no `axId`, `axPos` or `crossAx`; a `crosses` with no
+//!   `val`, a `numFmt` with no `formatCode` and a `pivotSource` with no
+//!   `name` (P2 ruling N); an `axPos`, `grouping`,
+//!   `barDir`, `scatterStyle`, `legendPos` or `crosses` value outside its
+//!   enumeration; an `idx`, `order`, `ptCount`, `style`, `min` or `max`
+//!   that is not a number, an `axId` or `crossAx` that is not a decimal
+//!   integer an `i64` holds (P1 ruling C); an `srgbClr` `val` that is not
+//!   six hex digits and a boolean `val` outside `0`, `1`, `true` and
+//!   `false` (P1 verification ruling F); a plot's `axId` naming no axis of
+//!   the chart
+//!   (`chart::a_chart_frame_whose_relationship_cannot_be_followed_is_refused`,
+//!   `chart::a_chart_part_without_its_root_chart_or_plot_area_is_refused`,
+//!   `chart::the_series_and_value_refusals_are_refused_with_the_message`,
+//!   `chart::the_axis_and_legend_refusals_are_refused_with_the_message`).
+//!
+//! The call also meets messages listed above, each checked once: "no such
+//! part" for a part the archive lacks; "the worksheet part's root is not
+//! worksheet" for any other part, a chartsheet included (P1 ruling B,
+//! `chart::a_chartsheet_part_is_refused_as_not_a_worksheet`); "a worksheet
+//! has two drawing elements" and "a drawing part or its relationship
+//! cannot be read" as `Package::images` raises them, now under either
+//! feature, the latter for a chart's anchor whose `from` or `to` lacks a
+//! `col` or `row` or whose `editAs` is outside its set
+//! (`chart::a_chart_s_anchor_without_a_row_or_with_an_unknown_edit_as_is_refused`);
+//! part 2's unbound-prefix refusal; [`Error::Xml`] for a chart part that is
+//! not well-formed or not UTF-8
+//! (`chart::a_chart_part_that_is_not_well_formed_is_an_xml_error`).
+//!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
 //! formats and those the same write adds, every recorded style checked, one
@@ -1945,6 +1983,37 @@
 //!   and none of `--kinds-sample`, `--pivot-sample` and `--extlink-sample`
 //!   joins Milestone 2's Excel check list.
 //!
+//! Charts read adds these, under the Cargo feature `charts`
+//! (`specs/0034-charts-read.md`, "Design", the decisions and the rulings of
+//! P1); a read writes nothing:
+//!
+//! - What it reads: `Package::charts` gives a worksheet's charts, each
+//!   root anchor of its drawing, or the first anchor of a root
+//!   `AlternateContent`'s first `Choice`, whose `graphicFrame` holds a
+//!   `c:chart`, with the chart part that names: the anchor; the title; the
+//!   plots, their series and axis ids; the axes; the legend's position;
+//!   the pivot source; the style. A chartsheet is not read (P1 ruling B).
+//! - The title rules: a chart's or an axis's title is the `a:t` text of
+//!   every run of its `tx/rich` paragraphs, the paragraphs joined by a
+//!   newline, or the text of its `tx/strRef` cache's first point; a title
+//!   with no `tx` (an automatic title) and no title are `None`. Formatting
+//!   inside a run is not read. Every other string is the file's text as
+//!   written: a formula without a leading `=`, a number format, a pivot
+//!   source.
+//! - What is never read: the cached values of a reference (its cache's
+//!   `ptCount` alone is read) and a literal's points; the chart style,
+//!   colour style and user shapes parts; any `mc:AlternateContent` below
+//!   the chart part's root children, and every `Fallback`: a root
+//!   `AlternateContent` is entered at its first `Choice` for the style
+//!   alone (`c14:style`). Everything else the reader does not model is
+//!   walked past with its subtree.
+//! - What streams: the drawing and each chart part are streamed once per
+//!   call and the models held, bounded by the anchors, series, axes and
+//!   their strings, never by the caches (the corpus's largest chart part
+//!   is 28215 bytes, P1's run log).
+//! - None of this has been through an Excel check: a read writes nothing,
+//!   and `--charts-sample` does not join Milestone 2's Excel check list.
+//!
 //! # What streams and what is held
 //!
 //! Measured on the generated scale workbooks of `specs/0023-scale.md`
@@ -2027,8 +2096,8 @@ mod sheet_read;
 mod survey;
 #[cfg(feature = "charts")]
 pub use chart::{
-    BarDirection, Chart, ChartAnchor, ChartEntry, ChartKind, Data, Grouping, Plot, ScatterStyle,
-    Series, SeriesName,
+    AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry, ChartKind,
+    Data, Grouping, LegendPosition, Plot, ScatterStyle, Series, SeriesName,
 };
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};
