@@ -1245,6 +1245,38 @@ fn a_style_reads_plain_and_from_the_first_choice_not_the_fallback() {
     assert_eq!(with_root("").style, None);
 }
 
+// P2 ruling T: ruling R's plain `c:style` inside the first `Choice`.
+#[test]
+fn a_plain_style_inside_the_first_choice_reads_and_not_the_fallback() {
+    let chart = with_root(&format!(
+        "<mc:AlternateContent xmlns:mc=\"{MC_NS}\"><mc:Choice Requires=\"c14\">\
+         <c:style val=\"7\"/></mc:Choice><mc:Fallback><c:style val=\"2\"/></mc:Fallback>\
+         </mc:AlternateContent>"
+    ));
+    assert_eq!(chart.style, Some(7));
+}
+
+// P2 ruling X: `min` and `max` take every spelling `f64::from_str` takes
+// (ruling P), the infinities, NaN and an exponent among them.
+#[test]
+fn the_bounds_read_the_infinities_nan_and_an_exponent() {
+    let bounds = |min: &str, max: &str| {
+        let scaled = axis("valAx", 2, "l", 1, "").replace(
+            "</c:scaling>",
+            &format!("<c:max val=\"{max}\"/><c:min val=\"{min}\"/></c:scaling>"),
+        );
+        let axes = axes_of(
+            &[1, 2],
+            &format!("{}{scaled}", axis("catAx", 1, "b", 2, "")),
+        );
+        (axes[1].min.unwrap(), axes[1].max.unwrap())
+    };
+    assert_eq!(bounds("-INF", "INF"), (f64::NEG_INFINITY, f64::INFINITY));
+    assert_eq!(bounds("-1.5E-3", "2.5e2"), (-0.0015, 250.0));
+    let (min, max) = bounds("NaN", "NaN");
+    assert!(min.is_nan() && max.is_nan());
+}
+
 #[test]
 fn the_axis_and_legend_refusals_are_refused_with_the_message() {
     let line = "<c:lineChart><c:axId val=\"1\"/><c:axId val=\"2\"/></c:lineChart>";

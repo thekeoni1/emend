@@ -795,7 +795,10 @@
 //!   (`chart::a_chart_frame_whose_relationship_cannot_be_followed_is_refused`,
 //!   `chart::a_chart_part_without_its_root_chart_or_plot_area_is_refused`,
 //!   `chart::the_series_and_value_refusals_are_refused_with_the_message`,
-//!   `chart::the_axis_and_legend_refusals_are_refused_with_the_message`).
+//!   `chart::the_axis_and_legend_refusals_are_refused_with_the_message`,
+//!   `chart::a_crosses_without_a_val_is_refused`,
+//!   `chart::a_number_format_without_a_format_code_is_refused`,
+//!   `chart::a_pivot_source_without_a_name_is_refused`).
 //!
 //! The call also meets messages listed above, each checked once: "no such
 //! part" for a part the archive lacks; "the worksheet part's root is not
