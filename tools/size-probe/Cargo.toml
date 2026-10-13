@@ -79,6 +79,10 @@ read = ["emend", "xml", "emend/read"]
 # (specs/0028-images-and-comments-second-half.md, "Size", under decision 1
 # A), each built with its own feature set as the richtext probes are.
 copy = ["emend", "xml", "emend/copy"]
+# Enables emend's own `charts` feature, for probe-emend-charts-write-xml
+# alone (specs/0034-charts-read.md, "Size and packaging"), built with its
+# own feature set as the read probe is.
+charts = ["emend", "xml", "emend/charts"]
 
 [[bin]]
 name = "probe-zip"
@@ -218,3 +222,8 @@ required-features = ["copy"]
 name = "probe-emend-copycomments-write-xml"
 path = "src/bin/probe-emend-copycomments-write-xml.rs"
 required-features = ["copy", "comments"]
+
+[[bin]]
+name = "probe-emend-charts-write-xml"
+path = "src/bin/probe-emend-charts-write-xml.rs"
+required-features = ["charts"]
