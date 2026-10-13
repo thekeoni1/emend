@@ -842,6 +842,108 @@ own; planning's recount of `dataField` flags 10 in 3; planning's
 privacy scan of the four commits through the record: 1633 blobs, 0
 findings. P2 DONE.
 
+## Planning rulings during P3 (2026-10-13)
+
+Given by message while the tree stayed clean (held in planning's
+cache, copied here at the close-out doc commit):
+
+A. State check (the implementing session lost its context and
+   resumed from an old summary): origin/main c02942e; the local
+   commits unpushed; the "push" typed in the implementing session
+   was M5 part 1's spent authorisation and does not carry to this
+   part. Its plan accepted: dry runs one at a time, the logged
+   scripts in sequence, the scan last, the check, ONE record
+   commit, the report, STOP. Disclosed and accepted: a waiter that
+   polled `pgrep -f` with a pattern matching its own command line
+   (about 85 minutes, stopped; later waits on the exit file); the
+   catalogue commit amended 31e317b to 7f7dc03 before any log.
+B. Scan pre-check FAIL at 81230b5 (0 hits, 1 structural: size.log
+   printed `<phase>` with no root line declaring it): the fix (a
+   root line in the size generator, change OA), the superseded
+   attempts hashed first, logged size and run again (the run reads
+   size.log's hash and its release binaries), then the scan.
+C. Independent check 1, A1 BLOCKING: two refusals with no test
+   that could fail (the wrong-type `r:id` named the worksheet,
+   refused by the root check; both wrong-root fixtures held no
+   main-namespace child, refused by the children check). Planning
+   confirmed it from the committed tests. RULED: fixed now, one
+   tests-only commit (f35de0d) with A2 (strict relationship
+   `Type` URIs in the strict test), the test names kept so the
+   catalogue's citations stand; that commit the phase commit;
+   every logged step rerun, a second check (the limit of two), ONE
+   record commit; every 81230b5 log and record superseded with
+   hashes. Non-blocking: `pivot.rs`'s `Element` capturing `r:id`
+   (a malformed escape in a pivot `r:id` is `Error::Xml`):
+   accepted, the message for a document that is not well formed.
+   A non-UTF-8 `Target` and an `externalLink` relationship with
+   `TargetMode` External untested: accepted as stated. B1 (the
+   extlinks self-comparison is the size log's binary twice):
+   accepted, the substantive comparisons are with P1's and P2's
+   recorded outputs. C1/C1b unsourced figures: dropped or marked.
+   C2: the API record states the split (100 listed: 7 cfg-widened
+   constants, 93 new) and that `CHART`'s attribution to 5fc1b3d is
+   the heuristic's misattribution. The checker's five U+2026
+   scrubbed to "...", both hashes stated.
+
+## Planning verification and rulings on P3 (2026-10-13)
+
+The implementing session's report (its file, sha256 0624bcc1...)
+listed four departures and findings and the second check's open
+point. Rulings:
+
+1. FINDING, the feature `read` costs 112600 section bytes, above
+   the 110000 line of "Size and packaging": acknowledged as
+   planning's estimate missed (91000 to 107000 estimated; the three
+   readers cost 42556 over part 1's 70044 against 21000 to 37000
+   priced). The core grew 0 and the budget figure is 436992, as
+   part 1 left it: the cost is the feature's alone, outside the
+   budget, and decision 1 (A, one feature) stands as the maintainer
+   decided. No change in this part; the figure is stated in
+   `ROADMAP.md` and told to the maintainer with the close-out; the
+   next part that grows `read` is priced from 112600.
+2. Plant P8 departing from FACTS.md's wording (the wording named a
+   reader that would fail no test): accepted; FACTS.md is the
+   session's working file, not a primary.
+3. The API listing's 7 gone and 100 new, stated in the record as 7
+   cfg-widened constants and 93 new with `CHART`'s misattribution
+   named: accepted as ruled (C2). test.log's exception for the
+   seven widened rows and `CHART` stands as disclosed.
+4. The one FINDING line is size.log's: confirmed.
+5. Strict `EXTERNAL_LINK` coverage (no plant; the session's hand
+   check only; the reader checks the link part's own relationship
+   by `TargetMode`, not by type, so the strict test's link-part
+   type exercises nothing): accepted. The spec's refusal list asks
+   for `TargetMode` alone, so `EXTERNAL_LINK_PATH` is unused by the
+   reader, as the Design allows. The strict workbook relationship
+   is the one the test exercises; no plant is added.
+6. The negative log on the host alone: as the spec asks.
+
+Verified from primaries: the doc commit 37c0a79 holds specs/0033
+(84374018) and ROADMAP.md (4d51f780) and leaves specs/0032 as it
+was; the crate commit adds `extlink.rs`, its tests and the shared
+`Element` change; the tool, catalogue, probe, CHANGELOG and tests
+commits change only the files the report names; the tests commit
+makes the two refusals' tests fail when their checks are removed
+(test.log plants P2 and P7); every commit message is ASCII and ends
+with the Co-Authored-By line alone; the record commit's eighteen
+files and the report hash as reported; each log's last line is as
+reported; the gate read ruling 7's line with its control, "files
+scanned: 18; Python calls: 4; calls without -B: 0", one new pub fn;
+the negative log's N1, N2 and N3 lines exactly the three messages
+with B0; the size log's growth 0, budget 436992 (21760 under),
+feature cost 112600 and the finding line; the run log's extlinks 9
+of 9, kinds 24 of 24, pivots 18 of 18, "rows compared 27; identical
+... 27" on both targets for all three samples, the keep one new
+pair and 0 changed, the open check 0 findings; the scan read 0 hits
+over the seven commits. Planning's own build at f35de0d (worktree,
+offline): crate tests on both targets 515, 618, 656 and 990;
+workspace 1196; clippy and doc 0 warnings; the three samples with
+release binaries over the 27 corpus workbooks on both targets,
+every output and every line byte-equal to the run directories';
+planning's i686 release emend-copy hashed as the run log's
+(bcbda148); planning's privacy scan of the eight commits through
+the record: 1661 blobs, 0 findings. P3 DONE.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-12: 1, 2 and 3 as recommended (A
