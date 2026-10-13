@@ -6050,11 +6050,13 @@ fn the_pivot_sample_refuses_a_data_field_past_the_fields_and_leaves_nothing() {
 }
 
 /// The package of `package_specs_with` whose worksheet's drawing holds two
-/// charts: a combined bar and line chart with a title in a two-cell anchor
-/// (`editAs` `oneCell`), and a pie chart in a one-cell anchor. `second` is
-/// the second frame's `c:chart` `r:id`; the drawing's rels part relates
-/// `rId1` and `rId2`.
-fn charts_specs(second: &str) -> Vec<Spec> {
+/// charts: a combined bar and line chart with a title, two axes, a legend
+/// and a plain style in a two-cell anchor (`editAs` `oneCell`), and a pie
+/// chart with a pivot source and a style in a root `AlternateContent` in a
+/// one-cell anchor. `second` is the second frame's `c:chart` `r:id`; the
+/// drawing's rels part relates `rId1` and `rId2`. `position` is the value
+/// axis's `axPos` element, written whole (empty for none).
+fn charts_specs(second: &str, position: &str) -> Vec<Spec> {
     let vnd = "application/vnd.openxmlformats-officedocument";
     let mut specs = package_specs_with(&format!(
         "<Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"{vnd}.drawing+xml\"/>\
@@ -6103,30 +6105,46 @@ fn charts_specs(second: &str) -> Vec<Spec> {
          <Relationship Id=\"rId2\" Type=\"{ATTR_NS}/chart\" Target=\"../charts/chart2.xml\"/>\
          </Relationships>"
     );
-    let space = |body: &str| {
+    let space = |before: &str, body: &str| {
         format!(
             "<c:chartSpace xmlns:c=\"{c_ns}\" \
-             xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">\
-             <c:chart>{body}</c:chart></c:chartSpace>"
+             xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" \
+             xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\">\
+             {before}<c:chart>{body}</c:chart></c:chartSpace>"
         )
     };
     let first = space(
-        "<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Sales</a:t></a:r></a:p></c:rich>\
-         </c:tx></c:title><c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/>\
-         <c:barChart><c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>\
-         <c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:strRef><c:f>Data!$B$1</c:f>\
-         </c:strRef></c:tx><c:spPr><a:solidFill><a:srgbClr val=\"4472C4\"/></a:solidFill>\
-         </c:spPr><c:dLbls><c:showVal val=\"1\"/></c:dLbls><c:cat><c:strRef>\
-         <c:f>Data!$A$2:$A$4</c:f><c:strCache><c:ptCount val=\"3\"/></c:strCache></c:strRef>\
-         </c:cat><c:val><c:numRef><c:f>Data!$B$2:$B$4</c:f><c:numCache><c:ptCount val=\"3\"/>\
-         </c:numCache></c:numRef></c:val></c:ser><c:axId val=\"1\"/><c:axId val=\"2\"/>\
-         </c:barChart><c:lineChart><c:grouping val=\"standard\"/><c:ser><c:idx val=\"1\"/>\
-         <c:order val=\"1\"/><c:tx><c:v>Plan</c:v></c:tx><c:marker><c:symbol val=\"circle\"/>\
-         </c:marker><c:val><c:numLit><c:ptCount val=\"2\"/></c:numLit></c:val>\
-         <c:smooth val=\"1\"/></c:ser><c:axId val=\"1\"/><c:axId val=\"2\"/></c:lineChart>\
-         </c:plotArea>",
+        "<c:style val=\"2\"/>",
+        format!(
+            "<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Sales</a:t></a:r></a:p></c:rich>\
+             </c:tx></c:title><c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/>\
+             <c:barChart><c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>\
+             <c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:strRef><c:f>Data!$B$1</c:f>\
+             </c:strRef></c:tx><c:spPr><a:solidFill><a:srgbClr val=\"4472C4\"/></a:solidFill>\
+             </c:spPr><c:dLbls><c:showVal val=\"1\"/></c:dLbls><c:cat><c:strRef>\
+             <c:f>Data!$A$2:$A$4</c:f><c:strCache><c:ptCount val=\"3\"/></c:strCache></c:strRef>\
+             </c:cat><c:val><c:numRef><c:f>Data!$B$2:$B$4</c:f><c:numCache><c:ptCount val=\"3\"/>\
+             </c:numCache></c:numRef></c:val></c:ser><c:axId val=\"1\"/><c:axId val=\"2\"/>\
+             </c:barChart><c:lineChart><c:grouping val=\"standard\"/><c:ser><c:idx val=\"1\"/>\
+             <c:order val=\"1\"/><c:tx><c:v>Plan</c:v></c:tx><c:marker><c:symbol val=\"circle\"/>\
+             </c:marker><c:val><c:numLit><c:ptCount val=\"2\"/></c:numLit></c:val>\
+             <c:smooth val=\"1\"/></c:ser><c:axId val=\"1\"/><c:axId val=\"2\"/></c:lineChart>\
+             <c:catAx><c:axId val=\"1\"/><c:scaling/><c:delete val=\"1\"/><c:axPos val=\"b\"/>\
+             <c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:crossAx val=\"2\"/></c:catAx>\
+             <c:valAx><c:axId val=\"2\"/><c:scaling><c:max val=\"100\"/></c:scaling>{position}\
+             <c:majorGridlines/><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Units</a:t></a:r>\
+             </a:p></c:rich></c:tx></c:title><c:numFmt formatCode=\"0%\" sourceLinked=\"0\"/>\
+             <c:crossAx val=\"1\"/><c:crosses val=\"autoZero\"/></c:valAx></c:plotArea>\
+             <c:legend><c:legendPos val=\"b\"/></c:legend>"
+        )
+        .as_str(),
     );
     let second_chart = space(
+        "<c:pivotSource><c:name>[in.xlsx]Pivot!PivotTable1</c:name><c:fmtId val=\"0\"/>\
+         </c:pivotSource><mc:AlternateContent><mc:Choice Requires=\"c14\" \
+         xmlns:c14=\"http://schemas.microsoft.com/office/drawing/2007/8/2/chart\">\
+         <c14:style val=\"102\"/></mc:Choice><mc:Fallback><c:style val=\"2\"/></mc:Fallback>\
+         </mc:AlternateContent>",
         "<c:autoTitleDeleted val=\"1\"/><c:plotArea><c:pieChart><c:varyColors val=\"1\"/>\
          <c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:spPr><a:solidFill>\
          <a:schemeClr val=\"accent1\"/></a:solidFill></c:spPr><c:cat><c:strLit>\
@@ -6155,18 +6173,22 @@ fn charts_specs(second: &str) -> Vec<Spec> {
 
 #[test]
 fn the_charts_sample_counts_and_digests_every_chart_and_writes_the_input_back_unedited() {
-    // `specs/0034-charts-read.md`, "Harness runs", `--charts-sample`, the
-    // fields P1 fills. Two charts: a combined bar and line chart titled in
+    // `specs/0034-charts-read.md`, "Harness runs", `--charts-sample`, every
+    // field. Two charts: a combined bar and line chart titled in
     // a two-cell anchor (`editAs` `oneCell`), its bar series named by a
     // reference with a solid fill, labels and cached category and value
     // references, its line series named by text with a marker, smoothing
     // and literal values; and a pie chart in a one-cell anchor with its
     // automatic title deleted, its one series unnamed with literal
-    // categories, a scheme fill and a value reference with no cache.
+    // categories, a scheme fill and a value reference with no cache. The
+    // first has a deleted category axis with a number format, a value axis
+    // with a maximum, gridlines, a title and a number format, a legend and a
+    // plain style; the second a pivot source and its style in a root
+    // `AlternateContent`'s first `Choice`.
     let dir = TempDir::new("charts-sample");
     let input = dir.path("in.xlsx");
     let output = dir.path("out.xlsx");
-    let specs = charts_specs("rId2");
+    let specs = charts_specs("rId2", "<c:axPos val=\"l\"/>");
     fs::write(&input, build(&specs)).expect("write the input");
     let ran = emend_copy_with(&input, &output, &["--charts-sample"]);
     assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
@@ -6178,12 +6200,17 @@ fn the_charts_sample_counts_and_digests_every_chart_and_writes_the_input_back_un
              \tbar_dir_col=1\tgrouping_clustered=1\tgrouping_stacked=0\tgrouping_standard=1\
              \tgrouping_percent=0\tseries=3\tname_ref=1\tname_text=1\tunnamed=1\tcat_ref=1\
              \tcat_lit=1\tval_ref=2\tval_lit=1\tsizes=0\tcached=2\tfills=1\tsmooth=1\
-             \tmarkers=1\tlabels=1\ttitles=1\tauto_title_deleted=1\tanchor_two=1\
-             \tanchor_one=1\tanchor_abs=0\tedit_as_onecell=1\tedit_as_twocell=0\
-             \tedit_as_abs=0\tdigest_titles={}\tdigest_names={}\tdigest_formulas={}\n",
+             \tmarkers=1\tlabels=1\ttitles=1\tauto_title_deleted=1\taxes=2\taxis_cat=1\
+             \taxis_val=1\taxis_other=0\taxis_titles=1\taxis_numfmt=2\taxis_bounds=1\
+             \taxis_deleted=1\tgridlines=1\tlegends=1\tpivot_charts=1\tstyles=2\
+             \tanchor_two=1\tanchor_one=1\tanchor_abs=0\tedit_as_onecell=1\
+             \tedit_as_twocell=0\tedit_as_abs=0\tdigest_titles={}\tdigest_names={}\
+             \tdigest_formulas={}\tdigest_numfmts={}\tdigest_sources={}\n",
             fnv(&["Sales"]),
             fnv(&["Data!$B$1", "Plan"]),
             fnv(&["Data!$A$2:$A$4", "Data!$B$2:$B$4", "Data!$D$2:$D$3"]),
+            fnv(&["General", "0%"]),
+            fnv(&["[in.xlsx]Pivot!PivotTable1"]),
         ),
         "the line"
     );
@@ -6198,7 +6225,23 @@ fn the_charts_sample_refuses_a_chart_naming_no_relationship_and_leaves_nothing()
     let dir = TempDir::new("charts-sample-no-rel");
     let input = dir.path("in.xlsx");
     let output = dir.path("out.xlsx");
-    fs::write(&input, build(&charts_specs("rId9"))).expect("write the input");
+    fs::write(&input, build(&charts_specs("rId9", "<c:axPos val=\"l\"/>")))
+        .expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--charts-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(ran.stderr, "error: a chart cannot be read\n", "the message");
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+#[test]
+fn the_charts_sample_refuses_an_axis_without_a_position_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0034-charts-read.md`, "P2").
+    let dir = TempDir::new("charts-sample-no-axpos");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&charts_specs("rId2", ""))).expect("write the input");
     let ran = emend_copy_with(&input, &output, &["--charts-sample"]);
     assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
     assert_eq!(ran.stderr, "error: a chart cannot be read\n", "the message");

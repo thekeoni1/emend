@@ -711,7 +711,8 @@
 //!   summing to `links`; a failure is exit 2 with the message and no
 //!   output, and so is a refusal by the layer.
 //! - `--charts-sample`: the charts sample of `specs/0034-charts-read.md`,
-//!   "Harness runs", with the fields P1 fills: the input written back
+//!   "Harness runs", with every field (P1's, then P2's axes, legend, pivot
+//!   source and style): the input written back
 //!   unedited and `Package::charts` of every worksheet of the workbook's
 //!   sheet list. One line: the word `charts` then `sheets` (worksheets
 //!   read), `charts`, `plots`, `kind_bar` (bar and 3D bar plots),
@@ -723,16 +724,22 @@
 //!   `name_text`, `unnamed`, `cat_ref`, `cat_lit`, `val_ref`, `val_lit`,
 //!   `sizes`, `cached` (references with a cache, over categories, values
 //!   and sizes), `fills`, `smooth`, `markers`, `labels`, `titles`,
-//!   `auto_title_deleted`, `anchor_two`, `anchor_one`, `anchor_abs`,
-//!   `edit_as_onecell`, `edit_as_twocell`, `edit_as_abs`, and
-//!   `digest_titles`, `digest_names` and `digest_formulas`: 64-bit FNV-1a
-//!   over the chart titles, over the series names (a reference's formula
-//!   or the text) and over every reference's formula (categories, values,
-//!   sizes, series in order), each followed by a newline. COUNTS, FLAGS AND
-//!   DIGESTS ONLY: no title, name, formula or part name is printed.
-//!   Asserted: the six kind counts summing to `plots`, and `name_ref`,
-//!   `name_text` and `unnamed` to `series`; a failure is exit 2 with the
-//!   message and no output, and so is a refusal by the layer.
+//!   `auto_title_deleted`, `axes`, `axis_cat`, `axis_val`, `axis_other`
+//!   (date and series axes), `axis_titles`, `axis_numfmt`, `axis_bounds`
+//!   (a `min` or `max`), `axis_deleted`, `gridlines` (major), `legends`,
+//!   `pivot_charts` (charts with a pivot source), `styles`, `anchor_two`,
+//!   `anchor_one`, `anchor_abs`, `edit_as_onecell`, `edit_as_twocell`,
+//!   `edit_as_abs`, and `digest_titles`, `digest_names`,
+//!   `digest_formulas`, `digest_numfmts` and `digest_sources`: 64-bit
+//!   FNV-1a over the chart titles, over the series names (a reference's
+//!   formula or the text), over every reference's formula (categories,
+//!   values, sizes, series in order), over the axes' number formats and
+//!   over the pivot sources, each followed by a newline. COUNTS, FLAGS AND
+//!   DIGESTS ONLY: no title, name, formula, number format, pivot source or
+//!   part name is printed. Asserted: the six kind counts summing to
+//!   `plots`, `name_ref`, `name_text` and `unnamed` to `series`, and
+//!   `axis_cat`, `axis_val` and `axis_other` to `axes`; a failure is exit
+//!   2 with the message and no output, and so is a refusal by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -7520,10 +7527,13 @@ fn extlink_sample(input: &Path, output: &Path) -> Result<(), Error> {
 }
 
 /// The charts sample (`specs/0034-charts-read.md`, "Harness runs",
-/// `--charts-sample`, the fields P1 fills). The input is written back
-/// unedited; a refusal by the layer is exit 2 with no output.
+/// `--charts-sample`, every field: P1's and the axes, legend, pivot source
+/// and style P2 adds). The input is written back unedited; a refusal by the
+/// layer is exit 2 with no output.
 fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
-    use emend::package::{Anchor, BarDirection, ChartKind, Data, EditAs, Grouping, SeriesName};
+    use emend::package::{
+        Anchor, AxisKind, BarDirection, ChartKind, Data, EditAs, Grouping, SeriesName,
+    };
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
     let parts: Vec<Vec<u8>> = package
@@ -7533,7 +7543,7 @@ fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
         .filter(|sheet| sheet.kind == SheetKind::Worksheet)
         .map(|sheet| sheet.part.clone())
         .collect();
-    let mut counts: [(&str, u64); 38] = [
+    let mut counts: [(&str, u64); 50] = [
         ("sheets", 0),
         ("charts", 0),
         ("plots", 0),
@@ -7566,6 +7576,18 @@ fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
         ("labels", 0),
         ("titles", 0),
         ("auto_title_deleted", 0),
+        ("axes", 0),
+        ("axis_cat", 0),
+        ("axis_val", 0),
+        ("axis_other", 0),
+        ("axis_titles", 0),
+        ("axis_numfmt", 0),
+        ("axis_bounds", 0),
+        ("axis_deleted", 0),
+        ("gridlines", 0),
+        ("legends", 0),
+        ("pivot_charts", 0),
+        ("styles", 0),
         ("anchor_two", 0),
         ("anchor_one", 0),
         ("anchor_abs", 0),
@@ -7580,6 +7602,7 @@ fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
     };
     let flag = |yes: bool| u64::from(yes);
     let (mut titles, mut names, mut formulas) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut numfmts, mut sources) = (Vec::new(), Vec::new());
     for part in &parts {
         add("sheets", 1);
         for entry in package.charts(part)? {
@@ -7601,6 +7624,34 @@ fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
                 titles.push(title);
             }
             add("auto_title_deleted", flag(chart.auto_title_deleted));
+            for axis in chart.axes {
+                add("axes", 1);
+                add(
+                    match axis.kind {
+                        AxisKind::Category => "axis_cat",
+                        AxisKind::Value => "axis_val",
+                        AxisKind::Date | AxisKind::Series => "axis_other",
+                    },
+                    1,
+                );
+                add("axis_titles", flag(axis.title.is_some()));
+                if let Some(format) = axis.number_format {
+                    add("axis_numfmt", 1);
+                    numfmts.push(format);
+                }
+                add(
+                    "axis_bounds",
+                    flag(axis.min.is_some() || axis.max.is_some()),
+                );
+                add("axis_deleted", flag(axis.deleted));
+                add("gridlines", flag(axis.major_gridlines));
+            }
+            add("legends", flag(chart.legend.is_some()));
+            if let Some(source) = chart.pivot_source {
+                add("pivot_charts", 1);
+                sources.push(source);
+            }
+            add("styles", flag(chart.style.is_some()));
             add("plots", chart.plots.len() as u64);
             add("combined", flag(chart.plots.len() >= 2));
             for plot in chart.plots {
@@ -7686,6 +7737,9 @@ fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
     if count("name_ref") + count("name_text") + count("unnamed") != count("series") {
         return Err(Error::ChartsSample("series count"));
     }
+    if count("axis_cat") + count("axis_val") + count("axis_other") != count("axes") {
+        return Err(Error::ChartsSample("axis count"));
+    }
     write_into(package, output)?;
     let mut line = String::from("charts");
     for (key, value) in counts {
@@ -7698,6 +7752,8 @@ fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
         ("digest_titles", fnv_digest(&titles)),
         ("digest_names", fnv_digest(&names)),
         ("digest_formulas", fnv_digest(&formulas)),
+        ("digest_numfmts", fnv_digest(&numfmts)),
+        ("digest_sources", fnv_digest(&sources)),
     ] {
         line.push('\t');
         line.push_str(key);
