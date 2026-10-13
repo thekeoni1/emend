@@ -85,7 +85,8 @@ no code.
   `multiLvlStrRef` carries an `f` and a cache (65 in 10; none
   without). Formatting: `spPr` with `solidFill` 30 in 10 (`srgbClr`
   12 in 4, `schemeClr` 18 in 6) and `ln` 35 in 10; `dLbls` 15 in 5;
-  `dPt` 11 in 6; `marker` 8 in 4; `smooth` 8 in 4; `explosion` 2 in
+  `dPt` 11 in 6; `marker` 8 in 4; `smooth` 8 in 4 (every `val` `0`,
+  P3 ruling AB); `explosion` 2 in
   2; `invertIfNegative` 26 in 10; `extLst` 26 in 7; no `trendline`
   and no `errBars`.
 - Titles: a chart `title` 11 in 5, each `rich` (none `strRef`, none
@@ -734,6 +735,90 @@ Y. The check brief: the checker writes every path under the
 
 P2 is DONE. P3's doc commit carries this spec (rulings A to Y and
 the two verification sections) and ROADMAP.md (P2 DONE).
+
+## Planning rulings during P3 (2026-10-13)
+
+Before the logged runs, on the implementing session's dev report
+(commits 91c1cee, 07e3b7b, ff86a0f, e41e547; dev tests 515, 555,
+591, 658, 1030, workspace 1239, both targets).
+
+Z. The charts cost, dev figure 44428 section bytes (the probe
+   1014636 against the core's 970208; core growth 0; the `images`
+   cost's movement 0): above planning's 20000 to 35000 estimate,
+   under the 45000 finding line. "Size and packaging" asks for the
+   figure at any value and names only 45000 as a finding, so the
+   size log prints and judges it as written and the report states
+   the estimate miss as planning's (the axis model, the second
+   enumeration set and the `f64` parse were priced low). The
+   feature is off by default and outside the core budget; no
+   figure of the budget moves. No finding.
+AA. The probe's input: the generated size-log package's first sheet
+   has no drawing (part 2's read probe printed `read_drawings` 0),
+   so `probe-emend-charts-write-xml` prints `charts 0` and
+   `chart_series 0`. Ruled, option (a): accepted; the call is
+   linked whatever the input, and the figure is the link's size.
+   The size log's expected lines read `charts 0` and
+   `chart_series 0`, and the report says why. Not (b): a chart in
+   the generated package would move other probes' expected lines
+   for no measurement gain.
+
+## Planning verification of P3 (2026-10-13)
+
+Verified from primaries: the six logs at the record commit 4b410c6
+(gate fbc7bf97, test c4e4d60f, negative df2544b3, size 6de64352,
+run 0953b015, scan 8320d82e PASS on the first attempt, 0 hits, 0
+structural failures; each of the five "all as expected: yes";
+RERUN_NOTE unset in each); the record commit's 15 files and
+independent-check-1.md (d8c9fd0f); 91c1cee holding planning's two
+files unedited by hash; the diff of each superseded commit's tree
+against its re-make (tests/chart.rs, one line split, 4 insertions,
+1 deletion); every commit message ASCII with the Co-Authored-By
+line only; the privacy scan of 1e0b03c..4b410c6 (5 commits, 1694
+blobs, 0 findings, PASS); planning's own build at d74ea74 in its
+detached worktree (`<home>/.cache/emend-planning/m5p3-p3-build.txt`
+and `m5p3-p3-size.txt`): the five feature sets and the workspace on
+both targets at the log's figures (515, 555, 591, 658, 1030; 1239),
+clippy and doc clean, release emend-copy on both targets,
+`--charts-sample` and `--kinds-sample` over the corpus
+byte-identical to the two run directories' outputs and lines on
+both targets, 27 of 27 each, planning's totals at the figures; and
+planning's own i686 size-profile builds of the four probes equal
+to the record's section bytes (core 970208, `images` 1038040,
+`read` 1082808, `charts` 1014636: the `charts` cost 44428, core
+growth 0, `images` movement 0). The size record judges 28 of 28
+probes unchanged and the `charts` cost under 45000 (ruling Z);
+the API record lists 718 items, 62 rows new to part 2's listing (4
+cfg-widened, 58 new), 13 gate-widened items with DRAWINGML among
+them, 156 documented; the negative log reaches all 7 messages
+(N1 to N7, unreachable none); the keep against P2's open record is
+0 new, 0 changed, 0 gone; the CHANGELOG bullet cites this spec.
+
+The disclosures. The three superseded commits (07e3b7b, ff86a0f,
+e41e547) failed the dry gate's `cargo fmt --check` on one line and
+were re-made, never logged: accepted. The negative dry run 1's
+shape-check failure, fixed in the generator, kept under the phase
+directory: accepted. The check's "NO" on question 3 named one
+misstatement (which scripts took the working spec's hash) and the
+statements with no primary; the report was corrected and marks
+those as the implementer's own: accepted.
+
+Rulings:
+
+AB. The check's observation: the run prints `smooth` 0 while the
+    facts bullet counts 8 `smooth` elements in 4 workbooks.
+    Planning recounted (counts only): the corpus's `smooth`
+    elements every one carry `val` `0`, so no series is smooth and
+    the sample's `smooth`, which counts series with `smooth` true,
+    is 0. The facts bullet says so; no figure moves; the P1 and P2
+    runs' `smooth` 0 stand.
+AC. The estimate miss of ruling Z is planning's and is recorded in
+    the size record and here; the estimate rule for part 4's
+    writer prices the enumeration sets and the number parsers
+    separately.
+
+P3 is DONE. The close-out's doc commit carries this spec (rulings
+A to AC and the three verification sections) and ROADMAP.md (P3
+DONE).
 
 ## Decisions for the maintainer
 
