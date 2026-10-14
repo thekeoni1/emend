@@ -5639,6 +5639,91 @@ fn the_anchor_sample_adds_a_two_cell_and_an_absolute_image() {
 }
 
 #[test]
+fn the_add_chart_sample_adds_a_column_chart_and_reads_it_back() {
+    // `specs/0035-charts-write-first-set.md`, "Harness runs": M is 1, so the
+    // two-cell anchor runs from A3 to I19, `editAs` `oneCell`, and the
+    // references run to row 2 of the sheet, quoted.
+    for (label, drawing, after, line) in [
+        (
+            "add-chart-sample-created",
+            false,
+            "",
+            "addchart\tcharts_before=0\tcharts_after=1\tread_back_equal=1\tanchors_before=0\
+             \tanchors_after=1\tchart_parts_before=0\tchart_parts_after=1\tdrawing_created=1\
+             \ttwo_after=1\n",
+        ),
+        (
+            "add-chart-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+            "addchart\tcharts_before=0\tcharts_after=1\tread_back_equal=1\tanchors_before=1\
+             \tanchors_after=2\tchart_parts_before=0\tchart_parts_after=1\tdrawing_created=0\
+             \ttwo_after=1\n",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--add-chart-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        // The chart part is created, deflated; the anchor is checked in the
+        // drawing part when it is kept, stored.
+        entry_named(&entries, b"xl/charts/chart1.xml");
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert!(
+                text.contains(
+                    "<xdr:twoCellAnchor editAs=\"oneCell\"><xdr:from><xdr:col>0</xdr:col>\
+                     <xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff>\
+                     </xdr:from><xdr:to><xdr:col>8</xdr:col><xdr:colOff>0</xdr:colOff>\
+                     <xdr:row>18</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>\
+                     <xdr:graphicFrame macro=\"\">"
+                ),
+                "{text}"
+            );
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_add_chart_sample_refuses_a_drawing_relationship_with_no_part_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0035-charts-write-first-set.md`, "P1").
+    let mut specs = image_specs(A_CELL, "<drawing r:id=\"rId1\"/>", true);
+    specs.retain(|spec| spec.name != b"xl/drawings/drawing1.xml");
+    let dir = TempDir::new("add-chart-sample-no-part");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--add-chart-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: a drawing part or its relationship cannot be read\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+#[test]
 fn the_remove_image_sample_removes_its_addition_and_the_first_kept_image() {
     // `specs/0028-images-and-comments-second-half.md`, "Harness runs": with
     // no drawing, the addition and its removal leave none; with a drawing of
