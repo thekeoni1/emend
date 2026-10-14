@@ -632,7 +632,7 @@ The doc commit; the prunes; the carries from part 4: the probe's
 doc comment corrected (ruling R, in P1's first code commit, the
 compaction's); then the compaction (decision 1 A: the `val`
 element helper and the shared axis tail, every part 4 test
-passing unchanged, the four part 4 samples and the three image
+passing unchanged, the two part 4 samples and the three image
 samples byte-identical to their records in the run log, the
 `charts` probe's size-profile figure printed by the gate against
 1055368); then `Doughnut`, `Radar`, `RadarStyle`, `Bubble`,
@@ -754,6 +754,128 @@ mode on a clean tree; one independent check before the report.
 The push carries d2c14d8 and this part's commits, on planning's
 word and the maintainer's authorisation typed in the implementing
 session.
+
+## Planning rulings during P1 (2026-10-14)
+
+The doc commit b60d4f5 verified by planning: the three files at
+their hashes (a3d55ede, bd15b44f, fb66162a), nothing else, the
+message ASCII with the Co-Authored-By line only, the tree clean.
+
+A. The compaction (5d8ce24) is accepted as decision 1 A asks:
+   every output byte unchanged, every part 4 test and figure
+   unchanged, the helpers as "Size and packaging" names them. Its
+   measured saving in development is 348 section bytes (1055368
+   to 1055020, the implementer's dev builds, no primary; the gate
+   prints the figure), not the 3000 to 8000 planning expected:
+   planning's reading of the emission as 500 bytes per literal
+   form was wrong, and the writer's 40732 sits mostly outside the
+   emission's literals. The miss is planning's and changes
+   nothing in P1: the compaction stands (smaller source, one axis
+   function for the series axis to join), the kinds follow, the
+   estimate "33000 to 46000 before the compaction" is the part's
+   estimate as it stands and the finding line of 48000 is kept.
+   Before P4's brief, planning attributes part 4's writer cost by
+   symbol from its own unstripped size-profile build in its
+   worktree and writes the attribution into this spec, so that
+   P4's size record and part 6's measurement price what is
+   actually there.
+B. "A colour on a stock series refused" in "P1" is a spec error:
+   `NewSeries::color` arrives in P3. The test moves to P3 beside
+   the colour rules (a colour on a stock series refused with "a
+   chart option does not apply to its kind"); P1's list reads
+   without it. Adding `NewSeries::sizes` gives every existing
+   `NewSeries` literal `sizes: None`: part 4's tests, the tool and
+   the probe are edited for it in P1's kinds commit, the
+   compaction commit's tests staying unchanged; accepted.
+   `RadarStyle` is a `pub` enum of `chart_write.rs` re-exported
+   from `emend::package` beside `NewPlot`, as the other chart
+   enumerations are.
+C. The doc commit b60d4f5's message wraps each file's hash onto
+   the line after its path (a bullet form), not the one-line
+   `<path> sha256 <hash>` form part 4's scan check (change GN) and
+   gate check expect. The hashes are right (planning verified the
+   three blobs). The checks are changed, not the commits: each
+   reads the message with its line breaks folded (as change J3's
+   diff-alone check does) and finds, for each file, its path
+   followed by `sha256` and the blob's hash, with a control that
+   accepts the folded form and one that refuses a wrong hash. The
+   one-line form stays the rule for later doc commits.
+D. "The four part 4 samples" in "P1" is a spec error for "the two
+   part 4 samples" (`--add-chart-sample`, `--chart-kinds-sample`),
+   as "Harness runs" and the brief name them: five reruns in all
+   with the three image samples. The run followed "Harness runs";
+   nothing is rerun. The sentence is corrected in place.
+
+## Planning verification of P1 (2026-10-14)
+
+Verified from primaries: the five logs at the record commit
+e86561a (gate d423bd45, test 2ab6fe6d, negative e13d04db, run
+00e490b3, scan 2fea399f PASS, 0 hits, 0 structural failures; each
+of the four "all as expected: yes"); the record commit's 10 files
+and independent-check-1.md (60a72304); the four records at the
+report's hashes; b60d4f5 holding the three documents at their
+hashes and nothing else; every commit message ASCII with the
+Co-Authored-By line only; the privacy scan of d2c14d8..e86561a
+(5 commits, 1755 blobs, 0 findings, PASS); the kinds commit's
+emission read against "The chart part" (the doughnut's
+`firstSliceAng` then `holeSize`, the radar's `radarStyle` before
+`varyColors`, the bubble's `bubbleSize` after `yVal` with
+`bubbleScale` and `showNegBubbles`, the stock's `hiLowLines` and
+the `none` marker, the axes a line's or a scatter's); the gate's
+probe figure 1055684 (316 over part 4's, told, ruling A); the
+negative log's N3 (the two-drawing message through the binary,
+ruling Q) and the three part 1 messages stated with their test;
+planning's own build at ad48df3 in its detached worktree
+(`<home>/.cache/emend-planning/m5p5-p1-build.txt`): the six
+feature sets and the workspace on both targets at the log's
+figures (515, 585, 551, 623, 688, 1062; 1279), clippy and doc
+clean, release emend-copy on both targets (the i686 binary
+4f779c5a equal to the log's), `--chart-more-sample` and the five
+reruns over the corpus byte-identical to the six run directories'
+outputs and lines on both targets, 27 of 27 each; planning's
+more totals `charts_before` 6, `charts_after` 114,
+`kinds_read_back` 108, `chart_parts_after` 179.
+
+The disclosures. The gate's dry run 1 (the chart write test count
+30 for 32, two tests also gated on `images`; change I59) and the
+aborted relaunch, both kept outside the repository: accepted. The
+negative labels N3/B1 for the brief's N1/B0: accepted, the brief's
+labels were loose. One base test body edited by `sizes: None,`
+alone: accepted (ruling B). The dev run over 26: accepted.
+
+The attribution of part 4's writer cost (ruling A's promise),
+from planning's own unstripped size-profile builds of the
+`charts` probe on i686 at d74ea74 and 574a77d
+(`<home>/.cache/emend-planning/m5p5-attrib.txt`, `nm -S`, names
+only): `.text` grew 34576 and `.rodata` 3072 of the 40732
+section bytes. By symbol, `Parts::write_to` grew by 17751: the
+chart part's and the frame's emission is inlined into the write
+(`part_bytes`, `plot_bytes`, `axes_bytes`, `frame_bytes` have no
+symbol of their own); the drawing writer that a `charts`-only
+consumer links for the first time is the next 10000 (`drawing_of`
+2026, `anchor_bytes` 1257 and its closure 655, `NewDrawing::body`
+1150, two `rewrite_worksheet_from` instances 2025,
+`relative_target` 1106, `ElementPass::root_tag` 984,
+`rels_prefix` 775), which the `images` probe already paid, so the
+`images` figure did not move; the call's checks and helpers about
+2000 (`series_bytes` 543, `value_axis_bytes` 280, `partial_escape`
+322, `element_bytes`, `reference_bytes`, `text`, `reference`,
+`valid`, `title_bytes`); the rest in drop glue, iterator
+instances and the probe's `main`. So the emission's literals are
+about half the writer's cost and the regated drawing writer a
+quarter: part 4's "4000 to 7000" for the drawing additions was
+the miss, and a table-driven emission would reach at most the
+inlined half. No compaction beyond P1's; the estimate and the
+48000 line stand (ruling A); part 6's measurement cites this
+attribution.
+
+Rulings:
+
+E. No carry from P1 to P2 beyond rulings A to D; the "P2" list
+   stands.
+
+P1 is DONE. P2's doc commit carries this spec (rulings A to E and
+this section).
 
 ## Decisions for the maintainer
 
