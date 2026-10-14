@@ -782,6 +782,111 @@ N. No carry from P2 to P3 beyond ruling L's brief line.
 P2 is DONE. P3's doc commit carries this spec (rulings A to N and
 the two verification sections).
 
+## Planning rulings during P3 (2026-10-14)
+
+The doc commit e87e1ba verified by planning: specs/0035 unedited
+(01652f49), nothing else, the tree clean.
+
+O. The writer's cost measured in development is 40732 section
+   bytes (the `charts` probe 1055368 over part 3's 1014636: the
+   feature 85160 over the core), above the 40000 finding line and
+   above planning's 21000 to 34000 estimate; the `images` feature
+   moved by 384 (accepted to 1500) and the core by 0. This is a
+   FINDING, recorded as such and not fixed in this part: the size
+   log prints the writer's cost and judges it "above 40000: a
+   finding, named in the report", the log's checks all as expected
+   (a judged figure, not a failed check, as part 3 ruling Z
+   handled its figure); the size record, the report and the
+   ROADMAP row name it. The estimate miss is planning's (part 3
+   ruling AC's pricing was applied and still fell short by the
+   emission's fixed forms); part 5's estimate is priced from this
+   measurement, per element form and per enumeration arm, and
+   part 5's spec says whether the emission is to be compacted
+   (the fixed axis forms and the shared title form are the first
+   candidates) before it adds kinds. No size work in P3.
+P. The probe's reopen through `Cursor<Vec<u8>>` (the images probe's
+   form, `specs/0028`) is accepted; the second output stays the
+   format probe's, byte for byte; the probe prints `charts 1` and
+   `chart_series 1`.
+
+## Planning verification of P3 (2026-10-14)
+
+Verified from primaries: the six logs at the record commit 27a9a80
+(gate ba415793, test 3023f8b1, negative cfe7b490, size e789dc77,
+run b81bdb0a, scan f718710f PASS, 0 hits, 0 structural failures;
+each of the five "all as expected: yes"; RERUN_NOTE unset in
+each); the record commit's 17 files and independent-check-1.md
+(09721e4c); the ten records at the report's hashes; e87e1ba
+holding specs/0035 unedited (01652f49) and nothing else; every
+commit message ASCII with the Co-Authored-By line only; the
+privacy scan of 6d736e5..27a9a80 (4 commits, 1734 blobs, 0
+findings, PASS); the probe diff read against "Size and packaging"
+and ruling P (one clustered column chart, one series, a two-cell
+anchor, a title, both axis titles, a legend, `Cursor` reopen, the
+second output unchanged); the CHANGELOG's one bullet; planning's
+own build at 574a77d in its detached worktree
+(`<home>/.cache/emend-planning/m5p4-p3-build.txt`): the six
+feature sets and the workspace on both targets at the log's
+figures (515, 578, 551, 616, 681, 1055; 1269), clippy and doc
+clean, release emend-copy on both targets (the i686 binary
+54192d99 equal to the log's), `--add-chart-sample`,
+`--chart-kinds-sample` and `--charts-sample` over the corpus
+byte-identical to the three run directories' outputs and lines on
+both targets, 27 of 27 each; planning's own size-profile builds
+of the four probes (`m5p4-p3-size.txt`) reproducing the size
+log's figures and sha256 hashes: the format probe 970208
+(15453ed4), images 1038424 (29c9d2d1), read 1082808 (d15c7593),
+charts 1055368 (4cd88f3e); so the feature 85160, the writer
+40732, the images movement 384, the core 0, the budget 436992,
+21760 under the ceiling, as size.log prints and judges them.
+
+The disclosures. The gate's dry run 1 failing on the carried
+package.rs code-commit check (fixed by L58 before any logged run;
+kept under the phase directory): accepted. The two superseded
+generator outputs never run: accepted. The dev file-reopen figure
+1055308, with no primary: accepted. The add-chart record pair new
+in P3: accepted, as the brief asked.
+
+Rulings:
+
+Q. The negative log's gap (the check's note, finding 6): "a
+   worksheet has two drawing elements" and part 1's messages for
+   a sheet or part added, replaced or removed in the same write
+   are the drawing walk's messages, owned by `images` and widened
+   to either feature by ruling A; this part changes no line of
+   that walk. They are covered at 574a77d by
+   `images::two_drawing_elements_or_one_out_of_schema_order_are_refused`
+   and, on the chart path under `charts` alone, by
+   `chart_write::the_drawing_refusals_are_the_image_writer_s`;
+   part 3's negative log showed the two-drawing message through
+   the binary (its N3) on the walk the reader shares. "Every
+   message of the part" in "P3" is read as the four of "Errors"'
+   first sentence. The gap in P1's, P2's and P3's negative logs is
+   a finding, not rerun (ruling N). Part 5 P1's negative log
+   through the binary shows the two-drawing message on the
+   add-chart sample and states part 1's three messages reachable
+   or unreachable, each with its covering test.
+R. The probe's carried doc comment ("Every name, part, reference
+   ... comes from the command line"; finding 7) is partly
+   inaccurate since the chart's constants are in-source. Not
+   fixed in this part: the close-out holds no code commit.
+   Corrected in part 5's first code commit, named in part 5's
+   spec as a carry.
+S. The charts record's .txt differs from part 3's in its timing
+   columns. "Byte-identical to part 3's record by sha256" in "P3"
+   is met as the run log reads it: every row's output and line
+   by sha256, 27 of 27 on each label, and the record's summary
+   table equal to the run directory's. The close-out and part 5
+   read it the same way.
+T. The gate checks the test figures against the implementer's
+   FACTS.md while test.log checks them against P2's committed
+   log (the check's note): accepted for this part; from part 5
+   the gate's figures come from the previous phase's committed
+   log, as test.log's do.
+
+P3 is DONE. The close-out's doc commit carries this spec (rulings
+A to T and the three verification sections) and `ROADMAP.md`.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-13: 1, 2 and 3 as recommended (A
