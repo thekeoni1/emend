@@ -820,6 +820,60 @@ P3 is DONE. The close-out's doc commit carries this spec (rulings
 A to AC and the three verification sections) and ROADMAP.md (P3
 DONE).
 
+## Planning rulings on the close-out (2026-10-13)
+
+Verified by planning before the push, from the phase directory and
+git: the doc commit 93a14ef holds specs/0034 (d1f87932) and
+ROADMAP.md (fd5d433b) unedited, 87 insertions, 2 deletions, the two
+sha256 lines in its message, the tree clean; the range
+742051b..93a14ef is 15 commits (017e480 once, then part 3's 14),
+every one ASCII with the Co-Authored-By line only; the files in the
+range lie under CHANGELOG.md, ROADMAP.md, crates/emend, records,
+records/logs, specs, tools/emend-copy and tools/size-probe, no
+workbook, no CLAUDE.md, no workflow file; origin/main 742051b before
+and after the pre stage; push.log (c9a9b2b5, 1306 lines) "pre
+checks all as expected: yes" with identity 15 of 15, privacy 15
+commits 1714 blobs 0 findings, Excel records 0; scan-pre.log
+(19fdf3c5) RESULT PASS, 0 hits, 0 structural failures; planning's
+own privacy scan of 742051b..93a14ef: 15 commits, 1714 blobs, 0
+findings, PASS; gen.py (18f278e0) differs from part 2's (b3ca0a8c)
+only by the part 2 to part 3 names, sources, base, tip and PREV
+pattern (changes 37 and 38); the independent check (e441dd66) YES,
+YES, YES, blocking defects 0.
+
+AD. The pre stage is accepted; planning's word for the push of
+    742051b..93a14ef stands (given 2026-10-13 after P3's
+    verification). The push runs only after the maintainer types
+    MAINTAINER_AUTH in the implementing session. After the record
+    commit, planning verifies push.log's push mode, ci-run.log and
+    scan.log and marks ROADMAP's part 3 Close row and the M5
+    heading.
+AE. The push, the CI run, the scan and the record commit verified
+    by planning (2026-10-13) from git, gh, the three committed logs
+    and its own blob scan: push.log (16eff417, 1389 lines) is the
+    pre log (its first 1306 lines hash c9a9b2b5) with push mode
+    appended; push mode records the maintainer's words typed in the
+    implementing session, "push 10/13/2026" (10/13/2026), the
+    hook's range 742051b..93a14ef, 15 commits 1714 blobs 0
+    findings, git's "742051b..93a14ef  main -> main", remote main
+    equal to local, the repository PRIVATE, the tree clean, stderr
+    0 bytes, no ": no" line; ci-run.log (95fd64b6, 741 lines): one
+    ci.yml run on 93a14ef, run 38493970300, main push success, 0
+    steps other than success or skipped, the privacy step skipped
+    as CI mode requires, no ": no" line; planning's own gh query
+    agrees (ci, 93a14ef, main, push, completed, success); scan.log
+    (57e0f13b, 1985 lines): stage post, origin/main the phase
+    commit, RESULT PASS, 0 hits, 0 errors, 0 structural; it differs
+    from scan-pre.log only by the stage, origin/main, the times,
+    push.log's hash and the scan of ci-run.log. The record commit
+    7a3fec6 holds the three logs only, each cmp-equal to the phase
+    directory's; its message (ASCII, Co-Authored-By only) names
+    gen.py and the three scripts by full hash, each equal to the
+    phase directory's file; planning's privacy scan of
+    93a14ef..7a3fec6: 1 commit, 1693 blobs, 0 findings, PASS. No
+    independent check on this step. origin/main is 93a14ef; 7a3fec6
+    is local and goes with part 4's push. M5 part 3 close-out DONE.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-13: 1, 2 and 3 as recommended (A

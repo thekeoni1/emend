@@ -951,7 +951,7 @@ restored by the part whose push the maintainer makes it gate.
 | P2 | the manifest metadata, the three packaging runs, the size record, the listing rerun, one independent check | DONE (phase 2c31aad, record 24b927c, 2026-10-10; `records/size-m4p2-2026-10-10-2c31aad.md` 0 of 28 moved; the package 56 files, 522253 bytes, verify build and publish dry run exit 0; finding: a package built outside a git checkout drops `template/_rels/.rels`, carried to the publish step, `specs/0031` P2 rulings 1 and 7) |
 | Close | close-out push after P2, carrying 20285f1, base e4ab25b by its subject, decision 1 recorded, no Excel-record check | DONE (doc ac5dc0d, pushed e4ab25b..ac5dc0d 10 commits 2026-10-11, 1568 blobs, 0 findings; CI run 38161194914 success; scan PASS with change 27's whole-word denylist form; pre attempt 1 superseded on the scan's own placeholder check, kept outside the repository; record b0f0b1f local, goes with the next push; decision 1 HOLD, `publish = false` stays; verified by planning from git, `gh`, the three logs and its own scan; `specs/0031` "Planning verification and rulings on the close-out") |
 
-## Milestone 5: charts and read breadth (APPROVED 2026-10-11; part 1 DONE 2026-10-12; part 2 DONE 2026-10-13; part 3 IN PROGRESS from 2026-10-13)
+## Milestone 5: charts and read breadth (APPROVED 2026-10-11; part 1 DONE 2026-10-12; part 2 DONE 2026-10-13; part 3 DONE 2026-10-13; part 4 IN PROGRESS from 2026-10-13)
 
 Theme chosen by the maintainer 2026-10-11 after Milestone 4's
 close-out, from planning's reading of emend against openpyxl: the
@@ -1007,7 +1007,7 @@ only; the `read` feature grows (decision 1 A); no writer changes.
 | P3 | the external link types, `external_links`, "an external link cannot be read"; `--extlink-sample` with the generated fixture; the catalogue, the probe grown, the size record, the API listing rerun, the CHANGELOG bullet, the three samples with the release binaries | DONE (phase f35de0d, record 38b01c7, 2026-10-13; the phase ran twice: the first independent check found two refusals with no failing test, fixed in the tests-only phase commit and every log rerun; extlinks 0 in 27 workbooks, 9 of 9 figures, the generated fixture read on both targets; kinds 24 of 24, pivots 18 of 18; the three samples with the release binaries byte-identical to P1's, P2's and this phase's runs on both targets; tests 515, 618, 656, 990 both targets, workspace 1196; 10 crate tests and 2 tool tests added; API listing 660 (7 cfg-widened, 93 new); size: core growth 0, budget 436992 (21760 under), the feature `read` 112600, a FINDING above the 110000 line (planning's estimate missed; ruling 1); verified by planning from the diffs, the eight logs, its own build, its own corpus runs byte-identical and its own privacy scan of 1661 blobs; `specs/0033` "Planning rulings during P3" A to C and "Planning verification and rulings on P3" 1 to 6) |
 | Close | close-out push after P3, carrying 3f2082e, base c02942e by its subject, `PREV` `^M5 part 1 close-out record`, no Excel-record check | DONE 2026-10-13 (doc 742051b pushed, origin/main c02942e..742051b, 19 commits, 1680 blobs, 0 findings; CI run 38392560343 success; the post-push scan PASS; record 017e480 local, goes with part 3's push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0033` "Planning rulings on the close-out") |
 
-### Part 3: charts read (`specs/0034-charts-read.md`, APPROVED 2026-10-13, decisions 1 to 3 A; IN PROGRESS from 2026-10-13)
+### Part 3: charts read (`specs/0034-charts-read.md`, APPROVED 2026-10-13, decisions 1 to 3 A; DONE 2026-10-13)
 
 The feature `charts`, off by default, measured by a new probe: per
 worksheet, each chart's anchor, its plots (kind, bar direction,
@@ -1026,14 +1026,25 @@ and writing each workbook back byte-identical.
 | P1 | the feature, the drawing walk shared with `images`, `ChartEntry`, `ChartAnchor`, `Chart`, `Plot`, `Series`, `Data` and the enumerations, `charts`, "a chart cannot be read"; `--charts-sample`; the prune of part 2's four target roots | DONE 2026-10-13 (doc 266c410, crate c566a01, tool 54bf510, record cf8f145; 27 chart tests, 11 of 11 plants caught; 26 charts in 11 workbooks, series 38, 27 of 27 equal to the kinds sample; scan PASS; rulings E to L) |
 | P2 | `ChartAxis`, `LegendPosition`, the `axes`, `legend`, `pivot_source` and `style` fields; the sample's remaining fields; the catalogue | DONE 2026-10-13 (doc d148ad1, crate 60ad190, tool 27569d2, record 1e0b03c; 38 chart tests, 14 of 14 plants caught; axes 44, legends 15, pivot charts 5, 22 of 22 figures met; scan PASS; rulings M to Y) |
 | P3 | `probe-emend-charts-write-xml`, the size record, the API listing rerun, the CHANGELOG bullet, the samples with the release binaries | DONE 2026-10-13 (doc 91c1cee, carry 7d2640e, probe 7711ea2, CHANGELOG d74ea74, record 4b410c6; charts cost 44428, core growth 0, images movement 0; API 718 items, 58 new; 40 chart tests, 16 of 16 plants caught; both samples byte-identical to their records; scan PASS; rulings Z to AC) |
-| Close | close-out push after P3, carrying 017e480, base 742051b by its subject, `PREV` `^M5 part 2 close-out record`, no Excel-record check | PLANNED |
+| Close | close-out push after P3, carrying 017e480, base 742051b by its subject, `PREV` `^M5 part 2 close-out record`, no Excel-record check | DONE 2026-10-13 (doc 93a14ef pushed, origin/main 742051b..93a14ef, 15 commits, 1714 blobs, 0 findings; CI run 38493970300 success; the post-push scan PASS; record 7a3fec6 local, goes with part 4's push; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0034` "Planning rulings on the close-out", AD and AE) |
 
-### Part 4: charts write, the first set (planned)
+### Part 4: charts write, the first set (`specs/0035-charts-write-first-set.md`, APPROVED 2026-10-13, decisions 1 to 3 A; IN PROGRESS from 2026-10-13)
 
 Bar, column, line, pie, scatter and area charts from cell ranges,
 with title, axis titles and legend, anchored like images through
-the drawing writer of `specs/0022` and `specs/0028`; LibreOffice
-opens every corpus output.
+the drawing writer of `specs/0022` and `specs/0028`
+(`Package::add_chart`, the feature `charts`, decision 1 A); the
+references are formula strings written verbatim (decision 2 A) and
+no cache is written (decision 3 A); every written chart is read
+back by part 3's `Package::charts` and compared; LibreOffice opens
+every corpus output.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the regated drawing writer shared with `images`, `NewChart`, `NewPlot` (`Bar`, `Line`), `NewSeries`, `NewSeriesName`, `add_chart` with the texts, references, applicability, anchor and size rules, the chart part, the `graphicFrame`, the four messages; `--add-chart-sample`; the image samples byte-identical to their records | PLANNED |
+| P2 | the `Pie`, `Scatter` and `Area` variants; `--chart-kinds-sample`; the catalogue | PLANNED |
+| P3 | the probe's write, the size record (the writer's cost as the probe's movement over 44428), the API listing rerun, the CHANGELOG bullet, the samples with the release binaries | PLANNED |
+| Close | close-out push after P3, carrying 7a3fec6, base 93a14ef by its subject, `PREV` `^M5 part 3 close-out record`, no Excel-record check | PLANNED |
 
 ### Part 5: charts write, the second set (planned)
 
