@@ -714,6 +714,74 @@ I. The test log's rerun stands as attempt 2 (the disclosures
 P1 is DONE. P2's doc commit carries this spec (rulings A to I and
 this section).
 
+## Planning rulings during P2 (2026-10-14)
+
+The doc commit 7eca1a0 verified by planning: specs/0035 unedited
+(d9d65515), nothing else, the tree clean.
+
+J. The kinds sample when M is 0: the references use M' = max(M, 1)
+   (the name B1 of W, categories A2:A(M'+1), values B2:B(M'+1); an
+   empty sheet gets A2:A2 and B2:B2); the anchors stay at
+   (M + 2 + 16 k, 1) with the real M. "M 0 takes row 1" means this.
+K. `one_after` counts the entries of `charts(W)` with a one-cell
+   anchor. The negative N1 is the kinds sample on a fixture whose
+   drawing root is not `wsDr`, exit 2 with "a drawing part or its
+   relationship cannot be read"; its control B0 the same fixture
+   with a `wsDr` root, exit 0.
+
+## Planning verification of P2 (2026-10-14)
+
+Verified from primaries: the five logs at the record commit 6d736e5
+(gate cd8d7b9c, test 8f609611, negative 04ec8e0d, run 7a4e8203,
+scan cf8e9e19 PASS, 0 hits, 0 structural failures; each of the
+four "all as expected: yes"; RERUN_NOTE unset in each); the record
+commit's 10 files and independent-check-1.md (7317efb9); 7eca1a0
+holding specs/0035 unedited (d9d65515) and nothing else; every
+commit message ASCII with the Co-Authored-By line only; the privacy
+scan of d8d4e66..6d736e5 (4 commits, 1722 blobs, 0 findings, PASS);
+the pie, scatter and area emission read against "The chart part"
+(the pie with `varyColors` 1 and no axis, the scatter's two `valAx`
+with `crossBetween` `midCat` and no gridlines on the x axis, the
+area's grouping) and the catalogue read for rulings B, G and H;
+planning's own build at e86da06 in its detached worktree
+(`<home>/.cache/emend-planning/m5p4-p2-build.txt`): the six feature
+sets and the workspace on both targets at the log's figures (515,
+578, 551, 616, 681, 1055; 1269), clippy and doc clean, release
+emend-copy on both targets (the i686 binary 54192d99 equal to the
+log's), `--add-chart-sample` and `--chart-kinds-sample` over the
+corpus byte-identical to the two run directories' outputs and lines
+on both targets, 27 of 27 each; planning's kinds totals
+`charts_before` 6, `charts_after` 168, `kinds_read_back` 162,
+`one_after` 162; the add-chart rerun byte-identical to P1's run
+(the run log, 27 of 27 on both targets).
+
+The disclosures. The superseded commits a80b8e0 (ruling J untested;
+the empty-sheet test added, plant P15), ca3b955 and 80bfe17 (the
+gate's dry run refusing count words; the diff-alone sentence
+added, the trees unchanged), never logged: accepted. The catalogue
+test's dev finding (it now reads chart_write.rs): accepted. The
+run's dry run 1 failing on helpers the generator dropped, fixed in
+the generator before any logged run: accepted. The unlogged dev
+run over 26 workbooks, stated as having no primary: accepted.
+
+Rulings:
+
+L. The final scan's first attempt (unlogged, 1 hit: the check's
+   scope line named the check directory by its absolute path; the
+   answer rewritten with `<phase>/check1/` alone, the attempt and
+   the first answer kept under the phase directory and hashed in
+   the report; the scan run again, scan.log that run): accepted
+   under `specs/0034` P2 ruling Y (checkers write paths under
+   declared placeholders); P3's check brief states the placeholder
+   rule to the checker before it writes.
+M. The check's note that findings 2 and 3 lacked a declared
+   primary: the report now says no primary shows findings 1 to 6
+   except where a log is cited; accepted.
+N. No carry from P2 to P3 beyond ruling L's brief line.
+
+P2 is DONE. P3's doc commit carries this spec (rulings A to N and
+the two verification sections).
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-13: 1, 2 and 3 as recommended (A
