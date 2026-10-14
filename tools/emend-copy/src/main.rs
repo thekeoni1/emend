@@ -7673,11 +7673,13 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
             name: Some(NewSeriesName::Text("emend series")),
             categories: Some(&categories),
             values: &first_values,
+            sizes: None,
         },
         NewSeries {
             name: Some(NewSeriesName::Reference(&second_name)),
             categories: None,
             values: &second_values,
+            sizes: None,
         },
     ];
     let chart = NewChart {
@@ -7897,6 +7899,7 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
         name: Some(NewSeriesName::Reference(&series_name)),
         categories: Some(&categories),
         values: &values,
+        sizes: None,
     }];
     let plots = [
         NewPlot::Bar {
@@ -8042,7 +8045,8 @@ fn chart_kinds_read_back(
 }
 
 /// The chart `specs/0035-charts-write-first-set.md`, "The call", says
-/// `Package::charts` reads back for `chart`, of any kind.
+/// `Package::charts` reads back for `chart`, of any kind, the second set's
+/// included (`specs/0036-charts-write-second-set.md`).
 fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart {
     use emend::package::{
         AxisKind, AxisPosition, BarDirection, Chart, ChartAxis, ChartKind, Data, NewPlot,
@@ -8065,10 +8069,10 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
             }),
             categories: one.categories.map(data),
             values: Some(data(one.values)),
-            sizes: None,
+            sizes: one.sizes.map(data),
             fill: None,
             smooth: false,
-            marker: false,
+            marker: chart.plot == NewPlot::Stock,
             labels: false,
         })
         .collect();
@@ -8081,7 +8085,12 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
         NewPlot::Pie => (ChartKind::Pie, None, None, None),
         NewPlot::Scatter { style } => (ChartKind::Scatter, None, None, Some(style)),
         NewPlot::Area { grouping } => (ChartKind::Area, None, Some(grouping), None),
+        NewPlot::Doughnut { .. } => (ChartKind::Doughnut, None, None, None),
+        NewPlot::Radar { .. } => (ChartKind::Radar, None, None, None),
+        NewPlot::Bubble => (ChartKind::Bubble, None, None, None),
+        NewPlot::Stock => (ChartKind::Stock, None, None, None),
     };
+    let round = matches!(kind, ChartKind::Pie | ChartKind::Doughnut);
     let axis = |id, kind, position, crosses, title: Option<&str>, gridlines| ChartAxis {
         id,
         kind,
@@ -8099,12 +8108,12 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
     } else {
         (AxisPosition::Bottom, AxisPosition::Left)
     };
-    let first = if kind == ChartKind::Scatter {
+    let first = if matches!(kind, ChartKind::Scatter | ChartKind::Bubble) {
         AxisKind::Value
     } else {
         AxisKind::Category
     };
-    let (axis_ids, axes) = if kind == ChartKind::Pie {
+    let (axis_ids, axes) = if round {
         (Vec::new(), Vec::new())
     } else {
         (
@@ -8123,7 +8132,7 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
             bar_direction,
             grouping,
             scatter_style,
-            vary_colors: kind == ChartKind::Pie,
+            vary_colors: round,
             series,
             axis_ids,
         }],

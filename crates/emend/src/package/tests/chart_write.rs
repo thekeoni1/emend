@@ -1,6 +1,8 @@
 //! Charts written on byte-built packages (`specs/0035-charts-write-first-
 //! set.md`, "P1: the writer, bar and line charts", P1 rulings A to F, and
-//! "P2: pie, scatter and area charts; the catalogue"):
+//! "P2: pie, scatter and area charts; the catalogue"; `specs/0036-charts-
+//! write-second-set.md`, "P1: the compaction, doughnut, radar, bubble and
+//! stock charts"):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -11,7 +13,7 @@ use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
     ChartKind, Data, EditAs, Grouping, ImageAnchor, LegendPosition, NewChart, NewPlot, NewSeries,
-    NewSeriesName, Plot, ScatterStyle, Series, SeriesName,
+    NewSeriesName, Plot, RadarStyle, ScatterStyle, Series, SeriesName,
 };
 
 /// The drawing and chart parts' content types.
@@ -161,11 +163,13 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         name: Some(NewSeriesName::Text("North")),
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$B$2:$B$4",
+        sizes: None,
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
         categories: None,
         values: "Sheet1!$C$2:$C$4",
+        sizes: None,
     },
 ];
 
@@ -192,6 +196,7 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         name: None,
         categories: None,
         values: "Sheet1!$B$2:$B$4",
+        sizes: None,
     }];
     NewChart {
         plot,
@@ -919,6 +924,7 @@ fn texts_are_escaped_and_references_written_as_given() {
         name: Some(NewSeriesName::Text("Q1 & \"Q2\" <est>")),
         categories: Some("'A&B''s'!$A$2:$A$4"),
         values: "'A&B''s'!$B$2:$B$4",
+        sizes: None,
     }];
     let chart = NewChart {
         title: Some("Tom's <plan> & more"),
@@ -1197,6 +1203,7 @@ const ONE_NAMED: [NewSeries<'static>; 1] = [NewSeries {
     name: Some(NewSeriesName::Reference("Sheet1!$B$1")),
     categories: Some("Sheet1!$A$2:$A$4"),
     values: "Sheet1!$B$2:$B$4",
+    sizes: None,
 }];
 
 /// `ONE_NAMED` as `charts` reads it.
@@ -1421,4 +1428,374 @@ fn an_area_chart_takes_each_grouping_but_clustered() {
         grouping: Grouping::Clustered,
     });
     assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+/// Two named series with categories, for the doughnut and the radar.
+const TWO_NAMED: [NewSeries<'static>; 2] = [
+    NewSeries {
+        name: Some(NewSeriesName::Reference("Sheet1!$B$1")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$B$2:$B$4",
+        sizes: None,
+    },
+    NewSeries {
+        name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$C$2:$C$4",
+        sizes: None,
+    },
+];
+
+/// `TWO_NAMED` as `charts` reads it.
+fn two_named_read() -> Vec<Series> {
+    vec![
+        one_named_read(),
+        series_ref(
+            Some(SeriesName::Reference("Sheet1!$C$1".to_owned())),
+            Some("Sheet1!$A$2:$A$4"),
+            "Sheet1!$C$2:$C$4",
+            1,
+        ),
+    ]
+}
+
+/// The series forms of `TWO_NAMED` as written.
+fn two_named_written() -> String {
+    format!(
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx>{}</c:tx><c:cat>{}</c:cat><c:val>{}\
+         </c:val></c:ser><c:ser><c:idx val=\"1\"/><c:order val=\"1\"/><c:tx>{}</c:tx><c:cat>{}\
+         </c:cat><c:val>{}</c:val></c:ser>",
+        reference("strRef", "Sheet1!$B$1"),
+        reference("strRef", "Sheet1!$A$2:$A$4"),
+        reference("numRef", "Sheet1!$B$2:$B$4"),
+        reference("strRef", "Sheet1!$C$1"),
+        reference("strRef", "Sheet1!$A$2:$A$4"),
+        reference("numRef", "Sheet1!$C$2:$C$4"),
+    )
+}
+
+/// A plot as read with `kind`, its series and its axis ids, and nothing
+/// else set but `vary_colors`.
+fn plot_read(kind: ChartKind, vary_colors: bool, series: Vec<Series>, axis_ids: Vec<i64>) -> Plot {
+    Plot {
+        kind,
+        bar_direction: None,
+        grouping: None,
+        scatter_style: None,
+        vary_colors,
+        series,
+        axis_ids,
+    }
+}
+
+#[test]
+fn a_doughnut_with_two_series_writes_its_hole_and_no_axes() {
+    let chart = titled(
+        NewPlot::Doughnut { hole_size: 50 },
+        &TWO_NAMED,
+        (None, None),
+    );
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    assert_eq!(
+        text_of(&output, CHART1),
+        chart_part(&format!(
+            "{}<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/><c:doughnutChart>\
+             <c:varyColors val=\"1\"/>{}<c:firstSliceAng val=\"0\"/><c:holeSize val=\"50\"/>\
+             </c:doughnutChart></c:plotArea><c:legend><c:legendPos val=\"r\"/><c:overlay \
+             val=\"0\"/></c:legend><c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/>",
+            title("Share"),
+            two_named_written(),
+        ))
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        read.plots,
+        vec![plot_read(
+            ChartKind::Doughnut,
+            true,
+            two_named_read(),
+            Vec::new()
+        )]
+    );
+    assert!(read.axes.is_empty());
+    for hole_size in [1, 90] {
+        let edge = titled(NewPlot::Doughnut { hole_size }, &ONE_NAMED, (None, None));
+        call(box_anchor(), &edge).expect("taken");
+    }
+}
+
+#[test]
+fn a_doughnut_s_hole_outside_1_to_90_or_an_axis_title_is_refused() {
+    for hole_size in [0, 91, u8::MAX] {
+        let chart = titled(NewPlot::Doughnut { hole_size }, &ONE_NAMED, (None, None));
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+    for axis_titles in [(Some("Month"), None), (None, Some("Units"))] {
+        let chart = titled(NewPlot::Doughnut { hole_size: 50 }, &ONE_NAMED, axis_titles);
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+}
+
+#[test]
+fn a_radar_chart_takes_each_style_with_a_line_s_axes() {
+    for (style, value) in [
+        (RadarStyle::Standard, "standard"),
+        (RadarStyle::Marker, "marker"),
+        (RadarStyle::Filled, "filled"),
+    ] {
+        let chart = titled(
+            NewPlot::Radar { style },
+            &TWO_NAMED,
+            (Some("Month"), Some("Units")),
+        );
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(
+            part.contains(&format!(
+                "<c:plotArea><c:layout/><c:radarChart><c:radarStyle val=\"{value}\"/><c:varyColors \
+                 val=\"0\"/>{}<c:axId val=\"10\"/><c:axId val=\"20\"/></c:radarChart>{}\
+                 </c:plotArea>",
+                two_named_written(),
+                axes("b", "l", &title("Month"), &title("Units"))
+            )),
+            "{part}"
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![plot_read(
+                ChartKind::Radar,
+                false,
+                two_named_read(),
+                vec![10, 20]
+            )]
+        );
+        assert_eq!(
+            read.axes,
+            read_axes(
+                AxisPosition::Bottom,
+                AxisPosition::Left,
+                Some("Month"),
+                Some("Units")
+            )
+        );
+    }
+}
+
+/// Two bubble series, each with x values, y values and sizes.
+const BUBBLES: [NewSeries<'static>; 2] = [
+    NewSeries {
+        name: Some(NewSeriesName::Text("Small")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$B$2:$B$4",
+        sizes: Some("Sheet1!$C$2:$C$4"),
+    },
+    NewSeries {
+        name: None,
+        categories: None,
+        values: "Sheet1!$D$2:$D$4",
+        sizes: Some("Sheet1!$E$2:$E$4"),
+    },
+];
+
+#[test]
+fn a_bubble_chart_writes_each_series_sizes_with_a_scatter_s_axes() {
+    let chart = titled(NewPlot::Bubble, &BUBBLES, (Some("Across"), Some("Up")));
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:plotArea><c:layout/><c:bubbleChart><c:varyColors val=\"0\"/><c:ser><c:idx \
+             val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>Small</c:v></c:tx><c:xVal>{}</c:xVal>\
+             <c:yVal>{}</c:yVal><c:bubbleSize>{}</c:bubbleSize></c:ser><c:ser><c:idx val=\"1\"/>\
+             <c:order val=\"1\"/><c:yVal>{}</c:yVal><c:bubbleSize>{}</c:bubbleSize></c:ser>\
+             <c:bubbleScale val=\"100\"/><c:showNegBubbles val=\"0\"/><c:axId val=\"10\"/><c:axId \
+             val=\"20\"/></c:bubbleChart>{}</c:plotArea>",
+            reference("numRef", "Sheet1!$A$2:$A$4"),
+            reference("numRef", "Sheet1!$B$2:$B$4"),
+            reference("numRef", "Sheet1!$C$2:$C$4"),
+            reference("numRef", "Sheet1!$D$2:$D$4"),
+            reference("numRef", "Sheet1!$E$2:$E$4"),
+            scatter_axes(&title("Across"), &title("Up")),
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    let sized = |mut series: Series, sizes: &str| {
+        series.sizes = Some(Data::Reference {
+            formula: sizes.to_owned(),
+            cached: None,
+        });
+        series
+    };
+    assert_eq!(
+        read.plots,
+        vec![plot_read(
+            ChartKind::Bubble,
+            false,
+            vec![
+                sized(
+                    series_ref(
+                        Some(SeriesName::Text("Small".to_owned())),
+                        Some("Sheet1!$A$2:$A$4"),
+                        "Sheet1!$B$2:$B$4",
+                        0,
+                    ),
+                    "Sheet1!$C$2:$C$4",
+                ),
+                sized(
+                    series_ref(None, None, "Sheet1!$D$2:$D$4", 1),
+                    "Sheet1!$E$2:$E$4",
+                ),
+            ],
+            vec![10, 20],
+        )]
+    );
+    assert_eq!(read.axes, scatter_read_axes(Some("Across"), Some("Up")));
+}
+
+#[test]
+fn sizes_missing_on_a_bubble_series_or_given_on_another_plot_are_refused() {
+    let without = [
+        BUBBLES[0],
+        NewSeries {
+            sizes: None,
+            ..BUBBLES[1]
+        },
+    ];
+    let chart = titled(NewPlot::Bubble, &without, (None, None));
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    for plot in [
+        NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        NewPlot::Scatter {
+            style: ScatterStyle::Marker,
+        },
+        NewPlot::Pie,
+        NewPlot::Stock,
+    ] {
+        let sized = [BUBBLES[0]; 3];
+        let chart = titled(
+            plot,
+            &sized[..if plot == NewPlot::Stock { 3 } else { 1 }],
+            (None, None),
+        );
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+    // Sizes are a reference, checked after the values (the check order).
+    let empty = [NewSeries {
+        sizes: Some(""),
+        ..BUBBLES[0]
+    }];
+    let chart = titled(NewPlot::Bubble, &empty, (None, None));
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), TEXT);
+}
+
+/// Four stock series, open, high, low and close, text names, categories.
+const STOCK: [NewSeries<'static>; 5] = [
+    NewSeries {
+        name: Some(NewSeriesName::Text("open")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$B$2:$B$4",
+        sizes: None,
+    },
+    NewSeries {
+        name: Some(NewSeriesName::Text("high")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$C$2:$C$4",
+        sizes: None,
+    },
+    NewSeries {
+        name: Some(NewSeriesName::Text("low")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$D$2:$D$4",
+        sizes: None,
+    },
+    NewSeries {
+        name: Some(NewSeriesName::Text("close")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$E$2:$E$4",
+        sizes: None,
+    },
+    NewSeries {
+        name: Some(NewSeriesName::Text("extra")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$F$2:$F$4",
+        sizes: None,
+    },
+];
+
+#[test]
+fn a_stock_chart_takes_three_or_four_series_with_high_low_lines() {
+    for series in [&STOCK[1..4], &STOCK[..4]] {
+        let chart = titled(NewPlot::Stock, series, (Some("Day"), Some("Price")));
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        let written: String = series
+            .iter()
+            .zip(0..)
+            .map(|(one, k)| {
+                let NewSeriesName::Text(name) = one.name.expect("named") else {
+                    unreachable!()
+                };
+                format!(
+                    "<c:ser><c:idx val=\"{k}\"/><c:order val=\"{k}\"/><c:tx><c:v>{name}</c:v>\
+                     </c:tx><c:marker><c:symbol val=\"none\"/></c:marker><c:cat>{}</c:cat><c:val>{}\
+                     </c:val></c:ser>",
+                    reference("strRef", "Sheet1!$A$2:$A$4"),
+                    reference("numRef", one.values),
+                )
+            })
+            .collect();
+        assert!(
+            part.contains(&format!(
+                "<c:plotArea><c:layout/><c:stockChart>{written}<c:hiLowLines/><c:axId val=\"10\"/>\
+                 <c:axId val=\"20\"/></c:stockChart>{}</c:plotArea>",
+                axes("b", "l", &title("Day"), &title("Price"))
+            )),
+            "{part}"
+        );
+        let read = &charts_of(&output)[0].chart;
+        let expected: Vec<Series> = series
+            .iter()
+            .zip(0..)
+            .map(|(one, k)| {
+                let NewSeriesName::Text(name) = one.name.expect("named") else {
+                    unreachable!()
+                };
+                Series {
+                    marker: true,
+                    ..series_ref(
+                        Some(SeriesName::Text(name.to_owned())),
+                        Some("Sheet1!$A$2:$A$4"),
+                        one.values,
+                        k,
+                    )
+                }
+            })
+            .collect();
+        assert_eq!(
+            read.plots,
+            vec![plot_read(ChartKind::Stock, false, expected, vec![10, 20])]
+        );
+        assert_eq!(
+            read.axes,
+            read_axes(
+                AxisPosition::Bottom,
+                AxisPosition::Left,
+                Some("Day"),
+                Some("Price")
+            )
+        );
+    }
+}
+
+#[test]
+fn a_stock_chart_with_two_or_five_series_is_refused() {
+    for series in [&STOCK[1..3], &STOCK[..]] {
+        let chart = titled(NewPlot::Stock, series, (None, None));
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
 }

@@ -1,6 +1,9 @@
 //! A chart written into a worksheet's drawing from cell ranges
 //! (`specs/0035-charts-write-first-set.md`). The Cargo feature `charts`.
 //!
+//! The second set (`specs/0036-charts-write-second-set.md`) adds the
+//! doughnut, radar, bubble and stock plots.
+//!
 //! [`Package::add_chart`] checks the call and records the chart as an image
 //! is recorded: the write adds the chart part, created whole from the
 //! caller's strings, and an anchor holding a `graphicFrame` that names it,
@@ -100,6 +103,35 @@ pub enum NewPlot {
         /// How the series are grouped.
         grouping: Grouping,
     },
+    /// `doughnutChart`: its hole size, 1 to 90 percent; no axes,
+    /// `varyColors` 1.
+    Doughnut {
+        /// The `holeSize`, in percent of the chart's radius.
+        hole_size: u8,
+    },
+    /// `radarChart`: its style; the axes a line's.
+    Radar {
+        /// The `radarStyle`.
+        style: RadarStyle,
+    },
+    /// `bubbleChart`: every series with its sizes; two value axes as a
+    /// scatter's.
+    Bubble,
+    /// `stockChart`: three or four series, high, low and close or open,
+    /// high, low and close, in that order; the high-low lines; the axes a
+    /// line's.
+    Stock,
+}
+
+/// A new radar plot's `radarStyle`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RadarStyle {
+    /// `standard`.
+    Standard,
+    /// `marker`.
+    Marker,
+    /// `filled`.
+    Filled,
 }
 
 /// A new chart's series: its name and its references, each written as the
@@ -108,10 +140,13 @@ pub enum NewPlot {
 pub struct NewSeries<'a> {
     /// The series' name, `tx`.
     pub name: Option<NewSeriesName<'a>>,
-    /// The categories, `cat`, or a scatter's x values, `xVal`.
+    /// The categories, `cat`, or a scatter's or bubble's x values, `xVal`.
     pub categories: Option<&'a str>,
-    /// The values, `val`, or a scatter's y values, `yVal`.
+    /// The values, `val`, or a scatter's or bubble's y values, `yVal`.
     pub values: &'a str,
+    /// A bubble's sizes, `bubbleSize`: required on a bubble plot's series,
+    /// refused on any other plot's.
+    pub sizes: Option<&'a str>,
 }
 
 /// A new series' name: a reference written as `tx/strRef/f`, or a text
@@ -130,6 +165,7 @@ struct SeriesWork {
     name: Option<NameWork>,
     categories: Option<String>,
     values: String,
+    sizes: Option<String>,
 }
 
 /// A series' name as the call checked it.
@@ -183,10 +219,14 @@ impl<R: Read + Seek> Package<R> {
     /// anchor or none on another; "a chart anchor is out of range" for a
     /// width or height of 0 or past `i32::MAX` EMU; "a chart option does not
     /// apply to its kind" for no series, a bar's `Standard` grouping, a
-    /// line's or an area's `Clustered`, or a pie with more than one series
-    /// or an axis title; "a chart text is empty or holds a control
-    /// character" for a title, axis title, name or reference, in that
-    /// order, series by series, that is empty, holds a character below
+    /// line's or an area's `Clustered`, a pie with more than one series or
+    /// an axis title, a doughnut whose hole size is outside 1 to 90 or with
+    /// an axis title, a stock plot with other than three or four series, a
+    /// bubble plot's series without sizes or another plot's with them
+    /// (`specs/0036-charts-write-second-set.md`, "Applicability"); "a chart
+    /// text is empty or holds a control character" for a title, axis title,
+    /// name or reference (values, then sizes), in that order, series by
+    /// series, that is empty, holds a character below
     /// U+0020, U+FFFE or U+FFFF, or is longer than 32767 bytes (a reference,
     /// 8192). The write refuses what [`Package::add_image`](super::Package)
     /// says it refuses of the part, and a part this write also removes an
@@ -255,18 +295,19 @@ impl Parts<'_> {
         if chart.series.is_empty() {
             return Err(CHART_OPTION_KIND);
         }
+        let no_axis_title = chart.category_axis_title.is_none() && chart.value_axis_title.is_none();
+        let count = chart.series.len();
+        let bubble = chart.plot == NewPlot::Bubble;
         let applies = match chart.plot {
             NewPlot::Bar { grouping, .. } => grouping != Grouping::Standard,
             NewPlot::Line { grouping } | NewPlot::Area { grouping } => {
                 grouping != Grouping::Clustered
             }
-            NewPlot::Pie => {
-                chart.series.len() == 1
-                    && chart.category_axis_title.is_none()
-                    && chart.value_axis_title.is_none()
-            }
-            NewPlot::Scatter { .. } => true,
-        };
+            NewPlot::Pie => count == 1 && no_axis_title,
+            NewPlot::Doughnut { hole_size } => (1..=90).contains(&hole_size) && no_axis_title,
+            NewPlot::Stock => (3..=4).contains(&count),
+            _ => true,
+        } && chart.series.iter().all(|one| one.sizes.is_some() == bubble);
         if !applies {
             return Err(CHART_OPTION_KIND);
         }
@@ -286,6 +327,7 @@ impl Parts<'_> {
                 name,
                 categories: one.categories.map(reference).transpose()?,
                 values: reference(one.values)?,
+                sizes: one.sizes.map(reference).transpose()?,
             });
         }
         self.edits.drawing_edits.push((
@@ -391,6 +433,10 @@ impl ChartWork {
             NewPlot::Pie => b"pieChart",
             NewPlot::Scatter { .. } => b"scatterChart",
             NewPlot::Area { .. } => b"areaChart",
+            NewPlot::Doughnut { .. } => b"doughnutChart",
+            NewPlot::Radar { .. } => b"radarChart",
+            NewPlot::Bubble => b"bubbleChart",
+            NewPlot::Stock => b"stockChart",
         };
         tag(out, b"<c:", element);
         match self.plot {
@@ -414,6 +460,15 @@ impl ChartWork {
                     ScatterStyle::SmoothMarker => b"smoothMarker",
                 },
             ),
+            NewPlot::Radar { style } => value_element(
+                out,
+                b"radarStyle",
+                match style {
+                    RadarStyle::Standard => b"standard".as_slice(),
+                    RadarStyle::Marker => b"marker",
+                    RadarStyle::Filled => b"filled",
+                },
+            ),
             _ => {}
         }
         if let NewPlot::Bar { grouping, .. }
@@ -422,8 +477,12 @@ impl ChartWork {
         {
             value_element(out, b"grouping", grouping_value(grouping));
         }
-        let pie = self.plot == NewPlot::Pie;
-        value_element(out, b"varyColors", if pie { b"1" } else { b"0" });
+        // A pie's and a doughnut's slices vary; a stock plot has no
+        // `varyColors`.
+        let round = matches!(self.plot, NewPlot::Pie | NewPlot::Doughnut { .. });
+        if self.plot != NewPlot::Stock {
+            value_element(out, b"varyColors", if round { b"1" } else { b"0" });
+        }
         self.series_bytes(out);
         match self.plot {
             NewPlot::Bar { grouping, .. } => {
@@ -435,9 +494,18 @@ impl ChartWork {
             }
             NewPlot::Line { .. } => value_element(out, b"marker", b"1"),
             NewPlot::Pie => value_element(out, b"firstSliceAng", b"0"),
+            NewPlot::Doughnut { hole_size } => {
+                value_element(out, b"firstSliceAng", b"0");
+                value_element(out, b"holeSize", hole_size.to_string().as_bytes());
+            }
+            NewPlot::Bubble => {
+                value_element(out, b"bubbleScale", b"100");
+                value_element(out, b"showNegBubbles", b"0");
+            }
+            NewPlot::Stock => out.extend_from_slice(b"<c:hiLowLines/>"),
             _ => {}
         }
-        if !pie {
+        if !round {
             value_element(out, b"axId", b"10");
             value_element(out, b"axId", b"20");
         }
@@ -445,9 +513,11 @@ impl ChartWork {
     }
 
     /// Each series in order, `idx` and `order` its zero-based position; a
-    /// scatter's references as `xVal` and `yVal`, both `numRef`.
+    /// scatter's and a bubble's references as `xVal` and `yVal`, both
+    /// `numRef`, a bubble's sizes after them; a stock series' marker
+    /// `none`.
     fn series_bytes(&self, out: &mut Vec<u8>) {
-        let scatter = matches!(self.plot, NewPlot::Scatter { .. });
+        let scatter = matches!(self.plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
         let (x, x_form, y): (&[u8], &[u8], &[u8]) = if scatter {
             (b"xVal", b"numRef", b"yVal")
         } else {
@@ -469,24 +539,30 @@ impl ChartWork {
                     out.extend_from_slice(b"</c:v></c:tx>");
                 }
             }
+            if self.plot == NewPlot::Stock {
+                out.extend_from_slice(b"<c:marker><c:symbol val=\"none\"/></c:marker>");
+            }
             if let Some(categories) = &series.categories {
                 element_bytes(out, x, x_form, categories);
             }
             element_bytes(out, y, b"numRef", &series.values);
+            if let Some(sizes) = &series.sizes {
+                element_bytes(out, b"bubbleSize", b"numRef", sizes);
+            }
             out.extend_from_slice(b"</c:ser>");
         }
     }
 
     /// The category axis then the value axis; a bar plot with direction
     /// `Bar` has its category axis at `l` and its value axis at `b`; a
-    /// scatter plot's x axis is a value axis with no gridlines; a pie has
-    /// none.
+    /// scatter's or a bubble's x axis is a value axis with no gridlines; a
+    /// pie and a doughnut have none.
     fn axes_bytes(&self, out: &mut Vec<u8>) {
         let x = &self.category_axis_title;
         let y = &self.value_axis_title;
         match self.plot {
-            NewPlot::Pie => {}
-            NewPlot::Scatter { .. } => {
+            NewPlot::Pie | NewPlot::Doughnut { .. } => {}
+            NewPlot::Scatter { .. } | NewPlot::Bubble => {
                 axis_bytes(out, b"10", b"b", false, x, b"20", Some(b"midCat"));
                 axis_bytes(out, b"20", b"l", true, y, b"10", Some(b"midCat"));
             }

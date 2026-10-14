@@ -427,6 +427,7 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), Strin
         name: Some(NewSeriesName::Text("probe series")),
         categories: Some("'probe'!$A$1:$A$2"),
         values: "'probe'!$B$1:$B$2",
+        sizes: None,
     }];
     let chart = NewChart {
         plot: NewPlot::Bar {
