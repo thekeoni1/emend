@@ -64,6 +64,10 @@
 - Charts read, with the feature `charts`: each chart a sheet's drawing anchors,
   with its plots and their series references, its title, axes, legend, pivot
   source and style (`specs/0034-charts-read.md`).
+- Charts write, with the feature `charts`: a bar, column, line, pie, scatter
+  or area chart added to a sheet from series references the caller names, with
+  its title, axis titles and legend, anchored as an image is
+  (`specs/0035-charts-write-first-set.md`).
 
 ### Changed
 
