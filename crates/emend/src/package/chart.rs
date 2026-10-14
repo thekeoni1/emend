@@ -34,7 +34,7 @@ use crate::xml::{Scope, Stream};
 pub(crate) const CHART_UNREADABLE: Error = Error::Package("a chart cannot be read");
 
 /// The chart namespace, transitional then strict (ECMA-376 Part 1, 21.2).
-const CHART_NAMESPACE: [&[u8]; 2] = [
+pub(super) const CHART_NAMESPACE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/drawingml/2006/chart",
     b"http://purl.oclc.org/ooxml/drawingml/chart",
 ];

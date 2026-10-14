@@ -2089,6 +2089,8 @@
 
 #[cfg(feature = "charts")]
 mod chart;
+#[cfg(feature = "charts")]
+mod chart_write;
 #[cfg(feature = "read")]
 mod extlink;
 #[cfg(feature = "read")]
@@ -2102,6 +2104,8 @@ pub use chart::{
     AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry, ChartKind,
     Data, Grouping, LegendPosition, Plot, ScatterStyle, Series, SeriesName,
 };
+#[cfg(feature = "charts")]
+pub use chart_write::{NewChart, NewPlot, NewSeries, NewSeriesName};
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};
 #[cfg(feature = "read")]
@@ -2304,7 +2308,7 @@ pub const IMAGE: [&[u8]; 2] = [
 
 /// A drawing part's content type, which the strict form shares (the Cargo
 /// feature `images`).
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 const DRAWING_CONTENT_TYPE: &[u8] = b"application/vnd.openxmlformats-officedocument.drawing+xml";
 
 /// The spreadsheet-drawing namespace and the DrawingML one, transitional
@@ -2327,7 +2331,7 @@ const DRAWINGML: [&[u8]; 2] = [
 const MARKUP_COMPATIBILITY: &[u8] = b"http://schemas.openxmlformats.org/markup-compatibility/2006";
 
 /// EMU per pixel at Excel's 96 dpi (the Cargo feature `images`).
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 const EMU_PER_PIXEL: u64 = 9525;
 
 /// The `hyperlink` relationship type, transitional then strict, the type a
@@ -3126,10 +3130,11 @@ struct Recorded {
     /// [`Package::write_to`] before it validates.
     #[cfg(feature = "comments")]
     comment_works: Vec<(Vec<u8>, LegacyWork)>,
-    /// `(part, cell, image)`: an image added, in record order
-    /// (`specs/0022-comments-and-images.md`, "Images: the calls").
-    #[cfg(feature = "images")]
-    image_edits: Vec<(Vec<u8>, ImageAnchor, NewImage)>,
+    /// `(part, anchor, addition)`: an image or a chart added, in record
+    /// order (`specs/0022-comments-and-images.md`, "Images: the calls";
+    /// `specs/0035-charts-write-first-set.md`, "The call").
+    #[cfg(any(feature = "images", feature = "charts"))]
+    drawing_edits: Vec<(Vec<u8>, ImageAnchor, NewDrawing)>,
     /// `(part, index)`: an image removed, by its place in the list
     /// [`Package::images`] gives, in record order
     /// (`specs/0028-images-and-comments-second-half.md`, "Image removal").
@@ -3138,8 +3143,8 @@ struct Recorded {
     /// `(part, work)`: for each part whose `<drawing>` the write creates,
     /// what the worksheet pass does, filled by [`Package::write_to`] before
     /// it validates.
-    #[cfg(feature = "images")]
-    image_works: Vec<(Vec<u8>, DrawingWork)>,
+    #[cfg(any(feature = "images", feature = "charts"))]
+    drawing_works: Vec<(Vec<u8>, DrawingWork)>,
     /// Each sheet copy, `(source, copy)`: the worksheet part
     /// [`Package::copy_sheet`] copies and the entry it returned
     /// (`specs/0028-images-and-comments-second-half.md`, "The copy").
@@ -3433,16 +3438,16 @@ struct SheetWork {
     /// The id of the drawing part's relationship when the write creates the
     /// part's `<drawing>` (`specs/0022-comments-and-images.md`, "Images: the
     /// parts").
-    #[cfg(feature = "images")]
+    #[cfg(any(feature = "images", feature = "charts"))]
     drawing: Option<Vec<u8>>,
     /// Whether that relationship takes the strict forms (a retag's
     /// namespace).
-    #[cfg(feature = "images")]
+    #[cfg(any(feature = "images", feature = "charts"))]
     drawing_strict: bool,
     /// Whether the write drops the part's `<drawing>`, its drawing part
     /// gone with the last anchor (`specs/0028-images-and-comments-second-
     /// half.md`, "Image removal").
-    #[cfg(feature = "images")]
+    #[cfg(any(feature = "images", feature = "charts"))]
     drawing_drop: bool,
     /// The part's sheet settings (`specs/0025-sheet-and-print-settings.md`,
     /// "The pass"), and the outline's (`specs/0026-grouping-and-line-
@@ -4369,11 +4374,12 @@ pub enum Anchor {
     Absolute,
 }
 
-/// Where [`Package::add_image_at`] places an image
-/// (`specs/0028-images-and-comments-second-half.md`, "Anchors"). Every
-/// offset and position is in pixels, written as EMU at 9525 per pixel. The
-/// Cargo feature `images`.
-#[cfg(feature = "images")]
+/// Where `Package::add_image_at` places an image, or `Package::add_chart`
+/// a chart (`specs/0028-images-and-comments-second-half.md`, "Anchors";
+/// `specs/0035-charts-write-first-set.md`, "Anchors"). Every offset and
+/// position is in pixels, written as EMU at 9525 per pixel. The Cargo
+/// feature `images` or `charts`.
+#[cfg(any(feature = "images", feature = "charts"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImageAnchor {
     /// `oneCellAnchor`: the image's top-left corner at `from`'s, moved by
@@ -4449,15 +4455,63 @@ struct NewImage {
     cy: u64,
 }
 
-/// One worksheet part's image additions, in record order, each with its
-/// anchor.
-#[cfg(feature = "images")]
-type PartImages = Vec<(ImageAnchor, NewImage)>;
+/// What an anchor the write adds to a drawing holds: a picture or a chart
+/// (`specs/0035-charts-write-first-set.md`, "Crate").
+#[cfg(any(feature = "images", feature = "charts"))]
+#[derive(Clone)]
+enum NewDrawing {
+    /// A picture, with its media entry.
+    #[cfg(feature = "images")]
+    Image(NewImage),
+    /// A chart, with its chart part.
+    #[cfg(feature = "charts")]
+    Chart(Box<chart_write::ChartWork>),
+}
 
-/// What a worksheet rewrite does with `<drawing>` for the images: creates it
-/// naming the drawing relationship `create`, in the worksheet's form
-/// `strict`, or drops it with its drawing part, the last anchor removed.
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
+impl NewDrawing {
+    /// The relationship type the drawing's rels part names the addition's
+    /// entry with.
+    fn kind(&self) -> [&'static [u8]; 2] {
+        match self {
+            #[cfg(feature = "images")]
+            NewDrawing::Image(_) => IMAGE,
+            #[cfg(feature = "charts")]
+            NewDrawing::Chart(_) => CHART,
+        }
+    }
+
+    /// The anchor's extent in EMU, both 0 for a two-cell anchor.
+    fn extent(&self) -> (u64, u64) {
+        match self {
+            #[cfg(feature = "images")]
+            NewDrawing::Image(image) => (image.cx, image.cy),
+            #[cfg(feature = "charts")]
+            NewDrawing::Chart(chart) => (chart.cx, chart.cy),
+        }
+    }
+
+    /// The anchor's body: the picture or the chart's frame, its `cNvPr`
+    /// `id` from `id`, naming the relationship `rel`.
+    fn body(&self, form: &DrawingForm, id: u64, rel: &[u8]) -> Vec<u8> {
+        match self {
+            #[cfg(feature = "images")]
+            NewDrawing::Image(_) => picture_bytes(form, id, rel),
+            #[cfg(feature = "charts")]
+            NewDrawing::Chart(_) => chart_write::ChartWork::frame_bytes(form, id, rel),
+        }
+    }
+}
+
+/// One worksheet part's drawing additions, in record order, each with its
+/// anchor.
+#[cfg(any(feature = "images", feature = "charts"))]
+type PartDrawings = Vec<(ImageAnchor, NewDrawing)>;
+
+/// What a worksheet rewrite does with `<drawing>` for the images and charts:
+/// creates it naming the drawing relationship `create`, in the worksheet's
+/// form `strict`, or drops it with its drawing part, the last anchor removed.
+#[cfg(any(feature = "images", feature = "charts"))]
 #[derive(Clone)]
 struct DrawingWork {
     create: Option<Vec<u8>>,
@@ -4918,14 +4972,20 @@ impl Recorded {
         true
     }
 
-    /// Whether no image is added; always, without the feature `images`.
-    #[cfg(feature = "images")]
+    /// Whether no image or chart is added and no image removed; always,
+    /// without the features `images` and `charts`.
+    #[cfg(any(feature = "images", feature = "charts"))]
     fn no_image_edits(&self) -> bool {
-        self.image_edits.is_empty() && self.image_removals.is_empty()
+        #[cfg(feature = "images")]
+        let removals = self.image_removals.is_empty();
+        #[cfg(not(feature = "images"))]
+        let removals = true;
+        self.drawing_edits.is_empty() && removals
     }
 
-    /// Whether no image is added; always, without the feature `images`.
-    #[cfg(not(feature = "images"))]
+    /// Whether no image or chart is added and no image removed; always,
+    /// without the features `images` and `charts`.
+    #[cfg(not(any(feature = "images", feature = "charts")))]
     fn no_image_edits(&self) -> bool {
         true
     }
@@ -5122,9 +5182,10 @@ impl Recorded {
         // (`specs/0022-comments-and-images.md`, "Harness runs" and "P2").
         #[cfg(feature = "comments")]
         let named = named.chain(self.comment_works.iter().map(|(part, _)| part));
-        // An image only when its `<drawing>` is created ("Harness runs").
-        #[cfg(feature = "images")]
-        let named = named.chain(self.image_works.iter().map(|(part, _)| part));
+        // An image or a chart only when its `<drawing>` is created or
+        // dropped ("Harness runs").
+        #[cfg(any(feature = "images", feature = "charts"))]
+        let named = named.chain(self.drawing_works.iter().map(|(part, _)| part));
         for part in named {
             if !parts.iter().any(|seen| seen == part) {
                 parts.push(part.clone());
@@ -5147,10 +5208,14 @@ impl Recorded {
             .chain(self.comment_edits.iter().map(|(part, _, _)| part.clone()))
             .chain(self.comment_boxes.iter().map(|(part, _, _)| part.clone()))
             .collect();
+        #[cfg(any(feature = "images", feature = "charts"))]
+        let parts: Vec<Vec<u8>> = parts
+            .into_iter()
+            .chain(self.drawing_edits.iter().map(|(part, _, _)| part.clone()))
+            .collect();
         #[cfg(feature = "images")]
         let parts: Vec<Vec<u8>> = parts
             .into_iter()
-            .chain(self.image_edits.iter().map(|(part, _, _)| part.clone()))
             .chain(self.image_removals.iter().map(|(part, _)| part.clone()))
             .collect();
         parts
@@ -5300,20 +5365,20 @@ impl Recorded {
                 .comment_works
                 .iter()
                 .any(|(at, work)| at.as_slice() == part && work.drop),
-            #[cfg(feature = "images")]
+            #[cfg(any(feature = "images", feature = "charts"))]
             drawing: self
-                .image_works
+                .drawing_works
                 .iter()
                 .find(|(at, _)| at.as_slice() == part)
                 .and_then(|(_, work)| work.create.clone()),
-            #[cfg(feature = "images")]
+            #[cfg(any(feature = "images", feature = "charts"))]
             drawing_strict: self
-                .image_works
+                .drawing_works
                 .iter()
                 .any(|(at, work)| at.as_slice() == part && work.strict),
-            #[cfg(feature = "images")]
+            #[cfg(any(feature = "images", feature = "charts"))]
             drawing_drop: self
-                .image_works
+                .drawing_works
                 .iter()
                 .any(|(at, work)| at.as_slice() == part && work.drop),
             #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
@@ -9727,7 +9792,7 @@ impl<'a> Parts<'a> {
     /// "a cell edit to a part this write replaces"), as a cell edit on a
     /// replaced worksheet is refused (`specs/0022-comments-and-images.md`, P1
     /// verification ruling 1 (2)).
-    #[cfg(any(feature = "comments", feature = "images"))]
+    #[cfg(any(feature = "comments", feature = "images", feature = "charts"))]
     fn edited_part_untouched(&self, target: Option<&[u8]>) -> Result<(), Error> {
         let Some(target) = target else {
             return Ok(());
@@ -9842,15 +9907,15 @@ impl<'a> Parts<'a> {
             };
             (cx, cy)
         };
-        self.edits.image_edits.push((
+        self.edits.drawing_edits.push((
             part.to_vec(),
             anchor,
-            NewImage {
+            NewDrawing::Image(NewImage {
                 bytes: image.bytes.to_vec(),
                 png,
                 cx,
                 cy,
-            },
+            }),
         ));
         Ok(())
     }
@@ -9920,31 +9985,38 @@ impl<'a> Parts<'a> {
         Ok(Some(rels.target_part(rel).map_err(|_| DRAWING_UNREADABLE)?))
     }
 
-    /// Records each worksheet's image additions
-    /// (`specs/0022-comments-and-images.md`, "Images: the parts"): a media
-    /// entry per image with its `Override`; the anchors appended to the
-    /// sheet's drawing part, each with an `image` relationship on its rels
-    /// part, or a drawing part created with its `Override` and its rels
-    /// part, the sheet's `drawing` relationship and what the worksheet pass
-    /// does with `<drawing>`. Part by part, in record order: the refusals of
-    /// a removed, replaced, absent or shifted part, then what the drawing
+    /// Records each worksheet's image and chart additions
+    /// (`specs/0022-comments-and-images.md`, "Images: the parts";
+    /// `specs/0035-charts-write-first-set.md`, "The parts"): a media entry
+    /// per image and a chart part per chart, each with its `Override`; the
+    /// anchors appended to the sheet's drawing part in record order, each
+    /// with an `image` or `chart` relationship on its rels part, or a
+    /// drawing part created with its `Override` and its rels part, the
+    /// sheet's `drawing` relationship and what the worksheet pass does with
+    /// `<drawing>`. Part by part, in record order: the refusals of a
+    /// removed, replaced, absent or shifted part, then what the drawing
     /// cannot be read for.
-    #[cfg(feature = "images")]
-    fn record_images(&mut self) -> Result<(), Error> {
-        if self.edits.image_edits.is_empty() && self.edits.image_removals.is_empty() {
+    #[cfg(any(feature = "images", feature = "charts"))]
+    fn record_drawings(&mut self) -> Result<(), Error> {
+        #[cfg(feature = "images")]
+        let none_removed = self.edits.image_removals.is_empty();
+        #[cfg(not(feature = "images"))]
+        let none_removed = true;
+        if self.edits.drawing_edits.is_empty() && none_removed {
             return Ok(());
         }
-        let mut parts: Vec<(Vec<u8>, PartImages)> = Vec::new();
-        for (part, anchor, image) in self.edits.image_edits.clone() {
+        let mut parts: Vec<(Vec<u8>, PartDrawings)> = Vec::new();
+        for (part, anchor, addition) in self.edits.drawing_edits.clone() {
             match parts.iter_mut().find(|(have, _)| *have == part) {
-                Some((_, images)) => images.push((anchor, image)),
-                None => parts.push((part, vec![(anchor, image)])),
+                Some((_, additions)) => additions.push((anchor, addition)),
+                None => parts.push((part, vec![(anchor, addition)])),
             }
         }
         let mut works: Vec<(Vec<u8>, DrawingWork)> = Vec::new();
+        #[cfg(feature = "images")]
         self.record_image_removals(&parts, &mut works)?;
         let mut entries = self.taken_entries();
-        for (part, images) in parts {
+        for (part, additions) in parts {
             if self.edits.part_removals.contains(&part) {
                 return Err(REMOVED_PART_EDITED);
             }
@@ -9968,36 +10040,73 @@ impl<'a> Parts<'a> {
             // part calls is not read for the edit, as a comment's parts are.
             self.edited_part_untouched(drawing.as_deref())?;
             let strict = self.sheet_is_strict(&part)?;
-            // A media entry per image, N free over both extensions.
-            let mut media: Vec<Vec<u8>> = Vec::new();
-            for (_, image) in &images {
-                let n = free_media(&entries);
-                let (extension, content_type): (&str, &[u8]) = if image.png {
-                    ("png", b"image/png")
-                } else {
-                    ("jpeg", b"image/jpeg")
-                };
-                let entry = format!("xl/media/image{n}.{extension}");
-                entries.push(entry.to_ascii_lowercase());
-                self.add_part(
-                    entry.as_bytes(),
-                    replacement_from_reader(Cursor::new(image.bytes.clone())),
-                );
-                self.add_override(format!("/{entry}").as_bytes(), content_type);
-                media.push(entry.into_bytes());
-            }
-            match drawing {
+            // The kept drawing, read before any part is added: a chart part
+            // takes the drawing's form (P1 ruling E).
+            let kept = match &drawing {
                 Some(target) => {
-                    let at = self.archive.index_of(&target).ok_or(DRAWING_UNREADABLE)?;
+                    let at = self.archive.index_of(target).ok_or(DRAWING_UNREADABLE)?;
                     let mut bytes = Vec::new();
                     self.archive.read(at)?.read_to_end(&mut bytes)?;
                     let read = read_drawing(&bytes, at)?;
+                    Some((bytes, read))
+                }
+                None => None,
+            };
+            let created = DrawingForm {
+                x: b"xdr:".to_vec(),
+                a: Some(b"a".to_vec()),
+                r: None,
+                strict: false,
+            };
+            #[cfg(feature = "charts")]
+            let form = kept.as_ref().map_or(&created, |(_, read)| &read.form);
+            // An entry per addition, in record order: a media entry, N free
+            // over both extensions, or a chart part.
+            let mut added: Vec<Vec<u8>> = Vec::new();
+            for (_, addition) in &additions {
+                let entry = match addition {
+                    #[cfg(feature = "images")]
+                    NewDrawing::Image(image) => {
+                        let n = free_media(&entries);
+                        let (extension, content_type): (&str, &[u8]) = if image.png {
+                            ("png", b"image/png")
+                        } else {
+                            ("jpeg", b"image/jpeg")
+                        };
+                        let entry = format!("xl/media/image{n}.{extension}");
+                        entries.push(entry.to_ascii_lowercase());
+                        self.add_part(
+                            entry.as_bytes(),
+                            replacement_from_reader(Cursor::new(image.bytes.clone())),
+                        );
+                        self.add_override(format!("/{entry}").as_bytes(), content_type);
+                        entry
+                    }
+                    #[cfg(feature = "charts")]
+                    NewDrawing::Chart(chart) => {
+                        let entry = free_entry(&entries, |n| format!("xl/charts/chart{n}.xml"));
+                        entries.push(entry.to_ascii_lowercase());
+                        self.add_part(
+                            entry.as_bytes(),
+                            replacement_from_reader(Cursor::new(chart.part_bytes(form.strict))),
+                        );
+                        self.add_override(
+                            format!("/{entry}").as_bytes(),
+                            chart_write::CHART_CONTENT_TYPE,
+                        );
+                        entry
+                    }
+                };
+                added.push(entry.into_bytes());
+            }
+            match (drawing, kept) {
+                (Some(target), Some((bytes, read))) => {
                     let mut out = bytes[..read.end].to_vec();
                     let mut id = read.highest;
-                    for ((anchor, image), entry) in images.iter().zip(&media) {
+                    for ((anchor, addition), entry) in additions.iter().zip(&added) {
                         let rel = self.add_relationship(
                             &target,
-                            IMAGE[usize::from(strict)],
+                            addition.kind()[usize::from(strict)],
                             &relative_target(&target, entry),
                             false,
                         )?;
@@ -10005,33 +10114,39 @@ impl<'a> Parts<'a> {
                             .checked_add(1)
                             .filter(|id| *id <= u64::from(u32::MAX))
                             .ok_or(DRAWING_UNREADABLE)?;
-                        out.extend_from_slice(&anchor_bytes(&read.form, anchor, image, id, &rel));
+                        out.extend_from_slice(&anchor_bytes(
+                            &read.form,
+                            anchor,
+                            addition.extent(),
+                            &addition.body(&read.form, id, &rel),
+                        ));
                     }
                     out.extend_from_slice(&bytes[read.end..]);
                     self.replace_part(&target, replacement_from_reader(Cursor::new(out)));
                 }
-                None => {
+                _ => {
                     let entry = free_entry(&entries, |n| format!("xl/drawings/drawing{n}.xml"));
                     entries.push(entry.to_ascii_lowercase());
-                    let form = DrawingForm {
-                        x: b"xdr:".to_vec(),
-                        a: Some(b"a".to_vec()),
-                        r: None,
-                        strict: false,
-                    };
                     let mut anchors = Vec::new();
                     let mut rels = Vec::new();
-                    for (k, ((anchor, image), media)) in (1u64..).zip(images.iter().zip(&media)) {
+                    for (k, ((anchor, addition), added)) in
+                        (1u64..).zip(additions.iter().zip(&added))
+                    {
                         let rel = format!("rId{k}").into_bytes();
-                        anchors.extend_from_slice(&anchor_bytes(&form, anchor, image, k, &rel));
+                        anchors.extend_from_slice(&anchor_bytes(
+                            &created,
+                            anchor,
+                            addition.extent(),
+                            &addition.body(&created, k, &rel),
+                        ));
                         rels.extend_from_slice(
                             &[
                                 b"<Relationship Id=\"".as_slice(),
                                 &rel,
                                 b"\" Type=\"",
-                                IMAGE[usize::from(strict)],
+                                addition.kind()[usize::from(strict)],
                                 b"\" Target=\"",
-                                &relative_target(entry.as_bytes(), media),
+                                &relative_target(entry.as_bytes(), added),
                                 b"\"/>",
                             ]
                             .concat(),
@@ -10075,7 +10190,7 @@ impl<'a> Parts<'a> {
                 }
             }
         }
-        self.edits.image_works = works;
+        self.edits.drawing_works = works;
         Ok(())
     }
 
@@ -10094,7 +10209,7 @@ impl<'a> Parts<'a> {
     #[cfg(feature = "images")]
     fn record_image_removals(
         &mut self,
-        additions: &[(Vec<u8>, PartImages)],
+        additions: &[(Vec<u8>, PartDrawings)],
         works: &mut Vec<(Vec<u8>, DrawingWork)>,
     ) -> Result<(), Error> {
         let mut parts: Vec<(Vec<u8>, Vec<usize>)> = Vec::new();
@@ -10257,7 +10372,12 @@ impl<'a> Parts<'a> {
     /// case folded: the names a created part may not take. An entry this
     /// write removes still counts as taken, so an addition never reuses a
     /// removed entry's name (`specs/0021-tables.md`, P1 ruling 6).
-    #[cfg(any(feature = "tables", feature = "comments", feature = "images"))]
+    #[cfg(any(
+        feature = "tables",
+        feature = "comments",
+        feature = "images",
+        feature = "charts"
+    ))]
     fn taken_entries(&self) -> Vec<String> {
         self.archive
             .entries()
@@ -10281,7 +10401,8 @@ impl<'a> Parts<'a> {
         feature = "metadata",
         feature = "tables",
         feature = "comments",
-        feature = "images"
+        feature = "images",
+        feature = "charts"
     ))]
     fn sheet_is_strict(&mut self, part: &[u8]) -> Result<bool, Error> {
         let workbook = self.workbook()?.part.clone();
@@ -10761,8 +10882,8 @@ impl<'a> Parts<'a> {
         self.edits.comment_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "comments")]
         self.edits.comment_boxes.retain(|(at, _, _)| at != part);
-        #[cfg(feature = "images")]
-        self.edits.image_edits.retain(|(at, _, _)| at != part);
+        #[cfg(any(feature = "images", feature = "charts"))]
+        self.edits.drawing_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "images")]
         self.edits.image_removals.retain(|(at, _)| at != part);
         #[cfg(feature = "copy")]
@@ -10790,10 +10911,11 @@ impl<'a> Parts<'a> {
         // (`specs/0022-comments-and-images.md`, "Comments: the parts").
         #[cfg(feature = "comments")]
         self.record_comments()?;
-        // And an image's (`specs/0022-comments-and-images.md`, "Images: the
+        // And an image's or a chart's (`specs/0022-comments-and-images.md`,
+        // "Images: the parts"; `specs/0035-charts-write-first-set.md`, "The
         // parts").
-        #[cfg(feature = "images")]
-        self.record_images()?;
+        #[cfg(any(feature = "images", feature = "charts"))]
+        self.record_drawings()?;
         self.validate()?;
         let mut edits = Edits::new();
         // The guards outlive the write: each replacement reads its file back,
@@ -14774,7 +14896,7 @@ fn rewrite_worksheet_from(
     let mut formats = FormatsPass::new(&work.rules);
     #[cfg(feature = "tables")]
     let mut tables = TablesPass::new(&work.tables, &work.tables_removed);
-    #[cfg(feature = "images")]
+    #[cfg(any(feature = "images", feature = "charts"))]
     let mut drawing = ElementPass::new(DRAWING_ELEMENT, work.drawing.as_deref());
     #[cfg(feature = "comments")]
     let mut legacy = ElementPass::new(LEGACY_DRAWING, work.legacy.as_deref());
@@ -14927,7 +15049,7 @@ fn rewrite_worksheet_from(
                             &root_prefix,
                             index,
                         )?)?;
-                        #[cfg(feature = "images")]
+                        #[cfg(any(feature = "images", feature = "charts"))]
                         if let Some(bytes) = drawing.create_before(position, &root_prefix) {
                             out.write_all(&bytes)?;
                         }
@@ -14952,7 +15074,7 @@ fn rewrite_worksheet_from(
                 // A `<drawing>` the write drops with its drawing part, the
                 // last anchor gone (`specs/0028-images-and-comments-second-
                 // half.md`, "Image removal").
-                #[cfg(feature = "images")]
+                #[cfg(any(feature = "images", feature = "charts"))]
                 if root && depth == 2 && ours && local == DRAWING_ELEMENT && work.drawing_drop {
                     if !empty {
                         skip_element(&mut stream, &mut scope)?;
@@ -15081,7 +15203,7 @@ fn rewrite_worksheet_from(
                     #[cfg(feature = "comments")]
                     let root_raw = legacy.root_tag(&root_raw, work.legacy_strict, index)?;
                     // And for a created `<drawing>`'s ("Images: the parts").
-                    #[cfg(feature = "images")]
+                    #[cfg(any(feature = "images", feature = "charts"))]
                     let root_raw = drawing.root_tag(&root_raw, work.drawing_strict, index)?;
                     #[cfg(feature = "metadata")]
                     let links_needed = links.needed || matches!(protect.edit, Some(Some(_)));
@@ -15093,7 +15215,7 @@ fn rewrite_worksheet_from(
                     let links_needed = links_needed || !tables.tables.is_empty();
                     #[cfg(feature = "comments")]
                     let links_needed = links_needed || work.legacy.is_some();
-                    #[cfg(feature = "images")]
+                    #[cfg(any(feature = "images", feature = "charts"))]
                     let links_needed = links_needed || work.drawing.is_some();
                     #[cfg(any(feature = "sheetprops", feature = "rowcol"))]
                     let links_needed = links_needed || settings.needs_any();
@@ -15149,7 +15271,7 @@ fn rewrite_worksheet_from(
                             &root_prefix,
                             index,
                         )?)?;
-                        #[cfg(feature = "images")]
+                        #[cfg(any(feature = "images", feature = "charts"))]
                         if let Some(bytes) = drawing.create_at_end(&root_prefix) {
                             out.write_all(&bytes)?;
                         }
@@ -15607,7 +15729,7 @@ fn rewrite_worksheet_from(
                                     &root_prefix,
                                     index,
                                 )?)?;
-                                #[cfg(feature = "images")]
+                                #[cfg(any(feature = "images", feature = "charts"))]
                                 if let Some(bytes) = drawing.create_at_end(&root_prefix) {
                                     out.write_all(&bytes)?;
                                 }
@@ -18190,7 +18312,12 @@ fn check_table_name(name: &str) -> Result<(), Error> {
 /// The entry name `form` gives for the smallest positive N whose name,
 /// ASCII case folded, `taken` does not hold; `taken` is folded already. A
 /// list of k names leaves one of 1 to k + 1 free, so N runs no further.
-#[cfg(any(feature = "tables", feature = "comments", feature = "images"))]
+#[cfg(any(
+    feature = "tables",
+    feature = "comments",
+    feature = "images",
+    feature = "charts"
+))]
 fn free_entry(taken: &[String], form: impl Fn(u64) -> String) -> String {
     let mut n = 1u64;
     while taken.contains(&form(n).to_ascii_lowercase()) {
@@ -18202,7 +18329,12 @@ fn free_entry(taken: &[String], form: impl Fn(u64) -> String) -> String {
 /// The target of a relationship from the part `from` to the entry `to`,
 /// relative to `from`'s directory: `../tables/table1.xml` from
 /// `xl/worksheets/sheet1.xml` (P1 ruling 4).
-#[cfg(any(feature = "tables", feature = "comments", feature = "images"))]
+#[cfg(any(
+    feature = "tables",
+    feature = "comments",
+    feature = "images",
+    feature = "charts"
+))]
 fn relative_target(from: &[u8], to: &[u8]) -> Vec<u8> {
     let from: Vec<&[u8]> = from.split(|byte| *byte == b'/').collect();
     let to: Vec<&[u8]> = to.split(|byte| *byte == b'/').collect();
@@ -18516,7 +18648,12 @@ fn read_table(input: impl Read, index: usize, part: Vec<u8>) -> Result<TableEntr
 /// and so on that the tag does not declare) in the transitional or the
 /// strict form, as part 4a's links retag it (`specs/0021-tables.md`, P1
 /// ruling 3; `specs/0022-comments-and-images.md`, "Comments: the parts").
-#[cfg(any(feature = "tables", feature = "comments", feature = "images"))]
+#[cfg(any(
+    feature = "tables",
+    feature = "comments",
+    feature = "images",
+    feature = "charts"
+))]
 fn rels_prefixed(raw: &[u8], strict: bool, index: usize) -> Result<(Vec<u8>, Vec<u8>), Error> {
     let tag = scan_start_tag(raw).ok_or(Error::Xml(index))?;
     for attribute in &tag.attributes {
@@ -19948,7 +20085,7 @@ fn vml_appended(
 /// the parts"): the element created in schema position when the write adds
 /// the part it names to a sheet that has none, and the prefix its `r:id`
 /// takes. The Cargo features `comments` and `images`.
-#[cfg(any(feature = "comments", feature = "images"))]
+#[cfg(any(feature = "comments", feature = "images", feature = "charts"))]
 struct ElementPass<'w> {
     name: &'static [u8],
     rel_id: Option<&'w [u8]>,
@@ -19958,7 +20095,7 @@ struct ElementPass<'w> {
     rels_prefix: Vec<u8>,
 }
 
-#[cfg(any(feature = "comments", feature = "images"))]
+#[cfg(any(feature = "comments", feature = "images", feature = "charts"))]
 impl<'w> ElementPass<'w> {
     fn new(name: &'static [u8], rel_id: Option<&'w [u8]>) -> Self {
         ElementPass {
@@ -20095,7 +20232,7 @@ fn image_header(bytes: &[u8]) -> Result<(bool, u32, u32), Error> {
 /// the root binds to the DrawingML and relationships namespaces, when it
 /// binds them; and whether the root's namespace is the strict form, which
 /// a namespace bound on the added elements follows.
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 struct DrawingForm {
     x: Vec<u8>,
     a: Option<Vec<u8>>,
@@ -20105,7 +20242,7 @@ struct DrawingForm {
 
 /// What the write reads of a kept drawing part: its form, the largest
 /// `cNvPr` `id` anywhere in it, and where its root's end tag starts.
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 struct DrawingRead {
     form: DrawingForm,
     highest: u64,
@@ -20119,7 +20256,7 @@ struct DrawingRead {
 /// `wsDr` in the spreadsheet-drawing namespace or an empty one, and a
 /// `cNvPr` `id` that is not a decimal number cannot be read; an element
 /// whose prefix nothing binds meets part 2's refusal.
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 fn read_drawing(bytes: &[u8], index: usize) -> Result<DrawingRead, Error> {
     let unreadable = |error: Error| match error {
         Error::Xml(_) => DRAWING_UNREADABLE,
@@ -20208,7 +20345,7 @@ fn read_drawing(bytes: &[u8], index: usize) -> Result<DrawingRead, Error> {
 }
 
 /// `prefix` with its colon, or nothing for the default namespace.
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 fn with_colon(prefix: &[u8]) -> Vec<u8> {
     if prefix.is_empty() {
         Vec::new()
@@ -20217,43 +20354,113 @@ fn with_colon(prefix: &[u8]) -> Vec<u8> {
     }
 }
 
-/// An added image's anchor (`specs/0022-comments-and-images.md`, "Images:
-/// the parts", and `specs/0028-images-and-comments-second-half.md`,
-/// "Anchors"): the element `anchor` chooses, a `oneCellAnchor` with its
-/// `from` and the extent the image carries, a `twoCellAnchor` with
-/// `editAs`, `from` and `to`, or an `absoluteAnchor` with `pos` and the
-/// extent; then the picture, its `cNvPr` `id` and name from `id`, its
-/// `blip` naming the relationship `rel`, and `clientData`; the DrawingML
-/// and relationships namespaces bound on the added elements when `form`
-/// says the root binds neither.
-#[cfg(feature = "images")]
-fn anchor_bytes(
-    form: &DrawingForm,
-    anchor: &ImageAnchor,
-    image: &NewImage,
-    id: u64,
-    rel: &[u8],
-) -> Vec<u8> {
-    let strict = usize::from(form.strict);
-    let x = form.x.as_slice();
-    let a = match &form.a {
+/// The prefix with its colon an added element takes for the DrawingML
+/// namespace: the root's, or `a:` bound on the added anchor.
+#[cfg(any(feature = "images", feature = "charts"))]
+fn drawing_a(form: &DrawingForm) -> Vec<u8> {
+    match &form.a {
         Some(prefix) => with_colon(prefix),
         None => b"a:".to_vec(),
-    };
-    let a = a.as_slice();
+    }
+}
+
+/// The relationships prefix an added element takes, the root's or `r`,
+/// and its binding on that element when the root binds none.
+#[cfg(any(feature = "images", feature = "charts"))]
+fn drawing_r(form: &DrawingForm) -> (Vec<u8>, Vec<u8>) {
     let r = form.r.clone().unwrap_or_else(|| b"r".to_vec());
-    let bind_a = match form.a {
-        Some(_) => Vec::new(),
-        None => [b" xmlns:a=\"".as_slice(), DRAWINGML[strict], b"\""].concat(),
-    };
     let bind_r = match form.r {
         Some(_) => Vec::new(),
         None => [
             b" xmlns:r=\"".as_slice(),
-            RELATIONSHIPS_ATTRIBUTE[strict],
+            RELATIONSHIPS_ATTRIBUTE[usize::from(form.strict)],
             b"\"",
         ]
         .concat(),
+    };
+    (r, bind_r)
+}
+
+/// An added picture, the body of its anchor (`specs/0022-comments-and-
+/// images.md`, "Images: the parts"): its `cNvPr` `id` and name from `id`
+/// and its `blip` naming the relationship `rel`.
+#[cfg(feature = "images")]
+fn picture_bytes(form: &DrawingForm, id: u64, rel: &[u8]) -> Vec<u8> {
+    let x = form.x.as_slice();
+    let a = drawing_a(form);
+    let a = a.as_slice();
+    let (r, bind_r) = drawing_r(form);
+    let id = id.to_string();
+    [
+        b"<".as_slice(),
+        x,
+        b"pic><",
+        x,
+        b"nvPicPr><",
+        x,
+        b"cNvPr id=\"",
+        id.as_bytes(),
+        b"\" name=\"Image ",
+        id.as_bytes(),
+        b"\"/><",
+        x,
+        b"cNvPicPr/></",
+        x,
+        b"nvPicPr><",
+        x,
+        b"blipFill><",
+        a,
+        b"blip",
+        &bind_r,
+        b" ",
+        &r,
+        b":embed=\"",
+        rel,
+        b"\"/><",
+        a,
+        b"stretch><",
+        a,
+        b"fillRect/></",
+        a,
+        b"stretch></",
+        x,
+        b"blipFill><",
+        x,
+        b"spPr><",
+        a,
+        b"prstGeom prst=\"rect\"><",
+        a,
+        b"avLst/></",
+        a,
+        b"prstGeom></",
+        x,
+        b"spPr></",
+        x,
+        b"pic>",
+    ]
+    .concat()
+}
+
+/// An added anchor (`specs/0022-comments-and-images.md`, "Images: the
+/// parts", `specs/0028-images-and-comments-second-half.md`, "Anchors", and
+/// `specs/0035-charts-write-first-set.md`, "Anchors"): the element `anchor`
+/// chooses, a `oneCellAnchor` with its `from` and the extent `(cx, cy)`, a
+/// `twoCellAnchor` with `editAs`, `from` and `to`, or an `absoluteAnchor`
+/// with `pos` and the extent; then `body`, the picture or the chart's frame
+/// its caller gives, and `clientData`; the DrawingML namespace bound on the
+/// anchor when `form` says the root does not bind it.
+#[cfg(any(feature = "images", feature = "charts"))]
+fn anchor_bytes(
+    form: &DrawingForm,
+    anchor: &ImageAnchor,
+    (cx, cy): (u64, u64),
+    body: &[u8],
+) -> Vec<u8> {
+    let strict = usize::from(form.strict);
+    let x = form.x.as_slice();
+    let bind_a = match form.a {
+        Some(_) => Vec::new(),
+        None => [b" xmlns:a=\"".as_slice(), DRAWINGML[strict], b"\""].concat(),
     };
     let emu = |pixels: u32| (u64::from(pixels) * EMU_PER_PIXEL).to_string();
     // A `from` or `to` marker: the cell's zero-based column and row with the
@@ -20296,7 +20503,7 @@ fn anchor_bytes(
         ]
         .concat()
     };
-    let (cx, cy) = (image.cx.to_string(), image.cy.to_string());
+    let (cx, cy) = (cx.to_string(), cy.to_string());
     let extent = [
         b"<".as_slice(),
         x,
@@ -20353,7 +20560,6 @@ fn anchor_bytes(
             .concat(),
         ),
     };
-    let id = id.to_string();
     [
         b"<".as_slice(),
         x,
@@ -20362,51 +20568,8 @@ fn anchor_bytes(
         &bind_a,
         b">",
         &placement,
+        body,
         b"<",
-        x,
-        b"pic><",
-        x,
-        b"nvPicPr><",
-        x,
-        b"cNvPr id=\"",
-        id.as_bytes(),
-        b"\" name=\"Image ",
-        id.as_bytes(),
-        b"\"/><",
-        x,
-        b"cNvPicPr/></",
-        x,
-        b"nvPicPr><",
-        x,
-        b"blipFill><",
-        a,
-        b"blip",
-        &bind_r,
-        b" ",
-        &r,
-        b":embed=\"",
-        rel,
-        b"\"/><",
-        a,
-        b"stretch><",
-        a,
-        b"fillRect/></",
-        a,
-        b"stretch></",
-        x,
-        b"blipFill><",
-        x,
-        b"spPr><",
-        a,
-        b"prstGeom prst=\"rect\"><",
-        a,
-        b"avLst/></",
-        a,
-        b"prstGeom></",
-        x,
-        b"spPr></",
-        x,
-        b"pic><",
         x,
         b"clientData/></",
         x,
@@ -20419,7 +20582,7 @@ fn anchor_bytes(
 /// A created drawing part's bytes (`specs/0022-comments-and-images.md`,
 /// "Images: the parts"): the declaration on its own line, then the root
 /// binding `xdr` and `a` with the anchors, on one line.
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 fn drawing_part_bytes(anchors: &[u8]) -> Vec<u8> {
     [
         b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<xdr:wsDr xmlns:xdr=\""
