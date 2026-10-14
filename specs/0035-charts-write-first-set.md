@@ -887,6 +887,59 @@ T. The gate checks the test figures against the implementer's
 P3 is DONE. The close-out's doc commit carries this spec (rulings
 A to T and the three verification sections) and `ROADMAP.md`.
 
+## Planning rulings on the close-out (2026-10-14)
+
+Verified by planning before the push, from the phase directory and
+git: the doc commit 934d2e1 holds specs/0035 (3bb449db) and
+ROADMAP.md (e7703065) unedited, 108 insertions, 3 deletions, the
+two sha256 lines in its message, the tree clean; the range
+93a14ef..934d2e1 is 14 commits (7a3fec6 once, then this part's
+13), every one ASCII with the Co-Authored-By line only; the files
+in the range lie under CHANGELOG.md, ROADMAP.md, crates/emend,
+records, records/logs, specs, tools/emend-copy and
+tools/size-probe, no workbook, no CLAUDE.md, no workflow file;
+origin/main 93a14ef before the pre stage; push.log (7a31b51c, 1336
+lines) "pre checks all as expected: yes" with identity 14 of 14,
+privacy 14 commits 1751 blobs 0 findings, Excel records 0;
+scan-pre.log (509cd055) RESULT PASS, 0 hits, 0 structural
+failures; planning's own privacy scan of 93a14ef..934d2e1: 14
+commits, 1751 blobs, 0 findings, PASS; gen.py (bc2ea873) is part
+3's 18f278e0 with changes 39 and 40 (the names, the base, the PREV
+pattern, the tip subject, the target root); the independent check
+(1acecbae) YES, YES, YES WITH NOTES, blocking defects 0.
+
+U. The pre stage is accepted; planning's word for the push of
+   93a14ef..934d2e1 stands (given 2026-10-14 after P3's
+   verification). The push runs only after the maintainer types
+   MAINTAINER_AUTH in the implementing session. After the record
+   commit, planning verifies push.log's push mode, ci-run.log and
+   scan.log and marks ROADMAP's part 4 Close row and the M5
+   heading.
+V. The push, the CI run, the scan and the record commit verified
+   by planning (2026-10-14) from git, gh, the three committed logs
+   and its own blob scan: push.log (caf1a6f1, 1419 lines) is the
+   pre log (its first 1336 lines cmp-equal to the pre log,
+   7a31b51c) with push mode appended; push mode records the
+   maintainer's words typed in the implementing session, "push
+   10/14/2026" (10/14/2026), the hook's range 93a14ef..934d2e1, 14
+   commits 1751 blobs 0 findings, git's "93a14ef..934d2e1  main ->
+   main", remote main equal to local, the repository PRIVATE, the
+   tree clean, stderr 0 bytes, no ": no" line; ci-run.log
+   (d0442e23, 751 lines): one ci.yml run on 934d2e1, run
+   38600594786, main push success, the privacy step skipped as CI
+   mode requires, stderr 0 bytes, no ": no" line; planning's own
+   gh query agrees (934d2e1, main, push, completed, success) and
+   the repository reads PRIVATE; scan.log (87e8646a, 1987 lines):
+   stage post, origin/main the phase commit, RESULT PASS, 0 hits,
+   0 structural failures; it differs from scan-pre.log only by the
+   stage, origin/main, the times, push.log's hash and the scan of
+   ci-run.log (34 lines). The record commit d2c14d8 holds the
+   three logs only, 4157 lines, its message ASCII with the
+   Co-Authored-By line only; origin/main 934d2e1 after the push;
+   planning's own privacy scan of 93a14ef..d2c14d8: 15 commits,
+   1754 blobs, 0 findings, PASS. d2c14d8 is local and goes with
+   part 5's push. Part 4 is DONE and PUSHED 2026-10-14.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-13: 1, 2 and 3 as recommended (A
