@@ -12,8 +12,10 @@
 //! linked and nothing is dead. The second output itself is not changed.
 //!
 //! Every name, part, reference, code, formula text, font name, index and
-//! area comes from the command line, so the compiler cannot prove an edit
-//! or a read path dead and drop it.
+//! area of the format probe's work comes from the command line, so the
+//! compiler cannot prove an edit or a read path dead and drop it; the
+//! chart's references and texts are the probe's own constants (`specs/0035-
+//! charts-write-first-set.md`, ruling R).
 
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Cursor, Write};

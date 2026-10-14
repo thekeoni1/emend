@@ -352,23 +352,29 @@ impl ChartWork {
         if let Some(title) = &self.title {
             title_bytes(&mut out, title);
         }
-        out.extend_from_slice(b"<c:autoTitleDeleted val=\"");
-        out.extend_from_slice(if self.title.is_some() { b"0" } else { b"1" });
-        out.extend_from_slice(b"\"/><c:plotArea><c:layout/>");
+        value_element(
+            &mut out,
+            b"autoTitleDeleted",
+            if self.title.is_some() { b"0" } else { b"1" },
+        );
+        out.extend_from_slice(b"<c:plotArea><c:layout/>");
         self.plot_bytes(&mut out);
         self.axes_bytes(&mut out);
         out.extend_from_slice(b"</c:plotArea>");
         if let Some(legend) = self.legend {
-            let position: &[u8] = match legend {
-                LegendPosition::Bottom => b"b",
-                LegendPosition::Left => b"l",
-                LegendPosition::Right => b"r",
-                LegendPosition::Top => b"t",
-                LegendPosition::TopRight => b"tr",
-            };
-            out.extend_from_slice(b"<c:legend><c:legendPos val=\"");
-            out.extend_from_slice(position);
-            out.extend_from_slice(b"\"/><c:overlay val=\"0\"/></c:legend>");
+            out.extend_from_slice(b"<c:legend>");
+            value_element(
+                &mut out,
+                b"legendPos",
+                match legend {
+                    LegendPosition::Bottom => b"b",
+                    LegendPosition::Left => b"l",
+                    LegendPosition::Right => b"r",
+                    LegendPosition::Top => b"t",
+                    LegendPosition::TopRight => b"tr",
+                },
+            );
+            out.extend_from_slice(b"<c:overlay val=\"0\"/></c:legend>");
         }
         out.extend_from_slice(
             b"<c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/></c:chart></c:chartSpace>",
@@ -376,65 +382,66 @@ impl ChartWork {
         out
     }
 
-    /// The plot element with its series.
+    /// The plot element with its series: the options before the series,
+    /// `varyColors`, the series, the options after them, the axis ids.
     fn plot_bytes(&self, out: &mut Vec<u8>) {
+        let element: &[u8] = match self.plot {
+            NewPlot::Bar { .. } => b"barChart",
+            NewPlot::Line { .. } => b"lineChart",
+            NewPlot::Pie => b"pieChart",
+            NewPlot::Scatter { .. } => b"scatterChart",
+            NewPlot::Area { .. } => b"areaChart",
+        };
+        tag(out, b"<c:", element);
         match self.plot {
-            NewPlot::Bar {
-                direction,
-                grouping,
-            } => {
-                out.extend_from_slice(b"<c:barChart><c:barDir val=\"");
-                out.extend_from_slice(match direction {
+            NewPlot::Bar { direction, .. } => value_element(
+                out,
+                b"barDir",
+                match direction {
                     BarDirection::Bar => b"bar",
                     BarDirection::Column => b"col",
-                });
-                out.extend_from_slice(b"\"/><c:grouping val=\"");
-                out.extend_from_slice(grouping_value(grouping));
-                out.extend_from_slice(b"\"/><c:varyColors val=\"0\"/>");
-                self.series_bytes(out);
-                out.extend_from_slice(b"<c:gapWidth val=\"150\"/>");
-                // Excel draws stacked bars side by side without it.
-                if matches!(grouping, Grouping::Stacked | Grouping::PercentStacked) {
-                    out.extend_from_slice(b"<c:overlap val=\"100\"/>");
-                }
-                out.extend_from_slice(b"<c:axId val=\"10\"/><c:axId val=\"20\"/></c:barChart>");
-            }
-            NewPlot::Line { grouping } => {
-                out.extend_from_slice(b"<c:lineChart><c:grouping val=\"");
-                out.extend_from_slice(grouping_value(grouping));
-                out.extend_from_slice(b"\"/><c:varyColors val=\"0\"/>");
-                self.series_bytes(out);
-                out.extend_from_slice(
-                    b"<c:marker val=\"1\"/><c:axId val=\"10\"/><c:axId val=\"20\"/></c:lineChart>",
-                );
-            }
-            NewPlot::Pie => {
-                out.extend_from_slice(b"<c:pieChart><c:varyColors val=\"1\"/>");
-                self.series_bytes(out);
-                out.extend_from_slice(b"<c:firstSliceAng val=\"0\"/></c:pieChart>");
-            }
-            NewPlot::Scatter { style } => {
-                out.extend_from_slice(b"<c:scatterChart><c:scatterStyle val=\"");
-                out.extend_from_slice(match style {
+                },
+            ),
+            NewPlot::Scatter { style } => value_element(
+                out,
+                b"scatterStyle",
+                match style {
                     ScatterStyle::None => b"none".as_slice(),
                     ScatterStyle::Line => b"line",
                     ScatterStyle::LineMarker => b"lineMarker",
                     ScatterStyle::Marker => b"marker",
                     ScatterStyle::Smooth => b"smooth",
                     ScatterStyle::SmoothMarker => b"smoothMarker",
-                });
-                out.extend_from_slice(b"\"/><c:varyColors val=\"0\"/>");
-                self.series_bytes(out);
-                out.extend_from_slice(b"<c:axId val=\"10\"/><c:axId val=\"20\"/></c:scatterChart>");
-            }
-            NewPlot::Area { grouping } => {
-                out.extend_from_slice(b"<c:areaChart><c:grouping val=\"");
-                out.extend_from_slice(grouping_value(grouping));
-                out.extend_from_slice(b"\"/><c:varyColors val=\"0\"/>");
-                self.series_bytes(out);
-                out.extend_from_slice(b"<c:axId val=\"10\"/><c:axId val=\"20\"/></c:areaChart>");
-            }
+                },
+            ),
+            _ => {}
         }
+        if let NewPlot::Bar { grouping, .. }
+        | NewPlot::Line { grouping }
+        | NewPlot::Area { grouping } = self.plot
+        {
+            value_element(out, b"grouping", grouping_value(grouping));
+        }
+        let pie = self.plot == NewPlot::Pie;
+        value_element(out, b"varyColors", if pie { b"1" } else { b"0" });
+        self.series_bytes(out);
+        match self.plot {
+            NewPlot::Bar { grouping, .. } => {
+                value_element(out, b"gapWidth", b"150");
+                // Excel draws stacked bars side by side without it.
+                if matches!(grouping, Grouping::Stacked | Grouping::PercentStacked) {
+                    value_element(out, b"overlap", b"100");
+                }
+            }
+            NewPlot::Line { .. } => value_element(out, b"marker", b"1"),
+            NewPlot::Pie => value_element(out, b"firstSliceAng", b"0"),
+            _ => {}
+        }
+        if !pie {
+            value_element(out, b"axId", b"10");
+            value_element(out, b"axId", b"20");
+        }
+        tag(out, b"</c:", element);
     }
 
     /// Each series in order, `idx` and `order` its zero-based position; a
@@ -448,17 +455,13 @@ impl ChartWork {
         };
         for (k, series) in self.series.iter().enumerate() {
             let k = k.to_string();
-            out.extend_from_slice(b"<c:ser><c:idx val=\"");
-            out.extend_from_slice(k.as_bytes());
-            out.extend_from_slice(b"\"/><c:order val=\"");
-            out.extend_from_slice(k.as_bytes());
-            out.extend_from_slice(b"\"/>");
+            out.extend_from_slice(b"<c:ser>");
+            value_element(out, b"idx", k.as_bytes());
+            value_element(out, b"order", k.as_bytes());
             match &series.name {
                 None => {}
                 Some(NameWork::Reference(formula)) => {
-                    out.extend_from_slice(b"<c:tx>");
-                    reference_bytes(out, b"strRef", formula);
-                    out.extend_from_slice(b"</c:tx>");
+                    element_bytes(out, b"tx", b"strRef", formula);
                 }
                 Some(NameWork::Text(name)) => {
                     out.extend_from_slice(b"<c:tx><c:v>");
@@ -479,59 +482,28 @@ impl ChartWork {
     /// scatter plot's x axis is a value axis with no gridlines; a pie has
     /// none.
     fn axes_bytes(&self, out: &mut Vec<u8>) {
+        let x = &self.category_axis_title;
+        let y = &self.value_axis_title;
         match self.plot {
-            NewPlot::Pie => return,
+            NewPlot::Pie => {}
             NewPlot::Scatter { .. } => {
-                value_axis_bytes(
-                    out,
-                    b"10",
-                    b"b",
-                    false,
-                    &self.category_axis_title,
-                    b"20",
-                    b"midCat",
-                );
-                value_axis_bytes(
-                    out,
-                    b"20",
-                    b"l",
-                    true,
-                    &self.value_axis_title,
-                    b"10",
-                    b"midCat",
-                );
-                return;
+                axis_bytes(out, b"10", b"b", false, x, b"20", Some(b"midCat"));
+                axis_bytes(out, b"20", b"l", true, y, b"10", Some(b"midCat"));
             }
-            _ => {}
-        }
-        let bars = matches!(
-            self.plot,
-            NewPlot::Bar {
-                direction: BarDirection::Bar,
-                ..
+            _ => {
+                let bars = matches!(
+                    self.plot,
+                    NewPlot::Bar {
+                        direction: BarDirection::Bar,
+                        ..
+                    }
+                );
+                let (category, value): (&[u8], &[u8]) =
+                    if bars { (b"l", b"b") } else { (b"b", b"l") };
+                axis_bytes(out, b"10", category, false, x, b"20", None);
+                axis_bytes(out, b"20", value, true, y, b"10", Some(b"between"));
             }
-        );
-        let (category, value): (&[u8], &[u8]) = if bars { (b"l", b"b") } else { (b"b", b"l") };
-        out.extend_from_slice(
-            b"<c:catAx><c:axId val=\"10\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"",
-        );
-        out.extend_from_slice(category);
-        out.extend_from_slice(b"\"/>");
-        if let Some(title) = &self.category_axis_title {
-            title_bytes(out, title);
         }
-        out.extend_from_slice(
-            b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"20\"/><c:crosses val=\"autoZero\"/><c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl val=\"0\"/></c:catAx>",
-        );
-        value_axis_bytes(
-            out,
-            b"20",
-            value,
-            true,
-            &self.value_axis_title,
-            b"10",
-            b"between",
-        );
     }
 
     /// The anchor's body: a `graphicFrame` whose `c:chart` names the
@@ -612,24 +584,42 @@ fn title_bytes(out: &mut Vec<u8>, text: &str) {
     out.extend_from_slice(b"</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title>");
 }
 
-/// A `valAx`: its id, position, gridlines, title, crossing axis and
-/// `crossBetween`.
-fn value_axis_bytes(
+/// An element `<c:NAME val="VALUE"/>`.
+fn value_element(out: &mut Vec<u8>, name: &[u8], value: &[u8]) {
+    for piece in [b"<c:".as_slice(), name, b" val=\"", value, b"\"/>"] {
+        out.extend_from_slice(piece);
+    }
+}
+
+/// `open` (`<c:` or `</c:`), the element's name and `>`.
+fn tag(out: &mut Vec<u8>, open: &[u8], name: &[u8]) {
+    for piece in [open, name, b">"] {
+        out.extend_from_slice(piece);
+    }
+}
+
+/// An axis: a `catAx` when `between` is `None`, else a `valAx` with that
+/// `crossBetween`; its id, position, gridlines, title and crossing axis.
+fn axis_bytes(
     out: &mut Vec<u8>,
     id: &[u8],
     position: &[u8],
     gridlines: bool,
     title: &Option<String>,
     cross: &[u8],
-    between: &[u8],
+    between: Option<&[u8]>,
 ) {
-    out.extend_from_slice(b"<c:valAx><c:axId val=\"");
-    out.extend_from_slice(id);
+    let element: &[u8] = if between.is_some() {
+        b"valAx"
+    } else {
+        b"catAx"
+    };
+    tag(out, b"<c:", element);
+    value_element(out, b"axId", id);
     out.extend_from_slice(
-        b"\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"",
+        b"<c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/>",
     );
-    out.extend_from_slice(position);
-    out.extend_from_slice(b"\"/>");
+    value_element(out, b"axPos", position);
     if gridlines {
         out.extend_from_slice(b"<c:majorGridlines/>");
     }
@@ -637,33 +627,27 @@ fn value_axis_bytes(
         title_bytes(out, title);
     }
     out.extend_from_slice(
-        b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"",
+        b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/>",
     );
-    out.extend_from_slice(cross);
-    out.extend_from_slice(b"\"/><c:crosses val=\"autoZero\"/><c:crossBetween val=\"");
-    out.extend_from_slice(between);
-    out.extend_from_slice(b"\"/></c:valAx>");
+    value_element(out, b"crossAx", cross);
+    out.extend_from_slice(b"<c:crosses val=\"autoZero\"/>");
+    match between {
+        Some(between) => value_element(out, b"crossBetween", between),
+        None => out.extend_from_slice(
+            b"<c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl val=\"0\"/>",
+        ),
+    }
+    tag(out, b"</c:", element);
 }
 
-/// A series' `cat`, `val`, `xVal` or `yVal` element holding a reference of
-/// `form`.
+/// A series' `tx`, `cat`, `val`, `xVal` or `yVal` element holding a
+/// reference of `form`.
 fn element_bytes(out: &mut Vec<u8>, element: &[u8], form: &[u8], formula: &str) {
-    out.extend_from_slice(b"<c:");
-    out.extend_from_slice(element);
-    out.extend_from_slice(b">");
-    reference_bytes(out, form, formula);
-    out.extend_from_slice(b"</c:");
-    out.extend_from_slice(element);
-    out.extend_from_slice(b">");
-}
-
-/// A `strRef` or `numRef` holding `formula`, escaped already, and no cache.
-fn reference_bytes(out: &mut Vec<u8>, form: &[u8], formula: &str) {
-    out.extend_from_slice(b"<c:");
-    out.extend_from_slice(form);
-    out.extend_from_slice(b"><c:f>");
+    tag(out, b"<c:", element);
+    tag(out, b"<c:", form);
+    out.extend_from_slice(b"<c:f>");
     out.extend_from_slice(formula.as_bytes());
-    out.extend_from_slice(b"</c:f></c:");
-    out.extend_from_slice(form);
-    out.extend_from_slice(b">");
+    out.extend_from_slice(b"</c:f>");
+    tag(out, b"</c:", form);
+    tag(out, b"</c:", element);
 }
