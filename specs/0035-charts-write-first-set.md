@@ -601,6 +601,119 @@ push carries 7a3fec6 and this part's commits, on planning's word
 and the maintainer's authorisation typed in the implementing
 session.
 
+## Planning rulings during P1 (2026-10-13)
+
+The doc commit 5cfb51e verified by planning: the three files
+unedited by hash (specs/0035 71f0bb68, specs/0034 e7c4f4b9,
+ROADMAP.md 5c6d3b46), 712 insertions, 6 deletions, the message
+ASCII with the Co-Authored-By line only, the tree clean.
+
+A. The shape: one list of drawing additions under `any(images,
+   charts)`, each entry a part, an `ImageAnchor` and a body (an
+   image or a chart), `anchor_bytes` taking the extent and the body
+   from its caller, the image body the byte sequence it is today.
+   Accepted; the image samples' sha256 comparison is the proof.
+B. An image removal and a chart addition on one part in one write
+   are refused as an image addition with a removal is today, with
+   the same message ("no image at that position"), so the removal's
+   index list stays the file's; the catalogue names the pairing
+   under that message. One test.
+C. The order of the call's checks, the first refusal winning and
+   nothing recorded: the anchor's cells off the grid (the grid
+   message); offsets, positions and `to` before `from` ("a chart
+   anchor is out of range"); `size` `Some` on a two-cell anchor or
+   `None` on the others ("a chart size does not apply to its
+   anchor"); a size of 0 or past `i32::MAX` EMU ("a chart anchor is
+   out of range"); applicability, no series first ("a chart option
+   does not apply to its kind"); the texts in field order, title,
+   the axis titles, then each series' name, categories, values ("a
+   chart text is empty or holds a control character"). One test
+   proves the order on a call that would fail two checks.
+D. The feature sets of this part's gate and test logs are six on
+   both targets: off, `charts`, `images`, `charts,images`,
+   `charts,read` and every feature ("Phases" is read so). The
+   image tests run under `images` alone and under `charts,images`;
+   under `charts` alone the shared drawing tests (the drawing
+   refusals, the created drawing, the appended drawing) run through
+   `add_chart`. That is what "the image tests under `images` alone,
+   `charts` alone and both" meant.
+E. A strict worksheet: the chart follows the drawing's form as the
+   image does; the `CHART` relationship in the sheet's form; the
+   `graphicData` `uri`, the `c:chart` element's namespace and the
+   chart part's `c`, `a` and `r` namespaces in the strict form when
+   the drawing is strict; the content type unchanged. One test on
+   a strict package, the chart read back (the reader accepts both
+   forms).
+F. Escaping: titles, axis titles and text names are XML-escaped as
+   a comment's text is; a reference's `f` text is written with `&`,
+   `<` and `>` as entities too (so `'A&B'!$A$1` reads back
+   unchanged; "verbatim" means no parsing and no quoting, not no
+   escaping). U+FFFE and U+FFFF are refused with the text message
+   as a control character is; the message's wording stands. One
+   test each: a reference with `&`, a title with U+FFFF.
+
+## Planning verification of P1 (2026-10-14)
+
+Verified from primaries: the five logs at the record commit d8d4e66
+(gate 6146e79a, test 4961216a, negative b45df4eb, run edec3db5, scan
+c7dfa5db PASS on the first attempt, 0 hits, 0 structural failures;
+each of the four "all as expected: yes"; RERUN_NOTE unset in gate,
+negative and run, set in test for the rerun of ruling I); the
+record commit's 10 files and independent-check-1.md (a06e39f5);
+5cfb51e holding planning's three files unedited by hash; every
+commit message ASCII with the Co-Authored-By line only; the privacy
+scan of 7a3fec6..d8d4e66 (4 commits, 1711 blobs, 0 findings, PASS);
+the writer's emitted forms read against "The chart part" and
+"Anchors" (the chart part, the axes swapped for direction `Bar`,
+`overlap` on a stacked bar, the frame with the zero `xfrm`, the
+check order of ruling C); planning's own build at 981c00c in its
+detached worktree (`<home>/.cache/emend-planning/m5p4-p1-build.txt`):
+the six feature sets and the workspace on both targets at the
+log's figures (515, 573, 551, 611, 676, 1050; 1261), clippy and doc
+clean, release emend-copy on both targets (the i686 binary
+3e0b1816 equal to the log's), `--add-chart-sample`,
+`--image-sample`, `--anchor-sample` and `--remove-image-sample`
+over the corpus byte-identical to the four run directories'
+outputs and lines on both targets, 27 of 27 each; planning's
+add-chart totals `charts_before` 6, `charts_after` 33,
+`read_back_equal` 27, `drawing_created` 17, `two_after` 33. The
+run log's entry totals (identical 798, changed 72, added 70) are
+what 27 chart parts, 17 created drawings with their rels and
+`drawing` elements, 10 appended drawings and 27 content types give.
+
+The disclosures. The superseded commits e68c346 and 3195cfb (the
+P10 plant caught by no chart write test; the call-order test made
+asymmetric) and bb23abc and d572cb3 (the gate's dry run refusing
+count words in the messages; the trees unchanged), never logged:
+accepted. The test log's rerun (attempt 1 passed; the scan
+pre-check found `<api>` printed and undeclared, from carried change
+notes; change YW restores the root line; attempt 1 hashed through
+RERUN_NOTE and RERUN_FILES; no other log reads test.log):
+accepted. The unlogged dev run over 26 workbooks has no primary and
+the report says so; the logged run reads the manifest's 27:
+accepted. The plants on the host alone: accepted (the spec asks
+nothing else). The check's misstatements on ruling E and the
+plants were corrected in the report: accepted.
+
+Rulings:
+
+G. The doc comment on `CHART_TEXT_INVALID` claims a catalogue
+   entry P1 does not write; P2 corrects it with the catalogue (the
+   header's catalogue and limits, and ruling B's clause naming the
+   image-removal pairing under "no image at that position") in P2's
+   crate commit. Carried.
+H. A strict worksheet whose drawing is created gets a transitional
+   drawing and a transitional chart part, as an image does
+   (ruling E's "as the image does"); the reader accepts both forms.
+   Accepted and stated in the catalogue (P2).
+I. The test log's rerun stands as attempt 2 (the disclosures
+   above); the `<api>` root line is the carried form from part 3
+   P1's change XY, and a future carry of change notes keeps its
+   root line with them.
+
+P1 is DONE. P2's doc commit carries this spec (rulings A to I and
+this section).
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-13: 1, 2 and 3 as recommended (A
