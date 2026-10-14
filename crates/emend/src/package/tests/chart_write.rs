@@ -2,7 +2,8 @@
 //! set.md`, "P1: the writer, bar and line charts", P1 rulings A to F, and
 //! "P2: pie, scatter and area charts; the catalogue"; `specs/0036-charts-
 //! write-second-set.md`, "P1: the compaction, doughnut, radar, bubble and
-//! stock charts"):
+//! stock charts", and "P2: the 3D kinds and combined charts", P2 rulings F
+//! to H):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -12,8 +13,8 @@
 use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
-    ChartKind, Data, EditAs, Grouping, ImageAnchor, LegendPosition, NewChart, NewPlot, NewSeries,
-    NewSeriesName, Plot, RadarStyle, ScatterStyle, Series, SeriesName,
+    ChartKind, Data, EditAs, Grouping, ImageAnchor, LegendPosition, NewChart, NewCombined, NewPlot,
+    NewSeries, NewSeriesName, Plot, RadarStyle, ScatterStyle, Series, SeriesName,
 };
 
 /// The drawing and chart parts' content types.
@@ -187,6 +188,7 @@ fn column_chart() -> NewChart<'static> {
         value_axis_title: Some("Units"),
         legend: Some(LegendPosition::Bottom),
         size: None,
+        combined: None,
     }
 }
 
@@ -206,6 +208,7 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         value_axis_title: None,
         legend: None,
         size: None,
+        combined: None,
     }
 }
 
@@ -1195,6 +1198,7 @@ fn titled<'a>(
         value_axis_title: axis_titles.1,
         legend: Some(LegendPosition::Right),
         size: None,
+        combined: None,
     }
 }
 
@@ -1798,4 +1802,734 @@ fn a_stock_chart_with_two_or_five_series_is_refused() {
         let chart = titled(NewPlot::Stock, series, (None, None));
         assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
     }
+}
+
+/// The `view3D` a bar, line or area 3D plot writes.
+const VIEW_3D: &str = "<c:view3D><c:rotX val=\"15\"/><c:rotY val=\"20\"/><c:rAngAx val=\"1\"/>\
+                       </c:view3D>";
+
+/// The series of `ONE_NAMED` as written.
+fn one_named_written() -> String {
+    format!(
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx>{}</c:tx><c:cat>{}</c:cat><c:val>{}\
+         </c:val></c:ser>",
+        reference("strRef", "Sheet1!$B$1"),
+        reference("strRef", "Sheet1!$A$2:$A$4"),
+        reference("numRef", "Sheet1!$B$2:$B$4"),
+    )
+}
+
+/// The series axis as written.
+const SERIES_AXIS: &str = "<c:serAx><c:axId val=\"30\"/><c:scaling><c:orientation val=\"minMax\"/>\
+                           </c:scaling><c:delete val=\"0\"/><c:axPos val=\"b\"/><c:majorTickMark \
+                           val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos \
+                           val=\"nextTo\"/><c:crossAx val=\"20\"/><c:crosses val=\"autoZero\"/>\
+                           </c:serAx>";
+
+/// The two axes as read with their titles `Month` and `Units`, the
+/// category axis at `cat` and the value axis at `val`, and the series axis
+/// as read when `depth`.
+fn read_axes_3d(cat: AxisPosition, val: AxisPosition, depth: bool) -> Vec<ChartAxis> {
+    let mut axes = read_axes(cat, val, Some("Month"), Some("Units"));
+    if depth {
+        axes.push(ChartAxis {
+            id: 30,
+            kind: AxisKind::Series,
+            position: AxisPosition::Bottom,
+            crosses: 20,
+            title: None,
+            number_format: None,
+            min: None,
+            max: None,
+            deleted: false,
+            major_gridlines: false,
+        });
+    }
+    axes
+}
+
+/// A 3D plot as read: `kind`, its direction and grouping, `ONE_NAMED` and
+/// the axis ids, the series axis's when `depth`.
+fn plot_3d_read(
+    kind: ChartKind,
+    bar_direction: Option<BarDirection>,
+    grouping: Option<Grouping>,
+    depth: bool,
+) -> Plot {
+    Plot {
+        bar_direction,
+        grouping,
+        ..plot_read(
+            kind,
+            false,
+            vec![one_named_read()],
+            if depth {
+                vec![10, 20, 30]
+            } else {
+                vec![10, 20]
+            },
+        )
+    }
+}
+
+#[test]
+fn a_bar_3d_chart_takes_each_grouping_the_standard_one_with_the_series_axis() {
+    for (grouping, value) in [
+        (Grouping::Clustered, "clustered"),
+        (Grouping::Stacked, "stacked"),
+        (Grouping::PercentStacked, "percentStacked"),
+        (Grouping::Standard, "standard"),
+    ] {
+        let depth = grouping == Grouping::Standard;
+        let chart = titled(
+            NewPlot::Bar3D {
+                direction: BarDirection::Column,
+                grouping,
+            },
+            &ONE_NAMED,
+            (Some("Month"), Some("Units")),
+        );
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let (third, series_axis) = if depth {
+            ("<c:axId val=\"30\"/>", SERIES_AXIS)
+        } else {
+            ("", "")
+        };
+        assert_eq!(
+            text_of(&output, CHART1),
+            chart_part(&format!(
+                "{}<c:autoTitleDeleted val=\"0\"/>{VIEW_3D}<c:plotArea><c:layout/><c:bar3DChart>\
+                 <c:barDir val=\"col\"/><c:grouping val=\"{value}\"/><c:varyColors val=\"0\"/>{}\
+                 <c:gapWidth val=\"150\"/><c:shape val=\"box\"/><c:axId val=\"10\"/><c:axId \
+                 val=\"20\"/>{third}</c:bar3DChart>{}{series_axis}</c:plotArea><c:legend>\
+                 <c:legendPos val=\"r\"/><c:overlay val=\"0\"/></c:legend><c:plotVisOnly \
+                 val=\"1\"/><c:dispBlanksAs val=\"gap\"/>",
+                title("Share"),
+                one_named_written(),
+                axes("b", "l", &title("Month"), &title("Units")),
+            ))
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![plot_3d_read(
+                ChartKind::Bar3D,
+                Some(BarDirection::Column),
+                Some(grouping),
+                depth
+            )]
+        );
+        assert_eq!(
+            read.axes,
+            read_axes_3d(AxisPosition::Bottom, AxisPosition::Left, depth)
+        );
+    }
+    // Bars swap the axes as a 2D bar plot's do.
+    let bars = titled(
+        NewPlot::Bar3D {
+            direction: BarDirection::Bar,
+            grouping: Grouping::Clustered,
+        },
+        &ONE_NAMED,
+        (Some("Month"), Some("Units")),
+    );
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &bars));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains("<c:barDir val=\"bar\"/><c:grouping val=\"clustered\"/>"),
+        "{part}"
+    );
+    assert_eq!(
+        charts_of(&output)[0].chart.axes,
+        read_axes_3d(AxisPosition::Left, AxisPosition::Bottom, false)
+    );
+}
+
+#[test]
+fn a_line_3d_chart_takes_each_grouping_but_clustered_with_the_series_axis() {
+    for (grouping, value) in [
+        (Grouping::Standard, "standard"),
+        (Grouping::Stacked, "stacked"),
+        (Grouping::PercentStacked, "percentStacked"),
+    ] {
+        let chart = titled(
+            NewPlot::Line3D { grouping },
+            &ONE_NAMED,
+            (Some("Month"), Some("Units")),
+        );
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(
+            part.contains(&format!(
+                "<c:autoTitleDeleted val=\"0\"/>{VIEW_3D}<c:plotArea><c:layout/><c:line3DChart>\
+                 <c:grouping val=\"{value}\"/><c:varyColors val=\"0\"/>{}<c:axId val=\"10\"/>\
+                 <c:axId val=\"20\"/><c:axId val=\"30\"/></c:line3DChart>{}{SERIES_AXIS}\
+                 </c:plotArea>",
+                one_named_written(),
+                axes("b", "l", &title("Month"), &title("Units")),
+            )),
+            "{part}"
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![plot_3d_read(ChartKind::Line3D, None, Some(grouping), true)]
+        );
+        assert_eq!(
+            read.axes,
+            read_axes_3d(AxisPosition::Bottom, AxisPosition::Left, true)
+        );
+    }
+    let chart = bare(NewPlot::Line3D {
+        grouping: Grouping::Clustered,
+    });
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn an_area_3d_chart_takes_each_grouping_but_clustered() {
+    for (grouping, value) in [
+        (Grouping::Standard, "standard"),
+        (Grouping::Stacked, "stacked"),
+        (Grouping::PercentStacked, "percentStacked"),
+    ] {
+        let depth = grouping == Grouping::Standard;
+        let chart = titled(
+            NewPlot::Area3D { grouping },
+            &ONE_NAMED,
+            (Some("Month"), Some("Units")),
+        );
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        let (third, series_axis) = if depth {
+            ("<c:axId val=\"30\"/>", SERIES_AXIS)
+        } else {
+            ("", "")
+        };
+        assert!(
+            part.contains(&format!(
+                "<c:autoTitleDeleted val=\"0\"/>{VIEW_3D}<c:plotArea><c:layout/><c:area3DChart>\
+                 <c:grouping val=\"{value}\"/><c:varyColors val=\"0\"/>{}<c:axId val=\"10\"/>\
+                 <c:axId val=\"20\"/>{third}</c:area3DChart>{}{series_axis}</c:plotArea>",
+                one_named_written(),
+                axes("b", "l", &title("Month"), &title("Units")),
+            )),
+            "{part}"
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![plot_3d_read(ChartKind::Area3D, None, Some(grouping), depth)]
+        );
+        assert_eq!(
+            read.axes,
+            read_axes_3d(AxisPosition::Bottom, AxisPosition::Left, depth)
+        );
+    }
+    let chart = bare(NewPlot::Area3D {
+        grouping: Grouping::Clustered,
+    });
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn a_pie_3d_chart_is_written_and_refused_as_a_pie() {
+    let chart = titled(NewPlot::Pie3D, &ONE_NAMED, (None, None));
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    assert_eq!(
+        text_of(&output, CHART1),
+        chart_part(&format!(
+            "{}<c:autoTitleDeleted val=\"0\"/><c:view3D><c:rotX val=\"30\"/><c:rotY val=\"0\"/>\
+             <c:rAngAx val=\"0\"/></c:view3D><c:plotArea><c:layout/><c:pie3DChart><c:varyColors \
+             val=\"1\"/>{}</c:pie3DChart></c:plotArea><c:legend><c:legendPos val=\"r\"/>\
+             <c:overlay val=\"0\"/></c:legend><c:plotVisOnly val=\"1\"/><c:dispBlanksAs \
+             val=\"gap\"/>",
+            title("Share"),
+            one_named_written(),
+        ))
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        read.plots,
+        vec![plot_read(
+            ChartKind::Pie3D,
+            true,
+            vec![one_named_read()],
+            Vec::new()
+        )]
+    );
+    assert!(read.axes.is_empty());
+    let two = titled(NewPlot::Pie3D, &TWO_SERIES, (None, None));
+    assert_package(call(box_anchor(), &two).expect_err("refused"), OPTION);
+    for axis_titles in [(Some("Month"), None), (None, Some("Units"))] {
+        let titled = titled(NewPlot::Pie3D, &ONE_NAMED, axis_titles);
+        assert_package(call(box_anchor(), &titled).expect_err("refused"), OPTION);
+    }
+}
+
+/// One series over C, for a combined plot.
+const OVER_C: [NewSeries<'static>; 1] = [NewSeries {
+    name: Some(NewSeriesName::Text("Share")),
+    categories: Some("Sheet1!$A$2:$A$4"),
+    values: "Sheet1!$C$2:$C$4",
+    sizes: None,
+}];
+
+/// A second plot `plot` over `OVER_C`, on the primary axes.
+fn second(plot: NewPlot) -> NewCombined<'static> {
+    NewCombined {
+        plot,
+        series: &OVER_C,
+        secondary_axis: false,
+        secondary_axis_title: None,
+        secondary_axis_format: None,
+    }
+}
+
+/// The column chart with `combined`.
+fn combined<'a>(combined: NewCombined<'a>) -> NewChart<'a> {
+    NewChart {
+        combined: Some(combined),
+        ..column_chart()
+    }
+}
+
+/// `OVER_C` as written at position `k`, its x references `x` (`cat` or
+/// `xVal`) of form `x_form`, its y references `y`.
+fn over_c_written(k: u32, x: &str, x_form: &str, y: &str) -> String {
+    format!(
+        "<c:ser><c:idx val=\"{k}\"/><c:order val=\"{k}\"/><c:tx><c:v>Share</c:v></c:tx><c:{x}>{}\
+         </c:{x}><c:{y}>{}</c:{y}></c:ser>",
+        reference(x_form, "Sheet1!$A$2:$A$4"),
+        reference("numRef", "Sheet1!$C$2:$C$4"),
+    )
+}
+
+/// `OVER_C` as read at position `k`.
+fn over_c_read(k: u32) -> Series {
+    series_ref(
+        Some(SeriesName::Text("Share".to_owned())),
+        Some("Sheet1!$A$2:$A$4"),
+        "Sheet1!$C$2:$C$4",
+        k,
+    )
+}
+
+/// The secondary pair as written: the axis 30 at the bottom, deleted, a
+/// `catAx` or (`between` `midCat`) a `valAx`, and the value axis 40 at the
+/// right crossing at the maximum, with `title` and `format`'s form.
+fn secondary_axes(title: &str, format: &str, between: &str) -> String {
+    let tail = if between == "midCat" {
+        "<c:crossBetween val=\"midCat\"/>".to_owned()
+    } else {
+        "<c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl \
+         val=\"0\"/>"
+            .to_owned()
+    };
+    let x = if between == "midCat" {
+        "valAx"
+    } else {
+        "catAx"
+    };
+    format!(
+        "<c:{x}><c:axId val=\"30\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling>\
+         <c:delete val=\"1\"/><c:axPos val=\"b\"/><c:numFmt formatCode=\"General\" \
+         sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/>\
+         <c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"40\"/><c:crosses val=\"autoZero\"/>{tail}\
+         </c:{x}><c:valAx><c:axId val=\"40\"/><c:scaling><c:orientation val=\"minMax\"/>\
+         </c:scaling><c:delete val=\"0\"/><c:axPos val=\"r\"/>{title}<c:numFmt \
+         formatCode=\"{format}\" sourceLinked=\"0\"/><c:majorTickMark val=\"out\"/>\
+         <c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"30\"/>\
+         <c:crosses val=\"max\"/><c:crossBetween val=\"{between}\"/></c:valAx>"
+    )
+}
+
+/// The secondary pair as read, the x axis of `kind`, the value axis's
+/// title and format.
+fn secondary_read(kind: AxisKind, title: Option<&str>, format: &str) -> Vec<ChartAxis> {
+    let base = ChartAxis {
+        id: 30,
+        kind,
+        position: AxisPosition::Bottom,
+        crosses: 40,
+        title: None,
+        number_format: Some("General".to_owned()),
+        min: None,
+        max: None,
+        deleted: true,
+        major_gridlines: false,
+    };
+    vec![
+        base.clone(),
+        ChartAxis {
+            id: 40,
+            kind: AxisKind::Value,
+            position: AxisPosition::Right,
+            crosses: 30,
+            title: title.map(str::to_owned),
+            number_format: Some(format.to_owned()),
+            deleted: false,
+            ..base
+        },
+    ]
+}
+
+/// The column chart's plot as read with its axis ids.
+fn column_plot_read() -> Plot {
+    column_read().plots.remove(0)
+}
+
+#[test]
+fn a_bar_with_a_combined_line_on_the_primary_axes_reads_two_plots_and_two_axes() {
+    let chart = combined(second(NewPlot::Line {
+        grouping: Grouping::Standard,
+    }));
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:axId val=\"10\"/><c:axId val=\"20\"/></c:barChart><c:lineChart><c:grouping \
+             val=\"standard\"/><c:varyColors val=\"0\"/>{}<c:marker val=\"1\"/><c:axId \
+             val=\"10\"/><c:axId val=\"20\"/></c:lineChart>{}</c:plotArea>",
+            over_c_written(2, "cat", "strRef", "val"),
+            axes("b", "l", &title("Month"), &title("Units")),
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        read.plots,
+        vec![
+            column_plot_read(),
+            Plot {
+                grouping: Some(Grouping::Standard),
+                ..plot_read(ChartKind::Line, false, vec![over_c_read(2)], vec![10, 20])
+            },
+        ]
+    );
+    assert_eq!(read.axes, column_read().axes);
+}
+
+#[test]
+fn a_bar_with_a_combined_line_on_a_secondary_axis_reads_four_axes() {
+    let chart = combined(NewCombined {
+        secondary_axis: true,
+        secondary_axis_title: Some("Share & rate"),
+        secondary_axis_format: Some("0.0"),
+        ..second(NewPlot::Line {
+            grouping: Grouping::Stacked,
+        })
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "</c:barChart><c:lineChart><c:grouping val=\"stacked\"/><c:varyColors val=\"0\"/>{}\
+             <c:marker val=\"1\"/><c:axId val=\"30\"/><c:axId val=\"40\"/></c:lineChart>{}{}\
+             </c:plotArea>",
+            over_c_written(2, "cat", "strRef", "val"),
+            axes("b", "l", &title("Month"), &title("Units")),
+            secondary_axes(&title("Share &amp; rate"), "0.0", "between"),
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        read.plots[1],
+        Plot {
+            grouping: Some(Grouping::Stacked),
+            ..plot_read(ChartKind::Line, false, vec![over_c_read(2)], vec![30, 40])
+        }
+    );
+    let mut axes = column_read().axes;
+    axes.extend(secondary_read(
+        AxisKind::Category,
+        Some("Share & rate"),
+        "0.0",
+    ));
+    assert_eq!(read.axes, axes);
+    assert_eq!(
+        read.axes.iter().map(|axis| axis.id).collect::<Vec<_>>(),
+        [10, 20, 30, 40]
+    );
+}
+
+#[test]
+fn a_line_with_a_combined_area_shares_the_primary_axes() {
+    let chart = NewChart {
+        plot: NewPlot::Line {
+            grouping: Grouping::Standard,
+        },
+        series: &ONE_NAMED,
+        ..combined(second(NewPlot::Area {
+            grouping: Grouping::Standard,
+        }))
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:marker val=\"1\"/><c:axId val=\"10\"/><c:axId val=\"20\"/></c:lineChart>\
+             <c:areaChart><c:grouping val=\"standard\"/><c:varyColors val=\"0\"/>{}<c:axId \
+             val=\"10\"/><c:axId val=\"20\"/></c:areaChart>{}</c:plotArea>",
+            over_c_written(1, "cat", "strRef", "val"),
+            axes("b", "l", &title("Month"), &title("Units")),
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        read.plots.iter().map(|plot| plot.kind).collect::<Vec<_>>(),
+        [ChartKind::Line, ChartKind::Area]
+    );
+    assert_eq!(read.plots[1].series, vec![over_c_read(1)]);
+    assert_eq!(read.axes.len(), 2);
+}
+
+#[test]
+fn a_bar_with_a_combined_scatter_on_a_secondary_axis_reads_two_value_axes() {
+    let chart = combined(NewCombined {
+        secondary_axis: true,
+        secondary_axis_title: None,
+        secondary_axis_format: Some("0\" kg\""),
+        ..second(NewPlot::Scatter {
+            style: ScatterStyle::Marker,
+        })
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "</c:barChart><c:scatterChart><c:scatterStyle val=\"marker\"/><c:varyColors \
+             val=\"0\"/>{}<c:axId val=\"30\"/><c:axId val=\"40\"/></c:scatterChart>{}{}\
+             </c:plotArea>",
+            over_c_written(2, "xVal", "numRef", "yVal"),
+            axes("b", "l", &title("Month"), &title("Units")),
+            secondary_axes("", "0&quot; kg&quot;", "midCat"),
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(read.plots[1].kind, ChartKind::Scatter);
+    assert_eq!(read.plots[1].axis_ids, vec![30, 40]);
+    let mut axes = column_read().axes;
+    axes.extend(secondary_read(AxisKind::Value, None, "0\" kg\""));
+    assert_eq!(read.axes, axes);
+}
+
+#[test]
+fn a_scatter_first_plot_a_same_variant_second_or_a_scatter_on_the_primary_axes_is_refused() {
+    let scatter_first = NewChart {
+        plot: NewPlot::Scatter {
+            style: ScatterStyle::Marker,
+        },
+        ..combined(NewCombined {
+            secondary_axis: true,
+            ..second(NewPlot::Bar {
+                direction: BarDirection::Column,
+                grouping: Grouping::Clustered,
+            })
+        })
+    };
+    assert_package(
+        call(box_anchor(), &scatter_first).expect_err("refused"),
+        OPTION,
+    );
+    // A bar on a bar is one variant (P2 ruling H), whatever its options.
+    let bar_on_bar = combined(second(NewPlot::Bar {
+        direction: BarDirection::Bar,
+        grouping: Grouping::Stacked,
+    }));
+    assert_package(
+        call(box_anchor(), &bar_on_bar).expect_err("refused"),
+        OPTION,
+    );
+    let scatter_primary = combined(second(NewPlot::Scatter {
+        style: ScatterStyle::Marker,
+    }));
+    assert_package(
+        call(box_anchor(), &scatter_primary).expect_err("refused"),
+        OPTION,
+    );
+}
+
+#[test]
+fn a_pie_or_another_plot_with_no_axes_and_a_combined_plot_is_refused() {
+    let line = second(NewPlot::Line {
+        grouping: Grouping::Standard,
+    });
+    for plot in [
+        NewPlot::Pie,
+        NewPlot::Pie3D,
+        NewPlot::Doughnut { hole_size: 50 },
+        NewPlot::Radar {
+            style: RadarStyle::Standard,
+        },
+        NewPlot::Bubble,
+        NewPlot::Stock,
+    ] {
+        let chart = NewChart {
+            combined: Some(line),
+            ..titled(plot, &ONE_NAMED, (None, None))
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+}
+
+#[test]
+fn a_combined_3d_second_plot_is_refused() {
+    for plot in [
+        NewPlot::Bar3D {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        NewPlot::Line3D {
+            grouping: Grouping::Standard,
+        },
+        NewPlot::Pie3D,
+        NewPlot::Area3D {
+            grouping: Grouping::Standard,
+        },
+    ] {
+        let chart = NewChart {
+            plot: NewPlot::Line {
+                grouping: Grouping::Standard,
+            },
+            ..combined(second(plot))
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+}
+
+#[test]
+fn a_combined_3d_first_plot_is_refused() {
+    for plot in [
+        NewPlot::Bar3D {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        NewPlot::Line3D {
+            grouping: Grouping::Standard,
+        },
+        NewPlot::Area3D {
+            grouping: Grouping::Stacked,
+        },
+    ] {
+        for secondary_axis in [false, true] {
+            let chart = NewChart {
+                plot,
+                ..combined(NewCombined {
+                    secondary_axis,
+                    ..second(NewPlot::Line {
+                        grouping: Grouping::Standard,
+                    })
+                })
+            };
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+    }
+}
+
+#[test]
+fn a_secondary_title_or_format_without_the_secondary_axis_is_refused() {
+    let line = second(NewPlot::Line {
+        grouping: Grouping::Standard,
+    });
+    for (title, format) in [(Some("Rate"), None), (None, Some("0.0"))] {
+        let chart = combined(NewCombined {
+            secondary_axis_title: title,
+            secondary_axis_format: format,
+            ..line
+        });
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+}
+
+#[test]
+fn the_combined_rules_and_texts_follow_the_check_order() {
+    let line = second(NewPlot::Line {
+        grouping: Grouping::Standard,
+    });
+    // The second plot's own rules: a line's clustered grouping, no series,
+    // sizes on a series that is not a bubble's.
+    let clustered = combined(second(NewPlot::Line {
+        grouping: Grouping::Clustered,
+    }));
+    assert_package(call(box_anchor(), &clustered).expect_err("refused"), OPTION);
+    let empty = combined(NewCombined {
+        series: &[],
+        ..line
+    });
+    assert_package(call(box_anchor(), &empty).expect_err("refused"), OPTION);
+    let sized = [NewSeries {
+        sizes: Some("Sheet1!$D$2:$D$4"),
+        ..OVER_C[0]
+    }];
+    let with_sizes = combined(NewCombined {
+        series: &sized,
+        ..line
+    });
+    assert_package(
+        call(box_anchor(), &with_sizes).expect_err("refused"),
+        OPTION,
+    );
+    // The texts after every rule: the secondary title and format, then the
+    // second plot's series.
+    let secondary = NewCombined {
+        secondary_axis: true,
+        ..line
+    };
+    for chart in [
+        combined(NewCombined {
+            secondary_axis_title: Some(""),
+            ..secondary
+        }),
+        combined(NewCombined {
+            secondary_axis_format: Some("0\u{7}"),
+            ..secondary
+        }),
+        combined(NewCombined {
+            series: &[NewSeries {
+                values: "",
+                ..OVER_C[0]
+            }],
+            ..secondary
+        }),
+    ] {
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), TEXT);
+    }
+    // A rule broken beside a bad text gives the rule's message.
+    let both = combined(NewCombined {
+        series: &[],
+        secondary_axis_title: Some(""),
+        ..secondary
+    });
+    assert_package(call(box_anchor(), &both).expect_err("refused"), OPTION);
+    // The first plot's texts are checked apart from the second's: a bad
+    // title or series reference of the first plot, beside a second plot
+    // whose texts are all good, is refused; the same second plot alone is
+    // accepted.
+    let good = combined(NewCombined {
+        secondary_axis_title: Some("emend y2"),
+        secondary_axis_format: Some("0.0"),
+        ..secondary
+    });
+    call(box_anchor(), &good).expect("accepted");
+    let first_title = NewChart {
+        title: Some(""),
+        ..good
+    };
+    assert_package(call(box_anchor(), &first_title).expect_err("refused"), TEXT);
+    let first_series = [NewSeries {
+        values: "",
+        ..OVER_C[0]
+    }];
+    let first_reference = NewChart {
+        series: &first_series,
+        ..good
+    };
+    assert_package(
+        call(box_anchor(), &first_reference).expect_err("refused"),
+        TEXT,
+    );
 }

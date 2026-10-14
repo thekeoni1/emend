@@ -2,7 +2,8 @@
 //! (`specs/0035-charts-write-first-set.md`). The Cargo feature `charts`.
 //!
 //! The second set (`specs/0036-charts-write-second-set.md`) adds the
-//! doughnut, radar, bubble and stock plots.
+//! doughnut, radar, bubble and stock plots, the 3D plots and a second plot
+//! combined with the first.
 //!
 //! [`Package::add_chart`] checks the call and records the chart as an image
 //! is recorded: the write adds the chart part, created whole from the
@@ -70,6 +71,27 @@ pub struct NewChart<'a> {
     /// The chart's pixel width and height: required for a one-cell or
     /// absolute anchor, refused for a two-cell anchor.
     pub size: Option<(u32, u32)>,
+    /// A second plot on the same plot area, after the first.
+    pub combined: Option<NewCombined<'a>>,
+}
+
+/// A second plot combined with a chart's first (`specs/0036-charts-write-
+/// second-set.md`, "The call"): a bar, line, area or scatter plot of a
+/// variant other than the first's, on the primary axes or on a secondary
+/// pair. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NewCombined<'a> {
+    /// The second plot: its kind and the options the kind takes.
+    pub plot: NewPlot,
+    /// Its series, one or more, in order, after the first plot's.
+    pub series: &'a [NewSeries<'a>],
+    /// Whether it takes the secondary axes, ids 30 and 40.
+    pub secondary_axis: bool,
+    /// The secondary value axis's title; requires `secondary_axis`.
+    pub secondary_axis_title: Option<&'a str>,
+    /// The secondary value axis's number format code; requires
+    /// `secondary_axis`.
+    pub secondary_axis_format: Option<&'a str>,
 }
 
 /// A new chart's plot: its kind and the options the kind takes. The Cargo
@@ -121,6 +143,29 @@ pub enum NewPlot {
     /// high, low and close, in that order; the high-low lines; the axes a
     /// line's.
     Stock,
+    /// `bar3DChart`: its direction and any grouping; `Standard` adds the
+    /// series axis.
+    Bar3D {
+        /// Bars or columns.
+        direction: BarDirection,
+        /// How the series are grouped.
+        grouping: Grouping,
+    },
+    /// `line3DChart`: its grouping, `Standard`, `Stacked` or
+    /// `PercentStacked`; the series axis whatever the grouping (P2 ruling
+    /// F).
+    Line3D {
+        /// How the series are grouped.
+        grouping: Grouping,
+    },
+    /// `pie3DChart`: as `Pie`.
+    Pie3D,
+    /// `area3DChart`: its grouping, `Standard`, `Stacked` or
+    /// `PercentStacked`; `Standard` adds the series axis.
+    Area3D {
+        /// How the series are grouped.
+        grouping: Grouping,
+    },
 }
 
 /// A new radar plot's `radarStyle`. The Cargo feature `charts`.
@@ -185,8 +230,19 @@ pub(super) struct ChartWork {
     category_axis_title: Option<String>,
     value_axis_title: Option<String>,
     legend: Option<LegendPosition>,
+    combined: Option<CombinedWork>,
     pub(super) cx: u64,
     pub(super) cy: u64,
+}
+
+/// A combined second plot as the call checked it.
+#[derive(Clone)]
+struct CombinedWork {
+    plot: NewPlot,
+    series: Vec<SeriesWork>,
+    secondary_axis: bool,
+    title: Option<String>,
+    format: Option<String>,
 }
 
 impl<R: Read + Seek> Package<R> {
@@ -219,16 +275,22 @@ impl<R: Read + Seek> Package<R> {
     /// anchor or none on another; "a chart anchor is out of range" for a
     /// width or height of 0 or past `i32::MAX` EMU; "a chart option does not
     /// apply to its kind" for no series, a bar's `Standard` grouping, a
-    /// line's or an area's `Clustered`, a pie with more than one series or
-    /// an axis title, a doughnut whose hole size is outside 1 to 90 or with
-    /// an axis title, a stock plot with other than three or four series, a
-    /// bubble plot's series without sizes or another plot's with them
-    /// (`specs/0036-charts-write-second-set.md`, "Applicability"); "a chart
-    /// text is empty or holds a control character" for a title, axis title,
-    /// name or reference (values, then sizes), in that order, series by
-    /// series, that is empty, holds a character below
-    /// U+0020, U+FFFE or U+FFFF, or is longer than 32767 bytes (a reference,
-    /// 8192). The write refuses what [`Package::add_image`](super::Package)
+    /// line's, an area's, a 3D line's or a 3D area's `Clustered`, a pie or
+    /// a 3D pie with more than one series or an axis title, a doughnut
+    /// whose hole size is outside 1 to 90 or with an axis title, a stock
+    /// plot with other than three or four series, a bubble plot's series
+    /// without sizes or another plot's with them, then for a combined plot
+    /// a first plot other than a bar, line or area, a second other than a
+    /// bar, line, area or scatter or of the first's variant, a second with
+    /// no series or that breaks its own kind's rules, a scatter second or
+    /// a secondary title or format without `secondary_axis`
+    /// (`specs/0036-charts-write-second-set.md`, "Applicability", P2
+    /// rulings G and H); "a chart text is empty or holds a control
+    /// character" for a title, axis title, secondary axis title, secondary
+    /// axis format, name or reference (values, then sizes), in that order,
+    /// series by series, the first plot's then the second's, that is empty,
+    /// holds a character below U+0020, U+FFFE or U+FFFF, or is longer than
+    /// 32767 bytes (a reference, 8192). The write refuses what [`Package::add_image`](super::Package)
     /// says it refuses of the part, and a part this write also removes an
     /// image from, "no image at that position" (P1 ruling B).
     pub fn add_chart(
@@ -296,40 +358,58 @@ impl Parts<'_> {
             return Err(CHART_OPTION_KIND);
         }
         let no_axis_title = chart.category_axis_title.is_none() && chart.value_axis_title.is_none();
-        let count = chart.series.len();
-        let bubble = chart.plot == NewPlot::Bubble;
-        let applies = match chart.plot {
-            NewPlot::Bar { grouping, .. } => grouping != Grouping::Standard,
-            NewPlot::Line { grouping } | NewPlot::Area { grouping } => {
-                grouping != Grouping::Clustered
-            }
-            NewPlot::Pie => count == 1 && no_axis_title,
-            NewPlot::Doughnut { hole_size } => (1..=90).contains(&hole_size) && no_axis_title,
-            NewPlot::Stock => (3..=4).contains(&count),
-            _ => true,
-        } && chart.series.iter().all(|one| one.sizes.is_some() == bubble);
-        if !applies {
+        if !plot_applies(chart.plot, chart.series, no_axis_title) {
             return Err(CHART_OPTION_KIND);
+        }
+        if let Some(combined) = &chart.combined {
+            // The first plot a bar, line or area (a scatter's x axis cannot
+            // share a category axis, and no 3D plot combines: P2 ruling G);
+            // the second a bar, line, area or scatter of another variant.
+            let first = matches!(
+                chart.plot,
+                NewPlot::Bar { .. } | NewPlot::Line { .. } | NewPlot::Area { .. }
+            );
+            let second = matches!(
+                combined.plot,
+                NewPlot::Bar { .. }
+                    | NewPlot::Line { .. }
+                    | NewPlot::Area { .. }
+                    | NewPlot::Scatter { .. }
+            );
+            let scatter = matches!(combined.plot, NewPlot::Scatter { .. });
+            let secondary_only =
+                combined.secondary_axis_title.is_some() || combined.secondary_axis_format.is_some();
+            let applies = first
+                && second
+                && std::mem::discriminant(&chart.plot) != std::mem::discriminant(&combined.plot)
+                && !combined.series.is_empty()
+                && plot_applies(combined.plot, combined.series, true)
+                && (combined.secondary_axis || !scatter && !secondary_only);
+            if !applies {
+                return Err(CHART_OPTION_KIND);
+            }
         }
         let title = chart.title.map(text).transpose()?;
         let category_axis_title = chart.category_axis_title.map(text).transpose()?;
         let value_axis_title = chart.value_axis_title.map(text).transpose()?;
-        let mut series = Vec::with_capacity(chart.series.len());
-        for one in chart.series {
-            let name = match one.name {
-                None => None,
-                Some(NewSeriesName::Reference(formula)) => {
-                    Some(NameWork::Reference(reference(formula)?))
-                }
-                Some(NewSeriesName::Text(name)) => Some(NameWork::Text(text(name)?)),
-            };
-            series.push(SeriesWork {
-                name,
-                categories: one.categories.map(reference).transpose()?,
-                values: reference(one.values)?,
-                sizes: one.sizes.map(reference).transpose()?,
-            });
-        }
+        let (secondary_title, secondary_format) = match &chart.combined {
+            Some(combined) => (
+                combined.secondary_axis_title.map(text).transpose()?,
+                combined.secondary_axis_format.map(text).transpose()?,
+            ),
+            None => (None, None),
+        };
+        let series = series_work(chart.series)?;
+        let combined = match &chart.combined {
+            Some(combined) => Some(CombinedWork {
+                plot: combined.plot,
+                series: series_work(combined.series)?,
+                secondary_axis: combined.secondary_axis,
+                title: secondary_title,
+                format: secondary_format,
+            }),
+            None => None,
+        };
         self.edits.drawing_edits.push((
             part.to_vec(),
             anchor,
@@ -340,12 +420,69 @@ impl Parts<'_> {
                 category_axis_title,
                 value_axis_title,
                 legend: chart.legend,
+                combined,
                 cx,
                 cy,
             })),
         ));
         Ok(())
     }
+}
+
+/// Whether `plot` takes `series` and the axis titles given (`specs/0036-
+/// charts-write-second-set.md`, "Applicability"): its grouping, its series
+/// count, a doughnut's hole, and sizes on a bubble's series alone.
+fn plot_applies(plot: NewPlot, series: &[NewSeries<'_>], no_axis_title: bool) -> bool {
+    let count = series.len();
+    let bubble = plot == NewPlot::Bubble;
+    let kind = match plot {
+        NewPlot::Bar { grouping, .. } => grouping != Grouping::Standard,
+        NewPlot::Line { grouping }
+        | NewPlot::Area { grouping }
+        | NewPlot::Line3D { grouping }
+        | NewPlot::Area3D { grouping } => grouping != Grouping::Clustered,
+        NewPlot::Pie | NewPlot::Pie3D => count == 1 && no_axis_title,
+        NewPlot::Doughnut { hole_size } => (1..=90).contains(&hole_size) && no_axis_title,
+        NewPlot::Stock => (3..=4).contains(&count),
+        _ => true,
+    };
+    kind && series.iter().all(|one| one.sizes.is_some() == bubble)
+}
+
+/// The series' texts and references checked in field order, series by
+/// series: the name, the categories, the values, the sizes.
+fn series_work(series: &[NewSeries<'_>]) -> Result<Vec<SeriesWork>, Error> {
+    let mut work = Vec::with_capacity(series.len());
+    for one in series {
+        let name = match one.name {
+            None => None,
+            Some(NewSeriesName::Reference(formula)) => {
+                Some(NameWork::Reference(reference(formula)?))
+            }
+            Some(NewSeriesName::Text(name)) => Some(NameWork::Text(text(name)?)),
+        };
+        work.push(SeriesWork {
+            name,
+            categories: one.categories.map(reference).transpose()?,
+            values: reference(one.values)?,
+            sizes: one.sizes.map(reference).transpose()?,
+        });
+    }
+    Ok(work)
+}
+
+/// Whether `plot` writes the series axis, id 30: a `Standard` bar or area
+/// 3D plot, and a 3D line plot whatever its grouping (P2 ruling F).
+fn series_axis(plot: NewPlot) -> bool {
+    matches!(
+        plot,
+        NewPlot::Bar3D {
+            grouping: Grouping::Standard,
+            ..
+        } | NewPlot::Area3D {
+            grouping: Grouping::Standard
+        } | NewPlot::Line3D { .. }
+    )
 }
 
 /// Whether `value` is a text a chart may hold: not empty, no character
@@ -399,8 +536,38 @@ impl ChartWork {
             b"autoTitleDeleted",
             if self.title.is_some() { b"0" } else { b"1" },
         );
+        // A 3D plot's view (`specs/0036-charts-write-second-set.md`, "The
+        // chart part").
+        let view: Option<[&[u8]; 3]> = match self.plot {
+            NewPlot::Bar3D { .. } | NewPlot::Line3D { .. } | NewPlot::Area3D { .. } => {
+                Some([b"15", b"20", b"1"])
+            }
+            NewPlot::Pie3D => Some([b"30", b"0", b"0"]),
+            _ => None,
+        };
+        if let Some([x, y, r]) = view {
+            out.extend_from_slice(b"<c:view3D>");
+            value_element(&mut out, b"rotX", x);
+            value_element(&mut out, b"rotY", y);
+            value_element(&mut out, b"rAngAx", r);
+            out.extend_from_slice(b"</c:view3D>");
+        }
         out.extend_from_slice(b"<c:plotArea><c:layout/>");
-        self.plot_bytes(&mut out);
+        plot_bytes(&mut out, self.plot, &self.series, 0, [b"10", b"20"]);
+        if let Some(combined) = &self.combined {
+            let ids: [&[u8]; 2] = if combined.secondary_axis {
+                [b"30", b"40"]
+            } else {
+                [b"10", b"20"]
+            };
+            plot_bytes(
+                &mut out,
+                combined.plot,
+                &combined.series,
+                self.series.len(),
+                ids,
+            );
+        }
         self.axes_bytes(&mut out);
         out.extend_from_slice(b"</c:plotArea>");
         if let Some(legend) = self.legend {
@@ -424,147 +591,49 @@ impl ChartWork {
         out
     }
 
-    /// The plot element with its series: the options before the series,
-    /// `varyColors`, the series, the options after them, the axis ids.
-    fn plot_bytes(&self, out: &mut Vec<u8>) {
-        let element: &[u8] = match self.plot {
-            NewPlot::Bar { .. } => b"barChart",
-            NewPlot::Line { .. } => b"lineChart",
-            NewPlot::Pie => b"pieChart",
-            NewPlot::Scatter { .. } => b"scatterChart",
-            NewPlot::Area { .. } => b"areaChart",
-            NewPlot::Doughnut { .. } => b"doughnutChart",
-            NewPlot::Radar { .. } => b"radarChart",
-            NewPlot::Bubble => b"bubbleChart",
-            NewPlot::Stock => b"stockChart",
-        };
-        tag(out, b"<c:", element);
-        match self.plot {
-            NewPlot::Bar { direction, .. } => value_element(
-                out,
-                b"barDir",
-                match direction {
-                    BarDirection::Bar => b"bar",
-                    BarDirection::Column => b"col",
-                },
-            ),
-            NewPlot::Scatter { style } => value_element(
-                out,
-                b"scatterStyle",
-                match style {
-                    ScatterStyle::None => b"none".as_slice(),
-                    ScatterStyle::Line => b"line",
-                    ScatterStyle::LineMarker => b"lineMarker",
-                    ScatterStyle::Marker => b"marker",
-                    ScatterStyle::Smooth => b"smooth",
-                    ScatterStyle::SmoothMarker => b"smoothMarker",
-                },
-            ),
-            NewPlot::Radar { style } => value_element(
-                out,
-                b"radarStyle",
-                match style {
-                    RadarStyle::Standard => b"standard".as_slice(),
-                    RadarStyle::Marker => b"marker",
-                    RadarStyle::Filled => b"filled",
-                },
-            ),
-            _ => {}
-        }
-        if let NewPlot::Bar { grouping, .. }
-        | NewPlot::Line { grouping }
-        | NewPlot::Area { grouping } = self.plot
-        {
-            value_element(out, b"grouping", grouping_value(grouping));
-        }
-        // A pie's and a doughnut's slices vary; a stock plot has no
-        // `varyColors`.
-        let round = matches!(self.plot, NewPlot::Pie | NewPlot::Doughnut { .. });
-        if self.plot != NewPlot::Stock {
-            value_element(out, b"varyColors", if round { b"1" } else { b"0" });
-        }
-        self.series_bytes(out);
-        match self.plot {
-            NewPlot::Bar { grouping, .. } => {
-                value_element(out, b"gapWidth", b"150");
-                // Excel draws stacked bars side by side without it.
-                if matches!(grouping, Grouping::Stacked | Grouping::PercentStacked) {
-                    value_element(out, b"overlap", b"100");
-                }
-            }
-            NewPlot::Line { .. } => value_element(out, b"marker", b"1"),
-            NewPlot::Pie => value_element(out, b"firstSliceAng", b"0"),
-            NewPlot::Doughnut { hole_size } => {
-                value_element(out, b"firstSliceAng", b"0");
-                value_element(out, b"holeSize", hole_size.to_string().as_bytes());
-            }
-            NewPlot::Bubble => {
-                value_element(out, b"bubbleScale", b"100");
-                value_element(out, b"showNegBubbles", b"0");
-            }
-            NewPlot::Stock => out.extend_from_slice(b"<c:hiLowLines/>"),
-            _ => {}
-        }
-        if !round {
-            value_element(out, b"axId", b"10");
-            value_element(out, b"axId", b"20");
-        }
-        tag(out, b"</c:", element);
-    }
-
-    /// Each series in order, `idx` and `order` its zero-based position; a
-    /// scatter's and a bubble's references as `xVal` and `yVal`, both
-    /// `numRef`, a bubble's sizes after them; a stock series' marker
-    /// `none`.
-    fn series_bytes(&self, out: &mut Vec<u8>) {
-        let scatter = matches!(self.plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
-        let (x, x_form, y): (&[u8], &[u8], &[u8]) = if scatter {
-            (b"xVal", b"numRef", b"yVal")
-        } else {
-            (b"cat", b"strRef", b"val")
-        };
-        for (k, series) in self.series.iter().enumerate() {
-            let k = k.to_string();
-            out.extend_from_slice(b"<c:ser>");
-            value_element(out, b"idx", k.as_bytes());
-            value_element(out, b"order", k.as_bytes());
-            match &series.name {
-                None => {}
-                Some(NameWork::Reference(formula)) => {
-                    element_bytes(out, b"tx", b"strRef", formula);
-                }
-                Some(NameWork::Text(name)) => {
-                    out.extend_from_slice(b"<c:tx><c:v>");
-                    out.extend_from_slice(name.as_bytes());
-                    out.extend_from_slice(b"</c:v></c:tx>");
-                }
-            }
-            if self.plot == NewPlot::Stock {
-                out.extend_from_slice(b"<c:marker><c:symbol val=\"none\"/></c:marker>");
-            }
-            if let Some(categories) = &series.categories {
-                element_bytes(out, x, x_form, categories);
-            }
-            element_bytes(out, y, b"numRef", &series.values);
-            if let Some(sizes) = &series.sizes {
-                element_bytes(out, b"bubbleSize", b"numRef", sizes);
-            }
-            out.extend_from_slice(b"</c:ser>");
-        }
-    }
-
-    /// The category axis then the value axis; a bar plot with direction
-    /// `Bar` has its category axis at `l` and its value axis at `b`; a
-    /// scatter's or a bubble's x axis is a value axis with no gridlines; a
-    /// pie and a doughnut have none.
+    /// The first plot's axes: the category axis then the value axis; a bar
+    /// plot with direction `Bar` has its category axis at `l` and its value
+    /// axis at `b`; a scatter's or a bubble's x axis is a value axis with no
+    /// gridlines; a pie and a doughnut have none; then the series axis when
+    /// the plot writes it, and a combined plot's secondary pair.
     fn axes_bytes(&self, out: &mut Vec<u8>) {
         let x = &self.category_axis_title;
         let y = &self.value_axis_title;
+        let primary = Axis {
+            title: &None,
+            format: None,
+            deleted: false,
+            crosses: b"autoZero",
+        };
         match self.plot {
-            NewPlot::Pie | NewPlot::Doughnut { .. } => {}
+            NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } => {}
             NewPlot::Scatter { .. } | NewPlot::Bubble => {
-                axis_bytes(out, b"10", b"b", false, x, b"20", Some(b"midCat"));
-                axis_bytes(out, b"20", b"l", true, y, b"10", Some(b"midCat"));
+                let x_axis = Axis {
+                    title: x,
+                    ..primary
+                };
+                let y_axis = Axis {
+                    title: y,
+                    ..primary
+                };
+                axis_bytes(
+                    out,
+                    b"10",
+                    b"b",
+                    false,
+                    &x_axis,
+                    b"20",
+                    Form::Value(b"midCat"),
+                );
+                axis_bytes(
+                    out,
+                    b"20",
+                    b"l",
+                    true,
+                    &y_axis,
+                    b"10",
+                    Form::Value(b"midCat"),
+                );
             }
             _ => {
                 let bars = matches!(
@@ -572,13 +641,58 @@ impl ChartWork {
                     NewPlot::Bar {
                         direction: BarDirection::Bar,
                         ..
+                    } | NewPlot::Bar3D {
+                        direction: BarDirection::Bar,
+                        ..
                     }
                 );
                 let (category, value): (&[u8], &[u8]) =
                     if bars { (b"l", b"b") } else { (b"b", b"l") };
-                axis_bytes(out, b"10", category, false, x, b"20", None);
-                axis_bytes(out, b"20", value, true, y, b"10", Some(b"between"));
+                let x_axis = Axis {
+                    title: x,
+                    ..primary
+                };
+                let y_axis = Axis {
+                    title: y,
+                    ..primary
+                };
+                axis_bytes(out, b"10", category, false, &x_axis, b"20", Form::Category);
+                axis_bytes(
+                    out,
+                    b"20",
+                    value,
+                    true,
+                    &y_axis,
+                    b"10",
+                    Form::Value(b"between"),
+                );
             }
+        }
+        if series_axis(self.plot) {
+            axis_bytes(out, b"30", b"b", false, &primary, b"20", Form::Series);
+        }
+        if let Some(combined) = self.combined.as_ref().filter(|one| one.secondary_axis) {
+            // The secondary pair: the x axis 30 at the bottom, deleted; the
+            // value axis 40 at the right, crossing at the maximum, with the
+            // secondary title and format and no gridlines.
+            let hidden = Axis {
+                deleted: true,
+                ..primary
+            };
+            let shown = Axis {
+                title: &combined.title,
+                format: combined.format.as_deref(),
+                deleted: false,
+                crosses: b"max",
+            };
+            let (x_form, between): (Form<'_>, &[u8]) =
+                if matches!(combined.plot, NewPlot::Scatter { .. }) {
+                    (Form::Value(b"midCat"), b"midCat")
+                } else {
+                    (Form::Category, b"between")
+                };
+            axis_bytes(out, b"30", b"b", false, &hidden, b"40", x_form);
+            axis_bytes(out, b"40", b"r", false, &shown, b"30", Form::Value(between));
         }
     }
 
@@ -643,6 +757,160 @@ impl ChartWork {
     }
 }
 
+/// A plot element with its series: the options before the series,
+/// `varyColors`, the series (`idx` and `order` from `first`), the options
+/// after them, the axis ids `ids` and the series axis's when the plot writes
+/// it.
+fn plot_bytes(
+    out: &mut Vec<u8>,
+    plot: NewPlot,
+    series: &[SeriesWork],
+    first: usize,
+    ids: [&[u8]; 2],
+) {
+    let element: &[u8] = match plot {
+        NewPlot::Bar { .. } => b"barChart",
+        NewPlot::Line { .. } => b"lineChart",
+        NewPlot::Pie => b"pieChart",
+        NewPlot::Scatter { .. } => b"scatterChart",
+        NewPlot::Area { .. } => b"areaChart",
+        NewPlot::Doughnut { .. } => b"doughnutChart",
+        NewPlot::Radar { .. } => b"radarChart",
+        NewPlot::Bubble => b"bubbleChart",
+        NewPlot::Stock => b"stockChart",
+        NewPlot::Bar3D { .. } => b"bar3DChart",
+        NewPlot::Line3D { .. } => b"line3DChart",
+        NewPlot::Pie3D => b"pie3DChart",
+        NewPlot::Area3D { .. } => b"area3DChart",
+    };
+    tag(out, b"<c:", element);
+    match plot {
+        NewPlot::Bar { direction, .. } | NewPlot::Bar3D { direction, .. } => value_element(
+            out,
+            b"barDir",
+            match direction {
+                BarDirection::Bar => b"bar",
+                BarDirection::Column => b"col",
+            },
+        ),
+        NewPlot::Scatter { style } => value_element(
+            out,
+            b"scatterStyle",
+            match style {
+                ScatterStyle::None => b"none".as_slice(),
+                ScatterStyle::Line => b"line",
+                ScatterStyle::LineMarker => b"lineMarker",
+                ScatterStyle::Marker => b"marker",
+                ScatterStyle::Smooth => b"smooth",
+                ScatterStyle::SmoothMarker => b"smoothMarker",
+            },
+        ),
+        NewPlot::Radar { style } => value_element(
+            out,
+            b"radarStyle",
+            match style {
+                RadarStyle::Standard => b"standard".as_slice(),
+                RadarStyle::Marker => b"marker",
+                RadarStyle::Filled => b"filled",
+            },
+        ),
+        _ => {}
+    }
+    if let NewPlot::Bar { grouping, .. }
+    | NewPlot::Line { grouping }
+    | NewPlot::Area { grouping }
+    | NewPlot::Bar3D { grouping, .. }
+    | NewPlot::Line3D { grouping }
+    | NewPlot::Area3D { grouping } = plot
+    {
+        value_element(out, b"grouping", grouping_value(grouping));
+    }
+    // A pie's and a doughnut's slices vary; a stock plot has no
+    // `varyColors`.
+    let round = matches!(
+        plot,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. }
+    );
+    if plot != NewPlot::Stock {
+        value_element(out, b"varyColors", if round { b"1" } else { b"0" });
+    }
+    series_bytes(out, plot, series, first);
+    match plot {
+        NewPlot::Bar { grouping, .. } => {
+            value_element(out, b"gapWidth", b"150");
+            // Excel draws stacked bars side by side without it.
+            if matches!(grouping, Grouping::Stacked | Grouping::PercentStacked) {
+                value_element(out, b"overlap", b"100");
+            }
+        }
+        NewPlot::Bar3D { .. } => {
+            value_element(out, b"gapWidth", b"150");
+            value_element(out, b"shape", b"box");
+        }
+        NewPlot::Line { .. } => value_element(out, b"marker", b"1"),
+        NewPlot::Pie => value_element(out, b"firstSliceAng", b"0"),
+        NewPlot::Doughnut { hole_size } => {
+            value_element(out, b"firstSliceAng", b"0");
+            value_element(out, b"holeSize", hole_size.to_string().as_bytes());
+        }
+        NewPlot::Bubble => {
+            value_element(out, b"bubbleScale", b"100");
+            value_element(out, b"showNegBubbles", b"0");
+        }
+        NewPlot::Stock => out.extend_from_slice(b"<c:hiLowLines/>"),
+        _ => {}
+    }
+    if !round {
+        value_element(out, b"axId", ids[0]);
+        value_element(out, b"axId", ids[1]);
+        if series_axis(plot) {
+            value_element(out, b"axId", b"30");
+        }
+    }
+    tag(out, b"</c:", element);
+}
+
+/// Each series in order, `idx` and `order` its position counted from
+/// `first`; a scatter's and a bubble's references as `xVal` and `yVal`,
+/// both `numRef`, a bubble's sizes after them; a stock series' marker
+/// `none`.
+fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: usize) {
+    let scatter = matches!(plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
+    let (x, x_form, y): (&[u8], &[u8], &[u8]) = if scatter {
+        (b"xVal", b"numRef", b"yVal")
+    } else {
+        (b"cat", b"strRef", b"val")
+    };
+    for (k, series) in series.iter().enumerate() {
+        let k = (first + k).to_string();
+        out.extend_from_slice(b"<c:ser>");
+        value_element(out, b"idx", k.as_bytes());
+        value_element(out, b"order", k.as_bytes());
+        match &series.name {
+            None => {}
+            Some(NameWork::Reference(formula)) => {
+                element_bytes(out, b"tx", b"strRef", formula);
+            }
+            Some(NameWork::Text(name)) => {
+                out.extend_from_slice(b"<c:tx><c:v>");
+                out.extend_from_slice(name.as_bytes());
+                out.extend_from_slice(b"</c:v></c:tx>");
+            }
+        }
+        if plot == NewPlot::Stock {
+            out.extend_from_slice(b"<c:marker><c:symbol val=\"none\"/></c:marker>");
+        }
+        if let Some(categories) = &series.categories {
+            element_bytes(out, x, x_form, categories);
+        }
+        element_bytes(out, y, b"numRef", &series.values);
+        if let Some(sizes) = &series.sizes {
+            element_bytes(out, b"bubbleSize", b"numRef", sizes);
+        }
+        out.extend_from_slice(b"</c:ser>");
+    }
+}
+
 /// A `grouping` value.
 fn grouping_value(grouping: Grouping) -> &'static [u8] {
     match grouping {
@@ -674,44 +942,75 @@ fn tag(out: &mut Vec<u8>, open: &[u8], name: &[u8]) {
     }
 }
 
-/// An axis: a `catAx` when `between` is `None`, else a `valAx` with that
-/// `crossBetween`; its id, position, gridlines, title and crossing axis.
+/// An axis's title, number format, deletion and crossing: part 4's axes
+/// take no format (`General`, source linked), are shown and cross at
+/// `autoZero`.
+#[derive(Clone, Copy)]
+struct Axis<'a> {
+    title: &'a Option<String>,
+    format: Option<&'a str>,
+    deleted: bool,
+    crosses: &'a [u8],
+}
+
+/// An axis's form: a `catAx`, a `valAx` with its `crossBetween`, or a
+/// `serAx`, which takes no number format and no tail after `crosses`.
+#[derive(Clone, Copy)]
+enum Form<'a> {
+    Category,
+    Value(&'a [u8]),
+    Series,
+}
+
+/// An axis of `form`: its id, position, gridlines, title, format,
+/// deletion, crossing axis and crossing.
 fn axis_bytes(
     out: &mut Vec<u8>,
     id: &[u8],
     position: &[u8],
     gridlines: bool,
-    title: &Option<String>,
+    axis: &Axis<'_>,
     cross: &[u8],
-    between: Option<&[u8]>,
+    form: Form<'_>,
 ) {
-    let element: &[u8] = if between.is_some() {
-        b"valAx"
-    } else {
-        b"catAx"
+    let element: &[u8] = match form {
+        Form::Category => b"catAx",
+        Form::Value(_) => b"valAx",
+        Form::Series => b"serAx",
     };
     tag(out, b"<c:", element);
     value_element(out, b"axId", id);
-    out.extend_from_slice(
-        b"<c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/>",
-    );
+    out.extend_from_slice(b"<c:scaling><c:orientation val=\"minMax\"/></c:scaling>");
+    value_element(out, b"delete", if axis.deleted { b"1" } else { b"0" });
     value_element(out, b"axPos", position);
     if gridlines {
         out.extend_from_slice(b"<c:majorGridlines/>");
     }
-    if let Some(title) = title {
+    if let Some(title) = axis.title {
         title_bytes(out, title);
     }
+    match (form, axis.format) {
+        (Form::Series, _) => {}
+        (_, Some(format)) => {
+            out.extend_from_slice(b"<c:numFmt formatCode=\"");
+            out.extend_from_slice(format.as_bytes());
+            out.extend_from_slice(b"\" sourceLinked=\"0\"/>");
+        }
+        (_, None) => {
+            out.extend_from_slice(b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/>")
+        }
+    }
     out.extend_from_slice(
-        b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/>",
+        b"<c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/>",
     );
     value_element(out, b"crossAx", cross);
-    out.extend_from_slice(b"<c:crosses val=\"autoZero\"/>");
-    match between {
-        Some(between) => value_element(out, b"crossBetween", between),
-        None => out.extend_from_slice(
+    value_element(out, b"crosses", axis.crosses);
+    match form {
+        Form::Value(between) => value_element(out, b"crossBetween", between),
+        Form::Category => out.extend_from_slice(
             b"<c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl val=\"0\"/>",
         ),
+        Form::Series => {}
     }
     tag(out, b"</c:", element);
 }

@@ -2172,7 +2172,7 @@ pub use chart::{
     Data, Grouping, LegendPosition, Plot, ScatterStyle, Series, SeriesName,
 };
 #[cfg(feature = "charts")]
-pub use chart_write::{NewChart, NewPlot, NewSeries, NewSeriesName, RadarStyle};
+pub use chart_write::{NewChart, NewCombined, NewPlot, NewSeries, NewSeriesName, RadarStyle};
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};
 #[cfg(feature = "read")]

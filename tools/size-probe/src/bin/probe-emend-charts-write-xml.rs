@@ -440,6 +440,7 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), Strin
         value_axis_title: Some("probe values"),
         legend: Some(LegendPosition::Bottom),
         size: None,
+        combined: None,
     };
     let anchor = ImageAnchor::TwoCell {
         from: CellRef { row: 3, col: 1 },

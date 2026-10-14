@@ -7728,6 +7728,7 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
         value_axis_title: Some("emend values"),
         legend: Some(LegendPosition::Bottom),
         size: None,
+        combined: None,
     };
     let anchor = ImageAnchor::TwoCell {
         from: CellRef {
@@ -7970,6 +7971,7 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
             value_axis_title: (!pie).then_some("emend y"),
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
+            combined: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8068,6 +8070,7 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
             value_axis_title: axes.then_some("emend y"),
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
+            combined: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8229,7 +8232,8 @@ fn chart_kinds_read_back(
 
 /// The chart `specs/0035-charts-write-first-set.md`, "The call", says
 /// `Package::charts` reads back for `chart`, of any kind, the second set's
-/// included (`specs/0036-charts-write-second-set.md`).
+/// included (`specs/0036-charts-write-second-set.md`), its combined plot
+/// apart.
 fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart {
     use emend::package::{
         AxisKind, AxisPosition, BarDirection, Chart, ChartAxis, ChartKind, Data, NewPlot,
@@ -8272,8 +8276,18 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
         NewPlot::Radar { .. } => (ChartKind::Radar, None, None, None),
         NewPlot::Bubble => (ChartKind::Bubble, None, None, None),
         NewPlot::Stock => (ChartKind::Stock, None, None, None),
+        NewPlot::Bar3D {
+            direction,
+            grouping,
+        } => (ChartKind::Bar3D, Some(direction), Some(grouping), None),
+        NewPlot::Line3D { grouping } => (ChartKind::Line3D, None, Some(grouping), None),
+        NewPlot::Pie3D => (ChartKind::Pie3D, None, None, None),
+        NewPlot::Area3D { grouping } => (ChartKind::Area3D, None, Some(grouping), None),
     };
-    let round = matches!(kind, ChartKind::Pie | ChartKind::Doughnut);
+    let round = matches!(
+        kind,
+        ChartKind::Pie | ChartKind::Pie3D | ChartKind::Doughnut
+    );
     let axis = |id, kind, position, crosses, title: Option<&str>, gridlines| ChartAxis {
         id,
         kind,
@@ -8296,7 +8310,7 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
     } else {
         AxisKind::Category
     };
-    let (axis_ids, axes) = if round {
+    let (mut axis_ids, mut axes) = if round {
         (Vec::new(), Vec::new())
     } else {
         (
@@ -8307,6 +8321,20 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
             ],
         )
     };
+    // A line 3D plot whatever its grouping and a standard bar or area 3D
+    // plot write the series axis (`specs/0036-charts-write-second-set.md`,
+    // P2 ruling F).
+    let depth = kind == ChartKind::Line3D
+        || matches!(kind, ChartKind::Bar3D | ChartKind::Area3D)
+            && grouping == Some(emend::package::Grouping::Standard);
+    if depth {
+        axis_ids.push(30);
+        axes.push(ChartAxis {
+            number_format: None,
+            major_gridlines: false,
+            ..axis(30, AxisKind::Series, AxisPosition::Bottom, 20, None, false)
+        });
+    }
     Chart {
         title: chart.title.map(str::to_owned),
         auto_title_deleted: chart.title.is_none(),
