@@ -763,6 +763,26 @@
 //!   before, `read_back_equal` 1; a failure is exit 2 with the message and
 //!   no output, and so is a refusal by the layer (M + 18 past the grid, a
 //!   drawing it cannot read).
+//! - `--chart-kinds-sample`: the chart kinds sample of
+//!   `specs/0035-charts-write-first-set.md`, "Harness runs": on W, with M
+//!   and its quoted name as `--add-chart-sample` has them and M' the larger
+//!   of M and 1 (P2 ruling J), six charts, the k-th (k from 0) on a
+//!   one-cell anchor at (M + 2 + 16 k, 1), offset zero, 480 by 288 pixels:
+//!   a clustered bar chart with direction bar, a stacked column chart, a
+//!   standard line chart, a pie, a scatter chart with markers and lines and
+//!   a standard area chart, each titled `emend kind k` with one series named
+//!   by B1 of W over the categories A2:A(M' + 1) and the values B2:B(M' + 1),
+//!   the legend at the right, and the axis titles `emend x` and `emend y`
+//!   but on the pie, which takes none. The output is reopened. One line:
+//!   the word `chartkinds` then `charts_before` and `charts_after`
+//!   (`Package::charts` of W), `kinds_read_back` (how many of the last six
+//!   entries of the output's charts of W read as their calls gave them,
+//!   every field compared), `one_after` (charts of W on a one-cell anchor)
+//!   and `chart_parts_after` (entries under `xl/charts/`). COUNTS ONLY, as
+//!   the add-chart sample's. Asserted: `charts_after`, `one_after` and
+//!   `chart_parts_after` six more than before, `kinds_read_back` 6; a
+//!   failure is exit 2 with the message and no output, and so is a refusal
+//!   by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -880,7 +900,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
-| --charts-sample | --add-chart-sample]";
+| --charts-sample | --add-chart-sample | --chart-kinds-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1001,6 +1021,8 @@ enum Operation {
     ChartsSample,
     /// A column chart past the last row of W, and the counts.
     AddChartSample,
+    /// One chart of each kind past the last row of W, and the counts.
+    ChartKindsSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -1063,6 +1085,7 @@ enum Error {
     ExtlinkSample(&'static str),
     ChartsSample(&'static str),
     AddChartSample(&'static str),
+    ChartKindsSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1190,6 +1213,9 @@ impl fmt::Display for Error {
             }
             Error::AddChartSample(what) => {
                 write!(f, "the output's {what} is not what the chart implies")
+            }
+            Error::ChartKindsSample(what) => {
+                write!(f, "the output's {what} is not what the charts imply")
             }
             Error::ReadSample(what) => {
                 write!(f, "the input's {what} is not what the reads imply")
@@ -1402,6 +1428,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::AddChartSample,
         ),
+        [input, output, flag] if flag == "--chart-kinds-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartKindsSample,
+        ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1577,6 +1608,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::AddChartSample) {
         return add_chart_sample(input, output);
     }
+    if matches!(operation, Operation::ChartKindsSample) {
+        return chart_kinds_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1658,6 +1692,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ExtlinkSample => unreachable!("the external link sample has its own path"),
         Operation::ChartsSample => unreachable!("the charts sample has its own path"),
         Operation::AddChartSample => unreachable!("the add-chart sample has its own path"),
+        Operation::ChartKindsSample => unreachable!("the chart kinds sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -7828,6 +7863,275 @@ fn added_chart_reads_back(
         edit_as: Some(edit_as),
     };
     entry.anchor == anchored && entry.chart == expected
+}
+
+/// The chart kinds sample (`specs/0035-charts-write-first-set.md`,
+/// "Harness runs", `--chart-kinds-sample`, P2 ruling J): one chart of each
+/// kind on W past its last row, the output written and read back. A failure
+/// after the output is in place removes it; a refusal by the layer is exit
+/// 2 with no output.
+fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, Grouping, LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName,
+        ScatterStyle,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    // The references take row 2 at least, an empty sheet's included.
+    let last = sampled.max_row.max(1).saturating_add(1);
+    let series_name = format!("{sheet}!$B$1");
+    let categories = format!("{sheet}!$A$2:$A${last}");
+    let values = format!("{sheet}!$B$2:$B${last}");
+    let series = [NewSeries {
+        name: Some(NewSeriesName::Reference(&series_name)),
+        categories: Some(&categories),
+        values: &values,
+    }];
+    let plots = [
+        NewPlot::Bar {
+            direction: BarDirection::Bar,
+            grouping: Grouping::Clustered,
+        },
+        NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Stacked,
+        },
+        NewPlot::Line {
+            grouping: Grouping::Standard,
+        },
+        NewPlot::Pie,
+        NewPlot::Scatter {
+            style: ScatterStyle::LineMarker,
+        },
+        NewPlot::Area {
+            grouping: Grouping::Standard,
+        },
+    ];
+    let titles: Vec<String> = (0..plots.len())
+        .map(|k| format!("emend kind {k}"))
+        .collect();
+    let mut calls = Vec::with_capacity(plots.len());
+    for ((plot, title), k) in plots.into_iter().zip(&titles).zip(0u32..) {
+        let pie = plot == NewPlot::Pie;
+        let chart = NewChart {
+            plot,
+            title: Some(title),
+            series: &series,
+            category_axis_title: (!pie).then_some("emend x"),
+            value_axis_title: (!pie).then_some("emend y"),
+            legend: Some(LegendPosition::Right),
+            size: Some((480, 288)),
+        };
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, &chart)?;
+        calls.push((chart, anchor));
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_kinds_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, read_back) = checked?;
+    edit_line_named(
+        "chartkinds",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("kinds_read_back", read_back),
+            ("one_after", after.one),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// The chart kinds sample's counts of W: its charts, those on a one-cell
+/// anchor and the entries under `xl/charts/`.
+struct ChartKindsCounts {
+    charts: u64,
+    one: u64,
+    chart_parts: u64,
+}
+
+/// The chart kinds sample's counts of W in `package`, with its charts.
+fn chart_kinds_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<(ChartKindsCounts, Vec<emend::package::ChartEntry>), Error> {
+    let charts = package.charts(part)?;
+    let chart_parts = package
+        .archive()
+        .entries()
+        .iter()
+        .filter(|entry| entry.name().starts_with(b"xl/charts/"))
+        .count() as u64;
+    let counts = ChartKindsCounts {
+        charts: charts.len() as u64,
+        one: charts
+            .iter()
+            .filter(|entry| entry.anchor.kind == Anchor::OneCell)
+            .count() as u64,
+        chart_parts,
+    };
+    Ok((counts, charts))
+}
+
+/// Reopens the chart kinds sample's output and asserts six more charts,
+/// one-cell charts and chart parts, and each of the last six charts of W
+/// read back as its call gave it; gives the counts after and how many read
+/// back.
+fn chart_kinds_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[(emend::package::NewChart<'_>, ImageAnchor)],
+) -> Result<(ChartKindsCounts, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartKindsSample("chart count"));
+    }
+    if after.one != before.one + added {
+        return Err(Error::ChartKindsSample("one-cell chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartKindsSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, (chart, anchor))| {
+            let ImageAnchor::OneCell { from, .. } = *anchor else {
+                return false;
+            };
+            let anchored = emend::package::ChartAnchor {
+                kind: Anchor::OneCell,
+                from: (from.col - 1, from.row - 1),
+                to: None,
+                edit_as: None,
+            };
+            entry.anchor == anchored && entry.chart == chart_as_read(chart)
+        })
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartKindsSample("read-back chart"));
+    }
+    Ok((after, read_back))
+}
+
+/// The chart `specs/0035-charts-write-first-set.md`, "The call", says
+/// `Package::charts` reads back for `chart`, of any kind.
+fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart {
+    use emend::package::{
+        AxisKind, AxisPosition, BarDirection, Chart, ChartAxis, ChartKind, Data, NewPlot,
+        NewSeriesName, Plot, Series, SeriesName,
+    };
+    let data = |formula: &str| Data::Reference {
+        formula: formula.to_owned(),
+        cached: None,
+    };
+    let series = chart
+        .series
+        .iter()
+        .zip(0u32..)
+        .map(|(one, k)| Series {
+            index: k,
+            order: k,
+            name: one.name.map(|name| match name {
+                NewSeriesName::Reference(formula) => SeriesName::Reference(formula.to_owned()),
+                NewSeriesName::Text(text) => SeriesName::Text(text.to_owned()),
+            }),
+            categories: one.categories.map(data),
+            values: Some(data(one.values)),
+            sizes: None,
+            fill: None,
+            smooth: false,
+            marker: false,
+            labels: false,
+        })
+        .collect();
+    let (kind, bar_direction, grouping, scatter_style) = match chart.plot {
+        NewPlot::Bar {
+            direction,
+            grouping,
+        } => (ChartKind::Bar, Some(direction), Some(grouping), None),
+        NewPlot::Line { grouping } => (ChartKind::Line, None, Some(grouping), None),
+        NewPlot::Pie => (ChartKind::Pie, None, None, None),
+        NewPlot::Scatter { style } => (ChartKind::Scatter, None, None, Some(style)),
+        NewPlot::Area { grouping } => (ChartKind::Area, None, Some(grouping), None),
+    };
+    let axis = |id, kind, position, crosses, title: Option<&str>, gridlines| ChartAxis {
+        id,
+        kind,
+        position,
+        crosses,
+        title: title.map(str::to_owned),
+        number_format: Some("General".to_owned()),
+        min: None,
+        max: None,
+        deleted: false,
+        major_gridlines: gridlines,
+    };
+    let (category, value) = if bar_direction == Some(BarDirection::Bar) {
+        (AxisPosition::Left, AxisPosition::Bottom)
+    } else {
+        (AxisPosition::Bottom, AxisPosition::Left)
+    };
+    let first = if kind == ChartKind::Scatter {
+        AxisKind::Value
+    } else {
+        AxisKind::Category
+    };
+    let (axis_ids, axes) = if kind == ChartKind::Pie {
+        (Vec::new(), Vec::new())
+    } else {
+        (
+            vec![10, 20],
+            vec![
+                axis(10, first, category, 20, chart.category_axis_title, false),
+                axis(20, AxisKind::Value, value, 10, chart.value_axis_title, true),
+            ],
+        )
+    };
+    Chart {
+        title: chart.title.map(str::to_owned),
+        auto_title_deleted: chart.title.is_none(),
+        plots: vec![Plot {
+            kind,
+            bar_direction,
+            grouping,
+            scatter_style,
+            vary_colors: kind == ChartKind::Pie,
+            series,
+            axis_ids,
+        }],
+        axes,
+        legend: chart.legend,
+        pivot_source: None,
+        style: None,
+    }
 }
 
 /// The charts sample (`specs/0034-charts-read.md`, "Harness runs",

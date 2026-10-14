@@ -5724,6 +5724,135 @@ fn the_add_chart_sample_refuses_a_drawing_relationship_with_no_part_and_leaves_n
 }
 
 #[test]
+fn the_chart_kinds_sample_adds_one_chart_of_each_kind_and_reads_them_back() {
+    // `specs/0035-charts-write-first-set.md`, "Harness runs", and P2 ruling
+    // J: M is 1, so the six one-cell anchors sit at rows 3, 19, ..., 83 of
+    // column A, and the references run from row 2 to row 2, quoted.
+    let line = "chartkinds\tcharts_before=0\tcharts_after=6\tkinds_read_back=6\tone_after=6\
+                \tchart_parts_after=6\n";
+    for (label, drawing, after) in [
+        ("chart-kinds-sample-created", false, ""),
+        (
+            "chart-kinds-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-kinds-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for n in 1..=6 {
+            entry_named(&entries, format!("xl/charts/chart{n}.xml").as_bytes());
+        }
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(text.matches("<xdr:oneCellAnchor>").count(), 6, "{text}");
+            assert!(
+                text.contains(
+                    "<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0\
+                     </xdr:colOff><xdr:row>82</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>\
+                     <xdr:ext cx=\"4572000\" cy=\"2743200\"/><xdr:graphicFrame macro=\"\">"
+                ),
+                "{text}"
+            );
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chart_kinds_sample_on_an_empty_sheet_takes_row_2() {
+    // P2 ruling J: M is 0, so the references take M' = 1 (the name B1, the
+    // categories A2:A2, the values B2:B2) while the anchors keep the real M,
+    // rows 2, 18, ..., 82 of column A.
+    let specs = image_specs("<sheetData/>", "", false);
+    let dir = TempDir::new("chart-kinds-sample-empty");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-kinds-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let charts = package
+        .charts(b"xl/worksheets/sheet1.xml")
+        .expect("the charts");
+    assert_eq!(charts.len(), 6, "the charts");
+    let reference = |formula: &str| emend::package::Data::Reference {
+        formula: formula.to_owned(),
+        cached: None,
+    };
+    for (entry, k) in charts.iter().zip(0u32..) {
+        assert_eq!(entry.anchor.from, (0, 1 + 16 * k), "chart {k}'s anchor");
+        let series = &entry.chart.plots[0].series[0];
+        assert_eq!(
+            series.name,
+            Some(emend::package::SeriesName::Reference(
+                "'Sheet1'!$B$1".to_owned()
+            )),
+            "chart {k}'s name"
+        );
+        assert_eq!(
+            series.categories,
+            Some(reference("'Sheet1'!$A$2:$A$2")),
+            "chart {k}'s categories"
+        );
+        assert_eq!(
+            series.values,
+            Some(reference("'Sheet1'!$B$2:$B$2")),
+            "chart {k}'s values"
+        );
+    }
+}
+
+#[test]
+fn the_chart_kinds_sample_refuses_a_drawing_whose_root_is_not_ws_dr_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0035-charts-write-first-set.md`, "P2", and P2 ruling K).
+    let mut specs = image_specs(A_CELL, "<drawing r:id=\"rId1\"/>", true);
+    for spec in &mut specs {
+        if spec.name == b"xl/drawings/drawing1.xml" {
+            let text = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("xdr:wsDr", "xdr:userShapes");
+            *spec = Spec::stored(b"xl/drawings/drawing1.xml", text.as_bytes());
+        }
+    }
+    let dir = TempDir::new("chart-kinds-sample-not-ws-dr");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-kinds-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: a drawing part or its relationship cannot be read\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+#[test]
 fn the_remove_image_sample_removes_its_addition_and_the_first_kept_image() {
     // `specs/0028-images-and-comments-second-half.md`, "Harness runs": with
     // no drawing, the addition and its removal leave none; with a drawing of
