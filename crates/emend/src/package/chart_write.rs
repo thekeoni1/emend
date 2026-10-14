@@ -15,13 +15,14 @@ use quick_xml::escape::{escape, partial_escape};
 use super::chart::CHART_NAMESPACE;
 use super::{
     BarDirection, DRAWINGML, DrawingForm, EMU_PER_PIXEL, Grouping, INDEX_OUT_OF_RANGE, ImageAnchor,
-    LegendPosition, NewDrawing, Package, Parts, drawing_a, drawing_r, in_grid,
+    LegendPosition, NewDrawing, Package, Parts, ScatterStyle, drawing_a, drawing_r, in_grid,
 };
 use crate::archive::Error;
 
 /// What a chart text that is empty, holds a character below U+0020 or a
 /// noncharacter U+FFFE or U+FFFF, or is longer than its limit is refused
-/// with (P1 ruling F); [`crate::package`]'s catalogue lists it.
+/// with (P1 ruling F); the `package` module's catalogue lists it with the
+/// other three (P1 verification ruling G).
 pub(crate) const CHART_TEXT_INVALID: Error =
     Error::Package("a chart text is empty or holds a control character");
 /// What a chart option its plot's kind does not take is refused with.
@@ -56,9 +57,10 @@ pub struct NewChart<'a> {
     pub title: Option<&'a str>,
     /// The series, one or more, in order.
     pub series: &'a [NewSeries<'a>],
-    /// The category axis's title.
+    /// The category axis's title, or a scatter's x axis's; a pie takes
+    /// none.
     pub category_axis_title: Option<&'a str>,
-    /// The value axis's title.
+    /// The value axis's title, or a scatter's y axis's; a pie takes none.
     pub value_axis_title: Option<&'a str>,
     /// The legend's position; `None` writes no legend.
     pub legend: Option<LegendPosition>,
@@ -85,6 +87,19 @@ pub enum NewPlot {
         /// How the series are grouped.
         grouping: Grouping,
     },
+    /// `pieChart`: one series, no axes, `varyColors` 1.
+    Pie,
+    /// `scatterChart`: its style; two value axes.
+    Scatter {
+        /// The `scatterStyle`, any of the six.
+        style: ScatterStyle,
+    },
+    /// `areaChart`: its grouping, `Standard`, `Stacked` or
+    /// `PercentStacked`.
+    Area {
+        /// How the series are grouped.
+        grouping: Grouping,
+    },
 }
 
 /// A new chart's series: its name and its references, each written as the
@@ -93,9 +108,9 @@ pub enum NewPlot {
 pub struct NewSeries<'a> {
     /// The series' name, `tx`.
     pub name: Option<NewSeriesName<'a>>,
-    /// The categories, `cat`.
+    /// The categories, `cat`, or a scatter's x values, `xVal`.
     pub categories: Option<&'a str>,
-    /// The values, `val`.
+    /// The values, `val`, or a scatter's y values, `yVal`.
     pub values: &'a str,
 }
 
@@ -167,8 +182,9 @@ impl<R: Read + Seek> Package<R> {
     /// chart size does not apply to its anchor" for a size on a two-cell
     /// anchor or none on another; "a chart anchor is out of range" for a
     /// width or height of 0 or past `i32::MAX` EMU; "a chart option does not
-    /// apply to its kind" for no series, a bar's `Standard` grouping or a
-    /// line's `Clustered`; "a chart text is empty or holds a control
+    /// apply to its kind" for no series, a bar's `Standard` grouping, a
+    /// line's or an area's `Clustered`, or a pie with more than one series
+    /// or an axis title; "a chart text is empty or holds a control
     /// character" for a title, axis title, name or reference, in that
     /// order, series by series, that is empty, holds a character below
     /// U+0020, U+FFFE or U+FFFF, or is longer than 32767 bytes (a reference,
@@ -241,7 +257,15 @@ impl Parts<'_> {
         }
         let applies = match chart.plot {
             NewPlot::Bar { grouping, .. } => grouping != Grouping::Standard,
-            NewPlot::Line { grouping } => grouping != Grouping::Clustered,
+            NewPlot::Line { grouping } | NewPlot::Area { grouping } => {
+                grouping != Grouping::Clustered
+            }
+            NewPlot::Pie => {
+                chart.series.len() == 1
+                    && chart.category_axis_title.is_none()
+                    && chart.value_axis_title.is_none()
+            }
+            NewPlot::Scatter { .. } => true,
         };
         if !applies {
             return Err(CHART_OPTION_KIND);
@@ -384,11 +408,44 @@ impl ChartWork {
                     b"<c:marker val=\"1\"/><c:axId val=\"10\"/><c:axId val=\"20\"/></c:lineChart>",
                 );
             }
+            NewPlot::Pie => {
+                out.extend_from_slice(b"<c:pieChart><c:varyColors val=\"1\"/>");
+                self.series_bytes(out);
+                out.extend_from_slice(b"<c:firstSliceAng val=\"0\"/></c:pieChart>");
+            }
+            NewPlot::Scatter { style } => {
+                out.extend_from_slice(b"<c:scatterChart><c:scatterStyle val=\"");
+                out.extend_from_slice(match style {
+                    ScatterStyle::None => b"none".as_slice(),
+                    ScatterStyle::Line => b"line",
+                    ScatterStyle::LineMarker => b"lineMarker",
+                    ScatterStyle::Marker => b"marker",
+                    ScatterStyle::Smooth => b"smooth",
+                    ScatterStyle::SmoothMarker => b"smoothMarker",
+                });
+                out.extend_from_slice(b"\"/><c:varyColors val=\"0\"/>");
+                self.series_bytes(out);
+                out.extend_from_slice(b"<c:axId val=\"10\"/><c:axId val=\"20\"/></c:scatterChart>");
+            }
+            NewPlot::Area { grouping } => {
+                out.extend_from_slice(b"<c:areaChart><c:grouping val=\"");
+                out.extend_from_slice(grouping_value(grouping));
+                out.extend_from_slice(b"\"/><c:varyColors val=\"0\"/>");
+                self.series_bytes(out);
+                out.extend_from_slice(b"<c:axId val=\"10\"/><c:axId val=\"20\"/></c:areaChart>");
+            }
         }
     }
 
-    /// Each series in order, `idx` and `order` its zero-based position.
+    /// Each series in order, `idx` and `order` its zero-based position; a
+    /// scatter's references as `xVal` and `yVal`, both `numRef`.
     fn series_bytes(&self, out: &mut Vec<u8>) {
+        let scatter = matches!(self.plot, NewPlot::Scatter { .. });
+        let (x, x_form, y): (&[u8], &[u8], &[u8]) = if scatter {
+            (b"xVal", b"numRef", b"yVal")
+        } else {
+            (b"cat", b"strRef", b"val")
+        };
         for (k, series) in self.series.iter().enumerate() {
             let k = k.to_string();
             out.extend_from_slice(b"<c:ser><c:idx val=\"");
@@ -410,19 +467,43 @@ impl ChartWork {
                 }
             }
             if let Some(categories) = &series.categories {
-                out.extend_from_slice(b"<c:cat>");
-                reference_bytes(out, b"strRef", categories);
-                out.extend_from_slice(b"</c:cat>");
+                element_bytes(out, x, x_form, categories);
             }
-            out.extend_from_slice(b"<c:val>");
-            reference_bytes(out, b"numRef", &series.values);
-            out.extend_from_slice(b"</c:val></c:ser>");
+            element_bytes(out, y, b"numRef", &series.values);
+            out.extend_from_slice(b"</c:ser>");
         }
     }
 
     /// The category axis then the value axis; a bar plot with direction
-    /// `Bar` has its category axis at `l` and its value axis at `b`.
+    /// `Bar` has its category axis at `l` and its value axis at `b`; a
+    /// scatter plot's x axis is a value axis with no gridlines; a pie has
+    /// none.
     fn axes_bytes(&self, out: &mut Vec<u8>) {
+        match self.plot {
+            NewPlot::Pie => return,
+            NewPlot::Scatter { .. } => {
+                value_axis_bytes(
+                    out,
+                    b"10",
+                    b"b",
+                    false,
+                    &self.category_axis_title,
+                    b"20",
+                    b"midCat",
+                );
+                value_axis_bytes(
+                    out,
+                    b"20",
+                    b"l",
+                    true,
+                    &self.value_axis_title,
+                    b"10",
+                    b"midCat",
+                );
+                return;
+            }
+            _ => {}
+        }
         let bars = matches!(
             self.plot,
             NewPlot::Bar {
@@ -442,16 +523,14 @@ impl ChartWork {
         out.extend_from_slice(
             b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"20\"/><c:crosses val=\"autoZero\"/><c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl val=\"0\"/></c:catAx>",
         );
-        out.extend_from_slice(
-            b"<c:valAx><c:axId val=\"20\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"",
-        );
-        out.extend_from_slice(value);
-        out.extend_from_slice(b"\"/><c:majorGridlines/>");
-        if let Some(title) = &self.value_axis_title {
-            title_bytes(out, title);
-        }
-        out.extend_from_slice(
-            b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"10\"/><c:crosses val=\"autoZero\"/><c:crossBetween val=\"between\"/></c:valAx>",
+        value_axis_bytes(
+            out,
+            b"20",
+            value,
+            true,
+            &self.value_axis_title,
+            b"10",
+            b"between",
         );
     }
 
@@ -531,6 +610,51 @@ fn title_bytes(out: &mut Vec<u8>, text: &str) {
     out.extend_from_slice(b"<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>");
     out.extend_from_slice(text.as_bytes());
     out.extend_from_slice(b"</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title>");
+}
+
+/// A `valAx`: its id, position, gridlines, title, crossing axis and
+/// `crossBetween`.
+fn value_axis_bytes(
+    out: &mut Vec<u8>,
+    id: &[u8],
+    position: &[u8],
+    gridlines: bool,
+    title: &Option<String>,
+    cross: &[u8],
+    between: &[u8],
+) {
+    out.extend_from_slice(b"<c:valAx><c:axId val=\"");
+    out.extend_from_slice(id);
+    out.extend_from_slice(
+        b"\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"",
+    );
+    out.extend_from_slice(position);
+    out.extend_from_slice(b"\"/>");
+    if gridlines {
+        out.extend_from_slice(b"<c:majorGridlines/>");
+    }
+    if let Some(title) = title {
+        title_bytes(out, title);
+    }
+    out.extend_from_slice(
+        b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"",
+    );
+    out.extend_from_slice(cross);
+    out.extend_from_slice(b"\"/><c:crosses val=\"autoZero\"/><c:crossBetween val=\"");
+    out.extend_from_slice(between);
+    out.extend_from_slice(b"\"/></c:valAx>");
+}
+
+/// A series' `cat`, `val`, `xVal` or `yVal` element holding a reference of
+/// `form`.
+fn element_bytes(out: &mut Vec<u8>, element: &[u8], form: &[u8], formula: &str) {
+    out.extend_from_slice(b"<c:");
+    out.extend_from_slice(element);
+    out.extend_from_slice(b">");
+    reference_bytes(out, form, formula);
+    out.extend_from_slice(b"</c:");
+    out.extend_from_slice(element);
+    out.extend_from_slice(b">");
 }
 
 /// A `strRef` or `numRef` holding `formula`, escaped already, and no cache.

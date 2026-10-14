@@ -1,5 +1,6 @@
 //! Charts written on byte-built packages (`specs/0035-charts-write-first-
-//! set.md`, "P1: the writer, bar and line charts", and P1 rulings A to F):
+//! set.md`, "P1: the writer, bar and line charts", P1 rulings A to F, and
+//! "P2: pie, scatter and area charts; the catalogue"):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -10,7 +11,7 @@ use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
     ChartKind, Data, EditAs, Grouping, ImageAnchor, LegendPosition, NewChart, NewPlot, NewSeries,
-    NewSeriesName, Plot, Series, SeriesName,
+    NewSeriesName, Plot, ScatterStyle, Series, SeriesName,
 };
 
 /// The drawing and chart parts' content types.
@@ -1171,4 +1172,253 @@ fn an_image_removal_with_a_chart_on_one_part_is_refused() {
         }),
         "no image at that position",
     );
+}
+
+/// A one-series chart of `plot` with categories, a title, the axis titles
+/// given and a legend at the right.
+fn titled<'a>(
+    plot: NewPlot,
+    series: &'a [NewSeries<'a>],
+    axis_titles: (Option<&'a str>, Option<&'a str>),
+) -> NewChart<'a> {
+    NewChart {
+        plot,
+        title: Some("Share"),
+        series,
+        category_axis_title: axis_titles.0,
+        value_axis_title: axis_titles.1,
+        legend: Some(LegendPosition::Right),
+        size: None,
+    }
+}
+
+/// One series with a reference name, categories and values.
+const ONE_NAMED: [NewSeries<'static>; 1] = [NewSeries {
+    name: Some(NewSeriesName::Reference("Sheet1!$B$1")),
+    categories: Some("Sheet1!$A$2:$A$4"),
+    values: "Sheet1!$B$2:$B$4",
+}];
+
+/// `ONE_NAMED` as `charts` reads it.
+fn one_named_read() -> Series {
+    series_ref(
+        Some(SeriesName::Reference("Sheet1!$B$1".to_owned())),
+        Some("Sheet1!$A$2:$A$4"),
+        "Sheet1!$B$2:$B$4",
+        0,
+    )
+}
+
+#[test]
+fn a_pie_with_one_series_writes_no_axes_and_varies_its_colours() {
+    let chart = titled(NewPlot::Pie, &ONE_NAMED, (None, None));
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    assert_eq!(
+        text_of(&output, CHART1),
+        chart_part(&format!(
+            "{}<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/><c:pieChart><c:varyColors \
+             val=\"1\"/><c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx>{}</c:tx><c:cat>{}\
+             </c:cat><c:val>{}</c:val></c:ser><c:firstSliceAng val=\"0\"/></c:pieChart>\
+             </c:plotArea><c:legend><c:legendPos val=\"r\"/><c:overlay val=\"0\"/></c:legend>\
+             <c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/>",
+            title("Share"),
+            reference("strRef", "Sheet1!$B$1"),
+            reference("strRef", "Sheet1!$A$2:$A$4"),
+            reference("numRef", "Sheet1!$B$2:$B$4"),
+        ))
+    );
+    assert_eq!(
+        charts_of(&output),
+        vec![ChartEntry {
+            part: CHART1.to_vec(),
+            anchor: BOX_READ,
+            chart: Chart {
+                title: Some("Share".to_owned()),
+                auto_title_deleted: false,
+                plots: vec![Plot {
+                    kind: ChartKind::Pie,
+                    bar_direction: None,
+                    grouping: None,
+                    scatter_style: None,
+                    vary_colors: true,
+                    series: vec![one_named_read()],
+                    axis_ids: Vec::new(),
+                }],
+                axes: Vec::new(),
+                legend: Some(LegendPosition::Right),
+                pivot_source: None,
+                style: None,
+            },
+        }]
+    );
+}
+
+#[test]
+fn a_pie_with_two_series_or_an_axis_title_is_refused() {
+    let two = titled(NewPlot::Pie, &TWO_SERIES, (None, None));
+    assert_package(call(box_anchor(), &two).expect_err("refused"), OPTION);
+    for axis_titles in [(Some("Month"), None), (None, Some("Units"))] {
+        let chart = titled(NewPlot::Pie, &ONE_NAMED, axis_titles);
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+    // Applicability comes before the texts (P1 ruling C).
+    let both = NewChart {
+        title: Some(""),
+        ..two
+    };
+    assert_package(call(box_anchor(), &both).expect_err("refused"), OPTION);
+}
+
+/// A scatter plot's two value axes as written: the x axis at `b` with no
+/// gridlines, the y axis at `l`, both `midCat`, with their titles' forms.
+fn scatter_axes(x_title: &str, y_title: &str) -> String {
+    format!(
+        "<c:valAx><c:axId val=\"10\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling>\
+         <c:delete val=\"0\"/><c:axPos val=\"b\"/>{x_title}<c:numFmt formatCode=\"General\" \
+         sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/>\
+         <c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"20\"/><c:crosses val=\"autoZero\"/>\
+         <c:crossBetween val=\"midCat\"/></c:valAx><c:valAx><c:axId val=\"20\"/><c:scaling>\
+         <c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"l\"/>\
+         <c:majorGridlines/>{y_title}<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/>\
+         <c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos \
+         val=\"nextTo\"/><c:crossAx val=\"10\"/><c:crosses val=\"autoZero\"/><c:crossBetween \
+         val=\"midCat\"/></c:valAx>"
+    )
+}
+
+/// A scatter plot's two value axes as read, with their titles.
+fn scatter_read_axes(x_title: Option<&str>, y_title: Option<&str>) -> Vec<ChartAxis> {
+    let mut axes = read_axes(AxisPosition::Bottom, AxisPosition::Left, x_title, y_title);
+    axes[0].kind = AxisKind::Value;
+    axes
+}
+
+#[test]
+fn a_scatter_chart_takes_each_style_with_x_and_y_values() {
+    for (style, value) in [
+        (ScatterStyle::None, "none"),
+        (ScatterStyle::Line, "line"),
+        (ScatterStyle::LineMarker, "lineMarker"),
+        (ScatterStyle::Marker, "marker"),
+        (ScatterStyle::Smooth, "smooth"),
+        (ScatterStyle::SmoothMarker, "smoothMarker"),
+    ] {
+        let chart = titled(
+            NewPlot::Scatter { style },
+            &ONE_NAMED,
+            (Some("Across"), Some("Up")),
+        );
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        assert_eq!(
+            text_of(&output, CHART1),
+            chart_part(&format!(
+                "{}<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/><c:scatterChart>\
+                 <c:scatterStyle val=\"{value}\"/><c:varyColors val=\"0\"/><c:ser><c:idx \
+                 val=\"0\"/><c:order val=\"0\"/><c:tx>{}</c:tx><c:xVal>{}</c:xVal><c:yVal>{}\
+                 </c:yVal></c:ser><c:axId val=\"10\"/><c:axId val=\"20\"/></c:scatterChart>{}\
+                 </c:plotArea><c:legend><c:legendPos val=\"r\"/><c:overlay val=\"0\"/>\
+                 </c:legend><c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/>",
+                title("Share"),
+                reference("strRef", "Sheet1!$B$1"),
+                reference("numRef", "Sheet1!$A$2:$A$4"),
+                reference("numRef", "Sheet1!$B$2:$B$4"),
+                scatter_axes(&title("Across"), &title("Up")),
+            ))
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![Plot {
+                kind: ChartKind::Scatter,
+                bar_direction: None,
+                grouping: None,
+                scatter_style: Some(style),
+                vary_colors: false,
+                series: vec![one_named_read()],
+                axis_ids: vec![10, 20],
+            }]
+        );
+        assert_eq!(read.axes, scatter_read_axes(Some("Across"), Some("Up")));
+    }
+}
+
+#[test]
+fn a_scatter_series_with_no_categories_writes_no_x_values() {
+    let chart = bare(NewPlot::Scatter {
+        style: ScatterStyle::Marker,
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:order val=\"0\"/><c:yVal>{}</c:yVal></c:ser>",
+            reference("numRef", "Sheet1!$B$2:$B$4")
+        )),
+        "{part}"
+    );
+    assert!(!part.contains("<c:xVal>"), "{part}");
+    assert!(part.contains(&scatter_axes("", "")), "{part}");
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        read.plots[0].series,
+        vec![series_ref(None, None, "Sheet1!$B$2:$B$4", 0)]
+    );
+    assert_eq!(read.axes, scatter_read_axes(None, None));
+}
+
+#[test]
+fn an_area_chart_takes_each_grouping_but_clustered() {
+    for (grouping, value) in [
+        (Grouping::Standard, "standard"),
+        (Grouping::Stacked, "stacked"),
+        (Grouping::PercentStacked, "percentStacked"),
+    ] {
+        let chart = titled(
+            NewPlot::Area { grouping },
+            &ONE_NAMED,
+            (Some("Month"), Some("Units")),
+        );
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(
+            part.contains(&format!(
+                "<c:plotArea><c:layout/><c:areaChart><c:grouping val=\"{value}\"/><c:varyColors \
+                 val=\"0\"/><c:ser>"
+            )),
+            "{part}"
+        );
+        assert!(
+            part.contains(&format!(
+                "</c:ser><c:axId val=\"10\"/><c:axId val=\"20\"/></c:areaChart>{}</c:plotArea>",
+                axes("b", "l", &title("Month"), &title("Units"))
+            )),
+            "{part}"
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![Plot {
+                kind: ChartKind::Area,
+                bar_direction: None,
+                grouping: Some(grouping),
+                scatter_style: None,
+                vary_colors: false,
+                series: vec![one_named_read()],
+                axis_ids: vec![10, 20],
+            }]
+        );
+        assert_eq!(
+            read.axes,
+            read_axes(
+                AxisPosition::Bottom,
+                AxisPosition::Left,
+                Some("Month"),
+                Some("Units")
+            )
+        );
+    }
+    let chart = bare(NewPlot::Area {
+        grouping: Grouping::Clustered,
+    });
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
 }

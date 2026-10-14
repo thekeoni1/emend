@@ -2352,6 +2352,11 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     // "Errors"): the chart reader raises from `package`'s submodule,
     // compiled with the Cargo feature `charts`.
     const CHART: &str = include_str!("chart.rs");
+    // Milestone 5 part 4 P2 adds the eleventh
+    // (`specs/0035-charts-write-first-set.md`, "Errors", P1 verification
+    // ruling G): the chart writer raises from `package`'s submodule,
+    // compiled with the Cargo feature `charts`.
+    const CHART_WRITE: &str = include_str!("chart_write.rs");
 
     let (package_raised, package_calls, package_literals) = raised(PACKAGE);
     let (xml_raised, xml_calls, xml_literals) = raised(XML);
@@ -2363,7 +2368,8 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     let (pivot_raised, pivot_calls, pivot_literals) = raised(PIVOT);
     let (extlink_raised, extlink_calls, extlink_literals) = raised(EXTLINK);
     let (chart_raised, chart_calls, chart_literals) = raised(CHART);
-    // Every `Error::Package(` in any of the ten takes a literal. If one
+    let (write_raised, write_calls, write_literals) = raised(CHART_WRITE);
+    // Every `Error::Package(` in any of the eleven takes a literal. If one
     // ever takes a variable the extractor cannot read it, and this is the
     // line that says so instead of the comparison quietly passing on a
     // subset.
@@ -2378,7 +2384,8 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
             sheet_calls,
             pivot_calls,
             extlink_calls,
-            chart_calls
+            chart_calls,
+            write_calls
         ),
         (
             package_literals,
@@ -2390,15 +2397,16 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
             sheet_literals,
             pivot_literals,
             extlink_literals,
-            chart_literals
+            chart_literals,
+            write_literals
         ),
         "an Error::Package is raised with something other than a literal"
     );
 
     // The catalogue lives in `package.rs`; `xml.rs`, `cells.rs`, `styles.rs`,
     // `styles/elements.rs`, `styles/read.rs`, `package/sheet_read.rs`,
-    // `package/pivot.rs`, `package/extlink.rs` and `package/chart.rs` say so
-    // rather than keeping a list of their own.
+    // `package/pivot.rs`, `package/extlink.rs`, `package/chart.rs` and
+    // `package/chart_write.rs` say so rather than keeping a list of their own.
     let catalogue = catalogued(PACKAGE);
     let mut raised_all = package_raised;
     raised_all.extend(xml_raised);
@@ -2410,6 +2418,7 @@ fn the_catalogue_and_the_source_hold_the_same_messages() {
     raised_all.extend(pivot_raised);
     raised_all.extend(extlink_raised);
     raised_all.extend(chart_raised);
+    raised_all.extend(write_raised);
 
     assert!(
         !catalogue.is_empty() && !raised_all.is_empty(),

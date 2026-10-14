@@ -607,7 +607,10 @@
 //! - "an image size does not apply to a two-cell anchor"
 //!   (`images::anchors::the_call_refuses_each_anchor_rule_and_records_nothing`).
 //! - "no image at that position"
-//!   (`images::removal::an_index_past_the_list_named_twice_or_with_an_addition_is_refused_at_the_write`).
+//!   (`images::removal::an_index_past_the_list_named_twice_or_with_an_addition_is_refused_at_the_write`),
+//!   also for a removal on a part the same write adds a chart to, as for
+//!   an image addition (`specs/0035-charts-write-first-set.md`, P1 ruling
+//!   B; `chart_write::an_image_removal_with_a_chart_on_one_part_is_refused`).
 //!
 //! A sheet copy adds these, the Cargo feature `copy`'s
 //! (`specs/0028-images-and-comments-second-half.md`, "Errors"; without the
@@ -812,6 +815,42 @@
 //! part 2's unbound-prefix refusal; [`Error::Xml`] for a chart part that is
 //! not well-formed or not UTF-8
 //! (`chart::a_chart_part_that_is_not_well_formed_is_an_xml_error`).
+//!
+//! Writing charts adds four, the Cargo feature `charts`'s too
+//! (`specs/0035-charts-write-first-set.md`, "Errors", and the rulings of P1;
+//! without the feature no call records a chart and none of them is raised),
+//! each raised by `Package::add_chart` at the call, nothing recorded, the
+//! first broken in P1 ruling C's order winning: a cell of the anchor off
+//! the grid, "a row or column index or count is out of range", first. The
+//! write meets what an image's does, as `images` raises it and now under
+//! either feature: "a worksheet has two drawing elements", "a drawing part
+//! or its relationship cannot be read"
+//! (`chart_write::the_drawing_refusals_are_the_image_writer_s`), part 3's
+//! one-shift message, "no such part" for a sheet added in the same write
+//! and what a cell edit to the part meets
+//! (`chart_write::a_chart_on_a_removed_replaced_or_added_part_is_refused`),
+//! and "no image at that position" above:
+//!
+//! - "a chart text is empty or holds a control character", for a title,
+//!   axis title, text name or reference that is empty, holds a character
+//!   below U+0020, U+FFFE or U+FFFF, or is past its limit (Limits)
+//!   (`chart_write::the_text_rules_refuse_each_field_and_record_nothing`).
+//! - "a chart option does not apply to its kind", for no series, a bar's
+//!   `Standard` grouping, a line's or an area's `Clustered`, and a pie
+//!   with more than one series or an axis title
+//!   (`chart_write::a_chart_with_no_series_is_refused`,
+//!   `chart_write::each_bar_grouping_writes_overlap_when_stacked`,
+//!   `chart_write::a_line_chart_takes_each_grouping_but_clustered`,
+//!   `chart_write::an_area_chart_takes_each_grouping_but_clustered`,
+//!   `chart_write::a_pie_with_two_series_or_an_axis_title_is_refused`).
+//! - "a chart size does not apply to its anchor", for a size on a two-cell
+//!   anchor or none on a one-cell or absolute one
+//!   (`chart_write::each_anchor_form_with_its_size`).
+//! - "a chart anchor is out of range", for an offset or position past
+//!   `i32::MAX` EMU, a two-cell anchor's `to` before its `from`, and a
+//!   width or height of 0 or past `i32::MAX` EMU
+//!   (`chart_write::the_size_and_anchor_rules_refuse_and_record_nothing`,
+//!   `chart_write::the_first_rule_broken_in_the_order_gives_the_message`).
 //!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
@@ -2016,6 +2055,34 @@
 //!   is 28215 bytes, P1's run log).
 //! - None of this has been through an Excel check: a read writes nothing,
 //!   and `--charts-sample` does not join Milestone 2's Excel check list.
+//!
+//! Charts write adds these, under the same Cargo feature `charts`
+//! (`specs/0035-charts-write-first-set.md`, "Design", the decisions and the
+//! rulings of P1), the caller's chart:
+//!
+//! - What it writes: `Package::add_chart` writes a bar, line, pie, scatter
+//!   or area chart from cell references, one plot of one kind, its series
+//!   in order, an optional title, axis titles and legend position, nothing
+//!   else: no formatting, no data labels, no chart style part, no 3D form.
+//! - What it touches: one chart part per chart, `xl/charts/chart<N>.xml`
+//!   with N free as a media entry's, with its `Override` and no rels part
+//!   of its own; the sheet's drawing part, appended to or created, its
+//!   rels part and the worksheet as an image touches them, through the
+//!   anchor writer `images` shares (P1 ruling A). An image and a chart on
+//!   one sheet in one write take the drawing in call order.
+//! - Texts and references: a title, axis title or text name is one run of
+//!   one paragraph, escaped, at most 32767 bytes; a reference is the `f`
+//!   text as the caller gives it, `&`, `<` and `>` escaped, neither parsed
+//!   nor quoted, at most 8192 bytes (P1 ruling F). No cache is written for
+//!   any reference (decision 3): `Package::charts` reads `cached` `None`,
+//!   and the application fills the cache from the cells when it opens the
+//!   file.
+//! - Strict packages: the `CHART` relationship takes the sheet's form; the
+//!   chart part and its frame take the drawing's, so a strict sheet whose
+//!   drawing this write creates gets a transitional drawing and a
+//!   transitional chart part, as an image does (P1 rulings E and H).
+//! - None of this has been through an Excel check yet: the harness opens
+//!   every output in LibreOffice; what Excel draws for a chart is Excel's.
 //!
 //! # What streams and what is held
 //!
