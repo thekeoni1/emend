@@ -3,22 +3,28 @@
 //! `read` probe is (`specs/0034-charts-read.md`, "Size and packaging").
 //!
 //! `probe-emend-format-write-xml`'s work, unchanged. Then a second package
-//! opened on its second output, `charts` of that output's first sheet, by
-//! the part `sheets` gives it: two more lines, `charts`, the chart count,
-//! and `chart_series`, the series over every plot of every chart, so the
-//! reader is linked and nothing is dead.
+//! opened on its second output, `add_chart` of one column chart with one
+//! series on that output's first sheet, by the part `sheets` gives it, from
+//! the probe's own constants (`specs/0035-charts-write-first-set.md`, "Size
+//! and packaging"), written into memory and reopened, and `charts` of that
+//! sheet: two more lines, `charts`, the chart count, and `chart_series`, the
+//! series over every plot of every chart, so the writer and the reader are
+//! linked and nothing is dead. The second output itself is not changed.
 //!
 //! Every name, part, reference, code, formula text, font name, index and
 //! area comes from the command line, so the compiler cannot prove an edit
 //! or a read path dead and drop it.
 
 use std::fs::File;
-use std::io::{self, BufReader, BufWriter, Write};
+use std::io::{self, BufReader, BufWriter, Cursor, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::process::ExitCode;
 
 use emend::cells::{Area, CellRef, FormulaKind, Value};
-use emend::package::{CALC_CHAIN, Package, THEME};
+use emend::package::{
+    BarDirection, CALC_CHAIN, EditAs, Grouping, ImageAnchor, LegendPosition, NewChart, NewPlot,
+    NewSeries, NewSeriesName, Package, THEME,
+};
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
     Protection, Side, Style, Vertical,
@@ -400,9 +406,11 @@ fn edit(
     })
 }
 
-/// The feature `charts`'s read (specs/0034 "Size and packaging"): a second
-/// package opened on `second`, `charts` of its first sheet; the chart count
-/// and the series count over every plot of every chart.
+/// The feature `charts`'s write and read (specs/0035 "Size and packaging"):
+/// a second package opened on `second`, `add_chart` of one column chart with
+/// one series on its first sheet from the probe's own constants, written
+/// into memory and reopened, then `charts` of that sheet; the chart count and
+/// the series count over every plot of every chart.
 fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), String> {
     let file = File::open(second).map_err(|e| e.kind().to_string())?;
     let mut package = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
@@ -413,6 +421,37 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), Strin
         .first()
         .map(|sheet| sheet.part.clone())
         .ok_or("the output has no sheet")?;
+    let series = [NewSeries {
+        name: Some(NewSeriesName::Text("probe series")),
+        categories: Some("'probe'!$A$1:$A$2"),
+        values: "'probe'!$B$1:$B$2",
+    }];
+    let chart = NewChart {
+        plot: NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        title: Some("probe chart"),
+        series: &series,
+        category_axis_title: Some("probe categories"),
+        value_axis_title: Some("probe values"),
+        legend: Some(LegendPosition::Bottom),
+        size: None,
+    };
+    let anchor = ImageAnchor::TwoCell {
+        from: CellRef { row: 3, col: 1 },
+        to: CellRef { row: 19, col: 9 },
+        from_offset: (0, 0),
+        to_offset: (0, 0),
+        edit_as: EditAs::OneCell,
+    };
+    package
+        .add_chart(&first, anchor, &chart)
+        .map_err(|e| e.to_string())?;
+    let mut out = Cursor::new(Vec::new());
+    package.write_to(&mut out).map_err(|e| e.to_string())?;
+    out.set_position(0);
+    let mut package = Package::open(out).map_err(|e| e.to_string())?;
     let charts = package.charts(&first).map_err(|e| e.to_string())?;
     let series = charts
         .iter()
