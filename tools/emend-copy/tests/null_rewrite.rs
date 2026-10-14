@@ -6021,6 +6021,192 @@ fn the_chart_more_sample_writes_its_references_sizes_and_stock_names() {
 }
 
 #[test]
+fn the_chart_3d_sample_adds_the_3d_kinds_and_a_combined_chart_and_reads_them_back() {
+    // `specs/0036-charts-write-second-set.md`, "Harness runs": a 3D column, a
+    // 3D line, a 3D pie, a 3D area and a combined column and line chart on
+    // one-cell anchors at rows 3, 19, 35, 51 and 67 of column A, M being 1.
+    let line = "chart3d\tcharts_before=0\tcharts_after=5\tkinds_read_back=5\
+                \tchart_parts_after=5\n";
+    for (label, drawing, after) in [
+        ("chart-3d-sample-created", false, ""),
+        ("chart-3d-sample-appended", true, "<drawing r:id=\"rId1\"/>"),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-3d-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for n in 1..=5 {
+            entry_named(&entries, format!("xl/charts/chart{n}.xml").as_bytes());
+        }
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(text.matches("<xdr:oneCellAnchor>").count(), 5, "{text}");
+            assert!(
+                text.contains(
+                    "<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0\
+                     </xdr:colOff><xdr:row>66</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>\
+                     <xdr:ext cx=\"4572000\" cy=\"2743200\"/><xdr:graphicFrame macro=\"\">"
+                ),
+                "{text}"
+            );
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chart_3d_sample_writes_its_series_axis_and_its_secondary_pair() {
+    // M is 1, so every reference runs from row 2 to row 2, quoted; the
+    // combined line's series is C's, on the secondary pair.
+    use emend::package::{AxisKind, AxisPosition, ChartKind, Data, LegendPosition, SeriesName};
+    let specs = image_specs(A_CELL, "", false);
+    let dir = TempDir::new("chart-3d-sample-axes");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-3d-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let charts = package
+        .charts(b"xl/worksheets/sheet1.xml")
+        .expect("the charts");
+    let kinds: Vec<Vec<ChartKind>> = charts
+        .iter()
+        .map(|entry| entry.chart.plots.iter().map(|plot| plot.kind).collect())
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            vec![ChartKind::Bar3D],
+            vec![ChartKind::Line3D],
+            vec![ChartKind::Pie3D],
+            vec![ChartKind::Area3D],
+            vec![ChartKind::Bar, ChartKind::Line],
+        ]
+    );
+    for (entry, k) in charts.iter().zip(0u32..) {
+        assert_eq!(entry.anchor.from, (0, 2 + 16 * k), "chart {k}'s anchor");
+        assert_eq!(
+            entry.chart.title,
+            Some(format!("emend 3d {k}")),
+            "chart {k}'s title"
+        );
+        assert_eq!(
+            entry.chart.legend,
+            Some(LegendPosition::Bottom),
+            "chart {k}'s legend"
+        );
+        assert!(
+            entry
+                .chart
+                .axes
+                .iter()
+                .all(|axis| axis.id >= 30 || axis.title.is_none()),
+            "chart {k}'s primary axes are untitled"
+        );
+    }
+    let reference = |cell: &str| {
+        Some(Data::Reference {
+            formula: format!("'Sheet1'!{cell}"),
+            cached: None,
+        })
+    };
+    let line_3d = &charts[1].chart;
+    assert_eq!(
+        line_3d.plots[0].axis_ids,
+        vec![10, 20, 30],
+        "the 3D line's ids"
+    );
+    assert_eq!(line_3d.axes[2].kind, AxisKind::Series, "the series axis");
+    let combined = &charts[4].chart;
+    let line = &combined.plots[1];
+    assert_eq!(line.axis_ids, vec![30, 40], "the line's ids");
+    assert_eq!(line.series[0].index, 1, "the line's series index");
+    assert_eq!(
+        line.series[0].name,
+        Some(SeriesName::Reference("'Sheet1'!$C$1".to_owned())),
+        "the line's series name"
+    );
+    assert_eq!(line.series[0].categories, reference("$A$2:$A$2"));
+    assert_eq!(line.series[0].values, reference("$C$2:$C$2"));
+    let secondary = &combined.axes[3];
+    assert_eq!(secondary.id, 40);
+    assert_eq!(secondary.position, AxisPosition::Right);
+    assert_eq!(secondary.crosses, 30);
+    assert_eq!(secondary.title.as_deref(), Some("emend y2"));
+    assert_eq!(secondary.number_format.as_deref(), Some("0.0"));
+    assert!(combined.axes[2].deleted, "the secondary x axis is deleted");
+    // The reader models neither the view nor the 3D bar's shape: the parts'
+    // bytes carry them.
+    for (name, form) in [
+        (
+            b"xl/charts/chart1.xml".as_slice(),
+            "<c:view3D><c:rotX val=\"15\"/><c:rotY val=\"20\"/><c:rAngAx val=\"1\"/></c:view3D>",
+        ),
+        (b"xl/charts/chart1.xml", "<c:shape val=\"box\"/>"),
+        (
+            b"xl/charts/chart3.xml",
+            "<c:view3D><c:rotX val=\"30\"/><c:rotY val=\"0\"/><c:rAngAx val=\"0\"/></c:view3D>",
+        ),
+        (b"xl/charts/chart5.xml", "<c:crosses val=\"max\"/>"),
+    ] {
+        let index = package.part(name).expect("the chart part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        assert!(text.contains(form), "{text}");
+    }
+}
+
+#[test]
+fn the_chart_3d_sample_refuses_a_drawing_whose_root_is_not_ws_dr_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0036-charts-write-second-set.md`, "P2", part 4 ruling K's
+    // case).
+    let mut specs = image_specs(A_CELL, "<drawing r:id=\"rId1\"/>", true);
+    for spec in &mut specs {
+        if spec.name == b"xl/drawings/drawing1.xml" {
+            let text = String::from_utf8(spec.data.clone())
+                .expect("UTF-8")
+                .replace("xdr:wsDr", "xdr:userShapes");
+            *spec = Spec::stored(b"xl/drawings/drawing1.xml", text.as_bytes());
+        }
+    }
+    let dir = TempDir::new("chart-3d-sample-not-ws-dr");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-3d-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: a drawing part or its relationship cannot be read\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+#[test]
 fn the_remove_image_sample_removes_its_addition_and_the_first_kept_image() {
     // `specs/0028-images-and-comments-second-half.md`, "Harness runs": with
     // no drawing, the addition and its removal leave none; with a drawing of

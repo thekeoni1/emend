@@ -805,6 +805,28 @@
 //!   `charts_after` and `chart_parts_after` four more than before,
 //!   `kinds_read_back` 4; a failure is exit 2 with the message and no
 //!   output, and so is a refusal by the layer.
+//! - `--chart-3d-sample`: the 3D sample of
+//!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
+//!   M' and its quoted name as `--chart-kinds-sample` has them, five
+//!   charts placed as the more kinds sample's, the k-th (k from 0) titled
+//!   `emend 3d k` with the legend at the bottom and no axis titles: a
+//!   clustered 3D column chart, a standard 3D line chart (the series
+//!   axis), a 3D pie, a stacked 3D area chart, and a clustered column
+//!   chart with a standard line combined on the secondary axes, their
+//!   title `emend y2` and format `0.0`. Each first plot takes the kinds
+//!   sample's one series; the combined line one series named by C1 of W
+//!   over the categories A2:A(M' + 1) and the values C2:C(M' + 1). The
+//!   output is reopened. One line: the word `chart3d` then `charts_before`
+//!   and `charts_after`, `kinds_read_back` (how many of the last five
+//!   entries of the output's charts of W read back with the call's kinds,
+//!   one plot of one series each, or the combined bar and line, and the
+//!   axes: three for the 3D line, none for the 3D pie, two for the other
+//!   3D plots, and for the combined chart four with ids 10, 20, 30 and 40,
+//!   the last's number format `0.0`) and `chart_parts_after`. COUNTS ONLY,
+//!   as the add-chart sample's. Asserted: `charts_after` and
+//!   `chart_parts_after` five more than before, `kinds_read_back` 5; a
+//!   failure is exit 2 with the message and no output, and so is a refusal
+//!   by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -922,7 +944,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
-| --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample]";
+| --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
+| --chart-3d-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1048,6 +1071,9 @@ enum Operation {
     /// A doughnut, a radar, a bubble and a stock chart past the last row of
     /// W, and the counts.
     ChartMoreSample,
+    /// Four 3D charts and a combined chart past the last row of W, and the
+    /// counts.
+    Chart3dSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -1112,6 +1138,7 @@ enum Error {
     AddChartSample(&'static str),
     ChartKindsSample(&'static str),
     ChartMoreSample(&'static str),
+    Chart3dSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1240,7 +1267,9 @@ impl fmt::Display for Error {
             Error::AddChartSample(what) => {
                 write!(f, "the output's {what} is not what the chart implies")
             }
-            Error::ChartKindsSample(what) | Error::ChartMoreSample(what) => {
+            Error::ChartKindsSample(what)
+            | Error::ChartMoreSample(what)
+            | Error::Chart3dSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
             Error::ReadSample(what) => {
@@ -1464,6 +1493,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ChartMoreSample,
         ),
+        [input, output, flag] if flag == "--chart-3d-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::Chart3dSample,
+        ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1645,6 +1679,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ChartMoreSample) {
         return chart_more_sample(input, output);
     }
+    if matches!(operation, Operation::Chart3dSample) {
+        return chart_3d_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1728,6 +1765,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::AddChartSample => unreachable!("the add-chart sample has its own path"),
         Operation::ChartKindsSample => unreachable!("the chart kinds sample has its own path"),
         Operation::ChartMoreSample => unreachable!("the more kinds sample has its own path"),
+        Operation::Chart3dSample => unreachable!("the 3D sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -8149,6 +8187,182 @@ fn chart_more_read_back(
         .count() as u64;
     if read_back != added {
         return Err(Error::ChartMoreSample("read-back chart"));
+    }
+    Ok((after, read_back))
+}
+
+/// The 3D sample (`specs/0036-charts-write-second-set.md`, "Harness runs",
+/// `--chart-3d-sample`): four 3D charts and a combined chart on W past its
+/// last row, the output written and read back. A failure after the output
+/// is in place removes it; a refusal by the layer is exit 2 with no output.
+fn chart_3d_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, Grouping, LegendPosition, NewChart, NewCombined, NewPlot, NewSeries,
+        NewSeriesName,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    // The references take row 2 at least, an empty sheet's included.
+    let last = sampled.max_row.max(1).saturating_add(1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let (b_name, c_name) = (format!("{sheet}!$B$1"), format!("{sheet}!$C$1"));
+    let (a, b, c) = (column('A'), column('B'), column('C'));
+    let one = [NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+    }];
+    let over_c = [NewSeries {
+        name: Some(NewSeriesName::Reference(&c_name)),
+        values: &c,
+        ..one[0]
+    }];
+    let column_plot = NewPlot::Bar {
+        direction: BarDirection::Column,
+        grouping: Grouping::Clustered,
+    };
+    let line = NewCombined {
+        plot: NewPlot::Line {
+            grouping: Grouping::Standard,
+        },
+        series: &over_c,
+        secondary_axis: true,
+        secondary_axis_title: Some("emend y2"),
+        secondary_axis_format: Some("0.0"),
+    };
+    let plots = [
+        (
+            NewPlot::Bar3D {
+                direction: BarDirection::Column,
+                grouping: Grouping::Clustered,
+            },
+            None,
+        ),
+        (
+            NewPlot::Line3D {
+                grouping: Grouping::Standard,
+            },
+            None,
+        ),
+        (NewPlot::Pie3D, None),
+        (
+            NewPlot::Area3D {
+                grouping: Grouping::Stacked,
+            },
+            None,
+        ),
+        (column_plot, Some(line)),
+    ];
+    let titles: Vec<String> = (0..plots.len()).map(|k| format!("emend 3d {k}")).collect();
+    let mut calls = Vec::with_capacity(plots.len());
+    for (((plot, combined), title), k) in plots.into_iter().zip(&titles).zip(0u32..) {
+        let chart = NewChart {
+            plot,
+            title: Some(title),
+            series: &one,
+            category_axis_title: None,
+            value_axis_title: None,
+            legend: Some(LegendPosition::Bottom),
+            size: Some((480, 288)),
+            combined,
+        };
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, &chart)?;
+        calls.push(chart);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_3d_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, read_back) = checked?;
+    edit_line_named(
+        "chart3d",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("kinds_read_back", read_back),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// Reopens the 3D sample's output and asserts five more charts and chart
+/// parts, and each of the last five charts of W read back with its call's
+/// kinds, one series a plot and its axes: three for the 3D line, none for
+/// the 3D pie, two for the other 3D plots, and the combined chart's four
+/// with ids 10, 20, 30 and 40, the last's number format the call's; gives
+/// the counts after and how many read back.
+fn chart_3d_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, u64), Error> {
+    use emend::package::{ChartKind, NewPlot};
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::Chart3dSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::Chart3dSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| {
+            let chart_read = &entry.chart;
+            let one_each = chart_read.plots.iter().all(|plot| plot.series.len() == 1);
+            let kinds: Vec<ChartKind> = chart_read.plots.iter().map(|plot| plot.kind).collect();
+            match (chart.plot, chart.combined) {
+                (_, Some(combined)) => {
+                    let ids: Vec<i64> = chart_read.axes.iter().map(|axis| axis.id).collect();
+                    let format = combined.secondary_axis_format.map(str::to_owned);
+                    one_each
+                        && kinds == [ChartKind::Bar, ChartKind::Line]
+                        && ids == [10, 20, 30, 40]
+                        && chart_read.axes[3].number_format == format
+                }
+                (plot, None) => {
+                    let (kind, axes) = match plot {
+                        NewPlot::Bar3D { .. } => (ChartKind::Bar3D, 2),
+                        NewPlot::Line3D { .. } => (ChartKind::Line3D, 3),
+                        NewPlot::Pie3D => (ChartKind::Pie3D, 0),
+                        NewPlot::Area3D { .. } => (ChartKind::Area3D, 2),
+                        _ => return false,
+                    };
+                    one_each && kinds == [kind] && chart_read.axes.len() == axes
+                }
+            }
+        })
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::Chart3dSample("read-back chart"));
     }
     Ok((after, read_back))
 }
