@@ -5724,6 +5724,29 @@ fn the_add_chart_sample_refuses_a_drawing_relationship_with_no_part_and_leaves_n
 }
 
 #[test]
+fn the_add_chart_sample_refuses_a_worksheet_with_two_drawing_elements_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0036-charts-write-second-set.md`, "P1", and part 4 ruling Q).
+    let specs = image_specs(
+        A_CELL,
+        "<drawing r:id=\"rId1\"/><drawing r:id=\"rId1\"/>",
+        true,
+    );
+    let dir = TempDir::new("add-chart-sample-two-drawings");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--add-chart-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(
+        ran.stderr, "error: a worksheet has two drawing elements\n",
+        "the message"
+    );
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+#[test]
 fn the_chart_kinds_sample_adds_one_chart_of_each_kind_and_reads_them_back() {
     // `specs/0035-charts-write-first-set.md`, "Harness runs", and P2 ruling
     // J: M is 1, so the six one-cell anchors sit at rows 3, 19, ..., 83 of
@@ -5850,6 +5873,151 @@ fn the_chart_kinds_sample_refuses_a_drawing_whose_root_is_not_ws_dr_and_leaves_n
     );
     assert_eq!(ran.stdout, "", "a line was printed");
     assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
+
+#[test]
+fn the_chart_more_sample_adds_the_four_kinds_and_reads_them_back() {
+    // `specs/0036-charts-write-second-set.md`, "Harness runs": a doughnut, a
+    // radar, a bubble and a stock chart on one-cell anchors at rows 3, 19,
+    // 35 and 51 of column A, M being 1.
+    let line = "chartmore\tcharts_before=0\tcharts_after=4\tkinds_read_back=4\
+                \tchart_parts_after=4\n";
+    for (label, drawing, after) in [
+        ("chart-more-sample-created", false, ""),
+        (
+            "chart-more-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-more-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for n in 1..=4 {
+            entry_named(&entries, format!("xl/charts/chart{n}.xml").as_bytes());
+        }
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(text.matches("<xdr:oneCellAnchor>").count(), 4, "{text}");
+            assert!(
+                text.contains(
+                    "<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0\
+                     </xdr:colOff><xdr:row>50</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>\
+                     <xdr:ext cx=\"4572000\" cy=\"2743200\"/><xdr:graphicFrame macro=\"\">"
+                ),
+                "{text}"
+            );
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chart_more_sample_writes_its_references_sizes_and_stock_names() {
+    // M is 1, so every reference runs from row 2 to row 2, quoted; the
+    // bubble's sizes are C's and the stock's three series B's, C's and D's.
+    let specs = image_specs(A_CELL, "", false);
+    let dir = TempDir::new("chart-more-sample-references");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-more-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let charts = package
+        .charts(b"xl/worksheets/sheet1.xml")
+        .expect("the charts");
+    let reference = |column: char| {
+        Some(emend::package::Data::Reference {
+            formula: format!("'Sheet1'!${column}$2:${column}$2"),
+            cached: None,
+        })
+    };
+    let kinds: Vec<_> = charts
+        .iter()
+        .map(|entry| entry.chart.plots[0].kind)
+        .collect();
+    use emend::package::ChartKind;
+    assert_eq!(
+        kinds,
+        [
+            ChartKind::Doughnut,
+            ChartKind::Radar,
+            ChartKind::Bubble,
+            ChartKind::Stock
+        ]
+    );
+    for (entry, k) in charts.iter().zip(0u32..) {
+        assert_eq!(entry.anchor.from, (0, 2 + 16 * k), "chart {k}'s anchor");
+    }
+    let bubble = &charts[2].chart.plots[0].series[0];
+    assert_eq!(bubble.categories, reference('A'), "the bubble's x values");
+    assert_eq!(bubble.values, reference('B'), "the bubble's y values");
+    assert_eq!(bubble.sizes, reference('C'), "the bubble's sizes");
+    let stock = &charts[3].chart.plots[0].series;
+    for ((series, name), column) in stock
+        .iter()
+        .zip(["high", "low", "close"])
+        .zip(['B', 'C', 'D'])
+    {
+        assert_eq!(
+            series.name,
+            Some(emend::package::SeriesName::Text(name.to_owned())),
+            "the stock's names"
+        );
+        assert_eq!(series.categories, reference('A'), "the stock's categories");
+        assert_eq!(series.values, reference(column), "the stock's values");
+        assert_eq!(series.sizes, None, "the stock's sizes");
+    }
+    assert_eq!(stock.len(), 3, "the stock's series");
+    assert!(charts[0].chart.axes.is_empty(), "the doughnut's axes");
+    // The reader models neither the hole size nor the radar's style: the
+    // parts' bytes carry them.
+    for (name, form) in [
+        (
+            b"xl/charts/chart1.xml".as_slice(),
+            "<c:holeSize val=\"50\"/>",
+        ),
+        (b"xl/charts/chart2.xml", "<c:radarStyle val=\"marker\"/>"),
+    ] {
+        let index = package.part(name).expect("the chart part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        assert!(text.contains(form), "{text}");
+    }
+    let titles: Vec<_> = charts[1]
+        .chart
+        .axes
+        .iter()
+        .map(|axis| axis.title.clone())
+        .collect();
+    assert_eq!(
+        titles,
+        [Some("emend x".to_owned()), Some("emend y".to_owned())],
+        "the radar's axis titles"
+    );
 }
 
 #[test]

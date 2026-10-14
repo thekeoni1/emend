@@ -783,6 +783,28 @@
 //!   `chart_parts_after` six more than before, `kinds_read_back` 6; a
 //!   failure is exit 2 with the message and no output, and so is a refusal
 //!   by the layer.
+//! - `--chart-more-sample`: the more kinds sample of
+//!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
+//!   M' and its quoted name as `--chart-kinds-sample` has them, four
+//!   charts, the k-th (k from 0) on a one-cell anchor at (M + 2 + 16 k, 1),
+//!   offset zero, 480 by 288 pixels: a doughnut with hole size 50, a radar
+//!   chart with markers, a bubble chart and a stock chart, each titled
+//!   `emend more k` with the legend at the right; the doughnut and the
+//!   radar one series named by B1 of W over the categories A2:A(M' + 1)
+//!   and the values B2:B(M' + 1), the bubble the same with the sizes
+//!   C2:C(M' + 1), the stock three series named `high`, `low` and `close`
+//!   over the values of B, C and D, rows 2 to M' + 1, and the categories
+//!   of A; the axis titles `emend x` and `emend y` but on the doughnut,
+//!   which takes none. The output is reopened. One line: the word
+//!   `chartmore` then `charts_before` and `charts_after` (`Package::charts`
+//!   of W), `kinds_read_back` (how many of the last four entries of the
+//!   output's charts of W read back with the call's kind, its series
+//!   count, sizes on every series of the bubble and on none of the others,
+//!   and its axes count) and `chart_parts_after` (entries under
+//!   `xl/charts/`). COUNTS ONLY, as the add-chart sample's. Asserted:
+//!   `charts_after` and `chart_parts_after` four more than before,
+//!   `kinds_read_back` 4; a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer.
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -900,7 +922,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --group-sample | --linestyle-sample | --roundtrip-sample | --read-sample | --items \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
-| --charts-sample | --add-chart-sample | --chart-kinds-sample]";
+| --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1023,6 +1045,9 @@ enum Operation {
     AddChartSample,
     /// One chart of each kind past the last row of W, and the counts.
     ChartKindsSample,
+    /// A doughnut, a radar, a bubble and a stock chart past the last row of
+    /// W, and the counts.
+    ChartMoreSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -1086,6 +1111,7 @@ enum Error {
     ChartsSample(&'static str),
     AddChartSample(&'static str),
     ChartKindsSample(&'static str),
+    ChartMoreSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1214,7 +1240,7 @@ impl fmt::Display for Error {
             Error::AddChartSample(what) => {
                 write!(f, "the output's {what} is not what the chart implies")
             }
-            Error::ChartKindsSample(what) => {
+            Error::ChartKindsSample(what) | Error::ChartMoreSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
             Error::ReadSample(what) => {
@@ -1433,6 +1459,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ChartKindsSample,
         ),
+        [input, output, flag] if flag == "--chart-more-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartMoreSample,
+        ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1611,6 +1642,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ChartKindsSample) {
         return chart_kinds_sample(input, output);
     }
+    if matches!(operation, Operation::ChartMoreSample) {
+        return chart_more_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1693,6 +1727,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ChartsSample => unreachable!("the charts sample has its own path"),
         Operation::AddChartSample => unreachable!("the add-chart sample has its own path"),
         Operation::ChartKindsSample => unreachable!("the chart kinds sample has its own path"),
+        Operation::ChartMoreSample => unreachable!("the more kinds sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -7965,6 +8000,154 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
             ("chart_parts_after", after.chart_parts),
         ],
     )
+}
+
+/// The more kinds sample (`specs/0036-charts-write-second-set.md`,
+/// "Harness runs", `--chart-more-sample`): a doughnut, a radar, a bubble
+/// and a stock chart on W past its last row, the output written and read
+/// back. A failure after the output is in place removes it; a refusal by
+/// the layer is exit 2 with no output.
+fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName, RadarStyle};
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    // The references take row 2 at least, an empty sheet's included.
+    let last = sampled.max_row.max(1).saturating_add(1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let series_name = format!("{sheet}!$B$1");
+    let (a, b, c, d) = (column('A'), column('B'), column('C'), column('D'));
+    let one = [NewSeries {
+        name: Some(NewSeriesName::Reference(&series_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+    }];
+    let bubble = [NewSeries {
+        sizes: Some(&c),
+        ..one[0]
+    }];
+    let stock = [("high", &b), ("low", &c), ("close", &d)].map(|(name, values)| NewSeries {
+        name: Some(NewSeriesName::Text(name)),
+        categories: Some(&a),
+        values,
+        sizes: None,
+    });
+    let plots: [(NewPlot, &[NewSeries<'_>]); 4] = [
+        (NewPlot::Doughnut { hole_size: 50 }, &one),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Marker,
+            },
+            &one,
+        ),
+        (NewPlot::Bubble, &bubble),
+        (NewPlot::Stock, &stock),
+    ];
+    let titles: Vec<String> = (0..plots.len())
+        .map(|k| format!("emend more {k}"))
+        .collect();
+    let mut calls = Vec::with_capacity(plots.len());
+    for (((plot, series), title), k) in plots.into_iter().zip(&titles).zip(0u32..) {
+        let axes = !matches!(plot, NewPlot::Doughnut { .. });
+        let chart = NewChart {
+            plot,
+            title: Some(title),
+            series,
+            category_axis_title: axes.then_some("emend x"),
+            value_axis_title: axes.then_some("emend y"),
+            legend: Some(LegendPosition::Right),
+            size: Some((480, 288)),
+        };
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, &chart)?;
+        calls.push(chart);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_more_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, read_back) = checked?;
+    edit_line_named(
+        "chartmore",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("kinds_read_back", read_back),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// Reopens the more kinds sample's output and asserts four more charts and
+/// chart parts, and each of the last four charts of W read back with its
+/// call's kind, series count, sizes on a bubble's series alone and axes
+/// count; gives the counts after and how many read back.
+fn chart_more_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, u64), Error> {
+    use emend::package::{ChartKind, NewPlot};
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartMoreSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartMoreSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| {
+            let (kind, axes) = match chart.plot {
+                NewPlot::Doughnut { .. } => (ChartKind::Doughnut, 0),
+                NewPlot::Radar { .. } => (ChartKind::Radar, 2),
+                NewPlot::Bubble => (ChartKind::Bubble, 2),
+                NewPlot::Stock => (ChartKind::Stock, 2),
+                _ => return false,
+            };
+            let [plot] = entry.chart.plots.as_slice() else {
+                return false;
+            };
+            plot.kind == kind
+                && plot.series.len() == chart.series.len()
+                && plot
+                    .series
+                    .iter()
+                    .all(|one| one.sizes.is_some() == (kind == ChartKind::Bubble))
+                && entry.chart.axes.len() == axes
+        })
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartMoreSample("read-back chart"));
+    }
+    Ok((after, read_back))
 }
 
 /// The chart kinds sample's counts of W: its charts, those on a one-cell
