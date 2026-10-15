@@ -313,9 +313,10 @@ option does not apply to its kind" unless named otherwise:
   `Scatter` or `Bubble` (their x axis is a value axis, which
   takes `value_axis_format` for the y axis only in this
   milestone).
-- `combined`: the first plot `Bar`, `Line`, `Area`, `Scatter`,
-  `Bar3D`, `Line3D` or `Area3D` and the second `Bar`, `Line`,
-  `Area` or `Scatter` of a different variant than the first's
+- `combined`: the first plot `Bar`, `Line` or `Area` (a 3D first
+  plot refused, ruling G; a `Scatter` first plot refused in every
+  case, ruling J) and the second `Bar`, `Line`, `Area` or
+  `Scatter` of a different variant than the first's
   (a bar and a line, a line and an area, a bar and a scatter);
   the second's series one or more, each checked as the first's;
   the second plot's `grouping` and `style` rules as its own;
@@ -876,6 +877,114 @@ E. No carry from P1 to P2 beyond rulings A to D; the "P2" list
 
 P1 is DONE. P2's doc commit carries this spec (rulings A to E and
 this section).
+
+## Planning rulings during P2 (2026-10-14)
+
+The doc commit 4ef3a8c verified by planning: specs/0036 (c98cf950)
+and ROADMAP.md (3eefa7ec) unedited, nothing else, the one-line
+hash form, the tree clean.
+
+F. A `Line3D` always writes the series axis and three `axId`s,
+   whatever its grouping ("Facts": the schema requires three);
+   "The chart part"'s bracket on `line3DChart`'s third `axId` is
+   read as unconditional. `Bar3D` and `Area3D` keep the bracket
+   (the series axis with `Standard` only).
+G. A 3D first plot in `combined` is refused with "a chart option
+   does not apply to its kind": Excel combines no 3D plot with
+   another, and the series axis would collide with the secondary
+   pair's ids. "Applicability"'s list of first plots reads `Bar`,
+   `Line`, `Area` or `Scatter`; the test "a combined 3D second
+   plot refused" gains its first-plot twin. The 3D sample's
+   combined chart is a 2D bar and is unaffected.
+H. "Of a different variant than the first's" is read literally
+   over the 2D plots that remain: a `Bar` second on a `Bar` first
+   is refused, a `Line` on a `Bar` accepted, and so on. The
+   `combined: None` edits to every existing `NewChart` literal go
+   in the crate commit, the edited base test bodies named as P1's
+   gate named them (ruling B (a)).
+I. The crate commit a3deead writes `serAx` inline in `axes_bytes`
+   (two `value_element` calls and one literal) instead of through
+   the one axis function "Size and packaging" requires for
+   `catAx`, `valAx` and `serAx`; independent check 1 found it,
+   the implementing session disclosed it before the record
+   commit. Ruled: fixed by a rewrite of the local, unreported
+   crate commit (specs/0001, amend before the report): the axis
+   function gains the `serAx` form (no gridlines, title, number
+   format or `crossBetween`, the `axPos` `b`, `crossAx` `20`,
+   `crosses` `autoZero`), `axes_bytes` calls it, the bytes of
+   "The chart part"'s `serAx` unchanged (plants P3 and P4 keep
+   catching them). The same rewrite tightens the last case of
+   `the_combined_rules_and_texts_follow_the_check_order` to
+   separate the first plot's texts from the second's. The tool
+   commit is re-based on it; the dry runs, the four logged runs,
+   the check and the scan are redone at the new phase commit;
+   the four logs and the four untracked records written at
+   6bb8b26 (cited by nothing committed) are deleted first. No
+   push is involved. The probe figure moves; told in P4 as the
+   phase says.
+J. A `Scatter` first plot in `combined` is refused in every case:
+   with a non-scatter second by "Applicability"'s own sentence
+   and with a scatter second by ruling H (the first's variant).
+   The first-plot list is corrected in place to `Bar`, `Line` or
+   `Area`; the code's check, which refuses a first plot other
+   than those three, stands. The crate commit's message (in the
+   rewrite) attributes the 3D refusal to ruling G and the scatter
+   refusal to this ruling, not both to G; the report says the
+   same. The more sample's rerun is the phase's ("the more and 3D
+   samples"), not an addition.
+
+## Planning verification of P2 (2026-10-15)
+
+Verified from primaries: the five logs at the record commit
+1bb8e02 (gate 10b64b4c, test 5a73456d, negative 91860cdb, run
+19f0b68c, scan b27e2648 PASS, PLANNING_SPEC e91c254d the working
+copy; each of the four "all as expected: yes"); the record
+commit's 10 files and independent-check-1.md (bfe7907a); the four
+records at the report's hashes (p2 a76cb89c and 0b218464, open
+2bd9b252 and ceaf5e6a); every commit message ASCII with the
+Co-Authored-By line only; the privacy scan of e86561a..1bb8e02
+(4 commits, 1763 blobs, 0 findings, PASS); the crate commit
+a5823b7 (the rewrite of a3deead under ruling I): `axis_bytes`
+takes a three-way form with the series form, `axes_bytes` calls
+it, the message attributes the 3D refusal to G and the scatter
+refusal to J; the 3D sample's 135 added chart parts in the run
+directory read against "The chart part" (27 of each of the five
+kinds; `view3D` after `autoTitleDeleted` at 15/20/1 and the pie's
+30/0/0 in all 108; the `serAx` byte for byte after the `valAx`
+and the plot's third `axId` in the 27 standard 3D lines, none on
+the clustered 3D bar, the stacked 3D area or the pie; the
+combined bar and line with the secondary pair 30/40, the second
+plot naming 30 and 40, `idx` 0 and 1, in all 27); the gate's
+probe figure 1058244 (2876 over part 4's, 2560 over P1's, told,
+ruling A); the test log's fourteen plants each caught; the
+negative log's N4 (the 3D sample on the non-`wsDr` root refused
+with the cannot-be-read message, control B2); the run log's
+chartmore rerun byte-identical to P1's on 27 of 27 on each
+target, the keep 1278 = 1224 + 54 with 0 changed and 0 gone, the
+open check 1266/12 and 1267/11 with 0 findings and no verdict
+moved; planning's own build at e576023 in its detached worktree
+(`<home>/.cache/emend-planning/m5p5-p2-build.txt`): the six
+feature sets 515/599/551/637/702/1076 and the workspace 1296 on
+both targets, clippy and doc 0 lines, the i686 release
+`emend-copy` equal by sha256 to the record's (67411db7), and the
+chartmore and chart3d samples over the corpus on both targets
+byte-identical to the phase's run directories, outputs and lines,
+27 of 27 each (chart3d totals charts_before 6, charts_after 141,
+kinds_read_back 135, chart_parts_after 206).
+
+Rulings:
+
+K. The comments check 1 noted stand until P3: `add_chart`'s doc
+   comment ("P2 rulings G and H"), the inline comment at the
+   first-plot check (ending "P2 ruling G") and the test module's
+   doc comment ("P2 rulings F to H") are corrected to name
+   ruling J for the scatter refusal and "F to J" in P3's crate
+   commit, which edits both files anyway; no further rewrite.
+   The report's four statements about the superseded round,
+   labelled as having no primary: accepted. Check 1's note (c),
+   the `combined: None` edits landing in the three helpers and
+   no base test body: consistent with ruling H, accepted. The
+   probe at 1058244: told, judged in P4 (ruling A).
 
 ## Decisions for the maintainer
 
