@@ -6207,6 +6207,215 @@ fn the_chart_3d_sample_refuses_a_drawing_whose_root_is_not_ws_dr_and_leaves_noth
 }
 
 #[test]
+fn the_chart_labels_sample_adds_a_coloured_labelled_bar_and_pie_and_reads_them_back() {
+    // `specs/0036-charts-write-second-set.md`, "Harness runs": a clustered
+    // column chart of two coloured series labelled outside their ends with
+    // `#,##0`, its axes formatted `@` and `#,##0.00`, and a pie of one
+    // coloured series labelled with its categories and percentages at the
+    // best fit; M is 1.
+    use emend::package::ChartKind;
+    let line = "chartlabels\tcharts_before=0\tcharts_after=2\tread_back=2\tchart_parts_after=2\n";
+    for (label, drawing, after) in [
+        ("chart-labels-sample-created", false, ""),
+        (
+            "chart-labels-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-labels-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let file = fs::File::open(&output).expect("open the output");
+        let mut package =
+            emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+        let charts = package
+            .charts(b"xl/worksheets/sheet1.xml")
+            .expect("the charts");
+        let fills: Vec<Vec<(Option<u32>, bool)>> = charts
+            .iter()
+            .map(|entry| {
+                entry.chart.plots[0]
+                    .series
+                    .iter()
+                    .map(|series| (series.fill, series.labels))
+                    .collect()
+            })
+            .collect();
+        assert_eq!(
+            fills,
+            [
+                vec![(Some(0x1F_77B4), true), (Some(0xFF_7F0E), true)],
+                vec![(Some(0x2C_A02C), true)],
+            ]
+        );
+        assert_eq!(charts[0].chart.plots[0].kind, ChartKind::Bar);
+        assert_eq!(charts[1].chart.plots[0].kind, ChartKind::Pie);
+        let formats: Vec<Option<String>> = charts[0]
+            .chart
+            .axes
+            .iter()
+            .map(|axis| axis.number_format.clone())
+            .collect();
+        assert_eq!(formats, [Some("@".to_owned()), Some("#,##0.00".to_owned())]);
+        // The labels' forms, which the reader does not model, in the bytes.
+        let mut part = |name: &[u8]| {
+            let index = package.part(name).expect("the chart part");
+            let mut text = String::new();
+            std::io::Read::read_to_string(
+                &mut package.read_part(index).expect("read the part"),
+                &mut text,
+            )
+            .expect("UTF-8");
+            text
+        };
+        let bar = part(b"xl/charts/chart1.xml");
+        assert_eq!(
+            bar.matches(
+                "<c:dLbls><c:numFmt formatCode=\"#,##0\" sourceLinked=\"0\"/><c:dLblPos \
+                 val=\"outEnd\"/><c:showLegendKey val=\"0\"/><c:showVal val=\"1\"/>\
+                 <c:showCatName val=\"0\"/><c:showSerName val=\"0\"/><c:showPercent val=\"0\"/>\
+                 <c:showBubbleSize val=\"0\"/></c:dLbls>"
+            )
+            .count(),
+            2,
+            "{bar}"
+        );
+        let pie = part(b"xl/charts/chart2.xml");
+        assert!(
+            pie.contains(
+                "<c:spPr><a:solidFill><a:srgbClr val=\"2CA02C\"/></a:solidFill></c:spPr>\
+                 <c:dLbls><c:dLblPos val=\"bestFit\"/><c:showLegendKey val=\"0\"/><c:showVal \
+                 val=\"0\"/><c:showCatName val=\"1\"/><c:showSerName val=\"0\"/><c:showPercent \
+                 val=\"1\"/><c:showBubbleSize val=\"0\"/></c:dLbls>"
+            ),
+            "{pie}"
+        );
+    }
+}
+
+#[test]
+fn the_remove_chart_sample_removes_its_addition_and_the_first_kept_chart() {
+    // `specs/0036-charts-write-second-set.md`, "Harness runs": with two
+    // charts on W, the addition and the first kept chart go, its part with
+    // it, the second kept byte for byte.
+    let specs = charts_specs("rId2", "<c:axPos val=\"l\"/>");
+    let dir = TempDir::new("remove-chart-sample-kept");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--remove-chart-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "removechart\tcharts_before=2\tcharts_after=1\tkept_removed=1\tchart_parts_before=2\
+         \tchart_parts_after=1\tparts_dropped=1\tdrawing_dropped=0\tanchors_before=2\
+         \tanchors_after=1\tcharts_other_sheets=0\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    assert!(
+        !entries
+            .iter()
+            .any(|entry| entry.name == b"xl/charts/chart1.xml"),
+        "the first chart's part"
+    );
+    untouched_but(
+        &entries,
+        &specs,
+        &[
+            b"xl/charts/chart1.xml",
+            b"xl/drawings/drawing1.xml",
+            b"xl/drawings/_rels/drawing1.xml.rels",
+            b"[Content_Types].xml",
+        ],
+    );
+}
+
+#[test]
+fn the_remove_chart_sample_with_no_chart_gives_the_input_s_entries_back() {
+    // P3 ruling M: with no chart on W, the addition and its removal cancel,
+    // every entry's bytes the input's but for a rels part the addition
+    // created, left with no relationship, and a drawing with no anchor,
+    // which goes.
+    for (label, drawing, after, line) in [
+        (
+            "remove-chart-sample-none",
+            false,
+            "",
+            "removechart\tcharts_before=0\tcharts_after=0\tkept_removed=0\tchart_parts_before=0\
+             \tchart_parts_after=0\tparts_dropped=0\tdrawing_dropped=0\tanchors_before=0\
+             \tanchors_after=0\tcharts_other_sheets=0\n",
+        ),
+        (
+            "remove-chart-sample-picture",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+            "removechart\tcharts_before=0\tcharts_after=0\tkept_removed=0\tchart_parts_before=0\
+             \tchart_parts_after=0\tparts_dropped=0\tdrawing_dropped=0\tanchors_before=1\
+             \tanchors_after=1\tcharts_other_sheets=0\n",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--remove-chart-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+    }
+    // A drawing that holds no anchor goes with the added chart's removal.
+    let mut empty = image_specs(A_CELL, "<drawing r:id=\"rId1\"/>", true);
+    for spec in &mut empty {
+        if spec.name == b"xl/drawings/drawing1.xml" {
+            *spec = Spec::stored(
+                b"xl/drawings/drawing1.xml",
+                b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+                  <xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" \
+                  xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"></xdr:wsDr>",
+            );
+        }
+    }
+    empty.retain(|spec| {
+        spec.name != b"xl/drawings/_rels/drawing1.xml.rels" && spec.name != b"xl/media/image1.png"
+    });
+    let dir = TempDir::new("remove-chart-sample-empty-drawing");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&empty)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--remove-chart-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "removechart\tcharts_before=0\tcharts_after=0\tkept_removed=0\tchart_parts_before=0\
+         \tchart_parts_after=0\tparts_dropped=1\tdrawing_dropped=1\tanchors_before=0\
+         \tanchors_after=0\tcharts_other_sheets=0\n",
+        "the line"
+    );
+}
+
+#[test]
+fn the_remove_chart_sample_refuses_a_frame_naming_no_part_and_leaves_nothing() {
+    // The negative log's fixture through the binary as well
+    // (`specs/0036-charts-write-second-set.md`, "P3"); its control is
+    // `remove-chart-sample-kept` above, the same package with the part.
+    let mut missing = charts_specs("rId2", "<c:axPos val=\"l\"/>");
+    missing.retain(|spec| spec.name != b"xl/charts/chart1.xml");
+    styled_run_refused(
+        "remove-chart-sample-missing",
+        &missing,
+        "a chart cannot be read",
+        "--remove-chart-sample",
+    );
+}
+
+#[test]
 fn the_remove_image_sample_removes_its_addition_and_the_first_kept_image() {
     // `specs/0028-images-and-comments-second-half.md`, "Harness runs": with
     // no drawing, the addition and its removal leave none; with a drawing of

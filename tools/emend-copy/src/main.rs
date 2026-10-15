@@ -827,6 +827,47 @@
 //!   `chart_parts_after` five more than before, `kinds_read_back` 5; a
 //!   failure is exit 2 with the message and no output, and so is a refusal
 //!   by the layer.
+//! - `--chart-labels-sample`: the labels sample of
+//!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
+//!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
+//!   placed as the more kinds sample's, the k-th (k from 0) titled `emend
+//!   labels k` with the legend at the right and no axis titles: a clustered
+//!   column chart of two series, the kinds sample's over B coloured
+//!   `0x1F77B4` and the same over C named by C1 coloured `0xFF7F0E`, each
+//!   labelled with its value outside its end in the format `#,##0`, its
+//!   category axis formatted `@` and its value axis `#,##0.00`; and a pie
+//!   of the kinds sample's series coloured `0x2CA02C`, labelled with its
+//!   categories and percentages at the best fit. The output is reopened.
+//!   One line: the word `chartlabels` then `charts_before` and
+//!   `charts_after`, `read_back` (how many of the last two entries of the
+//!   output's charts of W read back with the call's kind, every series'
+//!   fill its colour and its labels present, and the bar's two axes with
+//!   the call's formats) and `chart_parts_after`. COUNTS ONLY, as the
+//!   add-chart sample's. Asserted: `charts_after` and `chart_parts_after`
+//!   two more than before, `read_back` 2; a failure is exit 2 with the
+//!   message and no output, and so is a refusal by the layer.
+//! - `--remove-chart-sample`: the chart removal sample of
+//!   `specs/0036-charts-write-second-set.md`, "Harness runs": the
+//!   add-chart sample's chart added on W, the write going into memory and
+//!   that reopened; then `remove_chart` of the last index (the addition)
+//!   and, when the input's `charts(W)` is not empty, of index 0 too; the
+//!   output written and reopened. One line: the word `removechart` then
+//!   `charts_before` and `charts_after`, `kept_removed` (1 when the input
+//!   had a chart on W), `chart_parts_before` and `chart_parts_after` (the
+//!   entries `xl/charts/chart*`, not their rels, style or colours parts),
+//!   `parts_dropped` (the input's entries the output lacks),
+//!   `drawing_dropped` (1 when W's drawing went), `anchors_before` and
+//!   `anchors_after` (the root children of W's drawing part, by this tool's
+//!   own pass), `charts_other_sheets` (the charts of every other
+//!   worksheet). COUNTS ONLY. Asserted: `charts_after` is `charts_before -
+//!   kept_removed` and `charts_other_sheets` the input's; when
+//!   `kept_removed` is 0, every entry of the input in the output with the
+//!   same uncompressed bytes, but for a rels part the addition created
+//!   (W's or its drawing's), left with no relationship, and W's drawing
+//!   when it held no anchor, which goes with its rels part, W, its rels
+//!   part and the content types changing (P3 ruling M); a failure is exit
+//!   2 with the message and no output, and so is a refusal by the layer (a
+//!   chart the input's count cannot read: P3 ruling N).
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -924,7 +965,7 @@ use emend::package::{
     ImageAnchor, LinkTarget, MAIN, Operator, Orientation, PIVOT_TABLE, Package, PageMargins,
     PageSetup, PrintOptions, Properties, Property, RELATIONSHIPS_ATTRIBUTE, Rule, SheetKind,
     SheetParts, SheetProtection, SheetView, TABLE, Table, TableStyle, TableStyleInfo, VML_DRAWING,
-    Validation, ValidationKind, legacy_password_hash, rels_part_source,
+    Validation, ValidationKind, legacy_password_hash, rels_part_name, rels_part_source,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -945,7 +986,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
-| --chart-3d-sample]";
+| --chart-3d-sample | --chart-labels-sample | --remove-chart-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1074,6 +1115,12 @@ enum Operation {
     /// Four 3D charts and a combined chart past the last row of W, and the
     /// counts.
     Chart3dSample,
+    /// A column chart and a pie with colours, labels and axis formats past
+    /// the last row of W, and the counts.
+    ChartLabelsSample,
+    /// A chart added and removed again, the first kept one removed, and
+    /// the counts.
+    RemoveChartSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -1139,6 +1186,8 @@ enum Error {
     ChartKindsSample(&'static str),
     ChartMoreSample(&'static str),
     Chart3dSample(&'static str),
+    ChartLabelsSample(&'static str),
+    RemoveChartSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1269,7 +1318,8 @@ impl fmt::Display for Error {
             }
             Error::ChartKindsSample(what)
             | Error::ChartMoreSample(what)
-            | Error::Chart3dSample(what) => {
+            | Error::Chart3dSample(what)
+            | Error::ChartLabelsSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
             Error::ReadSample(what) => {
@@ -1278,7 +1328,7 @@ impl fmt::Display for Error {
             Error::AnchorSample(what) => {
                 write!(f, "the output's {what} is not what the anchors imply")
             }
-            Error::RemoveImageSample(what) => {
+            Error::RemoveImageSample(what) | Error::RemoveChartSample(what) => {
                 write!(f, "the output's {what} is not what the removal implies")
             }
             Error::CommentboxSample(what) => {
@@ -1498,6 +1548,16 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::Chart3dSample,
         ),
+        [input, output, flag] if flag == "--chart-labels-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartLabelsSample,
+        ),
+        [input, output, flag] if flag == "--remove-chart-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::RemoveChartSample,
+        ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1682,6 +1742,12 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::Chart3dSample) {
         return chart_3d_sample(input, output);
     }
+    if matches!(operation, Operation::ChartLabelsSample) {
+        return chart_labels_sample(input, output);
+    }
+    if matches!(operation, Operation::RemoveChartSample) {
+        return remove_chart_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1766,6 +1832,8 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ChartKindsSample => unreachable!("the chart kinds sample has its own path"),
         Operation::ChartMoreSample => unreachable!("the more kinds sample has its own path"),
         Operation::Chart3dSample => unreachable!("the 3D sample has its own path"),
+        Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
+        Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -8385,6 +8453,477 @@ fn chart_3d_read_back(
         return Err(Error::Chart3dSample("read-back chart"));
     }
     Ok((after, read_back))
+}
+
+/// The labels sample (`specs/0036-charts-write-second-set.md`, "Harness
+/// runs", `--chart-labels-sample`): a clustered column chart of two
+/// coloured, labelled series with both axis formats and a pie of one
+/// coloured, labelled series on W past its last row, the output written and
+/// read back. A failure after the output is in place removes it; a refusal
+/// by the layer is exit 2 with no output.
+fn chart_labels_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, Grouping, LabelPosition, LegendPosition, NewChart, NewLabels, NewPlot,
+        NewSeries, NewSeriesName,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    // The references take row 2 at least, an empty sheet's included.
+    let last = sampled.max_row.max(1).saturating_add(1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let (b_name, c_name) = (format!("{sheet}!$B$1"), format!("{sheet}!$C$1"));
+    let (a, b, c) = (column('A'), column('B'), column('C'));
+    let bar_labels = NewLabels {
+        value: true,
+        category: false,
+        series_name: false,
+        percent: false,
+        position: Some(LabelPosition::OutsideEnd),
+        number_format: Some("#,##0"),
+    };
+    let over_b = NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+        color: None,
+        labels: None,
+    };
+    let bar_series = [
+        NewSeries {
+            color: Some(0x1F_77B4),
+            labels: Some(bar_labels),
+            ..over_b
+        },
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&c_name)),
+            values: &c,
+            color: Some(0xFF_7F0E),
+            labels: Some(bar_labels),
+            ..over_b
+        },
+    ];
+    let pie_series = [NewSeries {
+        color: Some(0x2C_A02C),
+        labels: Some(NewLabels {
+            value: false,
+            category: true,
+            series_name: false,
+            percent: true,
+            position: Some(LabelPosition::BestFit),
+            number_format: None,
+        }),
+        ..over_b
+    }];
+    let titles = ["emend labels 0", "emend labels 1"];
+    let bar = NewChart {
+        plot: NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        title: Some(titles[0]),
+        series: &bar_series,
+        category_axis_title: None,
+        value_axis_title: None,
+        category_axis_format: Some("@"),
+        value_axis_format: Some("#,##0.00"),
+        legend: Some(LegendPosition::Right),
+        size: Some((480, 288)),
+        combined: None,
+    };
+    let pie = NewChart {
+        plot: NewPlot::Pie,
+        title: Some(titles[1]),
+        series: &pie_series,
+        category_axis_format: None,
+        value_axis_format: None,
+        ..bar
+    };
+    let calls = [bar, pie];
+    for (chart, k) in calls.iter().zip(0u32..) {
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, chart)?;
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_labels_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, read_back) = checked?;
+    edit_line_named(
+        "chartlabels",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("read_back", read_back),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// Reopens the labels sample's output and asserts two more charts and chart
+/// parts, and each of the last two charts of W read back with its call's
+/// kind, every series with its call's colour as its fill and with labels,
+/// and the bar's two axes with the call's number formats; gives the counts
+/// after and how many read back.
+fn chart_labels_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, u64), Error> {
+    use emend::package::{ChartKind, NewPlot};
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartLabelsSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartLabelsSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| {
+            let read = &entry.chart;
+            let [plot] = read.plots.as_slice() else {
+                return false;
+            };
+            let series = plot.series.len() == chart.series.len()
+                && plot
+                    .series
+                    .iter()
+                    .zip(chart.series)
+                    .all(|(read, call)| read.fill == call.color && read.labels);
+            let formats: Vec<Option<&str>> = read
+                .axes
+                .iter()
+                .map(|axis| axis.number_format.as_deref())
+                .collect();
+            let (kind, axes) = match chart.plot {
+                NewPlot::Bar { .. } => (
+                    ChartKind::Bar,
+                    vec![chart.category_axis_format, chart.value_axis_format],
+                ),
+                NewPlot::Pie => (ChartKind::Pie, Vec::new()),
+                _ => return false,
+            };
+            series && plot.kind == kind && formats == axes
+        })
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartLabelsSample("read-back chart"));
+    }
+    Ok((after, read_back))
+}
+
+/// The remove-chart sample's counts of a package: W's charts, the chart
+/// parts under `xl/charts/` (not their rels, style or colours parts), the
+/// root children of W's drawing, W's drawing part, the charts of every
+/// other worksheet, and every entry's name.
+struct RemoveChartCounts {
+    charts: u64,
+    chart_parts: u64,
+    anchors: u64,
+    drawing: Option<Vec<u8>>,
+    others: u64,
+    names: Vec<Vec<u8>>,
+}
+
+/// The remove-chart sample's counts of W in `package`.
+fn remove_chart_counts<R: io::Read + io::Seek>(
+    package: &mut Package<R>,
+    part: &[u8],
+) -> Result<RemoveChartCounts, Error> {
+    let charts = package.charts(part)?.len() as u64;
+    let target = related(package, part, DRAWING)?;
+    let anchors = match &target {
+        Some(target) => drawing_root_children(package, target)?,
+        None => 0,
+    };
+    let names: Vec<Vec<u8>> = package
+        .archive()
+        .entries()
+        .iter()
+        .map(|entry| entry.name().to_vec())
+        .collect();
+    let chart_parts = names
+        .iter()
+        .filter(|name| {
+            name.strip_prefix(b"xl/charts/".as_slice())
+                .is_some_and(|rest| rest.starts_with(b"chart") && !rest.contains(&b'/'))
+        })
+        .count() as u64;
+    let worksheets: Vec<Vec<u8>> = package
+        .workbook()?
+        .sheets
+        .iter()
+        .filter(|sheet| sheet.kind == SheetKind::Worksheet && sheet.part != part)
+        .map(|sheet| sheet.part.clone())
+        .collect();
+    let mut others = 0u64;
+    for sheet in worksheets {
+        others += package.charts(&sheet)?.len() as u64;
+    }
+    Ok(RemoveChartCounts {
+        charts,
+        chart_parts,
+        anchors,
+        drawing: target,
+        others,
+        names,
+    })
+}
+
+/// The remove-chart sample (`specs/0036-charts-write-second-set.md`,
+/// "Harness runs", `--remove-chart-sample`): the add-chart sample's chart
+/// added on W and written into memory, then that chart removed and, when
+/// the input's W had one, its first chart too; the output written and read
+/// back. A failure after the output is in place removes it; a refusal by
+/// the layer is exit 2 with no output.
+fn remove_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, Grouping, LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = remove_chart_counts(&mut package, &part)?;
+    let kept_removed = u64::from(before.charts > 0);
+    // The add-chart sample's chart and anchor.
+    let row = |more: u32| sampled.max_row.saturating_add(more);
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    let last = row(1);
+    let categories = format!("{sheet}!$A$1:$A${last}");
+    let first_values = format!("{sheet}!$B$1:$B${last}");
+    let second_name = format!("{sheet}!$C$1");
+    let second_values = format!("{sheet}!$C$1:$C${last}");
+    let series = [
+        NewSeries {
+            name: Some(NewSeriesName::Text("emend series")),
+            categories: Some(&categories),
+            values: &first_values,
+            sizes: None,
+            color: None,
+            labels: None,
+        },
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&second_name)),
+            categories: None,
+            values: &second_values,
+            sizes: None,
+            color: None,
+            labels: None,
+        },
+    ];
+    let chart = NewChart {
+        plot: NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        title: Some("emend chart"),
+        series: &series,
+        category_axis_title: Some("emend categories"),
+        value_axis_title: Some("emend values"),
+        category_axis_format: None,
+        value_axis_format: None,
+        legend: Some(LegendPosition::Bottom),
+        size: None,
+        combined: None,
+    };
+    // Rows past the grid are the layer's to refuse, with its index message.
+    let anchor = ImageAnchor::TwoCell {
+        from: CellRef {
+            row: row(2),
+            col: 1,
+        },
+        to: CellRef {
+            row: row(18),
+            col: 9,
+        },
+        from_offset: (0, 0),
+        to_offset: (0, 0),
+        edit_as: EditAs::OneCell,
+    };
+    package.add_chart(&part, anchor, &chart)?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    buffer.set_position(0);
+    let mut added = Package::open(buffer)?;
+    let last = added
+        .charts(&part)?
+        .len()
+        .checked_sub(1)
+        .ok_or(Error::RemoveChartSample("chart count after the addition"))?;
+    added.remove_chart(&part, last)?;
+    if kept_removed == 1 {
+        added.remove_chart(&part, 0)?;
+    }
+    write_into(added, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = remove_chart_read_back(input, output, &part, &before, kept_removed);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, parts_dropped, drawing_dropped) = checked?;
+    edit_line_named(
+        "removechart",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("kept_removed", kept_removed),
+            ("chart_parts_before", before.chart_parts),
+            ("chart_parts_after", after.chart_parts),
+            ("parts_dropped", parts_dropped),
+            ("drawing_dropped", drawing_dropped),
+            ("anchors_before", before.anchors),
+            ("anchors_after", after.anchors),
+            ("charts_other_sheets", after.others),
+        ],
+    )
+}
+
+/// Reopens the remove-chart sample's output and asserts W's charts less the
+/// one removed and every other worksheet's charts unchanged, and with
+/// nothing kept removed the input's entries as P3 ruling M gives them;
+/// gives the counts after, how many of the input's entries the output lacks
+/// and whether W's drawing went.
+fn remove_chart_read_back(
+    input: &Path,
+    output: &Path,
+    part: &[u8],
+    before: &RemoveChartCounts,
+    kept_removed: u64,
+) -> Result<(RemoveChartCounts, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let after = remove_chart_counts(&mut package, part)?;
+    if after.charts != before.charts - kept_removed {
+        return Err(Error::RemoveChartSample("chart count"));
+    }
+    if after.others != before.others {
+        return Err(Error::RemoveChartSample("other sheets' chart count"));
+    }
+    let parts_dropped = before
+        .names
+        .iter()
+        .filter(|name| !after.names.contains(name))
+        .count() as u64;
+    let drawing_dropped = u64::from(before.drawing.is_some() && after.drawing.is_none());
+    if kept_removed == 0 {
+        // The addition and its removal cancel (P3 ruling M): every entry of
+        // the input is in the output with the same bytes, but for a rels
+        // part the addition created, left with no relationship, and W's
+        // drawing when it held no anchor, which goes with its rels part, W,
+        // W's rels part and the content types changing.
+        let emptied = before.drawing.as_ref().filter(|_| before.anchors == 0);
+        if drawing_dropped != u64::from(emptied.is_some()) {
+            return Err(Error::RemoveChartSample("drawing"));
+        }
+        let sheet_rels = rels_part_name(part);
+        let changed: Vec<&[u8]> = match emptied {
+            Some(_) => vec![part, &sheet_rels, CONTENT_TYPES_PART],
+            None => Vec::new(),
+        };
+        let dropped: Vec<Vec<u8>> = emptied
+            .map(|drawing| vec![drawing.clone(), rels_part_name(drawing)])
+            .unwrap_or_default();
+        let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+        let mut source = Package::open(BufReader::new(file))?;
+        for name in &before.names {
+            let Some(to) = package.part(name) else {
+                if dropped.contains(name) {
+                    continue;
+                }
+                return Err(Error::RemoveChartSample("entry names"));
+            };
+            if changed.contains(&name.as_slice()) {
+                continue;
+            }
+            let from = source.part(name).ok_or(Error::NoSuchName)?;
+            if !same_bytes(source.read_part(from)?, package.read_part(to)?)
+                .map_err(|e| Error::ReadOutput(e.kind()))?
+            {
+                return Err(Error::RemoveChartSample("entry bytes"));
+            }
+        }
+        for name in after
+            .names
+            .iter()
+            .filter(|name| !before.names.contains(name))
+        {
+            let created = rels_part_source(name).filter(|source| {
+                source.as_slice() == part || before.drawing.as_ref() == Some(source)
+            });
+            let Some(owner) = created else {
+                return Err(Error::RemoveChartSample("entry names"));
+            };
+            if !package.relationships(&owner)?.all().is_empty() {
+                return Err(Error::RemoveChartSample("created rels part"));
+            }
+        }
+    }
+    Ok((after, parts_dropped, drawing_dropped))
+}
+
+/// Whether two readers give the same bytes, read a block at a time.
+fn same_bytes(mut left: impl io::Read, mut right: impl io::Read) -> io::Result<bool> {
+    let mut a = [0u8; 8192];
+    let mut b = [0u8; 8192];
+    loop {
+        let n = read_full(&mut left, &mut a)?;
+        let m = read_full(&mut right, &mut b)?;
+        if a[..n] != b[..m] {
+            return Ok(false);
+        }
+        if n == 0 {
+            return Ok(true);
+        }
+    }
+}
+
+/// Fills `buffer` from `reader` until it is full or the reader ends; gives
+/// how many bytes it holds.
+fn read_full(reader: &mut impl io::Read, buffer: &mut [u8]) -> io::Result<usize> {
+    let mut filled = 0;
+    while filled < buffer.len() {
+        match reader.read(&mut buffer[filled..])? {
+            0 => break,
+            n => filled += n,
+        }
+    }
+    Ok(filled)
 }
 
 /// The chart kinds sample's counts of W: its charts, those on a one-cell

@@ -832,13 +832,33 @@
 //! and "no image at that position" above:
 //!
 //! - "a chart text is empty or holds a control character", for a title,
-//!   axis title, text name or reference that is empty, holds a character
-//!   below U+0020, U+FFFE or U+FFFF, or is past its limit (Limits)
-//!   (`chart_write::the_text_rules_refuse_each_field_and_record_nothing`).
+//!   axis title, text name or reference, and in the second set an axis
+//!   format, a secondary axis title or format, a bubble's sizes or a
+//!   label format, that is empty, holds a character below U+0020, U+FFFE
+//!   or U+FFFF, or is past its limit (Limits)
+//!   (`chart_write::the_text_rules_refuse_each_field_and_record_nothing`,
+//!   `chart_write::the_combined_rules_and_texts_follow_the_check_order`,
+//!   `chart_write::the_new_texts_follow_the_check_order`).
 //! - "a chart option does not apply to its kind", for no series, a bar's
 //!   `Standard` grouping, a line's or an area's `Clustered`, and a pie
-//!   with more than one series or an axis title
-//!   (`chart_write::a_chart_with_no_series_is_refused`,
+//!   with more than one series or an axis title; the second set's rules
+//!   (`specs/0036-charts-write-second-set.md`, "Applicability"): a
+//!   doughnut's hole outside 1 to 90, a stock plot's series count, sizes
+//!   on a series of a plot other than a bubble's or none on a bubble's, a
+//!   3D line's or area's `Clustered`, a combined plot's first and second
+//!   plots, a colour above `0xFFFFFF` or on a stock series, a label's
+//!   percentage or position the plot does not take, an axis format on a
+//!   pie, a 3D pie or a doughnut, a category axis format on a scatter or
+//!   a bubble
+//!   (`chart_write::a_doughnut_s_hole_outside_1_to_90_or_an_axis_title_is_refused`,
+//!   `chart_write::a_stock_chart_with_two_or_five_series_is_refused`,
+//!   `chart_write::sizes_missing_on_a_bubble_series_or_given_on_another_plot_are_refused`,
+//!   `chart_write::a_combined_3d_first_plot_is_refused`,
+//!   `chart_write::a_colour_above_ffffff_is_refused`,
+//!   `chart_write::a_colour_on_a_stock_series_is_refused`,
+//!   `chart_write::each_plot_takes_the_label_positions_it_takes_and_no_other`,
+//!   `chart_write::a_format_on_a_pie_or_a_category_format_on_a_scatter_is_refused`,
+//!   `chart_write::a_chart_with_no_series_is_refused`,
 //!   `chart_write::each_bar_grouping_writes_overlap_when_stacked`,
 //!   `chart_write::a_line_chart_takes_each_grouping_but_clustered`,
 //!   `chart_write::an_area_chart_takes_each_grouping_but_clustered`,
@@ -2071,19 +2091,38 @@
 //!   and `--charts-sample` does not join Milestone 2's Excel check list.
 //!
 //! Charts write adds these, under the same Cargo feature `charts`
-//! (`specs/0035-charts-write-first-set.md`, "Design", the decisions and the
-//! rulings of P1), the caller's chart:
+//! (`specs/0035-charts-write-first-set.md` and
+//! `specs/0036-charts-write-second-set.md`, "Design", the decisions and the
+//! rulings of their phases), the caller's chart:
 //!
-//! - What it writes: `Package::add_chart` writes a bar, line, pie, scatter
-//!   or area chart from cell references, one plot of one kind, its series
-//!   in order, an optional title, axis titles and legend position, nothing
-//!   else: no formatting, no data labels, no chart style part, no 3D form.
+//! - What it writes: `Package::add_chart` writes a bar, line, pie, scatter,
+//!   area, doughnut, radar, bubble or stock chart, or a 3D bar, line, pie or
+//!   area chart, from cell references: one plot, or a bar, line or area
+//!   plot with a second bar, line, area or scatter plot combined on the
+//!   primary axes or on a secondary pair (ids 30 and 40); its series in
+//!   order, each with an optional solid colour and data labels (what they
+//!   show, a position the plot takes, a number format); an optional title,
+//!   axis titles, axis number formats and legend position. Nothing else:
+//!   no line widths, markers or per-point formatting, no trendlines or
+//!   error bars, no axis scaling, no text properties, no chart style part
+//!   (`specs/0036-charts-write-second-set.md`, "Out of scope").
 //! - What it touches: one chart part per chart, `xl/charts/chart<N>.xml`
 //!   with N free as a media entry's, with its `Override` and no rels part
 //!   of its own; the sheet's drawing part, appended to or created, its
 //!   rels part and the worksheet as an image touches them, through the
 //!   anchor writer `images` shares (P1 ruling A). An image and a chart on
 //!   one sheet in one write take the drawing in call order.
+//! - What a removal touches: `Package::remove_chart` skips the root child
+//!   of the drawing that holds the chart's frame, as an image removal
+//!   skips a picture's, and removes the chart part and, through its rels
+//!   part, the style, colours, user shapes and embedded parts no other
+//!   relationship of the package reaches, each with its `Override`; a
+//!   drawing left with no anchor goes. A chart part another frame names is
+//!   kept. A chart added and removed again in two writes gives back the
+//!   input's entries with their uncompressed bytes, but for a rels part the
+//!   addition created, left with no relationship, and a drawing that held
+//!   no anchor, which goes (P3 ruling M); the entries the writes touched
+//!   are recompressed, not byte for byte the input's.
 //! - Texts and references: a title, axis title or text name is one run of
 //!   one paragraph, escaped, at most 32767 bytes; a reference is the `f`
 //!   text as the caller gives it, `&`, `<` and `>` escaped, neither parsed
