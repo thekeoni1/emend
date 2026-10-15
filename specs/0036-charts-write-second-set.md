@@ -595,19 +595,24 @@ The keep and the edit open check as every run log.
 
 `probe-emend-charts-write-xml` keeps part 4's work and gains, on
 the same second package: `remove_chart(first, 0)` of the chart it
-added, then a second `add_chart` whose plot kind comes from the
-probe's command line as an index 0 to 12 over the thirteen
-`NewPlot` variants (the probe's constants give each variant's
-options; the index in the size log's run is 9, `Bar3D { Column,
-Clustered }`), combined with a `Line { Standard }` second plot
-on a secondary axis with a title and a format, two series with a
-colour, labels (`value` true, `OutsideEnd`, a format) and the
-axis formats, written into memory and reopened as part 4's is,
-then `charts`: `charts 1` and `chart_series 3`. The kind index
-from the command line keeps every plot arm live; the removal, the
-combined pair, the labels, the colours and the formats are
-linked by the call. The second output stays the format probe's,
-byte for byte.
+added, written into memory and reopened (a removal and an
+addition on one part in one write are refused, "Errors"), then a
+second `add_chart` whose plot kind comes from the probe's command
+line as an index 0 to 12 over the thirteen `NewPlot` variants in
+declaration order (the probe's constants give each variant only
+the options its kind takes, ruling R: a `Line { Standard }`
+second plot on a secondary axis with a title and a format on a
+bar or area first plot, the `OutsideEnd` position where the kind
+takes it, a colour where the kind takes one, the axis formats
+where the kind takes them, the series count and `sizes` by the
+kind; labels `value` true with a format on every kind), written
+into memory and reopened as part 4's is, then `charts`. The index
+in the size log's run is 0, `Bar { Column, Clustered }`, on which
+every option applies: `charts 1` and `chart_series 3`. The kind
+index from the command line keeps every plot arm live; the
+removal, the combined pair, the labels, the colours and the
+formats are linked by the call. The second output stays the
+format probe's, byte for byte.
 
 ## Phases
 
@@ -1134,6 +1139,125 @@ Q. The self-closing `<xdr:wsDr/>` root refused on an append
    corpus producer writes it, and nothing in this part changes
    it; noted for part 6's engineering close as a candidate (accept
    the form or name it in the catalogue), not a finding of P3.
+
+## Planning rulings during P4 (2026-10-15)
+
+The doc commit 0bd800d verified by planning: specs/0036 (157f785d)
+and ROADMAP.md (b582c49a) unedited, nothing else, the one-line
+hash form, the tree clean.
+
+R. "The probe" named index 9 (`Bar3D`) for the size log's run with
+   a combined second plot and `OutsideEnd` labels, which rulings G
+   and L refuse, and sent the same options to every index, which
+   most kinds refuse by their own rules; and it named one write
+   for the removal and the second addition on one part, which
+   "Errors" refuses. Planning's errors; the implementing session
+   asked. Ruled as it proposed (its A): the probe's per-variant
+   constants give each kind only the options it takes (the
+   combined `Line` second plot on bar and area first plots, the
+   position where the kind takes `OutsideEnd`, colours, formats,
+   series count and `sizes` by the kind's rules, a stock's three
+   series without a colour, a pie's one), so every index writes
+   and reads back; the removal is its own in-memory write before
+   the second addition; the size log's run uses index 0, `Bar {
+   Column, Clustered }`, where every option applies and `charts
+   1`, `chart_series 3` hold. The linked code is the same at any
+   index. The paragraph is corrected in place.
+
+S. "Size and packaging" bounds the `images` feature's movement
+   "by the predicate the removal shares (expected 0, accepted up
+   to 2000)": a bound on growth, what a consumer linking `images`
+   pays, as every size line of this project is. The implementing
+   session found the `images` probe 11152 section bytes SMALLER
+   than part 4's 1038424 at the phase (1027272, first seen in P4
+   because P3's gate printed the `charts` probe alone) and asked;
+   its own three-commit measurement places the whole shrink in
+   P3's crate commit 784e3c0, where `record_image_removals` and
+   `image_removals` became the shared `record_removals` and
+   `drawing_removals`, with the images probe's lines and outputs
+   byte-identical across it and the `images` tests unchanged.
+   Ruled as it recommended (its reading 1): a shrink is not a
+   finding; the size log prints the movement with its sign,
+   judges it "shrank 11152, accepted" against the growth bound,
+   and the size record attributes it to 784e3c0 with the
+   measurement at 1bb8e02 and 4836d14 (figures and sha256s).
+   Planning reproduces the three figures from its own probe
+   builds before the row is marked DONE, as it did in part 4 P3.
+
+## Planning verification of P4 (2026-10-15)
+
+Verified from primaries: the six logs at the record commit 6cee4f8
+(gate b6138cb8, test b8565e6f, negative bc488c73, size a4c72773,
+run d3890e76, scan 556c1bb5 PASS, PLANNING_SPEC 27a100ab the
+working copy; each of the five "all as expected: yes"); the
+record commit's 21 files and independent-check-1.md (113abb75);
+the fourteen records at the report's hashes (the size record
+fa7b6452, the API record 5e0a6b60, the five sample pairs, the
+open pair 4d4ee8bc and 2144b942, the latter byte-identical to
+P3's); every commit message ASCII with the Co-Authored-By line
+only; the privacy scan of 17cb3c6..6cee4f8 (4 commits, 1793
+blobs, 0 findings, PASS); the probe commit 17eaa26 read against
+"The probe" and ruling R (the four steps each written into memory
+and reopened; the thirteen `NewPlot` variants in declaration
+order; the per-kind options: the combined line on a bar or area
+first plot, `OutsideEnd` on a clustered bar, a pie or a 3D pie, a
+colour on every series but a stock's, one series on a pie or 3D
+pie and three on a stock, `sizes` on a bubble, no axis text on a
+pie, 3D pie or doughnut, no category format on a scatter or
+bubble, value labels in a format on every kind) and ruling O's
+carry (the Limits bullet, the two doc comments, the test under
+`images` named in the catalogue); the CHANGELOG's one bullet
+citing this spec; the API record's one gone row (the old
+re-export line, replaced by the widened one) and 23 new rows,
+every one an item of this part; the size log's figures (core
+970208, growth 0; charts 1075632, the feature 105424, the
+writer's cost 20264 over 85160, under 48000 and under the 25000
+to 43000 estimate after the compaction; images 1027272, the
+feature 57064, 11152 under part 4's, accepted under ruling S and
+measured across P3's crate commit at 1bb8e02 and 4836d14; the
+budget 436992, 21760 under the ceiling, unchanged); the test
+log's fifteen plants each caught and the E figures P3's plus the
+one test under `charts,images` and all; the negative log's 128
+constants and the new test named for "no chart at that
+position"; the run log's five samples byte-identical to their
+phase runs on both targets, 27 of 27 each, the keep 1435 with 0
+new and 0 changed, the open check 1423/12 and 1424/11 with 0
+findings and no verdict moved; planning's own build at a8bfe71
+in its detached worktree
+(`<home>/.cache/emend-planning/m5p5-p4-build.txt`): the six
+feature sets 515/617/551/657/720/1096 and the workspace 1320 on
+both targets, clippy and doc 0 lines, the three size-profile
+probes on i686 equal by sha256 to the size log's (format
+9f02b70a, charts b3a617e2, images 1d39ed45) and the images probe
+rebuilt at 1bb8e02 and 4836d14 equal by sha256 to the size log's
+(29c9d2d1 at 1038424, 255fce29 at 1027272), and the five samples
+over the corpus on both targets byte-identical to the phase's run
+directories, outputs and lines, 27 of 27 each; and
+planning's own run of its charts probe binary at every kind index
+on the size log's generated fixtures: indexes 0 to 12 each exit 0
+with thirty lines and `charts 1`, `chart_series` 3, 2, 1, 2, 3,
+2, 2, 2, 3, 2, 2, 1, 2 in index order, index 13 refused with exit
+2 and the one error line, which covers check 1's note that
+indexes 1 to 12 rested on the implementer's dev runs.
+
+Rulings:
+
+T. Check 1's additional note: the probe commit's message says no
+   log prints a count for it, while the size log prints the
+   probe's `charts 1` and `chart_series 3`. Those lines are the
+   probe's output, not a count of what the commit changes; the
+   gate's and the scan's count rule accepted the message, and so
+   does planning. The check's three disagreements were met in
+   the report's wording before it was sent (the `PLOTS` array
+   with per-kind derivation, the two statements labelled, the
+   per-index figures labelled as dev runs); planning's own run
+   above is the primary for every index. The dry-run failures,
+   the rustfmt of the probe's additions and the dev measurements
+   are accepted as disclosed. P4 is DONE; the part's code is
+   complete. The close-out follows as "Close-out push (after P4)"
+   says, on planning's word, given with the close-out brief, and
+   the maintainer's authorisation typed in the implementing
+   session.
 
 ## Decisions for the maintainer
 
