@@ -75,11 +75,11 @@ pub struct NewChart<'a> {
     pub category_axis_title: Option<&'a str>,
     /// The value axis's title, or a scatter's y axis's; a pie takes none.
     pub value_axis_title: Option<&'a str>,
-    /// The category axis's number format code; a pie, a doughnut, a
-    /// scatter and a bubble take none.
+    /// The category axis's number format code; a pie, a 3D pie, a
+    /// doughnut, a scatter and a bubble take none.
     pub category_axis_format: Option<&'a str>,
     /// The value axis's number format code, or a scatter's or a bubble's y
-    /// axis's; a pie and a doughnut take none.
+    /// axis's; a pie, a 3D pie and a doughnut take none.
     pub value_axis_format: Option<&'a str>,
     /// The legend's position; `None` writes no legend.
     pub legend: Option<LegendPosition>,

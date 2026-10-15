@@ -881,7 +881,9 @@
 //! - "no chart at that position", for an index past the list `charts`
 //!   gives, an index named twice, or a part the same write adds an image or
 //!   a chart to
-//!   (`chart_write::an_index_past_the_list_named_twice_or_with_an_addition_is_refused`).
+//!   (`chart_write::an_index_past_the_list_named_twice_or_with_an_addition_is_refused`,
+//!   and with `images`
+//!   `chart_write::a_chart_removal_on_a_part_the_same_write_adds_an_image_to_is_refused`).
 //! - "a chart part cannot be read", for a removed frame whose relationship
 //!   names no chart part, or a part whose root is not `chartSpace`
 //!   (`chart_write::a_frame_naming_no_chart_part_is_refused_at_the_write`).
@@ -2124,12 +2126,15 @@
 //!   no anchor, which goes (P3 ruling M); the entries the writes touched
 //!   are recompressed, not byte for byte the input's.
 //! - Texts and references: a title, axis title or text name is one run of
-//!   one paragraph, escaped, at most 32767 bytes; a reference is the `f`
-//!   text as the caller gives it, `&`, `<` and `>` escaped, neither parsed
-//!   nor quoted, at most 8192 bytes (P1 ruling F). No cache is written for
-//!   any reference (decision 3): `Package::charts` reads `cached` `None`,
-//!   and the application fills the cache from the cells when it opens the
-//!   file.
+//!   one paragraph, escaped, at most 32767 bytes; a format code (an axis
+//!   format or a label format) is a text too, at most 32767 bytes, written
+//!   escaped into `formatCode` as given and checked as a text and nothing
+//!   more; a reference is the `f` text as the caller gives it, `&`, `<` and
+//!   `>` escaped, neither parsed nor quoted, at most 8192 bytes (P1 ruling
+//!   F). A series colour is a `u32` at most `0xFFFFFF`, written as six
+//!   upper-case hex digits (P3 ruling O). No cache is written for any
+//!   reference (decision 3): `Package::charts` reads `cached` `None`, and
+//!   the application fills the cache from the cells when it opens the file.
 //! - Strict packages: the `CHART` relationship takes the sheet's form; the
 //!   chart part and its frame take the drawing's, so a strict sheet whose
 //!   drawing this write creates gets a transitional drawing and a

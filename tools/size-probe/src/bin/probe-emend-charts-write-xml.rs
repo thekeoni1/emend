@@ -11,6 +11,16 @@
 //! series over every plot of every chart, so the writer and the reader are
 //! linked and nothing is dead. The second output itself is not changed.
 //!
+//! The second set (`specs/0036-charts-write-second-set.md`, "The probe"): on
+//! the same package, `remove_chart` of that chart, written into memory and
+//! reopened (a removal and an addition on one part in one write are
+//! refused), then a second `add_chart` whose plot kind is the command line's
+//! index 0 to 12 over the thirteen `NewPlot` variants, with two series
+//! coloured and labelled, the axis formats and, on a bar or an area, a
+//! combined line on a secondary axis with its title and format, each option
+//! where the kind takes it; written into memory and reopened, then `charts`.
+//! The index keeps every plot arm live.
+//!
 //! Every name, part, reference, code, formula text, font name, index and
 //! area of the format probe's work comes from the command line, so the
 //! compiler cannot prove an edit or a read path dead and drop it; the
@@ -24,8 +34,9 @@ use std::process::ExitCode;
 
 use emend::cells::{Area, CellRef, FormulaKind, Value};
 use emend::package::{
-    BarDirection, CALC_CHAIN, EditAs, Grouping, ImageAnchor, LegendPosition, NewChart, NewPlot,
-    NewSeries, NewSeriesName, Package, THEME,
+    BarDirection, CALC_CHAIN, EditAs, Grouping, ImageAnchor, LabelPosition, LegendPosition,
+    NewChart, NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, Package, RadarStyle,
+    ScatterStyle, THEME,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -39,7 +50,7 @@ const USAGE: &str = "usage: probe-emend-charts-write-xml <archive> <output> \
 <part to replace> <override part name> <content type> <sheet part> \
 <number at> <text at> <boolean at> <clear at> <second output> <format code> \
 <formula at> <formula text> <sheet name> <new sheet name> <third output> <font name> \
-<column> <row> <freeze at> <merge area>";
+<column> <row> <freeze at> <merge area> <chart kind>";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -66,6 +77,7 @@ fn main() -> ExitCode {
         row,
         freeze_at,
         merge_area,
+        kind,
     ] = args.as_slice()
     else {
         let _ = writeln!(io::stderr(), "error: {USAGE}");
@@ -119,6 +131,14 @@ fn main() -> ExitCode {
         );
         return ExitCode::from(2);
     };
+    let Some(kind) = kind
+        .to_str()
+        .and_then(|k| k.parse::<usize>().ok())
+        .and_then(|k| PLOTS.get(k).copied())
+    else {
+        let _ = writeln!(io::stderr(), "error: the chart kind is not 0 to 12");
+        return ExitCode::from(2);
+    };
     let (Some(added), Some(renamed)) = (added.to_str(), renamed.to_str()) else {
         let _ = writeln!(io::stderr(), "error: a sheet name is not UTF-8");
         return ExitCode::from(2);
@@ -138,6 +158,7 @@ fn main() -> ExitCode {
         row,
         freeze_at,
         merge_area,
+        kind,
     };
     let result = run(input, output, &names).and_then(|counts| {
         let written = edit(input, second, names.sheet, &edits)?;
@@ -220,6 +241,7 @@ struct CellEdits {
     row: u32,
     freeze_at: CellRef,
     merge_area: Area,
+    kind: NewPlot,
 }
 
 /// What the second write is checked by: the cells read back, the styles
@@ -383,7 +405,7 @@ fn edit(
         .part(sheet)
         .ok_or("the output has no such sheet part")?;
     let merges = count_named(&mut written, index, b"mergeCell")?;
-    let (charts, chart_series) = read_first_sheet_charts(second)?;
+    let (charts, chart_series) = read_first_sheet_charts(second, edits.kind)?;
     Ok(Written {
         cells: count,
         xfs_before,
@@ -411,9 +433,11 @@ fn edit(
 /// The feature `charts`'s write and read (specs/0035 "Size and packaging"):
 /// a second package opened on `second`, `add_chart` of one column chart with
 /// one series on its first sheet from the probe's own constants, written
-/// into memory and reopened, then `charts` of that sheet; the chart count and
-/// the series count over every plot of every chart.
-fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), String> {
+/// into memory and reopened; then (specs/0036 "The probe") `remove_chart` of
+/// it, written and reopened, and `add_chart` of `kind`'s chart, written and
+/// reopened; then `charts` of that sheet: the chart count and the series
+/// count over every plot of every chart.
+fn read_first_sheet_charts(second: &std::ffi::OsStr, kind: NewPlot) -> Result<(u64, u64), String> {
     let file = File::open(second).map_err(|e| e.kind().to_string())?;
     let mut package = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
     let first = package
@@ -456,10 +480,14 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), Strin
     package
         .add_chart(&first, anchor, &chart)
         .map_err(|e| e.to_string())?;
-    let mut out = Cursor::new(Vec::new());
-    package.write_to(&mut out).map_err(|e| e.to_string())?;
-    out.set_position(0);
-    let mut package = Package::open(out).map_err(|e| e.to_string())?;
+    let mut package = reopened(package)?;
+    package.remove_chart(&first, 0).map_err(|e| e.to_string())?;
+    let mut package = reopened(package)?;
+    let series = second_set_series(kind);
+    package
+        .add_chart(&first, anchor, &second_set_chart(kind, &series))
+        .map_err(|e| e.to_string())?;
+    let mut package = reopened(package)?;
     let charts = package.charts(&first).map_err(|e| e.to_string())?;
     let series = charts
         .iter()
@@ -467,6 +495,158 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), Strin
         .map(|plot| plot.series.len() as u64)
         .sum();
     Ok((charts.len() as u64, series))
+}
+
+/// A package written into memory and opened again.
+fn reopened<R: io::Read + io::Seek>(
+    package: Package<R>,
+) -> Result<Package<Cursor<Vec<u8>>>, String> {
+    let mut out = Cursor::new(Vec::new());
+    package.write_to(&mut out).map_err(|e| e.to_string())?;
+    out.set_position(0);
+    Package::open(out).map_err(|e| e.to_string())
+}
+
+/// The thirteen `NewPlot` variants in their declared order, the index the
+/// command line names (`specs/0036-charts-write-second-set.md`, "The
+/// probe").
+const PLOTS: [NewPlot; 13] = [
+    NewPlot::Bar {
+        direction: BarDirection::Column,
+        grouping: Grouping::Clustered,
+    },
+    NewPlot::Line {
+        grouping: Grouping::Standard,
+    },
+    NewPlot::Pie,
+    NewPlot::Scatter {
+        style: ScatterStyle::LineMarker,
+    },
+    NewPlot::Area {
+        grouping: Grouping::Standard,
+    },
+    NewPlot::Doughnut { hole_size: 50 },
+    NewPlot::Radar {
+        style: RadarStyle::Marker,
+    },
+    NewPlot::Bubble,
+    NewPlot::Stock,
+    NewPlot::Bar3D {
+        direction: BarDirection::Column,
+        grouping: Grouping::Clustered,
+    },
+    NewPlot::Line3D {
+        grouping: Grouping::Standard,
+    },
+    NewPlot::Pie3D,
+    NewPlot::Area3D {
+        grouping: Grouping::Standard,
+    },
+];
+
+/// The labels each series takes: the value, in a format, outside the end
+/// where the kind takes that position.
+const fn labels(outside: bool) -> NewLabels<'static> {
+    NewLabels {
+        value: true,
+        category: false,
+        series_name: false,
+        percent: false,
+        position: if outside {
+            Some(LabelPosition::OutsideEnd)
+        } else {
+            None
+        },
+        number_format: Some("0.0"),
+    }
+}
+
+/// One series of the second chart: its values' column, its colour (none on
+/// a stock plot), its labels, and sizes on a bubble's.
+const fn probe_series(values: &'static str, color: u32, kind: NewPlot) -> NewSeries<'static> {
+    let outside = matches!(
+        kind,
+        NewPlot::Bar {
+            grouping: Grouping::Clustered,
+            ..
+        } | NewPlot::Pie
+            | NewPlot::Pie3D
+    );
+    NewSeries {
+        name: Some(NewSeriesName::Text("probe series")),
+        categories: Some("'probe'!$A$1:$A$2"),
+        values,
+        sizes: if matches!(kind, NewPlot::Bubble) {
+            Some("'probe'!$E$1:$E$2")
+        } else {
+            None
+        },
+        color: if matches!(kind, NewPlot::Stock) {
+            None
+        } else {
+            Some(color)
+        },
+        labels: Some(labels(outside)),
+    }
+}
+
+/// The combined line's one series, on the secondary axis.
+const COMBINED_SERIES: [NewSeries<'static>; 1] = [NewSeries {
+    name: Some(NewSeriesName::Text("probe line")),
+    categories: Some("'probe'!$A$1:$A$2"),
+    values: "'probe'!$D$1:$D$2",
+    sizes: None,
+    color: Some(0x2C_A02C),
+    labels: None,
+}];
+
+/// The three series the second set's chart takes its own from.
+fn second_set_series(kind: NewPlot) -> [NewSeries<'static>; 3] {
+    [
+        probe_series("'probe'!$B$1:$B$2", 0x1F_77B4, kind),
+        probe_series("'probe'!$C$1:$C$2", 0xFF_7F0E, kind),
+        probe_series("'probe'!$D$1:$D$2", 0x2C_A02C, kind),
+    ]
+}
+
+/// The second set's chart for `kind` (`specs/0036-charts-write-second-
+/// set.md`, "The probe", P4 ruling R): two series (one on a pie or a 3D
+/// pie, three on a stock plot), each coloured and labelled; the axis titles
+/// and formats where the kind takes them; on a bar or an area a combined
+/// line on a secondary axis with its title and format.
+fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<'a> {
+    let round = matches!(
+        kind,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. }
+    );
+    let xy = matches!(kind, NewPlot::Scatter { .. } | NewPlot::Bubble);
+    let count = match kind {
+        NewPlot::Pie | NewPlot::Pie3D => 1,
+        NewPlot::Stock => 3,
+        _ => 2,
+    };
+    let combined =
+        matches!(kind, NewPlot::Bar { .. } | NewPlot::Area { .. }).then_some(NewCombined {
+            plot: NewPlot::Line {
+                grouping: Grouping::Standard,
+            },
+            series: &COMBINED_SERIES,
+            secondary_axis: true,
+            secondary_axis_title: Some("probe secondary"),
+            secondary_axis_format: Some("0%"),
+        });
+    NewChart {
+        plot: kind,
+        title: Some("probe second set"),
+        series: &all[..count],
+        category_axis_title: (!round).then_some("probe categories"),
+        value_axis_title: (!round).then_some("probe values"),
+        category_axis_format: (!round && !xy).then_some("@"),
+        value_axis_format: (!round).then_some("#,##0.00"),
+        legend: Some(LegendPosition::Right),
+        size: None,
+        combined,
+    }
 }
 
 /// The elements named `name` (local name) in one part, through the crate's

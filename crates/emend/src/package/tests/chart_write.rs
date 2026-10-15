@@ -4,7 +4,7 @@
 //! write-second-set.md`, "P1: the compaction, doughnut, radar, bubble and
 //! stock charts", "P2: the 3D kinds and combined charts", P2 rulings F
 //! to J, and "P3: labels, colours, number formats; `remove_chart`; the
-//! catalogue", P3 ruling L):
+//! catalogue", P3 rulings L and O):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -3605,6 +3605,40 @@ fn an_image_and_a_chart_removed_from_one_sheet_in_one_write() {
         refused_with(parts, |p| {
             p.remove_image(SHEET, 0).expect("recorded");
             remove(p, 0);
+            remove(p, 0);
+        }),
+        NO_CHART,
+    );
+}
+
+#[cfg(feature = "images")]
+#[test]
+fn a_chart_removal_on_a_part_the_same_write_adds_an_image_to_is_refused() {
+    use crate::package::Image;
+    // P3 ruling O: an image added to the part refuses a chart removal there,
+    // whichever is recorded first, as a chart added does.
+    let image = |p: &mut Package<Cursor<Vec<u8>>>| {
+        p.add_image(
+            SHEET,
+            at("H2"),
+            Image {
+                bytes: &PNG,
+                size: None,
+            },
+        )
+        .expect("recorded");
+    };
+    let parts = charted(1, false);
+    assert_package(
+        refused_with(parts.clone(), |p| {
+            remove(p, 0);
+            image(p);
+        }),
+        NO_CHART,
+    );
+    assert_package(
+        refused_with(parts, |p| {
+            image(p);
             remove(p, 0);
         }),
         NO_CHART,
