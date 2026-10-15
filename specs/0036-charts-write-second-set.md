@@ -122,7 +122,7 @@ prints and judges the movement, as part 4's did.
   drawing left with no anchor goes with its rels part, its
   `Override`, the sheet's relationship and its `<drawing>`.
   Refusals: an index past the list, an index named twice, a part
-  this write also adds an image to.
+  this write also adds an image or a chart to (ruling O).
 - The corpus's charts (the per-workbook `charts` lines and the
   totals in `records/logs/m5p3-p3/run.log`, counts only; part 4
   P3's rerun was byte-identical): 26 charts over 27 workbooks,
@@ -300,8 +300,8 @@ option does not apply to its kind" unless named otherwise:
   series axis. `Clustered` on `Line3D` or `Area3D` is refused.
 - `labels.percent` only on `Pie`, `Pie3D` and `Doughnut`;
   `labels.position` not on `Area`, `Area3D`, `Stock`, `Bubble`,
-  the 3D plots, a `Radar` with `Filled`, or a `Line3D`; on the
-  others every position the plot takes: `Bar` and `Bar3D` take
+  `Bar3D`, `Line3D` or a `Radar` with `Filled` (ruling L); on the
+  others every position the plot takes: `Bar` takes
   `Center`, `InsideEnd`, `InsideBase`, `OutsideEnd` (`OutsideEnd`
   not on a stacked or percent-stacked bar); `Line`, `Scatter` and
   `Radar` take `Center`, `Left`, `Right`, `Above`, `Below`; `Pie`
@@ -470,10 +470,11 @@ the plot kinds, the series counts and the axis ids.
 
 Two new `Error::Package` messages under `charts`: "no chart at
 that position" (a removal whose index is past the list, named
-twice, or on a part this write also adds a chart to; as "no image
-at that position") and "a chart part cannot be read" (a removal
-whose frame names a chart relationship with no part, or a chart
-part that is not a `chartSpace`; raised at the write). The part 4
+twice, or on a part this write also adds an image or a chart to,
+as "no image at that position"; ruling O) and "a chart part
+cannot be read" (a removal whose frame names a chart relationship
+with no part, or a chart part that is not a `chartSpace`; raised
+at the write). The part 4
 messages cover the new rules: "a chart option does not apply to
 its kind" for every applicability rule above, "a chart text is
 empty or holds a control character" for the new texts and the
@@ -563,11 +564,16 @@ the quoting are part 4's. Nothing from the corpus is printed.
   drawing and its rels `changed` (or `removed` with W's part
   `changed` when `drawing_dropped` is 1), `[Content_Types].xml`
   `changed`, every other entry `identical`; when `kept_removed` is
-  0, every entry `identical` (the addition and its removal cancel
-  byte for byte: a strong fidelity check of the removal), the
-  output a byte copy of the input (`identical` for every entry,
-  asserted in the tool). `lo` and `lo_in` `ok` for every corpus
-  workbook.
+  0, as the image removal sample's record (`specs/0028` ruling F1;
+  ruling M): every entry of the input is in the output with the
+  same uncompressed bytes (asserted in the tool), `identical` or
+  `recompressed` in the harness (the second write deflates what
+  the first wrote), except that a rels part the addition created
+  (W's or its drawing's) may be `added` and left with no
+  relationship, and W's drawing goes when it held no anchor
+  before the write (`drawing_dropped` 1; its rels part and
+  `Override` with it; W, its rels part and `[Content_Types].xml`
+  `changed`). `lo` and `lo_in` `ok` for every corpus workbook.
 - The two part 4 samples (`--add-chart-sample`,
   `--chart-kinds-sample`) and the three image samples rerun in
   P1 on both targets after the compaction: their outputs and
@@ -706,9 +712,11 @@ refused, a frame naming a chart relationship with no part refused
 at the write; an image and a chart removed from one sheet in one
 write; the tool's lines. The gate as P1's. The negative log
 through the binary: the remove-chart sample on a fixture whose
-chart frame names a relationship with no part (refused with the
-cannot-be-read message, with a control), and the two new messages
-otherwise stated with their covering tests. The run log: the
+chart frame names a relationship with no part (refused by the
+sample's own count with the reader's "a chart cannot be read",
+`specs/0034`, with a control; ruling N), and the two new messages
+stated unreachable through the binary with their covering tests.
+The run log: the
 labels and remove-chart samples on both targets over the corpus,
 with the keep and the edit open check, recorded as
 `records/m5p5-p3-<utc-date>-<shortsha>.md` and `.txt` for each.
@@ -985,6 +993,147 @@ K. The comments check 1 noted stand until P3: `add_chart`'s doc
    the `combined: None` edits landing in the three helpers and
    no base test body: consistent with ruling H, accepted. The
    probe at 1058244: told, judged in P4 (ruling A).
+
+## Planning rulings during P3 (2026-10-15)
+
+The doc commit 67aaa4f verified by planning: specs/0036 (4f9bc8ff)
+and ROADMAP.md (deab2d2f) unedited, nothing else, the one-line
+hash form, the tree clean.
+
+L. "Applicability"'s labels bullet named "the 3D plots" among the
+   plots refusing `labels.position` and then gave `Bar3D` and
+   `Pie3D` positions; the implementing session asked. Ruled as it
+   recommended: a position is refused on `Bar3D`, `Line3D` and
+   `Area3D`, and `Pie3D` takes the pie's four (Excel offers no
+   label position on a 3D column, line or area chart and the
+   pie's on a 3D pie). The bullet is corrected in place. The
+   labels sample (a 2D bar and a 2D pie) is unaffected. Two
+   readings accepted with it: the stock series' `ln` form in "The
+   chart part" is unreachable under ruling B and is written for
+   the plots listed, the refusal kept; a combined second plot's
+   series take labels and colours by the second plot's own kind
+   rules ("each checked as the first's").
+
+M. "Harness runs" expected the remove-chart sample's `kept_removed`
+   0 output to be a byte copy of its input. It cannot be, for the
+   reason `specs/0028` ruling F1 already recorded for the image
+   removal sample: the second write deflates the entries the
+   first touched (`recompressed`), a rels part the addition
+   created stays, empty (`added`), and a drawing that held no
+   anchor before the write goes with its last (`dropped`). The
+   implementing session found it in a dev run and asked; the
+   expectation was planning's error, repeated. Ruled as it
+   recommended: the expectation is corrected in place to the
+   image removal sample's pattern (`records/m4p1-p3-removeimage-
+   2026-10-10-669fa91.md`); the tool asserts the uncompressed
+   bytes, and the run log checks the harness statuses against
+   the cases named. No change to the removal layer.
+
+N. The P3 negative case cannot reach "a chart part cannot be
+   read" through the binary: the remove-chart sample prints
+   `charts_before` and `charts_other_sheets`, so `charts` reads
+   every sheet's frames before any removal and refuses the bad
+   frame with the reader's "a chart cannot be read" (`specs/0034`).
+   The implementing session asked; ruled as it recommended: N5
+   expects the reader's message, with a control (the same fixture
+   with the part in place, exit 0); "no chart at that position"
+   and "a chart part cannot be read" are stated unreachable
+   through the binary with their covering tests
+   (`an_index_past_the_list_named_twice_or_with_an_addition_is_refused`
+   and `a_frame_naming_no_chart_part_is_refused_at_the_write`).
+   The sample is not changed. The phase text is corrected in
+   place.
+
+## Planning verification of P3 (2026-10-15)
+
+Verified from primaries: the five logs at the record commit
+17cb3c6 (gate 1f07861f, test 39bc06b2, negative 2e11c1d2, run
+eea06a2f, scan df985d4a PASS, PLANNING_SPEC 6ecaf055 the working
+copy; each of the four "all as expected: yes"); the record
+commit's 12 files and independent-check-1.md (c5c6e9e2); the six
+records at the report's hashes (chartlabels b4d50241 and
+90ccabda, removechart e5459272 and fc3e318a, open a0825862 and
+2144b942); every commit message ASCII with the Co-Authored-By
+line only; the privacy scan of 1bb8e02..17cb3c6 (4 commits, 1777
+blobs, 0 findings, PASS); the crate commit 784e3c0 read against
+"The chart part": the series `spPr` after `tx` with the `ln` copy
+on a line, 3D line, scatter, radar or stock plot, the colour as
+six upper-case hex digits, `dLbls` before the references in the
+spec's child order with the nine `dLblPos` values, the axis
+`numFmt` with `sourceLinked` 0 through one helper and none on the
+series axis, every format code through the text check and
+quick-xml's `escape` (a quoted format is written as `&quot;`,
+tested); the removal worklist in `package.rs`: each entry no kept
+relationship reaches goes with its `Override`, then its rels part
+and what that part alone reaches, external targets left out
+(decision 3 A); ruling K's three comments corrected; the labels
+sample's 54 added chart parts in the run directory read against
+"The chart part" (in all 27 workbooks one bar with the two
+colours, the value labels outside the end in the format, both
+axis formats and no `General`, and one pie with its colour, the
+category and percentage labels at the best fit and no `numFmt`);
+the remove-chart run directory's 27 host rows against ruling M
+and the removal rule (21 with nothing removed and nothing dropped,
+only identical, recompressed or a rels part added; 2 with W's
+empty drawing dropped and W, its rels and the content types
+changed; 4 with a kept chart removed, the chart part, its rels and
+the style and colours parts it alone reached dropped, counted in
+`parts_dropped`); the gate's probe figure 1071980 (16612 over part
+4's, 13736 over P2's, told, ruling A); the test log's fourteen
+plants each caught; the negative log's N5 (the remove-chart
+sample on a frame naming a relationship with no part refused with
+the reader's "a chart cannot be read", control B3 exit 0) and the
+two new messages stated unreachable with their covering tests
+(ruling N); the run log's keep 1435 = 1278 + 157 with 0 changed
+and 0 gone, the open check 1423/12 and 1424/11 with 0 findings
+and no verdict moved; planning's own build at 4836d14 in its
+detached worktree (`<home>/.cache/emend-planning/m5p5-p3-build
+.txt`): the six feature sets 515/617/551/656/720/1095 and the
+workspace 1319 on both targets, clippy and doc 0 lines, the i686
+release `emend-copy` equal by sha256 to the record's (43d5e04f),
+and the chartlabels and removechart samples over the corpus on
+both targets byte-identical to the phase's run directories,
+outputs and lines, 27 of 27 each (chartlabels totals
+charts_before 6, charts_after 60, read_back 54, chart_parts_after
+125; removechart totals
+charts_before 6, charts_after 2, kept_removed 4, parts_dropped 12,
+drawing_dropped 2, anchors 26 to 22, charts_other_sheets 20).
+
+Rulings:
+
+O. Check 1's notes (a) to (c) are documentation gaps the code does
+   not share; carried into P4's first code commit (the probe
+   commit), as ruling K carried P2's: (a) the header's Limits
+   bullet "Texts and references" names a format code and a label
+   format among the texts at 32767 bytes, checked as a text and
+   nothing more, and the colour's form (a `u32` at most
+   `0xFFFFFF`, six upper-case hex digits); (c) the doc comments on
+   `category_axis_format` and `value_axis_format` name `Pie3D`
+   among the kinds that take none. (b) The code and the catalogue
+   refuse "no chart at that position" for a part the same write
+   adds an image or a chart to, the image path's rule; "The call"
+   read "an image" and "Errors" read "a chart", each half: both
+   are corrected in place to "an image or a chart". P4's first
+   code commit adds one test under `charts,images`, a chart
+   removal on a part the same write adds an image to, refused;
+   P4's test figures count it. No rewrite of P3.
+P. Accepted as disclosed: the lint rewrite of 250caaa and cfb83cc
+   into 784e3c0 and 4836d14 before any logged run (`specs/0001`,
+   unreported local commits); the catalogue's two message entries
+   in the crate commit for the catalogue test, the rest in the
+   tool commit; the one base test body gaining `color: None` and
+   `labels: None` (ruling B's pattern); the dry-run failures and
+   the dev runs, labelled; the sample records named
+   `m5p5-p3-<sample>-<utc-date>-<shortsha>`, the only reading of
+   "for each"; the check's four unlabelled statements, now
+   labelled. The probe at 1071980: told, judged in P4 (ruling A;
+   16612 of the part's writer cost so far, under the 33000 to
+   46000 estimate before the probe's own additions link the rest).
+Q. The self-closing `<xdr:wsDr/>` root refused on an append
+   (disclosure 7) is part 4's drawing writer as it stands, no
+   corpus producer writes it, and nothing in this part changes
+   it; noted for part 6's engineering close as a candidate (accept
+   the form or name it in the catalogue), not a finding of P3.
 
 ## Decisions for the maintainer
 
