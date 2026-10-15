@@ -68,6 +68,11 @@
   or area chart added to a sheet from series references the caller names, with
   its title, axis titles and legend, anchored as an image is
   (`specs/0035-charts-write-first-set.md`).
+- Charts write, the second set, with the feature `charts`: doughnut, radar,
+  bubble and stock charts, the 3D bar, line, pie and area charts, combined
+  charts with a second plot on a secondary axis, series colours, data labels
+  and axis number formats, and a chart removed from a sheet with the parts only
+  it reaches (`specs/0036-charts-write-second-set.md`).
 
 ### Changed
 
