@@ -369,13 +369,9 @@ impl Parts<'_> {
             return Ok(Vec::new());
         };
         let index = self.archive.index_of(&target).ok_or(DRAWING_UNREADABLE)?;
-        let found =
-            read_anchors(self.archive.read(index)?, index).map_err(|error| match error {
-                Error::Xml(_) => DRAWING_UNREADABLE,
-                other => other,
-            })?;
+        let found = chart_frames(self.archive.read(index)?, index)?;
         let mut out = Vec::with_capacity(found.len());
-        for (anchor, id) in found {
+        for (anchor, id, _) in found {
             let chart_part = {
                 let rels = self.relationships(&target)?;
                 let rel = rels
@@ -592,11 +588,45 @@ fn text<R: Read>(
     })
 }
 
+/// The chart anchors of a drawing part as [`read_anchors`] finds them, a
+/// part that is not well-formed refused as one whose root is not `wsDr`:
+/// what [`Package::charts`] lists and `Package::remove_chart` removes by
+/// index, the latter by the root child's ordinal.
+pub(super) fn chart_frames(
+    input: impl Read,
+    index: usize,
+) -> Result<Vec<(ChartAnchor, String, usize)>, Error> {
+    read_anchors(input, index).map_err(|error| match error {
+        Error::Xml(_) => DRAWING_UNREADABLE,
+        other => other,
+    })
+}
+
+/// Whether a chart part's root is `chartSpace`, in either namespace; a part
+/// that is not well-formed is not.
+pub(super) fn is_chart_space(input: impl Read, index: usize) -> Result<bool, Error> {
+    let mut stream = match Stream::new(input, index) {
+        Ok(stream) => stream,
+        Err(Error::Xml(_)) => return Ok(false),
+        Err(other) => return Err(other),
+    };
+    let mut scope = Scope::new(index);
+    match root(&mut stream, &mut scope, index) {
+        Ok(node) => Ok(node.chart(b"chartSpace")),
+        Err(Error::Xml(_)) => Ok(false),
+        Err(other) => Err(other),
+    }
+}
+
 /// The chart anchors of a drawing part, streamed once: each root anchor,
 /// or the first anchor of a root `AlternateContent`'s first `Choice`,
-/// whose `graphicFrame` holds a `c:chart`, with that element's `r:id`. A
-/// root other than `wsDr` cannot be read.
-fn read_anchors(input: impl Read, index: usize) -> Result<Vec<(ChartAnchor, String)>, Error> {
+/// whose `graphicFrame` holds a `c:chart`, with that element's `r:id` and
+/// the ordinal of the root child it sits in. A root other than `wsDr`
+/// cannot be read.
+fn read_anchors(
+    input: impl Read,
+    index: usize,
+) -> Result<Vec<(ChartAnchor, String, usize)>, Error> {
     let mut stream = Stream::new(input, index)?;
     let mut scope = Scope::new(index);
     let root = root(&mut stream, &mut scope, index)?;
@@ -607,9 +637,21 @@ fn read_anchors(input: impl Read, index: usize) -> Result<Vec<(ChartAnchor, Stri
     if !open(&mut scope, &root) {
         return Ok(found);
     }
+    // The root children met, each chart taking its root's ordinal.
+    let mut roots = 0usize;
     while let Some(node) = child(&mut stream, &mut scope, index)? {
+        roots += 1;
+        let ordinal = roots - 1;
+        let with =
+            |chart: Option<(ChartAnchor, String)>| chart.map(|(anchor, id)| (anchor, id, ordinal));
         if let Some(kind) = anchor_kind(&node) {
-            found.extend(read_anchor(&mut stream, &mut scope, index, &node, kind)?);
+            found.extend(with(read_anchor(
+                &mut stream,
+                &mut scope,
+                index,
+                &node,
+                kind,
+            )?));
             continue;
         }
         let alternate = node.is(Space::Compat, b"AlternateContent");
@@ -634,7 +676,13 @@ fn read_anchors(input: impl Read, index: usize) -> Result<Vec<(ChartAnchor, Stri
                 match anchor_kind(&inner) {
                     Some(kind) if !taken => {
                         taken = true;
-                        found.extend(read_anchor(&mut stream, &mut scope, index, &inner, kind)?);
+                        found.extend(with(read_anchor(
+                            &mut stream,
+                            &mut scope,
+                            index,
+                            &inner,
+                            kind,
+                        )?));
                     }
                     _ => past(&mut stream, &mut scope, index, &inner)?,
                 }

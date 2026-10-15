@@ -852,6 +852,20 @@
 //!   (`chart_write::the_size_and_anchor_rules_refuse_and_record_nothing`,
 //!   `chart_write::the_first_rule_broken_in_the_order_gives_the_message`).
 //!
+//! Removing a chart adds two, the Cargo feature `charts`'s too
+//! (`specs/0036-charts-write-second-set.md`, "Errors"), each raised by
+//! [`Package::write_to`] after `Package::remove_chart`, which also meets
+//! what an image removal meets of the part and its drawing
+//! (`chart_write::a_chart_removal_on_a_removed_or_replaced_part_is_refused`):
+//!
+//! - "no chart at that position", for an index past the list `charts`
+//!   gives, an index named twice, or a part the same write adds an image or
+//!   a chart to
+//!   (`chart_write::an_index_past_the_list_named_twice_or_with_an_addition_is_refused`).
+//! - "a chart part cannot be read", for a removed frame whose relationship
+//!   names no chart part, or a part whose root is not `chartSpace`
+//!   (`chart_write::a_frame_naming_no_chart_part_is_refused_at_the_write`).
+//!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
 //! formats and those the same write adds, every recorded style checked, one
@@ -2172,7 +2186,9 @@ pub use chart::{
     Data, Grouping, LegendPosition, Plot, ScatterStyle, Series, SeriesName,
 };
 #[cfg(feature = "charts")]
-pub use chart_write::{NewChart, NewCombined, NewPlot, NewSeries, NewSeriesName, RadarStyle};
+pub use chart_write::{
+    LabelPosition, NewChart, NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, RadarStyle,
+};
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};
 #[cfg(feature = "read")]
@@ -3202,11 +3218,13 @@ struct Recorded {
     /// `specs/0035-charts-write-first-set.md`, "The call").
     #[cfg(any(feature = "images", feature = "charts"))]
     drawing_edits: Vec<(Vec<u8>, ImageAnchor, NewDrawing)>,
-    /// `(part, index)`: an image removed, by its place in the list
-    /// [`Package::images`] gives, in record order
-    /// (`specs/0028-images-and-comments-second-half.md`, "Image removal").
-    #[cfg(feature = "images")]
-    image_removals: Vec<(Vec<u8>, usize)>,
+    /// `(part, removal)`: an image removed, by its place in the list
+    /// [`Package::images`] gives (`specs/0028-images-and-comments-second-
+    /// half.md`, "Image removal"), or a chart, by its place in the list
+    /// `Package::charts` gives (`specs/0036-charts-write-second-set.md`,
+    /// "The parts"), in record order.
+    #[cfg(any(feature = "images", feature = "charts"))]
+    drawing_removals: Vec<(Vec<u8>, Removal)>,
     /// `(part, work)`: for each part whose `<drawing>` the write creates,
     /// what the worksheet pass does, filled by [`Package::write_to`] before
     /// it validates.
@@ -4586,6 +4604,51 @@ struct DrawingWork {
     strict: bool,
 }
 
+/// A removal recorded on a worksheet's drawing: an image's index in the
+/// list `Package::images` gives, or a chart's in the list
+/// `Package::charts` gives.
+#[cfg(any(feature = "images", feature = "charts"))]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Removal {
+    #[cfg(feature = "images")]
+    Image(usize),
+    #[cfg(feature = "charts")]
+    Chart(usize),
+}
+
+#[cfg(any(feature = "images", feature = "charts"))]
+impl Removal {
+    /// An image removal's index.
+    #[cfg(feature = "images")]
+    fn image(self) -> Option<usize> {
+        match self {
+            Self::Image(index) => Some(index),
+            #[cfg(feature = "charts")]
+            Self::Chart(_) => None,
+        }
+    }
+
+    /// A chart removal's index.
+    #[cfg(feature = "charts")]
+    fn chart(self) -> Option<usize> {
+        match self {
+            Self::Chart(index) => Some(index),
+            #[cfg(feature = "images")]
+            Self::Image(_) => None,
+        }
+    }
+
+    /// What a removal the list does not hold is refused with.
+    fn missing(self) -> Error {
+        match self {
+            #[cfg(feature = "images")]
+            Self::Image(_) => NO_IMAGE_AT,
+            #[cfg(feature = "charts")]
+            Self::Chart(_) => chart_write::NO_CHART_AT,
+        }
+    }
+}
+
 /// A table to add, as [`Package::add_table`] checked it: its area, its
 /// name, its column names and its style's name with the four flags.
 #[cfg(feature = "tables")]
@@ -5039,18 +5102,14 @@ impl Recorded {
         true
     }
 
-    /// Whether no image or chart is added and no image removed; always,
-    /// without the features `images` and `charts`.
+    /// Whether no image or chart is added or removed; always, without the
+    /// features `images` and `charts`.
     #[cfg(any(feature = "images", feature = "charts"))]
     fn no_image_edits(&self) -> bool {
-        #[cfg(feature = "images")]
-        let removals = self.image_removals.is_empty();
-        #[cfg(not(feature = "images"))]
-        let removals = true;
-        self.drawing_edits.is_empty() && removals
+        self.drawing_edits.is_empty() && self.drawing_removals.is_empty()
     }
 
-    /// Whether no image or chart is added and no image removed; always,
+    /// Whether no image or chart is added or removed; always,
     /// without the features `images` and `charts`.
     #[cfg(not(any(feature = "images", feature = "charts")))]
     fn no_image_edits(&self) -> bool {
@@ -5280,10 +5339,10 @@ impl Recorded {
             .into_iter()
             .chain(self.drawing_edits.iter().map(|(part, _, _)| part.clone()))
             .collect();
-        #[cfg(feature = "images")]
+        #[cfg(any(feature = "images", feature = "charts"))]
         let parts: Vec<Vec<u8>> = parts
             .into_iter()
-            .chain(self.image_removals.iter().map(|(part, _)| part.clone()))
+            .chain(self.drawing_removals.iter().map(|(part, _)| part.clone()))
             .collect();
         parts
     }
@@ -9990,7 +10049,9 @@ impl<'a> Parts<'a> {
     /// The body of [`Package::remove_image`].
     #[cfg(feature = "images")]
     fn remove_image(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
-        self.edits.image_removals.push((part.to_vec(), index));
+        self.edits
+            .drawing_removals
+            .push((part.to_vec(), Removal::Image(index)));
         Ok(())
     }
 
@@ -10065,11 +10126,7 @@ impl<'a> Parts<'a> {
     /// cannot be read for.
     #[cfg(any(feature = "images", feature = "charts"))]
     fn record_drawings(&mut self) -> Result<(), Error> {
-        #[cfg(feature = "images")]
-        let none_removed = self.edits.image_removals.is_empty();
-        #[cfg(not(feature = "images"))]
-        let none_removed = true;
-        if self.edits.drawing_edits.is_empty() && none_removed {
+        if self.edits.drawing_edits.is_empty() && self.edits.drawing_removals.is_empty() {
             return Ok(());
         }
         let mut parts: Vec<(Vec<u8>, PartDrawings)> = Vec::new();
@@ -10080,8 +10137,7 @@ impl<'a> Parts<'a> {
             }
         }
         let mut works: Vec<(Vec<u8>, DrawingWork)> = Vec::new();
-        #[cfg(feature = "images")]
-        self.record_image_removals(&parts, &mut works)?;
+        self.record_removals(&parts, &mut works)?;
         let mut entries = self.taken_entries();
         for (part, additions) in parts {
             if self.edits.part_removals.contains(&part) {
@@ -10261,26 +10317,31 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
-    /// Records each worksheet's image removals
-    /// (`specs/0028-images-and-comments-second-half.md`, "Image removal"):
-    /// the root child holding each picture skipped in the drawing part, the
-    /// relationships only the skipped children named removed from its rels
-    /// part, a drawing left with no anchor dropped with its rels part, its
-    /// `Override`, the sheet's relationship and `<drawing>`; then each media
-    /// entry a removed relationship targets that no relationship of the
-    /// package reaches once the removed ones are left out, with its
-    /// `Override`. Part by part, in record order: an index named twice or
-    /// on a part `additions` also adds to, then the refusals of a removed,
-    /// replaced, absent or shifted part, then what the drawing cannot be
-    /// read for, then an index past the list.
-    #[cfg(feature = "images")]
-    fn record_image_removals(
+    /// Records each worksheet's image and chart removals
+    /// (`specs/0028-images-and-comments-second-half.md`, "Image removal";
+    /// `specs/0036-charts-write-second-set.md`, "The parts"): the root child
+    /// holding each removed picture or chart frame skipped in the drawing
+    /// part, the roots chosen by what each removal's list names and the
+    /// skipping shared; the relationships only the skipped children named
+    /// (a picture's `r:embed` and `r:link`, a frame's `c:chart` `r:id`)
+    /// removed from its rels part, a drawing left with no anchor dropped
+    /// with its rels part, its `Override`, the sheet's relationship and
+    /// `<drawing>`; then each entry a removed relationship targets that no
+    /// relationship of the package reaches once the removed ones are left
+    /// out, with its `Override`, and with its rels part each entry that
+    /// rels part names the same way (decision 3 A). Part by part, in record
+    /// order: an index named twice or on a part `additions` also adds to,
+    /// then the refusals of a removed, replaced, absent or shifted part,
+    /// then what the drawing cannot be read for, then an index past the
+    /// list, then a removed frame naming no chart part.
+    #[cfg(any(feature = "images", feature = "charts"))]
+    fn record_removals(
         &mut self,
         additions: &[(Vec<u8>, PartDrawings)],
         works: &mut Vec<(Vec<u8>, DrawingWork)>,
     ) -> Result<(), Error> {
-        let mut parts: Vec<(Vec<u8>, Vec<usize>)> = Vec::new();
-        for (part, index) in self.edits.image_removals.clone() {
+        let mut parts: Vec<(Vec<u8>, Vec<Removal>)> = Vec::new();
+        for (part, removal) in self.edits.drawing_removals.clone() {
             let at = match parts.iter().position(|(have, _)| *have == part) {
                 Some(at) => at,
                 None => {
@@ -10290,17 +10351,17 @@ impl<'a> Parts<'a> {
             };
             // Named twice, or on a part this write adds to: the caller
             // writes twice.
-            let (part, indexes) = &mut parts[at];
-            if indexes.contains(&index) || additions.iter().any(|(have, _)| have == part) {
-                return Err(NO_IMAGE_AT);
+            let (part, removals) = &mut parts[at];
+            if removals.contains(&removal) || additions.iter().any(|(have, _)| have == part) {
+                return Err(removal.missing());
             }
-            indexes.push(index);
+            removals.push(removal);
         }
-        // The relationships the removals leave out, and the media entries
-        // they named.
+        // The relationships the removals leave out, and the entries they
+        // named.
         let mut skipped: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
-        let mut media: Vec<Vec<u8>> = Vec::new();
-        for (part, indexes) in parts {
+        let mut named_entries: Vec<Vec<u8>> = Vec::new();
+        for (part, removals) in parts {
             if self.edits.part_removals.contains(&part) {
                 return Err(REMOVED_PART_EDITED);
             }
@@ -10327,22 +10388,71 @@ impl<'a> Parts<'a> {
             let drawing = self.drawing_of(&part, index)?;
             self.edited_part_untouched(drawing.as_deref())?;
             let (Some(target), Some(element)) = (drawing, element) else {
-                return Err(NO_IMAGE_AT);
+                return Err(removals[0].missing());
             };
-            // The list the caller's indexes name, read as `images` reads it.
-            let listed = self.images(&part)?.len();
-            if indexes.iter().any(|index| *index >= listed) {
-                return Err(NO_IMAGE_AT);
-            }
             let at = self.archive.index_of(&target).ok_or(DRAWING_UNREADABLE)?;
+            // The root ordinals the removals name, and the relationships a
+            // removed frame names.
+            let mut gone: Vec<usize> = Vec::new();
+            let mut named: Vec<Vec<u8>> = Vec::new();
+            #[cfg(feature = "images")]
+            if removals
+                .iter()
+                .any(|removal| matches!(removal, Removal::Image(_)))
+            {
+                // The list the caller's indexes name, read as `images`
+                // reads it.
+                let listed = self.images(&part)?.len();
+                let indexes: Vec<usize> = removals
+                    .iter()
+                    .filter_map(|removal| removal.image())
+                    .collect();
+                if indexes.iter().any(|index| *index >= listed) {
+                    return Err(NO_IMAGE_AT);
+                }
+                let pictures = read_images(self.archive.read(at)?, at)?;
+                gone.extend(indexes.iter().map(|index| pictures[*index].root));
+            }
+            #[cfg(feature = "charts")]
+            if removals
+                .iter()
+                .any(|removal| matches!(removal, Removal::Chart(_)))
+            {
+                let frames = chart::chart_frames(self.archive.read(at)?, at)?;
+                let indexes: Vec<usize> = removals
+                    .iter()
+                    .filter_map(|removal| removal.chart())
+                    .collect();
+                if indexes.iter().any(|index| *index >= frames.len()) {
+                    return Err(chart_write::NO_CHART_AT);
+                }
+                for index in indexes {
+                    let (_, id, root) = &frames[index];
+                    let chart_part = {
+                        let rels = self.relationships(&target)?;
+                        let rel = rels
+                            .by_id(id.as_bytes())
+                            .filter(|rel| !rel.external && CHART.contains(&rel.kind.as_slice()))
+                            .ok_or(chart_write::CHART_PART_UNREADABLE)?;
+                        rels.target_part(rel)
+                            .map_err(|_| chart_write::CHART_PART_UNREADABLE)?
+                    };
+                    let entry = self
+                        .archive
+                        .index_of(&chart_part)
+                        .ok_or(chart_write::CHART_PART_UNREADABLE)?;
+                    if !chart::is_chart_space(self.archive.read(entry)?, entry)? {
+                        return Err(chart_write::CHART_PART_UNREADABLE);
+                    }
+                    gone.push(*root);
+                    named.push(id.as_bytes().to_vec());
+                }
+            }
             let mut bytes = Vec::new();
             self.archive.read(at)?.read_to_end(&mut bytes)?;
-            let pictures = read_images(Cursor::new(&bytes), at)?;
             let roots = read_drawing_roots(&bytes, at)?;
-            let gone: Vec<usize> = indexes.iter().map(|index| pictures[*index].root).collect();
             let mut out = Vec::with_capacity(bytes.len());
             let mut from = 0usize;
-            let mut named: Vec<Vec<u8>> = Vec::new();
             let mut kept_refs: Vec<Vec<u8>> = Vec::new();
             let mut anchors_left = false;
             for (ordinal, root) in roots.iter().enumerate() {
@@ -10367,9 +10477,9 @@ impl<'a> Parts<'a> {
                 for id in &removed {
                     if let Some(rel) = rels.by_id(id).filter(|rel| !rel.external)
                         && let Ok(entry) = rels.target_part(rel)
-                        && !media.contains(&entry)
+                        && !named_entries.contains(&entry)
                     {
-                        media.push(entry);
+                        named_entries.push(entry);
                     }
                 }
             }
@@ -10397,11 +10507,15 @@ impl<'a> Parts<'a> {
                 ));
             }
         }
-        if media.is_empty() {
+        if named_entries.is_empty() {
             return Ok(());
         }
         let reached = self.reachable(b"", &skipped, &[])?;
-        for entry in media {
+        // Each entry no kept relationship reaches goes; with its rels part,
+        // what that part's relationships name is weighed the same way.
+        let mut next = 0;
+        while let Some(entry) = named_entries.get(next).cloned() {
+            next += 1;
             if reached.contains(&entry) || self.edits.part_removals.contains(&entry) {
                 continue;
             }
@@ -10412,13 +10526,31 @@ impl<'a> Parts<'a> {
                 self.remove_override(&over);
             }
             self.remove_part(&entry);
+            let rels = rels_part_name(&entry);
+            if self.archive.index_of(&rels).is_some() && !self.edits.part_removals.contains(&rels) {
+                let targets: Vec<Vec<u8>> = {
+                    let rels = self.relationships(&entry)?;
+                    rels.all()
+                        .iter()
+                        .filter(|rel| !rel.external)
+                        .filter_map(|rel| rels.target_part(rel).ok())
+                        .collect()
+                };
+                self.remove_part(&rels);
+                for target in targets {
+                    if self.archive.index_of(&target).is_some() && !named_entries.contains(&target)
+                    {
+                        named_entries.push(target);
+                    }
+                }
+            }
         }
         Ok(())
     }
 
     /// Drops the drawing part `target` of the worksheet part `part`, the
     /// sheet's relationship `id` to it, its `Override` and its rels part.
-    #[cfg(feature = "images")]
+    #[cfg(any(feature = "images", feature = "charts"))]
     fn drop_drawing(&mut self, part: &[u8], id: &[u8], target: &[u8]) -> Result<(), Error> {
         let over = self
             .override_of(target)?
@@ -10951,8 +11083,8 @@ impl<'a> Parts<'a> {
         self.edits.comment_boxes.retain(|(at, _, _)| at != part);
         #[cfg(any(feature = "images", feature = "charts"))]
         self.edits.drawing_edits.retain(|(at, _, _)| at != part);
-        #[cfg(feature = "images")]
-        self.edits.image_removals.retain(|(at, _)| at != part);
+        #[cfg(any(feature = "images", feature = "charts"))]
+        self.edits.drawing_removals.retain(|(at, _)| at != part);
         #[cfg(feature = "copy")]
         self.edits.sheet_copies.retain(|(_, copy)| copy != part);
     }
@@ -20680,7 +20812,7 @@ struct DrawingPicture {
 /// and its descendants' attributes in the relationships namespace, and of
 /// those the `embed` and `link` ones
 /// (`specs/0028-images-and-comments-second-half.md`, "Image removal").
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 struct DrawingRoot {
     start: usize,
     end: usize,
@@ -20692,7 +20824,7 @@ struct DrawingRoot {
 /// The root children of a drawing part held whole, in document order; a
 /// part the parser refuses cannot be read, and an element whose prefix
 /// nothing binds meets part 2's refusal.
-#[cfg(feature = "images")]
+#[cfg(any(feature = "images", feature = "charts"))]
 fn read_drawing_roots(bytes: &[u8], index: usize) -> Result<Vec<DrawingRoot>, Error> {
     let unreadable = |error: Error| match error {
         Error::Xml(_) => DRAWING_UNREADABLE,

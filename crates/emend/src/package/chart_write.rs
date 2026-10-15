@@ -2,8 +2,9 @@
 //! (`specs/0035-charts-write-first-set.md`). The Cargo feature `charts`.
 //!
 //! The second set (`specs/0036-charts-write-second-set.md`) adds the
-//! doughnut, radar, bubble and stock plots, the 3D plots and a second plot
-//! combined with the first.
+//! doughnut, radar, bubble and stock plots, the 3D plots, a second plot
+//! combined with the first, data labels, a solid colour per series and the
+//! axes' number formats, and [`Package::remove_chart`].
 //!
 //! [`Package::add_chart`] checks the call and records the chart as an image
 //! is recorded: the write adds the chart part, created whole from the
@@ -19,7 +20,8 @@ use quick_xml::escape::{escape, partial_escape};
 use super::chart::CHART_NAMESPACE;
 use super::{
     BarDirection, DRAWINGML, DrawingForm, EMU_PER_PIXEL, Grouping, INDEX_OUT_OF_RANGE, ImageAnchor,
-    LegendPosition, NewDrawing, Package, Parts, ScatterStyle, drawing_a, drawing_r, in_grid,
+    LegendPosition, NewDrawing, Package, Parts, Removal, ScatterStyle, drawing_a, drawing_r,
+    in_grid,
 };
 use crate::archive::Error;
 
@@ -39,6 +41,13 @@ pub(crate) const CHART_SIZE_ANCHOR: Error =
 /// What a chart anchor or size out of range is refused with.
 pub(crate) const CHART_ANCHOR_OUT_OF_RANGE: Error =
     Error::Package("a chart anchor is out of range");
+/// What a chart removal whose index is past the list, named twice, or on a
+/// part this write also adds to is refused with
+/// (`specs/0036-charts-write-second-set.md`, "Errors").
+pub(crate) const NO_CHART_AT: Error = Error::Package("no chart at that position");
+/// What a chart removal whose frame names no chart part, or a part that is
+/// not a `chartSpace`, is refused with at the write.
+pub(crate) const CHART_PART_UNREADABLE: Error = Error::Package("a chart part cannot be read");
 
 /// A chart part's content type (`specs/0035-charts-write-first-set.md`,
 /// "The parts").
@@ -66,6 +75,12 @@ pub struct NewChart<'a> {
     pub category_axis_title: Option<&'a str>,
     /// The value axis's title, or a scatter's y axis's; a pie takes none.
     pub value_axis_title: Option<&'a str>,
+    /// The category axis's number format code; a pie, a doughnut, a
+    /// scatter and a bubble take none.
+    pub category_axis_format: Option<&'a str>,
+    /// The value axis's number format code, or a scatter's or a bubble's y
+    /// axis's; a pie and a doughnut take none.
+    pub value_axis_format: Option<&'a str>,
     /// The legend's position; `None` writes no legend.
     pub legend: Option<LegendPosition>,
     /// The chart's pixel width and height: required for a one-cell or
@@ -192,6 +207,55 @@ pub struct NewSeries<'a> {
     /// A bubble's sizes, `bubbleSize`: required on a bubble plot's series,
     /// refused on any other plot's.
     pub sizes: Option<&'a str>,
+    /// The series' solid colour as `0xRRGGBB`, at most `0xFFFFFF`; a stock
+    /// plot's series take none.
+    pub color: Option<u32>,
+    /// The series' data labels.
+    pub labels: Option<NewLabels<'a>>,
+}
+
+/// A new series' data labels, `dLbls`: what each label shows, its position
+/// and its number format code. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NewLabels<'a> {
+    /// Whether a label shows the value.
+    pub value: bool,
+    /// Whether a label shows the category.
+    pub category: bool,
+    /// Whether a label shows the series' name.
+    pub series_name: bool,
+    /// Whether a label shows the percentage; a pie, a 3D pie and a
+    /// doughnut alone take it.
+    pub percent: bool,
+    /// Where the labels sit; `None` leaves them at the plot's default.
+    pub position: Option<LabelPosition>,
+    /// The labels' number format code.
+    pub number_format: Option<&'a str>,
+}
+
+/// Where a series' data labels sit, `dLblPos`; each plot takes some
+/// (`specs/0036-charts-write-second-set.md`, "Applicability"). The Cargo
+/// feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LabelPosition {
+    /// `bestFit`.
+    BestFit,
+    /// `ctr`.
+    Center,
+    /// `inEnd`.
+    InsideEnd,
+    /// `inBase`.
+    InsideBase,
+    /// `outEnd`.
+    OutsideEnd,
+    /// `l`.
+    Left,
+    /// `r`.
+    Right,
+    /// `t`.
+    Above,
+    /// `b`.
+    Below,
 }
 
 /// A new series' name: a reference written as `tx/strRef/f`, or a text
@@ -211,6 +275,16 @@ struct SeriesWork {
     categories: Option<String>,
     values: String,
     sizes: Option<String>,
+    color: Option<u32>,
+    labels: Option<LabelsWork>,
+}
+
+/// A series' labels as the call checked them.
+#[derive(Clone)]
+struct LabelsWork {
+    flags: [bool; 4],
+    position: Option<LabelPosition>,
+    format: Option<String>,
 }
 
 /// A series' name as the call checked it.
@@ -229,6 +303,8 @@ pub(super) struct ChartWork {
     series: Vec<SeriesWork>,
     category_axis_title: Option<String>,
     value_axis_title: Option<String>,
+    category_axis_format: Option<String>,
+    value_axis_format: Option<String>,
     legend: Option<LegendPosition>,
     combined: Option<CombinedWork>,
     pub(super) cx: u64,
@@ -276,23 +352,28 @@ impl<R: Read + Seek> Package<R> {
     /// width or height of 0 or past `i32::MAX` EMU; "a chart option does not
     /// apply to its kind" for no series, a bar's `Standard` grouping, a
     /// line's, an area's, a 3D line's or a 3D area's `Clustered`, a pie or
-    /// a 3D pie with more than one series or an axis title, a doughnut
-    /// whose hole size is outside 1 to 90 or with an axis title, a stock
-    /// plot with other than three or four series, a bubble plot's series
-    /// without sizes or another plot's with them, then for a combined plot
-    /// a first plot other than a bar, line or area, a second other than a
-    /// bar, line, area or scatter or of the first's variant, a second with
-    /// no series or that breaks its own kind's rules, a scatter second or
-    /// a secondary title or format without `secondary_axis`
-    /// (`specs/0036-charts-write-second-set.md`, "Applicability", P2
-    /// rulings G and H); "a chart text is empty or holds a control
-    /// character" for a title, axis title, secondary axis title, secondary
-    /// axis format, name or reference (values, then sizes), in that order,
+    /// a 3D pie with more than one series or an axis title or format, a
+    /// doughnut whose hole size is outside 1 to 90 or with an axis title or
+    /// format, a stock plot with other than three or four series, a bubble
+    /// plot's series without sizes or another plot's with them, a category
+    /// axis format on a scatter or a bubble, a colour above `0xFFFFFF` or on
+    /// a stock plot's series, a label's percentage on a plot other than a
+    /// pie, a 3D pie or a doughnut, a label position the plot does not take,
+    /// then for a combined plot a first plot other than a bar, line or area,
+    /// a second other than a bar, line, area or scatter or of the first's
+    /// variant, a second with no series or that breaks its own kind's rules,
+    /// a scatter second or a secondary title or format without
+    /// `secondary_axis` (`specs/0036-charts-write-second-set.md`,
+    /// "Applicability", P2 rulings G, H and J, P3 ruling L); "a chart text
+    /// is empty or holds a control character" for a title, axis title, axis
+    /// format, secondary axis title, secondary axis format, name, reference
+    /// (values, then sizes) or label format, in that order,
     /// series by series, the first plot's then the second's, that is empty,
     /// holds a character below U+0020, U+FFFE or U+FFFF, or is longer than
     /// 32767 bytes (a reference, 8192). The write refuses what [`Package::add_image`](super::Package)
-    /// says it refuses of the part, and a part this write also removes an
-    /// image from, "no image at that position" (P1 ruling B).
+    /// says it refuses of the part, a part this write also removes an image
+    /// from, "no image at that position" (P1 ruling B), and one it removes a
+    /// chart from, "no chart at that position".
     pub fn add_chart(
         &mut self,
         part: &[u8],
@@ -300,6 +381,34 @@ impl<R: Read + Seek> Package<R> {
         chart: &NewChart<'_>,
     ) -> Result<(), Error> {
         self.parts().add_chart(part, anchor, chart)
+    }
+
+    /// Records the removal of the chart [`Package::charts`] lists at `index`
+    /// for the worksheet part `part` (`specs/0036-charts-write-second-
+    /// set.md`, "The call", "The parts"). The Cargo feature `charts`.
+    ///
+    /// The write skips the root child of the drawing part that holds the
+    /// chart's frame whole, as `Package::remove_image` skips a picture's,
+    /// every other byte kept, and removes the frame's relationship when no
+    /// kept element names it. The chart part it targets is removed with its
+    /// `Override` when no relationship of the package reaches it once the
+    /// removed relationships are left out, with its rels part and, the same
+    /// way, each part that rels part's relationships alone reach (the chart
+    /// style and colours parts, a user shapes drawing with its own rels
+    /// part, an embedded package; decision 3 A). A drawing left with no
+    /// anchor goes as an image removal's does.
+    ///
+    /// # Errors
+    ///
+    /// None at the call. The write refuses an index past the list, an index
+    /// named twice, and a part this write also adds an image or a chart to,
+    /// "no chart at that position" (the caller writes twice); a frame whose
+    /// relationship names no chart part, or a part whose root is not
+    /// `chartSpace`, "a chart part cannot be read"; and what
+    /// [`Package::add_image`](super::Package) says it refuses of the part,
+    /// as an image removal does.
+    pub fn remove_chart(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
+        self.parts().remove_chart(part, index)
     }
 }
 
@@ -357,14 +466,19 @@ impl Parts<'_> {
         if chart.series.is_empty() {
             return Err(CHART_OPTION_KIND);
         }
-        let no_axis_title = chart.category_axis_title.is_none() && chart.value_axis_title.is_none();
-        if !plot_applies(chart.plot, chart.series, no_axis_title) {
+        let axes = AxisOptions {
+            titles: chart.category_axis_title.is_some() || chart.value_axis_title.is_some(),
+            category_format: chart.category_axis_format.is_some(),
+            value_format: chart.value_axis_format.is_some(),
+        };
+        if !plot_applies(chart.plot, chart.series, axes) {
             return Err(CHART_OPTION_KIND);
         }
         if let Some(combined) = &chart.combined {
-            // The first plot a bar, line or area (a scatter's x axis cannot
-            // share a category axis, and no 3D plot combines: P2 ruling G);
-            // the second a bar, line, area or scatter of another variant.
+            // The first plot a bar, line or area (no 3D plot combines: P2
+            // ruling G; a scatter's x axis cannot share a category axis: P2
+            // ruling J); the second a bar, line, area or scatter of another
+            // variant, its series by its own kind's rules (P3 ruling L).
             let first = matches!(
                 chart.plot,
                 NewPlot::Bar { .. } | NewPlot::Line { .. } | NewPlot::Area { .. }
@@ -383,7 +497,7 @@ impl Parts<'_> {
                 && second
                 && std::mem::discriminant(&chart.plot) != std::mem::discriminant(&combined.plot)
                 && !combined.series.is_empty()
-                && plot_applies(combined.plot, combined.series, true)
+                && plot_applies(combined.plot, combined.series, AxisOptions::NONE)
                 && (combined.secondary_axis || !scatter && !secondary_only);
             if !applies {
                 return Err(CHART_OPTION_KIND);
@@ -392,6 +506,8 @@ impl Parts<'_> {
         let title = chart.title.map(text).transpose()?;
         let category_axis_title = chart.category_axis_title.map(text).transpose()?;
         let value_axis_title = chart.value_axis_title.map(text).transpose()?;
+        let category_axis_format = chart.category_axis_format.map(text).transpose()?;
+        let value_axis_format = chart.value_axis_format.map(text).transpose()?;
         let (secondary_title, secondary_format) = match &chart.combined {
             Some(combined) => (
                 combined.secondary_axis_title.map(text).transpose()?,
@@ -419,6 +535,8 @@ impl Parts<'_> {
                 series,
                 category_axis_title,
                 value_axis_title,
+                category_axis_format,
+                value_axis_format,
                 legend: chart.legend,
                 combined,
                 cx,
@@ -427,30 +545,101 @@ impl Parts<'_> {
         ));
         Ok(())
     }
+
+    /// The body of [`Package::remove_chart`].
+    fn remove_chart(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
+        self.edits
+            .drawing_removals
+            .push((part.to_vec(), Removal::Chart(index)));
+        Ok(())
+    }
 }
 
-/// Whether `plot` takes `series` and the axis titles given (`specs/0036-
+/// Which axis options a chart gives its first plot: an axis title, the
+/// category axis's format, the value axis's format.
+#[derive(Clone, Copy)]
+struct AxisOptions {
+    titles: bool,
+    category_format: bool,
+    value_format: bool,
+}
+
+impl AxisOptions {
+    /// None given, as for a combined second plot.
+    const NONE: Self = Self {
+        titles: false,
+        category_format: false,
+        value_format: false,
+    };
+}
+
+/// Whether `plot` takes `series` and the axis options given (`specs/0036-
 /// charts-write-second-set.md`, "Applicability"): its grouping, its series
-/// count, a doughnut's hole, and sizes on a bubble's series alone.
-fn plot_applies(plot: NewPlot, series: &[NewSeries<'_>], no_axis_title: bool) -> bool {
+/// count, a doughnut's hole, sizes on a bubble's series alone, the axis
+/// titles and formats, each series' colour and its labels.
+fn plot_applies(plot: NewPlot, series: &[NewSeries<'_>], axes: AxisOptions) -> bool {
     let count = series.len();
     let bubble = plot == NewPlot::Bubble;
+    let no_axis = !axes.titles && !axes.category_format && !axes.value_format;
     let kind = match plot {
         NewPlot::Bar { grouping, .. } => grouping != Grouping::Standard,
         NewPlot::Line { grouping }
         | NewPlot::Area { grouping }
         | NewPlot::Line3D { grouping }
         | NewPlot::Area3D { grouping } => grouping != Grouping::Clustered,
-        NewPlot::Pie | NewPlot::Pie3D => count == 1 && no_axis_title,
-        NewPlot::Doughnut { hole_size } => (1..=90).contains(&hole_size) && no_axis_title,
+        NewPlot::Pie | NewPlot::Pie3D => count == 1 && no_axis,
+        NewPlot::Doughnut { hole_size } => (1..=90).contains(&hole_size) && no_axis,
         NewPlot::Stock => (3..=4).contains(&count),
+        NewPlot::Scatter { .. } | NewPlot::Bubble => !axes.category_format,
         _ => true,
     };
-    kind && series.iter().all(|one| one.sizes.is_some() == bubble)
+    let round = matches!(
+        plot,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. }
+    );
+    kind && series.iter().all(|one| {
+        one.sizes.is_some() == bubble
+            && one
+                .color
+                .is_none_or(|color| color <= 0xFF_FFFF && plot != NewPlot::Stock)
+            && one.labels.is_none_or(|labels| {
+                (round || !labels.percent)
+                    && labels
+                        .position
+                        .is_none_or(|position| takes_position(plot, position))
+            })
+    })
+}
+
+/// Whether `plot`'s labels take `position` ("Applicability", P3 ruling L):
+/// a bar's the four, `OutsideEnd` not when stacked; a line's, a scatter's
+/// and a radar's other than filled the five; a pie's and a 3D pie's the
+/// four; no other plot's any.
+fn takes_position(plot: NewPlot, position: LabelPosition) -> bool {
+    use LabelPosition::{
+        Above, Below, BestFit, Center, InsideBase, InsideEnd, Left, OutsideEnd, Right,
+    };
+    match plot {
+        NewPlot::Bar { grouping, .. } => match position {
+            Center | InsideEnd | InsideBase => true,
+            OutsideEnd => grouping == Grouping::Clustered,
+            _ => false,
+        },
+        NewPlot::Line { .. }
+        | NewPlot::Scatter { .. }
+        | NewPlot::Radar {
+            style: RadarStyle::Standard | RadarStyle::Marker,
+        } => matches!(position, Center | Left | Right | Above | Below),
+        NewPlot::Pie | NewPlot::Pie3D => {
+            matches!(position, BestFit | Center | InsideEnd | OutsideEnd)
+        }
+        _ => false,
+    }
 }
 
 /// The series' texts and references checked in field order, series by
-/// series: the name, the categories, the values, the sizes.
+/// series: the name, the categories, the values, the sizes, the label
+/// format.
 fn series_work(series: &[NewSeries<'_>]) -> Result<Vec<SeriesWork>, Error> {
     let mut work = Vec::with_capacity(series.len());
     for one in series {
@@ -466,6 +655,20 @@ fn series_work(series: &[NewSeries<'_>]) -> Result<Vec<SeriesWork>, Error> {
             categories: one.categories.map(reference).transpose()?,
             values: reference(one.values)?,
             sizes: one.sizes.map(reference).transpose()?,
+            color: one.color,
+            labels: match one.labels {
+                None => None,
+                Some(labels) => Some(LabelsWork {
+                    flags: [
+                        labels.value,
+                        labels.category,
+                        labels.series_name,
+                        labels.percent,
+                    ],
+                    position: labels.position,
+                    format: labels.number_format.map(text).transpose()?,
+                }),
+            },
         });
     }
     Ok(work)
@@ -599,6 +802,8 @@ impl ChartWork {
     fn axes_bytes(&self, out: &mut Vec<u8>) {
         let x = &self.category_axis_title;
         let y = &self.value_axis_title;
+        let x_format = self.category_axis_format.as_deref();
+        let y_format = self.value_axis_format.as_deref();
         let primary = Axis {
             title: &None,
             format: None,
@@ -614,6 +819,7 @@ impl ChartWork {
                 };
                 let y_axis = Axis {
                     title: y,
+                    format: y_format,
                     ..primary
                 };
                 axis_bytes(
@@ -650,10 +856,12 @@ impl ChartWork {
                     if bars { (b"l", b"b") } else { (b"b", b"l") };
                 let x_axis = Axis {
                     title: x,
+                    format: x_format,
                     ..primary
                 };
                 let y_axis = Axis {
                     title: y,
+                    format: y_format,
                     ..primary
                 };
                 axis_bytes(out, b"10", category, false, &x_axis, b"20", Form::Category);
@@ -871,9 +1079,10 @@ fn plot_bytes(
 }
 
 /// Each series in order, `idx` and `order` its position counted from
-/// `first`; a scatter's and a bubble's references as `xVal` and `yVal`,
-/// both `numRef`, a bubble's sizes after them; a stock series' marker
-/// `none`.
+/// `first`; its colour after `tx`, with the line's colour on a line, 3D
+/// line, scatter, radar or stock plot; a stock series' marker `none`; its
+/// labels before the references; a scatter's and a bubble's references as
+/// `xVal` and `yVal`, both `numRef`, a bubble's sizes after them.
 fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: usize) {
     let scatter = matches!(plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
     let (x, x_form, y): (&[u8], &[u8], &[u8]) = if scatter {
@@ -897,8 +1106,29 @@ fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: 
                 out.extend_from_slice(b"</c:v></c:tx>");
             }
         }
+        if let Some(color) = series.color {
+            let fill = format!("<a:solidFill><a:srgbClr val=\"{color:06X}\"/></a:solidFill>");
+            out.extend_from_slice(b"<c:spPr>");
+            out.extend_from_slice(fill.as_bytes());
+            if matches!(
+                plot,
+                NewPlot::Line { .. }
+                    | NewPlot::Line3D { .. }
+                    | NewPlot::Scatter { .. }
+                    | NewPlot::Radar { .. }
+                    | NewPlot::Stock
+            ) {
+                out.extend_from_slice(b"<a:ln>");
+                out.extend_from_slice(fill.as_bytes());
+                out.extend_from_slice(b"</a:ln>");
+            }
+            out.extend_from_slice(b"</c:spPr>");
+        }
         if plot == NewPlot::Stock {
             out.extend_from_slice(b"<c:marker><c:symbol val=\"none\"/></c:marker>");
+        }
+        if let Some(labels) = &series.labels {
+            labels_bytes(out, labels);
         }
         if let Some(categories) = &series.categories {
             element_bytes(out, x, x_form, categories);
@@ -909,6 +1139,44 @@ fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: 
         }
         out.extend_from_slice(b"</c:ser>");
     }
+}
+
+/// A series' `dLbls`: the format, the position, then what a label shows.
+fn labels_bytes(out: &mut Vec<u8>, labels: &LabelsWork) {
+    out.extend_from_slice(b"<c:dLbls>");
+    if let Some(format) = &labels.format {
+        number_format(out, format);
+    }
+    if let Some(position) = labels.position {
+        value_element(
+            out,
+            b"dLblPos",
+            match position {
+                LabelPosition::BestFit => b"bestFit".as_slice(),
+                LabelPosition::Center => b"ctr",
+                LabelPosition::InsideEnd => b"inEnd",
+                LabelPosition::InsideBase => b"inBase",
+                LabelPosition::OutsideEnd => b"outEnd",
+                LabelPosition::Left => b"l",
+                LabelPosition::Right => b"r",
+                LabelPosition::Above => b"t",
+                LabelPosition::Below => b"b",
+            },
+        );
+    }
+    value_element(out, b"showLegendKey", b"0");
+    let names: [&[u8]; 4] = [b"showVal", b"showCatName", b"showSerName", b"showPercent"];
+    for (name, flag) in names.into_iter().zip(labels.flags) {
+        value_element(out, name, if flag { b"1" } else { b"0" });
+    }
+    out.extend_from_slice(b"<c:showBubbleSize val=\"0\"/></c:dLbls>");
+}
+
+/// A `numFmt` of the format code `format`, not source linked.
+fn number_format(out: &mut Vec<u8>, format: &str) {
+    out.extend_from_slice(b"<c:numFmt formatCode=\"");
+    out.extend_from_slice(format.as_bytes());
+    out.extend_from_slice(b"\" sourceLinked=\"0\"/>");
 }
 
 /// A `grouping` value.
@@ -942,9 +1210,9 @@ fn tag(out: &mut Vec<u8>, open: &[u8], name: &[u8]) {
     }
 }
 
-/// An axis's title, number format, deletion and crossing: part 4's axes
-/// take no format (`General`, source linked), are shown and cross at
-/// `autoZero`.
+/// An axis's title, number format, deletion and crossing: an axis with no
+/// format writes `General`, source linked; the primary axes are shown and
+/// cross at `autoZero`.
 #[derive(Clone, Copy)]
 struct Axis<'a> {
     title: &'a Option<String>,
@@ -991,11 +1259,7 @@ fn axis_bytes(
     }
     match (form, axis.format) {
         (Form::Series, _) => {}
-        (_, Some(format)) => {
-            out.extend_from_slice(b"<c:numFmt formatCode=\"");
-            out.extend_from_slice(format.as_bytes());
-            out.extend_from_slice(b"\" sourceLinked=\"0\"/>");
-        }
+        (_, Some(format)) => number_format(out, format),
         (_, None) => {
             out.extend_from_slice(b"<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/>")
         }

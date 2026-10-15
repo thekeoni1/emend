@@ -7747,12 +7747,16 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
             categories: Some(&categories),
             values: &first_values,
             sizes: None,
+            color: None,
+            labels: None,
         },
         NewSeries {
             name: Some(NewSeriesName::Reference(&second_name)),
             categories: None,
             values: &second_values,
             sizes: None,
+            color: None,
+            labels: None,
         },
     ];
     let chart = NewChart {
@@ -7764,6 +7768,8 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
         series: &series,
         category_axis_title: Some("emend categories"),
         value_axis_title: Some("emend values"),
+        category_axis_format: None,
+        value_axis_format: None,
         legend: Some(LegendPosition::Bottom),
         size: None,
         combined: None,
@@ -7974,6 +7980,8 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
         categories: Some(&categories),
         values: &values,
         sizes: None,
+        color: None,
+        labels: None,
     }];
     let plots = [
         NewPlot::Bar {
@@ -8007,6 +8015,8 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
             series: &series,
             category_axis_title: (!pie).then_some("emend x"),
             value_axis_title: (!pie).then_some("emend y"),
+            category_axis_format: None,
+            value_axis_format: None,
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
             combined: None,
@@ -8072,6 +8082,8 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
         categories: Some(&a),
         values: &b,
         sizes: None,
+        color: None,
+        labels: None,
     }];
     let bubble = [NewSeries {
         sizes: Some(&c),
@@ -8082,6 +8094,8 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
         categories: Some(&a),
         values,
         sizes: None,
+        color: None,
+        labels: None,
     });
     let plots: [(NewPlot, &[NewSeries<'_>]); 4] = [
         (NewPlot::Doughnut { hole_size: 50 }, &one),
@@ -8106,6 +8120,8 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
             series,
             category_axis_title: axes.then_some("emend x"),
             value_axis_title: axes.then_some("emend y"),
+            category_axis_format: None,
+            value_axis_format: None,
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
             combined: None,
@@ -8223,6 +8239,8 @@ fn chart_3d_sample(input: &Path, output: &Path) -> Result<(), Error> {
         categories: Some(&a),
         values: &b,
         sizes: None,
+        color: None,
+        labels: None,
     }];
     let over_c = [NewSeries {
         name: Some(NewSeriesName::Reference(&c_name)),
@@ -8274,6 +8292,8 @@ fn chart_3d_sample(input: &Path, output: &Path) -> Result<(), Error> {
             series: &one,
             category_axis_title: None,
             value_axis_title: None,
+            category_axis_format: None,
+            value_axis_format: None,
             legend: Some(LegendPosition::Bottom),
             size: Some((480, 288)),
             combined,

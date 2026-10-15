@@ -428,6 +428,8 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), Strin
         categories: Some("'probe'!$A$1:$A$2"),
         values: "'probe'!$B$1:$B$2",
         sizes: None,
+        color: None,
+        labels: None,
     }];
     let chart = NewChart {
         plot: NewPlot::Bar {
@@ -438,6 +440,8 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr) -> Result<(u64, u64), Strin
         series: &series,
         category_axis_title: Some("probe categories"),
         value_axis_title: Some("probe values"),
+        category_axis_format: None,
+        value_axis_format: None,
         legend: Some(LegendPosition::Bottom),
         size: None,
         combined: None,

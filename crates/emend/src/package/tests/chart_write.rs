@@ -2,8 +2,9 @@
 //! set.md`, "P1: the writer, bar and line charts", P1 rulings A to F, and
 //! "P2: pie, scatter and area charts; the catalogue"; `specs/0036-charts-
 //! write-second-set.md`, "P1: the compaction, doughnut, radar, bubble and
-//! stock charts", and "P2: the 3D kinds and combined charts", P2 rulings F
-//! to H):
+//! stock charts", "P2: the 3D kinds and combined charts", P2 rulings F
+//! to J, and "P3: labels, colours, number formats; `remove_chart`; the
+//! catalogue", P3 ruling L):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -13,8 +14,9 @@
 use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
-    ChartKind, Data, EditAs, Grouping, ImageAnchor, LegendPosition, NewChart, NewCombined, NewPlot,
-    NewSeries, NewSeriesName, Plot, RadarStyle, ScatterStyle, Series, SeriesName,
+    ChartKind, Data, EditAs, Grouping, ImageAnchor, LabelPosition, LegendPosition, NewChart,
+    NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, Plot, RadarStyle, ScatterStyle,
+    Series, SeriesName,
 };
 
 /// The drawing and chart parts' content types.
@@ -165,12 +167,16 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$B$2:$B$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
         categories: None,
         values: "Sheet1!$C$2:$C$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
 ];
 
@@ -186,6 +192,8 @@ fn column_chart() -> NewChart<'static> {
         series: &TWO_SERIES,
         category_axis_title: Some("Month"),
         value_axis_title: Some("Units"),
+        category_axis_format: None,
+        value_axis_format: None,
         legend: Some(LegendPosition::Bottom),
         size: None,
         combined: None,
@@ -199,6 +207,8 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         categories: None,
         values: "Sheet1!$B$2:$B$4",
         sizes: None,
+        color: None,
+        labels: None,
     }];
     NewChart {
         plot,
@@ -206,6 +216,8 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         series: &ONE,
         category_axis_title: None,
         value_axis_title: None,
+        category_axis_format: None,
+        value_axis_format: None,
         legend: None,
         size: None,
         combined: None,
@@ -928,6 +940,8 @@ fn texts_are_escaped_and_references_written_as_given() {
         categories: Some("'A&B''s'!$A$2:$A$4"),
         values: "'A&B''s'!$B$2:$B$4",
         sizes: None,
+        color: None,
+        labels: None,
     }];
     let chart = NewChart {
         title: Some("Tom's <plan> & more"),
@@ -1196,6 +1210,8 @@ fn titled<'a>(
         series,
         category_axis_title: axis_titles.0,
         value_axis_title: axis_titles.1,
+        category_axis_format: None,
+        value_axis_format: None,
         legend: Some(LegendPosition::Right),
         size: None,
         combined: None,
@@ -1208,6 +1224,8 @@ const ONE_NAMED: [NewSeries<'static>; 1] = [NewSeries {
     categories: Some("Sheet1!$A$2:$A$4"),
     values: "Sheet1!$B$2:$B$4",
     sizes: None,
+    color: None,
+    labels: None,
 }];
 
 /// `ONE_NAMED` as `charts` reads it.
@@ -1441,12 +1459,16 @@ const TWO_NAMED: [NewSeries<'static>; 2] = [
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$B$2:$B$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$C$2:$C$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
 ];
 
@@ -1593,12 +1615,16 @@ const BUBBLES: [NewSeries<'static>; 2] = [
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$B$2:$B$4",
         sizes: Some("Sheet1!$C$2:$C$4"),
+        color: None,
+        labels: None,
     },
     NewSeries {
         name: None,
         categories: None,
         values: "Sheet1!$D$2:$D$4",
         sizes: Some("Sheet1!$E$2:$E$4"),
+        color: None,
+        labels: None,
     },
 ];
 
@@ -1704,30 +1730,40 @@ const STOCK: [NewSeries<'static>; 5] = [
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$B$2:$B$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
     NewSeries {
         name: Some(NewSeriesName::Text("high")),
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$C$2:$C$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
     NewSeries {
         name: Some(NewSeriesName::Text("low")),
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$D$2:$D$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
     NewSeries {
         name: Some(NewSeriesName::Text("close")),
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$E$2:$E$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
     NewSeries {
         name: Some(NewSeriesName::Text("extra")),
         categories: Some("Sheet1!$A$2:$A$4"),
         values: "Sheet1!$F$2:$F$4",
         sizes: None,
+        color: None,
+        labels: None,
     },
 ];
 
@@ -2073,6 +2109,8 @@ const OVER_C: [NewSeries<'static>; 1] = [NewSeries {
     categories: Some("Sheet1!$A$2:$A$4"),
     values: "Sheet1!$C$2:$C$4",
     sizes: None,
+    color: None,
+    labels: None,
 }];
 
 /// A second plot `plot` over `OVER_C`, on the primary axes.
@@ -2531,5 +2569,1044 @@ fn the_combined_rules_and_texts_follow_the_check_order() {
     assert_package(
         call(box_anchor(), &first_reference).expect_err("refused"),
         TEXT,
+    );
+}
+
+/// Labels showing the value alone at `position`, with no format.
+fn value_labels(position: Option<LabelPosition>) -> NewLabels<'static> {
+    NewLabels {
+        value: true,
+        category: false,
+        series_name: false,
+        percent: false,
+        position,
+        number_format: None,
+    }
+}
+
+/// `base` with `labels` on every series.
+fn labelled<const N: usize>(
+    base: [NewSeries<'static>; N],
+    labels: NewLabels<'static>,
+) -> [NewSeries<'static>; N] {
+    base.map(|one| NewSeries {
+        labels: Some(labels),
+        ..one
+    })
+}
+
+/// The `dLbls` form: the format and the position when given, then the
+/// four flags `showVal`, `showCatName`, `showSerName`, `showPercent`.
+fn labels_written(format: Option<&str>, position: Option<&str>, flags: [u8; 4]) -> String {
+    let format = format.map_or(String::new(), |format| {
+        format!("<c:numFmt formatCode=\"{format}\" sourceLinked=\"0\"/>")
+    });
+    let position = position.map_or(String::new(), |position| {
+        format!("<c:dLblPos val=\"{position}\"/>")
+    });
+    let [value, category, name, percent] = flags;
+    format!(
+        "<c:dLbls>{format}{position}<c:showLegendKey val=\"0\"/><c:showVal val=\"{value}\"/>\
+         <c:showCatName val=\"{category}\"/><c:showSerName val=\"{name}\"/><c:showPercent \
+         val=\"{percent}\"/><c:showBubbleSize val=\"0\"/></c:dLbls>"
+    )
+}
+
+/// `ONE_NAMED`'s name as written.
+const ONE_NAMED_TX: &str = "<c:tx><c:strRef><c:f>Sheet1!$B$1</c:f></c:strRef></c:tx>";
+
+/// The clustered column plot.
+const COLUMN: NewPlot = NewPlot::Bar {
+    direction: BarDirection::Column,
+    grouping: Grouping::Clustered,
+};
+
+#[test]
+fn labels_on_a_bar_series_take_each_position_it_takes_and_refuse_another() {
+    for (position, written) in [
+        (LabelPosition::Center, "ctr"),
+        (LabelPosition::InsideEnd, "inEnd"),
+        (LabelPosition::InsideBase, "inBase"),
+        (LabelPosition::OutsideEnd, "outEnd"),
+    ] {
+        let series = labelled(ONE_NAMED, value_labels(Some(position)));
+        let chart = NewChart {
+            series: &series,
+            ..bare(COLUMN)
+        };
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        let expected = format!(
+            "{ONE_NAMED_TX}{}<c:cat>",
+            labels_written(None, Some(written), [1, 0, 0, 0])
+        );
+        assert!(part.contains(&expected), "{part}");
+        assert!(charts_of(&output)[0].chart.plots[0].series[0].labels);
+    }
+    // A position a clustered bar does not take, and `OutsideEnd` on a
+    // stacked bar, which takes the other three.
+    for position in [
+        LabelPosition::BestFit,
+        LabelPosition::Left,
+        LabelPosition::Right,
+        LabelPosition::Above,
+        LabelPosition::Below,
+    ] {
+        let series = labelled(ONE_NAMED, value_labels(Some(position)));
+        let chart = NewChart {
+            series: &series,
+            ..bare(COLUMN)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+    for grouping in [Grouping::Stacked, Grouping::PercentStacked] {
+        let stacked = NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping,
+        };
+        let outside = labelled(ONE_NAMED, value_labels(Some(LabelPosition::OutsideEnd)));
+        let chart = NewChart {
+            series: &outside,
+            ..bare(stacked)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        let center = labelled(ONE_NAMED, value_labels(Some(LabelPosition::Center)));
+        let chart = NewChart {
+            series: &center,
+            ..bare(stacked)
+        };
+        call(box_anchor(), &chart).expect("accepted");
+    }
+}
+
+#[test]
+fn each_plot_takes_the_label_positions_it_takes_and_no_other() {
+    use LabelPosition::{
+        Above, Below, BestFit, Center, InsideBase, InsideEnd, Left, OutsideEnd, Right,
+    };
+    const ALL: [LabelPosition; 9] = [
+        BestFit, Center, InsideEnd, InsideBase, OutsideEnd, Left, Right, Above, Below,
+    ];
+    let stock = [STOCK[0], STOCK[1], STOCK[2]];
+    let line_like: &[LabelPosition] = &[Center, Left, Right, Above, Below];
+    let round: &[LabelPosition] = &[BestFit, Center, InsideEnd, OutsideEnd];
+    // P3 ruling L: no position on the 3D bar, line and area; the 3D pie
+    // takes the pie's.
+    let cases: [(NewPlot, &[NewSeries<'static>], &[LabelPosition]); 13] = [
+        (
+            NewPlot::Line {
+                grouping: Grouping::Standard,
+            },
+            &ONE_NAMED,
+            line_like,
+        ),
+        (
+            NewPlot::Scatter {
+                style: ScatterStyle::Marker,
+            },
+            &ONE_NAMED,
+            line_like,
+        ),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Standard,
+            },
+            &ONE_NAMED,
+            line_like,
+        ),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Marker,
+            },
+            &ONE_NAMED,
+            line_like,
+        ),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Filled,
+            },
+            &ONE_NAMED,
+            &[],
+        ),
+        (NewPlot::Pie, &ONE_NAMED, round),
+        (NewPlot::Pie3D, &ONE_NAMED, round),
+        (NewPlot::Doughnut { hole_size: 50 }, &ONE_NAMED, &[]),
+        (
+            NewPlot::Area {
+                grouping: Grouping::Standard,
+            },
+            &ONE_NAMED,
+            &[],
+        ),
+        (NewPlot::Stock, &stock, &[]),
+        (NewPlot::Bubble, &BUBBLES, &[]),
+        (
+            NewPlot::Bar3D {
+                direction: BarDirection::Column,
+                grouping: Grouping::Clustered,
+            },
+            &ONE_NAMED,
+            &[],
+        ),
+        (
+            NewPlot::Line3D {
+                grouping: Grouping::Standard,
+            },
+            &ONE_NAMED,
+            &[],
+        ),
+    ];
+    let area_3d = (
+        NewPlot::Area3D {
+            grouping: Grouping::Standard,
+        },
+        &ONE_NAMED[..],
+        &[][..],
+    );
+    for (plot, base, takes) in cases.into_iter().chain([area_3d]) {
+        for position in ALL {
+            let series: Vec<NewSeries<'static>> = base
+                .iter()
+                .map(|one| NewSeries {
+                    labels: Some(value_labels(Some(position))),
+                    ..*one
+                })
+                .collect();
+            let chart = NewChart {
+                series: &series,
+                ..bare(plot)
+            };
+            let result = call(box_anchor(), &chart);
+            if takes.contains(&position) {
+                result.expect("accepted");
+            } else {
+                assert_package(result.expect_err("refused"), OPTION);
+            }
+        }
+        // Every plot takes labels with no position.
+        let series: Vec<NewSeries<'static>> = base
+            .iter()
+            .map(|one| NewSeries {
+                labels: Some(value_labels(None)),
+                ..*one
+            })
+            .collect();
+        let chart = NewChart {
+            series: &series,
+            ..bare(plot)
+        };
+        call(box_anchor(), &chart).expect("accepted");
+    }
+}
+
+#[test]
+fn a_percentage_on_a_pie_is_written_and_on_a_bar_is_refused() {
+    let percent = NewLabels {
+        value: false,
+        category: true,
+        series_name: true,
+        percent: true,
+        position: Some(LabelPosition::BestFit),
+        number_format: None,
+    };
+    let series = labelled(ONE_NAMED, percent);
+    let pie = NewChart {
+        series: &series,
+        ..bare(NewPlot::Pie)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &pie));
+    let part = text_of(&output, CHART1);
+    let expected = format!(
+        "{ONE_NAMED_TX}{}<c:cat>",
+        labels_written(None, Some("bestFit"), [0, 1, 1, 1])
+    );
+    assert!(part.contains(&expected), "{part}");
+    assert!(charts_of(&output)[0].chart.plots[0].series[0].labels);
+    for plot in [NewPlot::Pie3D, NewPlot::Doughnut { hole_size: 50 }] {
+        let chart = NewChart {
+            series: &labelled(
+                ONE_NAMED,
+                NewLabels {
+                    position: None,
+                    ..percent
+                },
+            ),
+            ..bare(plot)
+        };
+        call(box_anchor(), &chart).expect("accepted");
+    }
+    let no_position = labelled(
+        ONE_NAMED,
+        NewLabels {
+            position: None,
+            ..percent
+        },
+    );
+    for plot in [
+        COLUMN,
+        NewPlot::Line {
+            grouping: Grouping::Standard,
+        },
+        NewPlot::Area {
+            grouping: Grouping::Standard,
+        },
+    ] {
+        let chart = NewChart {
+            series: &no_position,
+            ..bare(plot)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+}
+
+#[test]
+fn a_label_format_is_written_escaped_in_the_label_bytes() {
+    // The reader does not model a label's format: the bytes show it.
+    let labels = NewLabels {
+        value: true,
+        category: false,
+        series_name: false,
+        percent: false,
+        position: Some(LabelPosition::OutsideEnd),
+        number_format: Some("#,##0\"<&>\""),
+    };
+    let series = labelled(ONE_NAMED, labels);
+    let chart = NewChart {
+        series: &series,
+        ..bare(COLUMN)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    let expected = format!(
+        "{ONE_NAMED_TX}{}<c:cat>",
+        labels_written(
+            Some("#,##0&quot;&lt;&amp;&gt;&quot;"),
+            Some("outEnd"),
+            [1, 0, 0, 0]
+        )
+    );
+    assert!(part.contains(&expected), "{part}");
+    // Every flag false is accepted and writes the form.
+    let none = labelled(
+        ONE_NAMED,
+        NewLabels {
+            value: false,
+            position: None,
+            number_format: None,
+            ..labels
+        },
+    );
+    let chart = NewChart {
+        series: &none,
+        ..bare(COLUMN)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    assert!(
+        text_of(&output, CHART1).contains(&labels_written(None, None, [0, 0, 0, 0])),
+        "the form with every flag false"
+    );
+    assert!(charts_of(&output)[0].chart.plots[0].series[0].labels);
+}
+
+#[test]
+fn a_colour_on_a_bar_series_reads_back_and_on_a_line_series_writes_the_line() {
+    let coloured = [NewSeries {
+        color: Some(0x0A_0B0C),
+        ..ONE_NAMED[0]
+    }];
+    let fill = "<a:solidFill><a:srgbClr val=\"0A0B0C\"/></a:solidFill>";
+    let bar = NewChart {
+        series: &coloured,
+        ..bare(COLUMN)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &bar));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!("{ONE_NAMED_TX}<c:spPr>{fill}</c:spPr><c:cat>")),
+        "{part}"
+    );
+    assert_eq!(
+        charts_of(&output)[0].chart.plots[0].series[0].fill,
+        Some(0x0A_0B0C)
+    );
+    // The line's colour too on the plots whose line is what shows; the
+    // fill alone on the others, a pie's colouring the whole series.
+    for (plot, line) in [
+        (
+            NewPlot::Line {
+                grouping: Grouping::Standard,
+            },
+            true,
+        ),
+        (
+            NewPlot::Line3D {
+                grouping: Grouping::Standard,
+            },
+            true,
+        ),
+        (
+            NewPlot::Scatter {
+                style: ScatterStyle::Marker,
+            },
+            true,
+        ),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Filled,
+            },
+            true,
+        ),
+        (
+            NewPlot::Area {
+                grouping: Grouping::Standard,
+            },
+            false,
+        ),
+        (NewPlot::Pie, false),
+        (NewPlot::Doughnut { hole_size: 50 }, false),
+    ] {
+        let chart = NewChart {
+            series: &coloured,
+            ..bare(plot)
+        };
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let ln = if line {
+            format!("<a:ln>{fill}</a:ln>")
+        } else {
+            String::new()
+        };
+        let part = text_of(&output, CHART1);
+        assert!(
+            part.contains(&format!("{ONE_NAMED_TX}<c:spPr>{fill}{ln}</c:spPr>")),
+            "{part}"
+        );
+        assert_eq!(
+            charts_of(&output)[0].chart.plots[0].series[0].fill,
+            Some(0x0A_0B0C)
+        );
+    }
+    // The colour before the labels, both after the name.
+    let both = [NewSeries {
+        color: Some(0xFF_FFFF),
+        labels: Some(value_labels(None)),
+        ..ONE_NAMED[0]
+    }];
+    let chart = NewChart {
+        series: &both,
+        ..bare(COLUMN)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    assert!(text_of(&output, CHART1).contains(&format!(
+        "{ONE_NAMED_TX}<c:spPr><a:solidFill><a:srgbClr val=\"FFFFFF\"/></a:solidFill></c:spPr>{}\
+         <c:cat>",
+        labels_written(None, None, [1, 0, 0, 0])
+    )));
+}
+
+#[test]
+fn a_colour_above_ffffff_is_refused() {
+    let series = [NewSeries {
+        color: Some(0x100_0000),
+        ..ONE_NAMED[0]
+    }];
+    let chart = NewChart {
+        series: &series,
+        ..bare(COLUMN)
+    };
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn a_colour_on_a_stock_series_is_refused() {
+    // P1 ruling B: the lines are the high-low lines.
+    let mut stock = [STOCK[0], STOCK[1], STOCK[2]];
+    stock[1].color = Some(0x1F_77B4);
+    let chart = NewChart {
+        series: &stock,
+        ..bare(NewPlot::Stock)
+    };
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn each_axis_format_is_written_and_read_back() {
+    let chart = NewChart {
+        category_axis_format: Some("@"),
+        value_axis_format: Some("#,##0.00"),
+        ..column_chart()
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "{}<c:numFmt formatCode=\"@\" sourceLinked=\"0\"/>",
+            title("Month")
+        )),
+        "{part}"
+    );
+    assert!(
+        part.contains(&format!(
+            "{}<c:numFmt formatCode=\"#,##0.00\" sourceLinked=\"0\"/>",
+            title("Units")
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    let formats: Vec<Option<&str>> = read
+        .axes
+        .iter()
+        .map(|axis| axis.number_format.as_deref())
+        .collect();
+    assert_eq!(formats, [Some("@"), Some("#,##0.00")]);
+    // A scatter's y axis takes the value format; its x axis keeps
+    // `General`.
+    let scatter = NewChart {
+        value_axis_format: Some("0.0%"),
+        ..bare(NewPlot::Scatter {
+            style: ScatterStyle::Marker,
+        })
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &scatter));
+    let formats: Vec<Option<String>> = charts_of(&output)[0]
+        .chart
+        .axes
+        .iter()
+        .map(|axis| axis.number_format.clone())
+        .collect();
+    assert_eq!(
+        formats,
+        [Some("General".to_owned()), Some("0.0%".to_owned())]
+    );
+    // A 3D plot's series axis takes no format.
+    let bar_3d = NewChart {
+        category_axis_format: Some("@"),
+        value_axis_format: Some("0"),
+        ..bare(NewPlot::Bar3D {
+            direction: BarDirection::Column,
+            grouping: Grouping::Standard,
+        })
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &bar_3d));
+    let formats: Vec<Option<String>> = charts_of(&output)[0]
+        .chart
+        .axes
+        .iter()
+        .map(|axis| axis.number_format.clone())
+        .collect();
+    assert_eq!(formats, [Some("@".to_owned()), Some("0".to_owned()), None]);
+}
+
+#[test]
+fn a_format_on_a_pie_or_a_category_format_on_a_scatter_is_refused() {
+    for plot in [
+        NewPlot::Pie,
+        NewPlot::Pie3D,
+        NewPlot::Doughnut { hole_size: 50 },
+    ] {
+        for (category, value) in [(Some("@"), None), (None, Some("0"))] {
+            let chart = NewChart {
+                category_axis_format: category,
+                value_axis_format: value,
+                ..bare(plot)
+            };
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+    }
+    let scatter = NewChart {
+        category_axis_format: Some("0"),
+        ..bare(NewPlot::Scatter {
+            style: ScatterStyle::Marker,
+        })
+    };
+    assert_package(call(box_anchor(), &scatter).expect_err("refused"), OPTION);
+    let bubble = NewChart {
+        series: &BUBBLES,
+        category_axis_format: Some("0"),
+        ..bare(NewPlot::Bubble)
+    };
+    assert_package(call(box_anchor(), &bubble).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn a_combined_second_plot_s_series_take_labels_and_colours_by_its_own_rules() {
+    // P3 ruling L: the second plot's series are checked as its kind's.
+    let labelled_c = [NewSeries {
+        color: Some(0x2C_A02C),
+        labels: Some(value_labels(Some(LabelPosition::Above))),
+        ..OVER_C[0]
+    }];
+    let chart = combined(NewCombined {
+        series: &labelled_c,
+        ..second(NewPlot::Line {
+            grouping: Grouping::Standard,
+        })
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let fill = "<a:solidFill><a:srgbClr val=\"2CA02C\"/></a:solidFill>";
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:spPr>{fill}<a:ln>{fill}</a:ln></c:spPr>{}<c:cat>",
+            labels_written(None, Some("t"), [1, 0, 0, 0])
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart.plots[1].series[0];
+    assert_eq!((read.fill, read.labels), (Some(0x2C_A02C), true));
+    // A bar's position on the line second, and a percentage, refused.
+    for labels in [
+        value_labels(Some(LabelPosition::InsideEnd)),
+        NewLabels {
+            percent: true,
+            ..value_labels(None)
+        },
+    ] {
+        let series = [NewSeries {
+            labels: Some(labels),
+            ..OVER_C[0]
+        }];
+        let chart = combined(NewCombined {
+            series: &series,
+            ..second(NewPlot::Line {
+                grouping: Grouping::Standard,
+            })
+        });
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+}
+
+#[test]
+fn the_new_texts_follow_the_check_order() {
+    // The axis formats after the axis titles and before the secondary
+    // ones; a label format after the series' references.
+    for chart in [
+        NewChart {
+            category_axis_format: Some(""),
+            ..column_chart()
+        },
+        NewChart {
+            value_axis_format: Some("0\u{1}"),
+            ..column_chart()
+        },
+    ] {
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), TEXT);
+    }
+    let bad_format = labelled(
+        ONE_NAMED,
+        NewLabels {
+            number_format: Some("\u{ffff}"),
+            ..value_labels(None)
+        },
+    );
+    let chart = NewChart {
+        series: &bad_format,
+        ..bare(COLUMN)
+    };
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), TEXT);
+    // An option rule broken beside each bad text gives the rule's message.
+    let coloured = [NewSeries {
+        color: Some(0x100_0000),
+        ..bad_format[0]
+    }];
+    let chart = NewChart {
+        series: &coloured,
+        category_axis_format: Some(""),
+        ..bare(COLUMN)
+    };
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+/// The chart style and colours parts' content and relationship types.
+const STYLE_TYPE: &str = "application/vnd.ms-office.chartstyle+xml";
+const COLORS_TYPE: &str = "application/vnd.ms-office.chartcolorstyle+xml";
+const STYLE_REL: &str = "http://schemas.microsoft.com/office/2011/relationships/chartStyle";
+const COLORS_REL: &str = "http://schemas.microsoft.com/office/2011/relationships/chartColorStyle";
+
+/// The messages of the removal.
+const NO_CHART: &str = "no chart at that position";
+const CHART_PART: &str = "a chart part cannot be read";
+
+/// A kept chart part titled `Kept k`.
+fn kept_chart(k: u32) -> String {
+    chart_part(&format!(
+        "{}<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/></c:plotArea>",
+        title(&format!("Kept {k}"))
+    ))
+}
+
+/// The kept anchor holding the frame of the `k`-th chart, naming `rId<k>`.
+fn chart_anchor(k: u32) -> String {
+    kept_anchor(k, 0, &frame(k, &format!("rId{k}")))
+}
+
+/// The drawing's relationship to the `k`-th chart part.
+fn chart_rel(k: u32) -> String {
+    relationship(
+        &format!("rId{k}"),
+        &format!("{ATTR_NS}/chart"),
+        &format!("../charts/chart{k}.xml"),
+    )
+}
+
+/// A sheet whose drawing holds `count` charts, the `k`-th's frame naming
+/// `xl/charts/chart<k>.xml` through `rId<k>`, each chart part with its
+/// `Override` and a rels part naming a style part and its own colours
+/// part, `colors<k>.xml`; the style part is the chart's own,
+/// `style<k>.xml`, or `style1.xml` for every chart when `shared`. Each
+/// style and colours part has its `Override`.
+fn charted(count: u32, shared: bool) -> Parts {
+    let anchors: String = (1..=count).map(chart_anchor).collect();
+    let drawing_rels: String = (1..=count).map(chart_rel).collect();
+    let mut parts = with_drawing(BODY, drawing_xml(&anchors), Some(&drawing_rels), false);
+    for k in 1..=count {
+        with_part(
+            &mut parts,
+            &format!("xl/charts/chart{k}.xml"),
+            &kept_chart(k),
+            Some(CHART_TYPE),
+        );
+        let style = if shared { 1 } else { k };
+        with_part(
+            &mut parts,
+            &format!("xl/charts/_rels/chart{k}.xml.rels"),
+            &rels(&format!(
+                "{}{}",
+                relationship("rId1", STYLE_REL, &format!("style{style}.xml")),
+                relationship("rId2", COLORS_REL, &format!("colors{k}.xml")),
+            )),
+            None,
+        );
+        if !shared || k == 1 {
+            with_part(
+                &mut parts,
+                &format!("xl/charts/style{k}.xml"),
+                &format!("{DECLARATION}\n<cs:chartStyle xmlns:cs=\"urn:emend:style\" id=\"{k}\"/>"),
+                Some(STYLE_TYPE),
+            );
+        }
+        with_part(
+            &mut parts,
+            &format!("xl/charts/colors{k}.xml"),
+            &format!("{DECLARATION}\n<cs:colorStyle xmlns:cs=\"urn:emend:style\" id=\"{k}\"/>"),
+            Some(COLORS_TYPE),
+        );
+    }
+    parts
+}
+
+/// Records the removal of the chart at `index`.
+#[track_caller]
+fn remove(package: &mut Package<Cursor<Vec<u8>>>, index: usize) {
+    package.remove_chart(SHEET, index).expect("recorded");
+}
+
+/// Whether the output holds an entry `name`.
+fn has(output: &[u8], name: &str) -> bool {
+    let package = Package::open(Cursor::new(output.to_vec())).expect("open the output");
+    package.part(name.as_bytes()).is_some()
+}
+
+/// The content types of `parts` less the `Override` of each part named.
+fn types_without(parts: &Parts, names: &[&str]) -> String {
+    let mut types = part_text(parts, b"[Content_Types].xml");
+    for name in names {
+        let start = types
+            .find(&format!("<Override PartName=\"/{name}\""))
+            .expect("the override");
+        let end = start + types[start..].find("/>").expect("its end") + 2;
+        types.replace_range(start..end, "");
+    }
+    types
+}
+
+/// The entries of `parts` other than those named.
+fn kept_names<'a>(parts: &'a Parts, gone: &[&str]) -> Vec<&'a [u8]> {
+    parts
+        .iter()
+        .map(|(name, _)| name.as_slice())
+        .filter(|name| !gone.iter().any(|gone| gone.as_bytes() == *name))
+        .collect()
+}
+
+#[test]
+fn a_removal_of_the_only_chart_drops_its_parts_and_the_drawing() {
+    let mut parts = charted(1, false);
+    // An external relationship of the chart's rels part goes with it and
+    // reaches nothing.
+    let chart_rels = part_text(&parts, b"xl/charts/_rels/chart1.xml.rels").replace(
+        "</Relationships>",
+        &format!(
+            "<Relationship Id=\"rId3\" Type=\"{ATTR_NS}/hyperlink\" \
+             Target=\"https://example.invalid/\" TargetMode=\"External\"/></Relationships>"
+        ),
+    );
+    set(&mut parts, b"xl/charts/_rels/chart1.xml.rels", chart_rels);
+    let output = edited_output(parts.clone(), |p| remove(p, 0));
+    let gone = [
+        "xl/drawings/drawing1.xml",
+        "xl/drawings/_rels/drawing1.xml.rels",
+        "xl/charts/chart1.xml",
+        "xl/charts/_rels/chart1.xml.rels",
+        "xl/charts/style1.xml",
+        "xl/charts/colors1.xml",
+    ];
+    for name in gone {
+        assert!(!has(&output, name), "{name}");
+    }
+    assert_eq!(text_of(&output, SHEET), sheet_r("<sheetData/>"));
+    assert_eq!(text_of(&output, SHEET_RELS), rels(""));
+    assert_eq!(
+        text_of(&output, b"[Content_Types].xml"),
+        types_without(
+            &parts,
+            &[
+                "xl/drawings/drawing1.xml",
+                "xl/charts/chart1.xml",
+                "xl/charts/style1.xml",
+                "xl/charts/colors1.xml",
+            ]
+        )
+    );
+    let mut except: Vec<&[u8]> = vec![SHEET, SHEET_RELS, b"[Content_Types].xml"];
+    except.extend(gone.iter().map(|name| name.as_bytes()));
+    assert_untouched(&output, &parts, &except);
+    assert_names(&output, &kept_names(&parts, &gone));
+    assert_eq!(charts_of(&output), []);
+}
+
+#[test]
+fn a_removal_of_the_first_of_two_keeps_the_second_byte_for_byte() {
+    let parts = charted(2, false);
+    let output = edited_output(parts.clone(), |p| remove(p, 0));
+    assert_eq!(text_of(&output, DRAWING), drawing_xml(&chart_anchor(2)));
+    assert_eq!(text_of(&output, DRAWING_RELS), rels(&chart_rel(2)));
+    let gone = [
+        "xl/charts/chart1.xml",
+        "xl/charts/_rels/chart1.xml.rels",
+        "xl/charts/style1.xml",
+        "xl/charts/colors1.xml",
+    ];
+    assert_eq!(
+        text_of(&output, b"[Content_Types].xml"),
+        types_without(
+            &parts,
+            &[
+                "xl/charts/chart1.xml",
+                "xl/charts/style1.xml",
+                "xl/charts/colors1.xml",
+            ]
+        )
+    );
+    let mut except: Vec<&[u8]> = vec![DRAWING, DRAWING_RELS, b"[Content_Types].xml"];
+    except.extend(gone.iter().map(|name| name.as_bytes()));
+    assert_untouched(&output, &parts, &except);
+    assert_names(&output, &kept_names(&parts, &gone));
+    let read = charts_of(&output);
+    assert_eq!(read.len(), 1);
+    assert_eq!(read[0].part, b"xl/charts/chart2.xml");
+    assert_eq!(read[0].chart.title.as_deref(), Some("Kept 2"));
+}
+
+#[test]
+fn a_removal_keeps_a_style_part_another_chart_reaches() {
+    let parts = charted(2, true);
+    let output = edited_output(parts.clone(), |p| remove(p, 0));
+    for name in [
+        "xl/charts/chart1.xml",
+        "xl/charts/_rels/chart1.xml.rels",
+        "xl/charts/colors1.xml",
+    ] {
+        assert!(!has(&output, name), "{name}");
+    }
+    assert!(has(&output, "xl/charts/style1.xml"));
+    assert_eq!(
+        text_of(&output, b"[Content_Types].xml"),
+        types_without(&parts, &["xl/charts/chart1.xml", "xl/charts/colors1.xml"])
+    );
+    assert_eq!(
+        text_of(&output, b"xl/charts/style1.xml"),
+        part_text(&parts, b"xl/charts/style1.xml")
+    );
+}
+
+#[test]
+fn a_removal_takes_the_user_shapes_and_what_only_they_reach() {
+    let mut parts = charted(1, false);
+    let chart_rels = part_text(&parts, b"xl/charts/_rels/chart1.xml.rels").replace(
+        "</Relationships>",
+        &format!(
+            "{}</Relationships>",
+            relationship(
+                "rId3",
+                &format!("{ATTR_NS}/chartUserShapes"),
+                "../drawings/drawing2.xml"
+            )
+        ),
+    );
+    set(&mut parts, b"xl/charts/_rels/chart1.xml.rels", chart_rels);
+    with_part(
+        &mut parts,
+        "xl/drawings/drawing2.xml",
+        &format!("{DECLARATION}\n<c:userShapes xmlns:c=\"{C_NS}\"/>"),
+        Some("application/vnd.openxmlformats-officedocument.drawingml.chartshapes+xml"),
+    );
+    with_part(
+        &mut parts,
+        "xl/drawings/_rels/drawing2.xml.rels",
+        &rels(&relationship(
+            "rId1",
+            &format!("{ATTR_NS}/image"),
+            "../media/image1.png",
+        )),
+        None,
+    );
+    parts.push((b"xl/media/image1.png".to_vec(), PNG.to_vec()));
+    let output = edited_output(parts, |p| remove(p, 0));
+    for name in [
+        "xl/charts/chart1.xml",
+        "xl/drawings/drawing2.xml",
+        "xl/drawings/_rels/drawing2.xml.rels",
+        "xl/media/image1.png",
+    ] {
+        assert!(!has(&output, name), "{name}");
+    }
+}
+
+#[test]
+fn an_index_past_the_list_named_twice_or_with_an_addition_is_refused() {
+    let parts = charted(2, false);
+    assert_package(refused_with(parts.clone(), |p| remove(p, 2)), NO_CHART);
+    assert_package(
+        refused_with(parts.clone(), |p| {
+            remove(p, 1);
+            remove(p, 1);
+        }),
+        NO_CHART,
+    );
+    assert_package(
+        refused_with(parts.clone(), |p| {
+            remove(p, 0);
+            add(p, box_anchor(), &column_chart());
+        }),
+        NO_CHART,
+    );
+    assert_package(
+        refused_with(parts, |p| {
+            add(p, box_anchor(), &column_chart());
+            remove(p, 0);
+        }),
+        NO_CHART,
+    );
+    // A sheet with no drawing has no chart at any position, and a picture
+    // is not a chart.
+    assert_package(refused_with(smallest(), |p| remove(p, 0)), NO_CHART);
+    let picture_rel = relationship("rId1", &format!("{ATTR_NS}/image"), "../media/image1.png");
+    let pictured = with_drawing(
+        BODY,
+        drawing_xml(&kept_anchor(0, 0, &pic(1, "rId1"))),
+        Some(&picture_rel),
+        true,
+    );
+    assert_package(refused_with(pictured, |p| remove(p, 0)), NO_CHART);
+}
+
+#[test]
+fn a_frame_naming_no_chart_part_is_refused_at_the_write() {
+    // The chart part missing.
+    let mut missing = charted(1, false);
+    missing.retain(|(name, _)| name.as_slice() != CHART1);
+    assert_package(refused_with(missing, |p| remove(p, 0)), CHART_PART);
+    // The relationship missing.
+    let mut no_rel = charted(1, false);
+    set(&mut no_rel, DRAWING_RELS, rels(""));
+    assert_package(refused_with(no_rel, |p| remove(p, 0)), CHART_PART);
+    // A part whose root is not `chartSpace`.
+    let mut other = charted(1, false);
+    set(
+        &mut other,
+        CHART1,
+        format!("{DECLARATION}\n<c:chart xmlns:c=\"{C_NS}\"/>"),
+    );
+    assert_package(refused_with(other, |p| remove(p, 0)), CHART_PART);
+}
+
+#[test]
+fn a_chart_removal_on_a_removed_or_replaced_part_is_refused() {
+    let parts = charted(1, false);
+    assert_package(
+        refused_with(parts.clone(), |p| {
+            p.remove_part(SHEET);
+            remove(p, 0);
+        }),
+        "an edit to a removed part",
+    );
+    assert_package(
+        refused_with(parts.clone(), |p| {
+            p.replace_part(SHEET, replacement_from_reader(Cursor::new(b"x".to_vec())));
+            remove(p, 0);
+        }),
+        "a cell edit to a part this write replaces",
+    );
+    assert_package(
+        refused_with(parts, |p| {
+            p.remove_part(DRAWING);
+            remove(p, 0);
+        }),
+        "an edit to a removed part",
+    );
+}
+
+#[cfg(feature = "images")]
+#[test]
+fn an_image_and_a_chart_removed_from_one_sheet_in_one_write() {
+    let anchors = format!("{}{}", kept_anchor(0, 0, &pic(1, "rId1")), chart_anchor(2));
+    let drawing_rels = format!(
+        "{}{}",
+        relationship("rId1", &format!("{ATTR_NS}/image"), "../media/image1.png"),
+        chart_rel(2)
+    );
+    let mut parts = with_drawing(BODY, drawing_xml(&anchors), Some(&drawing_rels), true);
+    with_part(
+        &mut parts,
+        "xl/charts/chart2.xml",
+        &kept_chart(2),
+        Some(CHART_TYPE),
+    );
+    // Each alone keeps the drawing with the other.
+    let output = edited_output(parts.clone(), |p| remove(p, 0));
+    assert_eq!(
+        text_of(&output, DRAWING),
+        drawing_xml(&kept_anchor(0, 0, &pic(1, "rId1")))
+    );
+    assert!(!has(&output, "xl/charts/chart2.xml"));
+    let output = edited_output(parts.clone(), |p| {
+        p.remove_image(SHEET, 0).expect("recorded")
+    });
+    assert_eq!(text_of(&output, DRAWING), drawing_xml(&chart_anchor(2)));
+    // Both in one write empty the drawing.
+    let output = edited_output(parts.clone(), |p| {
+        remove(p, 0);
+        p.remove_image(SHEET, 0).expect("recorded");
+    });
+    let gone = [
+        "xl/drawings/drawing1.xml",
+        "xl/drawings/_rels/drawing1.xml.rels",
+        "xl/media/image1.png",
+        "xl/charts/chart2.xml",
+    ];
+    for name in gone {
+        assert!(!has(&output, name), "{name}");
+    }
+    assert_eq!(text_of(&output, SHEET), sheet_r("<sheetData/>"));
+    assert_names(&output, &kept_names(&parts, &gone));
+    // A chart removal named twice beside an image removal is refused as a
+    // chart's.
+    assert_package(
+        refused_with(parts, |p| {
+            p.remove_image(SHEET, 0).expect("recorded");
+            remove(p, 0);
+            remove(p, 0);
+        }),
+        NO_CHART,
     );
 }
