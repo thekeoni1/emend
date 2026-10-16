@@ -25,7 +25,10 @@
 # podman client and not the container, so after exit 124 the runner removes
 # the container by name with podman rm -f --time 0 (no grace period), its
 # output and exit kept in the run subdirectory; at the end it counts the
-# image's containers and fails if any remain (ruling A).
+# image's containers and fails if any remain (ruling A). The count runs in
+# an EXIT trap, so it is printed whatever ends the script once the work
+# directory exists, a die inside the loop included (specs/0037 "Planning
+# verification of P1", ruling I).
 #
 # Outcomes (ruling B): ok, exit 0 with an output file; no-output, exit 0
 # without one; timeout, exit 124; cap, exit 137 (the ops script's MemoryError);
@@ -108,7 +111,29 @@ fi
 mkdir -p "$OUT" || die "cannot create the run directory"
 
 WORK=$(mktemp -d) || die "cannot create a temporary directory"
-trap 'rm -rf "${WORK:?}"' EXIT
+
+# finish: on every exit from here on, count the image's containers, print the
+# count line, fail if any remain or the count cannot be made, and remove the
+# work directory (ruling I). A non-zero status already on its way out is kept.
+finish() {
+  local rc=$? remaining=""
+  if podman ps -a --filter "ancestor=$IMAGE" --format '{{.Names}}' </dev/null >"$WORK/containers" 3>&-; then
+    remaining=$(awk 'NF { n++ } END { print n + 0 }' "$WORK/containers")
+  fi
+  if [ -z "$remaining" ]; then
+    echo "error: cannot count the image's containers" >&"$DIE_FD"
+    rc=2
+  else
+    echo "containers of the image remaining: $remaining"
+    if [ "$remaining" != 0 ]; then
+      echo "error: containers of the image remain after the run: $remaining" >&"$DIE_FD"
+      rc=2
+    fi
+  fi
+  rm -rf "${WORK:?}"
+  exit "$rc"
+}
+trap finish EXIT
 
 # The manifest's id, ext, producer and tags columns, in manifest order. The
 # private columns are never read into the script.
@@ -268,9 +293,5 @@ printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "
   die "cannot append to run.$LABEL.tsv"
 echo "files $n_files ok $n_ok error $n_error timeout $n_timeout cap $n_cap no-output $n_nooutput"
 
-# No container of the image may outlive the run (ruling A).
-podman ps -a --filter "ancestor=$IMAGE" --format '{{.Names}}' </dev/null >"$WORK/containers" 3>&- ||
-  die "cannot list the image's containers"
-remaining=$(awk 'NF { n++ } END { print n + 0 }' "$WORK/containers") || die "cannot count the image's containers"
-echo "containers of the image remaining: $remaining"
-[ "$remaining" = 0 ] || die "containers of the image remain after the run: $remaining"
+# No container of the image may outlive the run (ruling A): the EXIT trap,
+# finish, counts them and prints the line (ruling I).
