@@ -1,0 +1,17 @@
+# The openpyxl image for the comparison of specs/0037-measurement-and-close.md
+# ("The openpyxl image", decision 1 A): the LibreOffice image's base digest,
+# Debian trixie's python3-openpyxl pinned, python3-pil for an added image.
+# Built rootless with
+#   podman build -t localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 tools/openpyxl-image
+# Run by scripts/compare-run.sh with --network=none --userns=keep-id; it
+# has no entrypoint, the runner names the command.
+FROM docker.io/library/debian@sha256:abc9cb88a5587630d7f915f47b23b0668fe250fbfc6457aa4d52b534c1bbf73f
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3-openpyxl=3.1.5+dfsg-2 python3-pil \
+ && dpkg-query -W -f '${db:Status-Abbrev}\t${Package}\t${Version}\n' 'python3*' \
+      | awk -F '\t' '$1 ~ /^ii/ { print $2 "\t" $3 }' > /py-packages.txt \
+ && apt-get clean \
+ && find /var/lib/apt/lists -mindepth 1 -delete
+ENV HOME=/tmp
+WORKDIR /work
