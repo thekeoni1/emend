@@ -28,7 +28,12 @@ entries tables have the runner's headers, the outcomes are openpyxl's own
 (the image id, the openpyxl version and the op in place of rustc, zip, the
 passthrough binary and the tool arguments), and the Binaries line names the
 image id, the ops script's sha256 and xlsx-diff's. An openpyxl run directory
-holds that one label, so its record is written with --allow-single.
+holds that one label, so its record is written with --allow-single. When the
+run directory holds empty.openpyxl.tsv (header run, wall_s; three rows), the
+time of an empty run of the image that the P2 run log writes, the record
+names its median as the container start the openpyxl wall times include
+(specs/0037 "Planning verification of P1", ruling K, and "Planning rulings
+during P2", ruling P).
 
 It never reads the corpus manifest, so no original name or note can reach the
 record: a workbook is cited by id, producer and tags only, and entry names
@@ -96,6 +101,24 @@ OPENPYXL_RUN_HEADER = [
     "commit", "started", "ended", "image_id", "openpyxl", "timeout_s",
     "lo_timeout_s", "memory_mib", "ops_sha256", "xlsx_diff_sha256", "files", "op",
 ]
+
+
+EMPTY_HEADER = ["run", "wall_s"]
+
+
+def empty_timing(run_dir):
+    """The empty runs' wall times and their median from empty.openpyxl.tsv,
+    or None when the file is absent. Three rows, run 1 to 3, each a time in
+    seconds with two decimals."""
+    path = os.path.join(run_dir, "empty.openpyxl.tsv")
+    if not os.path.exists(path):
+        return None
+    rows = read_table(path, EMPTY_HEADER, "empty.openpyxl.tsv")
+    if [r["run"] for r in rows] != ["1", "2", "3"] or not all(
+            re.fullmatch(r"[0-9]+[.][0-9]{2}", r["wall_s"]) for r in rows):
+        raise Failure("empty.openpyxl.tsv does not hold runs 1 to 3, each a time in seconds")
+    times = sorted(float(r["wall_s"]) for r in rows)
+    return [r["wall_s"] for r in rows], "%.2f" % times[1]
 
 
 def outcomes_of(label):
@@ -389,7 +412,7 @@ def write_tsv(path, labels, data):
         handle.write("\n".join(lines) + "\n")
 
 
-def write_md(path, run_name, stem, labels, data):
+def write_md(path, run_name, stem, labels, data, empty=None):
     """The record's prose table. `stem` names the companion .txt, which is not
     always "step0-" + run_name: --stem overrides it."""
     runs = [row for label in labels for row in data[label][2]]
@@ -433,6 +456,10 @@ def write_md(path, run_name, stem, labels, data):
         out.append("- openpyxl: version %s; op %s" % (
             ", ".join(distinct(r["openpyxl"] for r in openpyxl_runs)),
             ", ".join(distinct(r["op"] for r in openpyxl_runs))))
+    if empty is not None:
+        out.append("- Container start: an empty run of the image (python3 -I -B -c pass, the same"
+                   " mounts and flags), three runs %s s, median %s s; the openpyxl wall times"
+                   " include it (specs/0037 rulings K and P)" % (", ".join(empty[0]), empty[1]))
     out += [binaries_line(label, data[label][2]) for label in labels]
     # Every outcome any present label can have, in the order of each set.
     columns = tuple(distinct(o for label in labels for o in outcomes_of(label)))
@@ -561,10 +588,11 @@ def main(argv):
     if not os.path.isdir(out_dir):
         raise Failure("the output directory does not exist")
     labels, data = load(run_dir)
+    empty = empty_timing(run_dir) if "openpyxl" in labels else None
     if len(labels) == 1 and not args.allow_single:
         raise Failure("the run directory has only the %s label; give --allow-single for a single-label record" % labels[0])
     write_tsv(os.path.join(out_dir, stem + ".txt"), labels, data)
-    write_md(os.path.join(out_dir, stem + ".md"), run_name, stem, labels, data)
+    write_md(os.path.join(out_dir, stem + ".md"), run_name, stem, labels, data, empty)
     print("wrote %s.txt and %s.md: labels %s; files %s; entry rows %s; xml rows %s" % (
         stem, stem, ",".join(labels),
         ",".join(str(len(data[l][0])) for l in labels),
