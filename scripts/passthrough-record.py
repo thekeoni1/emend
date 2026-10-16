@@ -20,6 +20,16 @@ The xml rows carry names and counts only; no value reaches them. The stem defaul
 step0-<run directory name>, the directory to records/ in the repository. A
 run directory with only one label is refused unless --allow-single is given.
 
+From Milestone 5 part 6 P1 (specs/0037-measurement-and-close.md, "The
+comparison runner" and "Planning rulings during P1", ruling E) it also takes
+the label openpyxl, which scripts/compare-run.sh writes: the summary and
+entries tables have the runner's headers, the outcomes are openpyxl's own
+(ok, error, timeout, cap, no-output), run.openpyxl.tsv has its own header
+(the image id, the openpyxl version and the op in place of rustc, zip, the
+passthrough binary and the tool arguments), and the Binaries line names the
+image id, the ops script's sha256 and xlsx-diff's. An openpyxl run directory
+holds that one label, so its record is written with --allow-single.
+
 It never reads the corpus manifest, so no original name or note can reach the
 record: a workbook is cited by id, producer and tags only, and entry names
 appear as the harness prints them. Standard library only. Errors print one
@@ -32,8 +42,11 @@ import os
 import re
 import sys
 
-LABELS = ("host", "i686")
+LABELS = ("host", "i686", "openpyxl")
 OUTCOMES = ("ok", "error", "timeout", "panic", "crash")
+# The comparison runner's outcomes (specs/0037, "Planning rulings during P1",
+# ruling B).
+OPENPYXL_OUTCOMES = ("ok", "error", "timeout", "cap", "no-output")
 FLAGS = ("mtime", "extra", "gpflags", "descriptor", "attrs", "comment", "local")
 STATUSES = ("identical", "recompressed", "changed", "dropped", "added")
 # The LibreOffice open check of specs/0006-passthrough.md P3: "-" when no image
@@ -78,6 +91,19 @@ RUN_HEADER = [
     "commit", "started", "ended", "rustc", "zip", "timeout_s", "lo_timeout_s",
     "memory_mib", "passthrough_sha256", "xlsx_diff_sha256", "files", "tool_args",
 ]
+# run.openpyxl.tsv (specs/0037, "Planning rulings during P1", ruling E).
+OPENPYXL_RUN_HEADER = [
+    "commit", "started", "ended", "image_id", "openpyxl", "timeout_s",
+    "lo_timeout_s", "memory_mib", "ops_sha256", "xlsx_diff_sha256", "files", "op",
+]
+
+
+def outcomes_of(label):
+    return OPENPYXL_OUTCOMES if label == "openpyxl" else OUTCOMES
+
+
+def run_header_of(label):
+    return OPENPYXL_RUN_HEADER if label == "openpyxl" else RUN_HEADER
 
 # The part families of specs/0000-step-zero-plan.md, in its order, and the
 # fixed mapping from an entry name (as the harness prints it) to a family.
@@ -252,7 +278,7 @@ def load(run_dir):
 
         summary = table("summary", SUMMARY_HEADER)
         entries = table("entries", ENTRIES_HEADER)
-        runs = table("run", RUN_HEADER)
+        runs = table("run", run_header_of(label))
         seen = set()
         for row in summary:
             if row["label"] != label:
@@ -260,7 +286,7 @@ def load(run_dir):
             if row["id"] in seen:
                 raise Failure("summary.%s.tsv lists id %s twice" % (label, row["id"]))
             seen.add(row["id"])
-            if row["outcome"] not in OUTCOMES:
+            if row["outcome"] not in outcomes_of(label):
                 raise Failure("summary.%s.tsv has an unknown outcome" % label)
             if row["leftover"] not in ("yes", "no"):
                 raise Failure("summary.%s.tsv has a leftover value other than yes or no" % label)
@@ -279,8 +305,13 @@ def load(run_dir):
     # Runs made with different tool arguments are different runs, so their
     # results are not one run's and must not go into one record
     # (specs/0006-passthrough.md, the P2 tool-arg ruling).
-    if len(distinct(row["tool_args"] for label in labels for row in data[label][2])) > 1:
+    emend = [label for label in labels if label != "openpyxl"]
+    if len(distinct(row["tool_args"] for label in emend for row in data[label][2])) > 1:
         raise Failure("the run rows disagree on the tool arguments")
+    # One openpyxl run directory holds one op (specs/0037, "The comparison
+    # runner").
+    if "openpyxl" in labels and len(distinct(row["op"] for row in data["openpyxl"][2])) > 1:
+        raise Failure("the openpyxl run rows disagree on the op")
     return labels, data
 
 
@@ -317,7 +348,18 @@ def binaries_line(label, runs):
     """The header line naming the two binaries a label's runs used, read from
     run.<label>.tsv (specs/0029-engineering-close.md, item 5 and "Planning
     rulings during P1", ruling 4 (ii)). Where the label's run rows disagree,
-    every distinct value is listed and the line says so."""
+    every distinct value is listed and the line says so. For openpyxl the
+    line names the image id, the ops script and xlsx-diff (specs/0037,
+    ruling E)."""
+    if label == "openpyxl":
+        image = distinct(r["image_id"] for r in runs)
+        ops = distinct(r["ops_sha256"] for r in runs)
+        xd = distinct(r["xlsx_diff_sha256"] for r in runs)
+        line = "- Binaries (%s): image id %s; ops script sha256 %s; xlsx-diff sha256 %s" % (
+            label, ", ".join(image) or "-", ", ".join(ops) or "-", ", ".join(xd) or "-")
+        if len(image) > 1 or len(ops) > 1 or len(xd) > 1:
+            line += " (the run rows disagree)"
+        return line
     pt = distinct(r["passthrough_sha256"] for r in runs)
     xd = distinct(r["xlsx_diff_sha256"] for r in runs)
     line = "- Binaries (%s): passthrough sha256 %s; xlsx-diff sha256 %s" % (
@@ -351,12 +393,18 @@ def write_md(path, run_name, stem, labels, data):
     """The record's prose table. `stem` names the companion .txt, which is not
     always "step0-" + run_name: --stem overrides it."""
     runs = [row for label in labels for row in data[label][2]]
+    # The emend labels' run rows carry the toolchain and the tool arguments;
+    # the openpyxl label's carry the openpyxl version and the op (specs/0037,
+    # ruling E). A record with no openpyxl label reads as before.
+    emend_runs = [row for label in labels if label != "openpyxl" for row in data[label][2]]
+    openpyxl_runs = data["openpyxl"][2] if "openpyxl" in labels else []
     # load() has already refused rows that disagree, so there is at most one
     # value here.
-    arguments = distinct(r["tool_args"] for r in runs)
+    arguments = distinct(r["tool_args"] for r in emend_runs)
     arguments = arguments[0] if arguments and arguments[0] else "none"
+    title = "# openpyxl comparison run %s" if labels == ["openpyxl"] else "# step0 passthrough run %s"
     out = [
-        "# step0 passthrough run %s" % run_name,
+        title % run_name,
         "",
         "Written by `scripts/passthrough-record.py` from the run directory `%s`"
         " (raw outputs stay under the corpus directory's `runs/`). Workbooks"
@@ -371,26 +419,34 @@ def write_md(path, run_name, stem, labels, data):
         "- Runs: %d, from %s to %s" % (
             len(runs), min((r["started"] for r in runs), default="-"), max((r["ended"] for r in runs), default="-")),
         "- Targets: %s" % ", ".join(labels),
-        "- Tool versions: %s; zip %s" % (
-            "; ".join(distinct(r["rustc"] for r in runs)), ", ".join(distinct(r["zip"] for r in runs))),
-        "- Settings: timeout %s s; open-check timeout %s s; memory %s MiB" % (
-            ", ".join(distinct(r["timeout_s"] for r in runs)),
-            ", ".join(distinct(r["lo_timeout_s"] for r in runs)),
-            ", ".join(distinct(r["memory_mib"] for r in runs))),
-        "- Tool arguments: %s" % arguments,
     ]
+    if emend_runs:
+        out.append("- Tool versions: %s; zip %s" % (
+            "; ".join(distinct(r["rustc"] for r in emend_runs)), ", ".join(distinct(r["zip"] for r in emend_runs))))
+    out.append("- Settings: timeout %s s; open-check timeout %s s; memory %s MiB" % (
+        ", ".join(distinct(r["timeout_s"] for r in runs)),
+        ", ".join(distinct(r["lo_timeout_s"] for r in runs)),
+        ", ".join(distinct(r["memory_mib"] for r in runs))))
+    if emend_runs:
+        out.append("- Tool arguments: %s" % arguments)
+    if openpyxl_runs:
+        out.append("- openpyxl: version %s; op %s" % (
+            ", ".join(distinct(r["openpyxl"] for r in openpyxl_runs)),
+            ", ".join(distinct(r["op"] for r in openpyxl_runs))))
     out += [binaries_line(label, data[label][2]) for label in labels]
+    # Every outcome any present label can have, in the order of each set.
+    columns = tuple(distinct(o for label in labels for o in outcomes_of(label)))
     out += [
         "",
         "## Files by outcome",
         "",
-        md_row(("label", "files") + OUTCOMES + ("leftover",) + LO_COUNTS),
-        md_row(("---",) * (3 + len(OUTCOMES) + len(LO_COUNTS))),
+        md_row(("label", "files") + columns + ("leftover",) + LO_COUNTS),
+        md_row(("---",) * (3 + len(columns) + len(LO_COUNTS))),
     ]
     for label in labels:
         summary = data[label][0]
         counts = lo_tally(label, summary)
-        out.append(md_row([label, len(summary)] + [sum(1 for r in summary if r["outcome"] == o) for o in OUTCOMES]
+        out.append(md_row([label, len(summary)] + [sum(1 for r in summary if r["outcome"] == o) for o in columns]
                           + [sum(1 for r in summary if r["leftover"] == "yes")]
                           + [counts[k] for k in LO_COUNTS]))
 
