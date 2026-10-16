@@ -1259,6 +1259,68 @@ T. Check 1's additional note: the probe commit's message says no
    the maintainer's authorisation typed in the implementing
    session.
 
+## Planning rulings on the close-out (2026-10-16)
+
+Verified by planning before the push (2026-10-15), from the phase
+directory and git: the doc commit c4a01cf holds specs/0036
+(bdebe947) and ROADMAP.md (1fda9eab) unedited, the tree clean; the
+range 934d2e1..c4a01cf is 19 commits (d2c14d8 once, then this
+part's 18), every one ASCII with the Co-Authored-By line only and
+no session line; origin/main 934d2e1 before the pre stage; push.log
+(4b8dc7fc) "pre checks all as expected: yes", privacy 19 commits
+1828 blobs 0 findings; scan-pre.log (e1ff19df) RESULT PASS, 0
+hits; planning's own privacy scan of 934d2e1..c4a01cf: 19 commits,
+1828 blobs, 0 findings, PASS; gen.py (933219df) is part 4's
+bc2ea873 with changes 41 and 42; independent check 1 (22eb13d7)
+YES WITH NOTES, YES, YES WITH NOTES, blocking 0. Planning's word
+for the push was given on that verification.
+
+U. The push, the CI run, the scan and the record commit verified
+   by planning (2026-10-16) from git, gh, the three committed logs
+   and its own blob scan: push.log (a1bff597, 1455 lines) is the
+   pre log (its first 1372 lines sha256-equal to the pre log,
+   4b8dc7fc) with push mode appended; push mode records the
+   maintainer's words typed in the implementing session, "push
+   10/16/2026" (10/16/2026), the hook's range 934d2e1..c4a01cf, 19
+   commits 1828 blobs 0 findings, git's "934d2e1..c4a01cf  main ->
+   main", remote main equal to local, the repository PRIVATE, the
+   tree clean, stderr 0 bytes, no ": no" line; ci-run.log
+   (7261d6dd, 761 lines): one ci.yml run on c4a01cf, run
+   38917010492, main push success, 0 steps other than success or
+   skipped, the privacy step skipped as CI mode requires, stderr 0
+   bytes, no ": no" line; scan.log (86c76cad, 2232 lines): post
+   mode over 934d2e1..c4a01cf, total hits 0, errors 0, structural
+   failures 0, RESULT PASS, the two other logs hashed in it at the
+   values above; planning's own `git fetch` and `gh run view`:
+   origin/main c4a01cf7ca9720d9748b0fcea22f65c97a817894, the run
+   completed success on that commit, the repository PRIVATE; the
+   record commit 543c418 holds the three logs only (3 files, 4448
+   insertions), its message ASCII with the Co-Authored-By line
+   only and no session line, gen.py and the three scripts named by
+   hash and not committed; planning's own privacy scan of
+   c4a01cf..543c418: 1 commit, 0 findings, PASS; the only
+   path-shaped lines in the three logs are the scripts' own
+   pattern text and control fixtures, as in part 4's logs. The
+   record commit stays local and goes with part 6's push, as
+   d2c14d8 went with this one.
+V. Independent check 2 (6d0e72c0): YES WITH NOTES, YES, YES WITH
+   NOTES, blocking 0. Its disagreements 1 to 4 were met in the
+   report's wording before it was sent (the exit files, the outer
+   stderr counts, "Not pushed" and the drivers' comparison marked
+   as the session's statements beside the logs' own stderr lines;
+   "every step success" replaced by ci-run.log's count line) and
+   planning verified each of those statements itself above. Its
+   point 5 is as the check reads it: the spec's bc2ea873 names
+   part 4's generator, this close-out's input, and 933219df is the
+   generator this close-out ran, named in the record commit and in
+   push.log. No change to the spec.
+W. Part 5 is DONE and PUSHED. The part's code is complete at
+   a8bfe71 and pushed at c4a01cf. Carried to part 6: the
+   self-closing `<xdr:wsDr/>` drawing root (ruling Q) as a
+   candidate; the `images` feature's attributed shrink (ruling S)
+   to be cited by part 6's size record; the probe's per-kind
+   options (ruling R) as the probe's documented form.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-14: 1, 2 and 3 as recommended (A
