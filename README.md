@@ -20,17 +20,17 @@ with no dependency of its own. Each feature below is named with the spec
 that added it and with its size cost, in section bytes over the core
 probe it is measured against, from the size record.
 
-- `dates`, the date arithmetic of `specs/0012-styles.md`: 4840 over the styles probe (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `rowcol`, the row and column insertions and deletions of `specs/0018-rows-and-columns.md`: 58152 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `metadata`, the defined names, hyperlinks, document properties and protection of `specs/0019-names-links-properties-protection.md`: 50036 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `rules`, the data validations and conditional formats of `specs/0020-validation-and-conditional-formatting.md`: 48468 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `tables`, the tables of `specs/0021-tables.md`: 46536 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `comments`, the cell comments of `specs/0022-comments-and-images.md`: 63356 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `images`, the images of `specs/0022-comments-and-images.md`: 67832 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `richtext`, the rich text runs of `specs/0024-rich-text.md`: 13384 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `sheetprops`, the sheet and print settings of `specs/0025-sheet-and-print-settings.md`: 28284 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
+- `dates`, the date arithmetic of `specs/0012-styles.md`: 4840 over the styles probe (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `rowcol`, the row and column insertions and deletions of `specs/0018-rows-and-columns.md`: 58152 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `metadata`, the defined names, hyperlinks, document properties and protection of `specs/0019-names-links-properties-protection.md`: 50036 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `rules`, the data validations and conditional formats of `specs/0020-validation-and-conditional-formatting.md`: 48468 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `tables`, the tables of `specs/0021-tables.md`: 46536 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `comments`, the cell comments of `specs/0022-comments-and-images.md`: 63356 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `images`, the images of `specs/0022-comments-and-images.md`: 57620 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `richtext`, the rich text runs of `specs/0024-rich-text.md`: 13384 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `sheetprops`, the sheet and print settings of `specs/0025-sheet-and-print-settings.md`: 28284 (`records/size-m5p6-2026-10-18-ef9da37.md`).
 - `read`, the typed reads of `specs/0027-read-back.md`, widened by `specs/0032-read-breadth-styles.md` and `specs/0033-read-breadth-survey.md`: 112600 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `copy`, the worksheet copy of `specs/0028-images-and-comments-second-half.md`: 13820 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
+- `copy`, the worksheet copy of `specs/0028-images-and-comments-second-half.md`: 13820 (`records/size-m5p6-2026-10-18-ef9da37.md`).
 - `charts`, the chart reads and writes of `specs/0034-charts-read.md`, `specs/0035-charts-write-first-set.md` and `specs/0036-charts-write-second-set.md`: 105916 (`records/size-m5p6-2026-10-18-ef9da37.md`).
 
 ## Building and testing
@@ -57,7 +57,7 @@ Each sentence here cites the record that holds its figures.
 
 Fidelity: each of the four editing samples (copy a sheet, move an image's anchor, remove an image, size a comment box) ran over the 27 workbooks of the private test corpus, and on the host all 27 outputs were written and opened in LibreOffice, as were all 27 inputs (`records/m3p6-p4-copy-2026-10-08-9cfd92e.md`, `records/m3p6-p4-anchor-2026-10-08-9cfd92e.md`, `records/m3p6-p4-removeimage-2026-10-08-9cfd92e.md`, `records/m3p6-p4-commentbox-2026-10-08-9cfd92e.md`).
 
-Each of Milestone 5's five chart samples (read the charts, add more chart kinds, add the 3D kinds, add coloured and labelled charts, remove a chart) ran over the same 27 workbooks, and on the host and on the static target all 27 outputs were written and opened in LibreOffice, as were all 27 inputs (`records/m5p5-p4-charts-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartmore-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chart3d-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartlabels-2026-10-15-a8bfe71.md`, `records/m5p5-p4-removechart-2026-10-15-a8bfe71.md`).
+Each of Milestone 5 part 5's five chart samples (read the charts, add more chart kinds, add the 3D kinds, add coloured and labelled charts, remove a chart) ran over the same 27 workbooks, and on the host and on the static target all 27 outputs were written and opened in LibreOffice, as were all 27 inputs (`records/m5p5-p4-charts-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartmore-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chart3d-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartlabels-2026-10-15-a8bfe71.md`, `records/m5p5-p4-removechart-2026-10-15-a8bfe71.md`).
 
 In the copy sample, 784 of the 917 zip entries on the host came back byte for byte: the entries the copy did not touch (`records/m3p6-p4-copy-2026-10-08-9cfd92e.md`).
 
