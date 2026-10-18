@@ -679,6 +679,127 @@ V. The first check log, the first final scan (4 non-ASCII hits from
    writing them as the letter x and saying so) and the never-logged
    first scan script are accepted as disclosed.
 
+## Planning rulings during P3 (2026-10-18)
+
+The doc commit c4b2598 verified by planning: specs/0037 (88c0fa8b)
+and ROADMAP.md (e7e741a8) unedited, nothing else, the tree clean.
+The code commits e1c4f87 (decision 3 A, ruling U) and 6a2c1bb
+(item 7) read by subject and shape before the run log.
+
+W. The reruns of "Harness runs" P3 are the seven distinct samples:
+   part 5 P4's chartlabels, removechart, chartmore, chart3d and
+   charts, and part 4 P3's addchart and chartkinds; `--charts-
+   sample` runs once and is checked against both of its records
+   (`m5p4-p3-charts-...-574a77d` and `m5p5-p4-charts-...-a8bfe71`),
+   byte-identical by sha256 on both targets. The record names are
+   `records/m5p6-p3-<sample>-<utc-date>-<shortsha>.md` and `.txt`
+   as part 5 P4 named them, with the open record `m5p6-open-...`.
+   The six logs follow part 5 P4's form: gate (with ruling S's
+   defined-helper lines), test (with the API record), negative
+   (P2's plus item 7's planted slow conversion), size, run, scan.
+
+X. The two code commits' messages state numbers without the
+   count sentence the scan requires (change AD); found by the scan
+   generator before any log ran. Rewritten in ruling G's form: the
+   two commits rebuilt on c4b2598 with identical trees and
+   subjects, each message gaining "No log prints a count for this
+   commit; the diff alone carries what it changes." before the
+   Co-Authored-By line, nothing else; the generators' full-sha pins
+   updated; the old pair kept as the local branch
+   `p3-before-reword`, never pushed; the report gives the rewrite,
+   the new hashes and an empty `git diff` old against new for both.
+   Local, unreported commits (`specs/0001`).
+
+Y. FINDING, from P3's dry negative log: N4 (tier a roundtrip under
+   `--memory 64`) once ended `error 1` with a Python traceback
+   ending in `MemoryError` at the script's last line, 1 of 6 runs;
+   the other five read cap 137. Planning read the script: the
+   `MemoryError` handler prints two lines and returns 137, and a
+   second `MemoryError` raised inside the handler escapes `main`,
+   so Python exits 1. Not a P3 regression (P1 and P2 read cap each
+   time) and no recorded figure is affected (no P2 row is error);
+   a defect of the ops script near the cap. Ruled as option (a): a
+   third P3 code commit, `scripts/openpyxl-ops.py` alone with its
+   test, where the `MemoryError` path writes its two lines with
+   preallocated bytes through `os.write` and leaves by
+   `os._exit(137)`, and a `MemoryError` raised during the handler
+   also ends 137; the ops test gains a planted handler-time
+   `MemoryError` read as 137, with a control that the unplanted
+   path still prints its two lines. N4 unchanged. The commit's
+   message carries the count sentence (ruling X). The dry negative
+   is not rerun for a cap; the logged negative runs once with the
+   fix named.
+
+## Planning verification of P3 (2026-10-18)
+
+Verified from primaries: the five commits c4b2598, ab00735,
+940a1ef, ef9da37 and c5a529b on d5e73cb; `git diff` e1c4f87
+against ab00735 and 6a2c1bb against 940a1ef empty, the old pair on
+`p3-before-reword` (ruling X); the three code commits' messages
+carry the count sentence (gate.log 6556-6563); ef9da37 holds the
+ops script and its test alone; the record commit adds 26 files
+under `records/` and nothing else; the six logs at the README's
+hashes, each ending "checks all as expected: yes", the scan
+"RESULT: PASS" under PLANNING_SPEC d94a5f62; planning's own
+privacy scan over d5e73cb..c5a529b (5 commits, 1991 blobs, 0
+findings); the size record's figures (budget 436992, core 0,
+images 556, charts 492, 29 probes reproduced, verdicts 6, 21 and
+2, findings none); the API record (756 keep, 0 rows differ); the
+open record (1437 pairs, two more than P2's for decision 3 A's two
+new tests, 0 findings); the independent check's inputs limited to
+the thirteen files of `<phase>/check1`. Planning's own checks: the
+eight record pairs (the seven samples, charts against both
+records) compared to their predecessors over every column but
+`wall_s` and `peak_rss_kb`, every line equal; the gate's
+defined-helper program run by planning over the regenerated
+negative script f5687867: 0 undefined of 49 names called, and the
+control finds a planted name. The code read: the self-closing root
+read with `end` at its `/>` and the root's end tag built from the
+start tag's name, the write putting `>`, the anchors and that tag
+in place of the two bytes; the open check's named container and
+its removal after exit 124; the ops script's cap exit by `os.write`
+and `os._exit(137)` with the outer catch.
+
+Z. FINDING 1 (change PZ8) accepted: a check defect at the script's
+   entry, nothing measured; the regenerated negative script's
+   defined-helper line stands on planning's own run above. From P4
+   on, each script's "shape greps over this script's own source"
+   block also runs the defined-helper check over the script's own
+   source, with its planted control, so a script regenerated after
+   the gate log carries the line in the log it writes.
+AA. The negative log's refused attempt is disclosed in the README
+   only (RERUN_NOTE unset). Accepted for P3. From P4 on, every
+   attempt refused at entry is named by RERUN_NOTE and hashed by
+   RERUN_FILES in the log of the rerun, the run log's form, with
+   no exception for an attempt that measured nothing.
+AB. N8 ran the real conversion of the fixture under a 1 s timeout,
+   not a planted slow conversion; what was planted is the timeout.
+   The effect ruling A asked for is shown (return 2 with the
+   reason, the container removed by name, 0 before and 0 after).
+   The heading and 940a1ef's message stand as written, read as
+   this. N8k's control container, created and never started, is
+   accepted: `podman ps -a` counts it, which is what N8 counts.
+AC. The independent check's unfixed notes: (a) the cap's RSS
+   digits formatted at handler time with "-" as the fallback is
+   accepted, the runner reads the outcome from the exit and the
+   RSS from the last line's digits only; (b) a third stdout line
+   when a MemoryError hits `last_line` after the class line leaves
+   the exit 137 and the last line as the runner reads it, no
+   change; (c) the string sort of the scale settings is cosmetic
+   on one value per setting, corrected when the record script is
+   next touched; (d) size.log's "M5 part 4's headroom" and "with
+   its ruling W" labels are stale text in a log that passed,
+   corrected in the next size log's generator (Milestone 6).
+AD. `gen/defined.py` does not check that `yn` and `ynnot` are
+   themselves defined. P4's gate adds that check with a control
+   (a planted script calling `yn` and defining neither).
+AE. P3 is DONE. Planning's ROADMAP edits for P4's doc commit, made
+   in the working tree now: the P3 row DONE, the Milestone 6
+   section inserted before "Unscoped" from the approved outline,
+   and the Unscoped charts bullet rewritten to what Milestone 5
+   delivered and what Milestone 6 carries. P4 is briefed as the
+   spec's "P4: the README" with rulings Z, AA and AD.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-16: 1, 2 and 3 as recommended (A

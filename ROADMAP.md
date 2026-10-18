@@ -1085,9 +1085,72 @@ records, with a comparison paragraph citing the comparison record.
 | --- | --- | --- |
 | P1 | the openpyxl image (Containerfile, rootless build, the image record); `scripts/openpyxl-ops.py` with its test; `scripts/compare-run.sh`; the record script's `openpyxl` label; the negative log | DONE 2026-10-16 (doc 2e36426, ops 310093d, runner 1e29c4e, record 1cdd3ed; the ops and runner commits a rewrite of 05e4b25 and 71aaaee after the scan's pre-check found two chained shapes in the test script, ruling G; the image `localhost/emend-openpyxl:3.1.5-dfsg-2-deb13` id 894b239f, 211283030 bytes, python3-openpyxl 3.1.5+dfsg-2, `records/openpyxl-image-2026-10-16.md`; FINDING: a killed podman client leaves its container running, the runner names and removes it (ruling A), the open check carried to P3; rulings A to G mid-phase, H to K after verification; verified by planning from primaries, its own privacy scan, its own image inspect, its own run of the ops test (76 ok) and its own roundtrip run over the 27 corpus workbooks (27 ok); `specs/0037` "Planning verification of P1") |
 | P2 | the 22 corpus runs and the scale runs of decision 2; the record pairs; `scripts/compare-record.py` and `records/compare-m5p6-<date>-<sha>.md`; the open record | DONE 2026-10-18 (doc 09d82ac, trap 8593ba0, start 89ef6eb, compare 5e52758, record d5e73cb; FINDING: the logged run (exit 1, `records/logs/m5p6-p2/run.log` kept as written) failed three of its own checks, each a defect in the run script's checks and not in the measurement (an undefined keep helper, its stderr line, the xml-family check expecting an XML row for openpyxl's re-encoded media); rulings Q and R: the checks fixed and run again over the same runs in `check.log`, 143 of 143 records and 70 of 70 record pairs, no rerun; 27 of 27 outputs per op and tool, every one opened; roundtrip emend 870 identical and 0 dropped against openpyxl 28 and 533; medians 0.10 s and 0.81 s, ratio 8.10 on all eleven ops; openpyxl's container start 0.46 to 0.56 s inside its times; scale every run ok but openpyxl tier c roundtrip cap (137, 320.13 s, 16576384 kB); open record 1435 pairs; scan PASS; rulings L to P mid-phase, Q and R on the failed run, S to V after verification; verified by planning from primaries, its own privacy scan, its own re-derivation of all 105 comparison rows from the run directories; `records/compare-m5p6-2026-10-16-5e52758.md`, the 70 record pairs `records/m5p6-*-2026-10-16-5e52758.md` and `.txt`, open record `records/m5p6-open-2026-10-16-5e52758.md` and `.txt`; `specs/0037` "Planning verification of P2") |
-| P3 | the self-closing root accepted (decision 3 A) with its tests and the catalogue; the size record; the API record; parts 4 and 5's samples rerun byte-identical; the CHANGELOG bullet | PLANNED |
+| P3 | the self-closing root accepted (decision 3 A) with its tests and the catalogue; the size record; the API record; parts 4 and 5's samples rerun byte-identical; the CHANGELOG bullet | DONE 2026-10-18 (doc c4b2598, fix ab00735, open-check 940a1ef, ops ef9da37, record c5a529b; the fix and open-check commits a rewrite of e1c4f87 and 6a2c1bb for the count sentence, ruling X; FINDING: the ops script's MemoryError handler could raise a second MemoryError and exit 1 (1 of 6 dry runs), fixed in ef9da37 (ruling Y); FINDING: the first logged negative run refused at entry, its status pattern not taking the test log's API record (change PZ8), fixed and rerun with the fix named (ruling Z); size record `records/size-m5p6-2026-10-18-ef9da37.md`: the core grew 0 section bytes, the images probe 556 and the charts probe 492, budget 436992, 29 probes reproduced at a8bfe71, no finding; API record `records/api-review-m5p6-2026-10-18-ef9da37.md`: 756 items keep, 0 rows differ from part 5 P4's; the seven samples (`records/m5p6-p3-*-2026-10-18-ef9da37.md` and `.txt`) rerun on both targets byte-identical to their records, 27 of 27, charts against both of its records; open record `records/m5p6-open-2026-10-18-ef9da37.md` and `.txt`, 1437 pairs, 0 findings; scan PASS; rulings W to Y mid-phase, Z to AE after verification; verified by planning from primaries, its own privacy scan, its own comparison of the eight record pairs with their predecessors, its own run of the defined-helper check over the regenerated negative script; `specs/0037` "Planning verification of P3") |
 | P4 | the README (the `charts` and `read` lines, the measured sentences, the comparison paragraph), the run log's README check; planning's ROADMAP edits in the doc commit | PLANNED |
 | Close | close-out push after P4, carrying 543c418, base c4a01cf by its subject, `PREV` `^M5 part 5 close-out record`, no Excel-record check; the Milestone 5 heading DONE and PUSHED | PLANNED |
+
+## Milestone 6: chart parity and named styles (APPROVED 2026-10-16)
+
+Theme chosen by the maintainer 2026-10-16 during Milestone 5 part 6's
+P2 runs, from planning's list of what openpyxl can do that emend
+cannot (`specs/0036`, "Out of scope"; `specs/0034` decision 2,
+chartsheets out; the styles reader's gradient pass-over). Decisions
+typed in the planning session 2026-10-16: every item of that list
+is a part of this milestone, taken one part at a time as before
+(decision 1); gradient fills written and named-style creation go in
+the core within the Milestone 2 ceiling, each phase's size record
+proving the fit (decision 2 A); the order is chartsheets, the chart
+formatting parts, styles, then measurement and close (decision 3 A);
+the milestone ends with a measurement part that reruns the openpyxl
+comparison of Milestone 5 part 6 with the new ops (decision 4 A). The
+chart parts stay under the `charts` feature, off by default, measured
+by the charts probe; the Milestone 2 Excel check gates no push in
+this milestone either. Each part has its own spec before it starts
+and is scoped into phases as before. The milestone starts after
+Milestone 5 part 6's close-out push.
+
+### Part 1: chartsheets (PLANNED)
+
+`charts` reads the chart parts a chartsheet's drawing holds (refused
+today, `specs/0034` P1 ruling B); `add_chartsheet` creates one holding
+a written chart; `add_chart` and `remove_chart` take a chartsheet
+part; `rename_sheet`, `move_sheet` and `remove_sheet` on a chartsheet
+proven; a chartsheet copy out (openpyxl copies worksheets only); the
+survey already counts them. openpyxl's `create_chartsheet` and
+`Chartsheet.add_chart`. Draft `specs/0038` written 2026-10-16.
+
+### Part 2: chart kinds and visual formatting (PLANNED)
+
+Surface and of-pie written kinds; marker symbol and size; line width
+and dash style; per-point formatting (`dPt`). The visual half of
+`specs/0036`'s out-of-scope list.
+
+### Part 3: analytic chart elements (PLANNED)
+
+Trendlines, error bars, drop lines and up-down bars; axis scaling
+(`min`, `max`, `logBase`), tick skips and date axes. The analytic
+half of the list.
+
+### Part 4: chart text and in-place edits (PLANNED)
+
+Text properties (`txPr`) of titles and labels; the chart's `style`
+element and the style and colours parts for a written chart; changing
+a kept chart's title or series in place instead of remove-and-add.
+
+### Part 5: gradient fills and named styles (PLANNED)
+
+Gradient fills written (`Fill` gains the gradient form the reader
+passes over today); `add_named_style` writing `cellStyles`,
+`cellStyleXfs` and a cell style's `xfId`; core, within the Milestone
+2 ceiling (decision 2 A). openpyxl's `NamedStyle` and
+`Workbook.add_named_style`.
+
+### Part 6: measurement and close (PLANNED)
+
+The openpyxl comparison of Milestone 5 part 6 rerun with a chartsheet
+op and a chart-format op added; the size and API records; the README
+updated to cite the new record; the Unscoped list pruned of what this
+milestone delivered.
 
 ## Unscoped
 
@@ -1156,8 +1219,12 @@ approval.
   publish` typed by the maintainer in the implementing session; the
   registry's page and its validation of the keywords and categories
   read back (`specs/0031` P2 rulings 1, 4 and 7).
-- Charts: a DrawingML chart writer and reader, openpyxl's largest
-  single writer; kept out of Milestone 3 by the maintainer's
-  decision of 2026-10-01, a second crate for a later milestone if
-  wanted. The corpus proves charts by passthrough only.
+- Charts: Milestone 5 delivered the `charts` feature, a DrawingML
+  chart reader and writer (`specs/0034` to `specs/0036`), measured
+  against openpyxl in part 6. What openpyxl writes that emend does
+  not (chartsheets; surface and of-pie kinds, markers, lines and
+  per-point formatting; trendlines, error bars and axis scaling;
+  text properties, chart styles and in-place edits) is Milestone
+  6's scope, approved 2026-10-16. Nothing of charts stays unscoped
+  beyond that milestone; a second crate is no longer considered.
 - README, where every fidelity, speed or size sentence cites a record.
