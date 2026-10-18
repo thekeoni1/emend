@@ -1,0 +1,49 @@
+id	label	producer	tags	outcome	exit	signal	wall_s	peak_rss_kb	in_bytes	out_bytes	diff_exit	identical	recompressed	changed	dropped	added	flagged	order_preserved	comment_equal	files_identical	leftover	lo	lo_in
+1b014c92bd83	host	scale-gen	scale,tiera	ok	0		6.51	15756	11025994	11140379	1	7	0	2	0	3	0	yes	yes	no	no	ok	ok
+1b014c92bd83	i686	scale-gen	scale,tiera	ok	0		8.81	13792	11025994	11140379	1	7	0	2	0	3	0	yes	yes	no	no	ok	ok
+
+id	label	row	name	status	index_in	index_out	method_in	method_out	uncompressed_in	uncompressed_out	compressed_in	compressed_out	crc_in	crc_out	first_difference	differing_bytes	last_difference	flags
+1b014c92bd83	host	entry	[Content_Types].xml	changed	0	0	8	8	1066	1315	309	344	1b5c5bea	f7c5687c	1059			
+1b014c92bd83	host	entry	_rels/.rels	identical	1	1	8	8	441	441	216	216	619a7711	619a7711				
+1b014c92bd83	host	entry	docProps/core.xml	identical	2	2	8	8	558	558	288	288	70e1bf76	70e1bf76				
+1b014c92bd83	host	entry	xl/workbook.xml	identical	3	3	8	8	395	395	230	230	aea57e04	aea57e04				
+1b014c92bd83	host	entry	xl/_rels/workbook.xml.rels	identical	4	4	8	8	706	706	226	226	8b9b8e49	8b9b8e49				
+1b014c92bd83	host	entry	xl/worksheets/sheet1.xml	changed	5	5	8	8	45838595	45838701	11018659	11131703	945274ef	280f117b	132			
+1b014c92bd83	host	entry	xl/worksheets/sheet2.xml	identical	6	6	8	8	2931	2931	811	811	e344a255	e344a255				
+1b014c92bd83	host	entry	xl/styles.xml	identical	7	7	8	8	779	779	349	349	c5180e86	c5180e86				
+1b014c92bd83	host	entry	xl/sharedStrings.xml	identical	8	8	8	8	21181	21181	3862	3862	0a1a100c	0a1a100c				
+1b014c92bd83	host	entry	xl/worksheets/_rels/sheet1.xml.rels	added		9		8		439		204		1f917fd5				
+1b014c92bd83	host	entry	xl/comments1.xml	added		10		8		289		187		5893ebb9				
+1b014c92bd83	host	entry	xl/drawings/vmlDrawing1.vml	added		11		8		1025		531		31c239b5				
+1b014c92bd83	i686	entry	[Content_Types].xml	changed	0	0	8	8	1066	1315	309	344	1b5c5bea	f7c5687c	1059			
+1b014c92bd83	i686	entry	_rels/.rels	identical	1	1	8	8	441	441	216	216	619a7711	619a7711				
+1b014c92bd83	i686	entry	docProps/core.xml	identical	2	2	8	8	558	558	288	288	70e1bf76	70e1bf76				
+1b014c92bd83	i686	entry	xl/workbook.xml	identical	3	3	8	8	395	395	230	230	aea57e04	aea57e04				
+1b014c92bd83	i686	entry	xl/_rels/workbook.xml.rels	identical	4	4	8	8	706	706	226	226	8b9b8e49	8b9b8e49				
+1b014c92bd83	i686	entry	xl/worksheets/sheet1.xml	changed	5	5	8	8	45838595	45838701	11018659	11131703	945274ef	280f117b	132			
+1b014c92bd83	i686	entry	xl/worksheets/sheet2.xml	identical	6	6	8	8	2931	2931	811	811	e344a255	e344a255				
+1b014c92bd83	i686	entry	xl/styles.xml	identical	7	7	8	8	779	779	349	349	c5180e86	c5180e86				
+1b014c92bd83	i686	entry	xl/sharedStrings.xml	identical	8	8	8	8	21181	21181	3862	3862	0a1a100c	0a1a100c				
+1b014c92bd83	i686	entry	xl/worksheets/_rels/sheet1.xml.rels	added		9		8		439		204		1f917fd5				
+1b014c92bd83	i686	entry	xl/comments1.xml	added		10		8		289		187		5893ebb9				
+1b014c92bd83	i686	entry	xl/drawings/vmlDrawing1.vml	added		11		8		1025		531		31c239b5				
+
+id	label	row	name	kind	column_1	column_2	column_3	column_4	column_5
+1b014c92bd83	host	xml	[Content_Types].xml	parse	ok	ok		0	0
+1b014c92bd83	host	xml	[Content_Types].xml	element	{http://schemas.openxmlformats.org/package/2006/content-types}Override	6	8		
+1b014c92bd83	host	xml	[Content_Types].xml	attribute	{http://schemas.openxmlformats.org/package/2006/content-types}Override@{}ContentType	6	8		
+1b014c92bd83	host	xml	[Content_Types].xml	attribute	{http://schemas.openxmlformats.org/package/2006/content-types}Override@{}PartName	6	8		
+1b014c92bd83	host	xml	[Content_Types].xml	values	16	20	0	4	
+1b014c92bd83	host	xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+1b014c92bd83	host	xml	xl/worksheets/sheet1.xml	element	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}legacyDrawing	0	1		
+1b014c92bd83	host	xml	xl/worksheets/sheet1.xml	attribute	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}legacyDrawing@{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id	0	1		
+1b014c92bd83	host	xml	xl/worksheets/sheet1.xml	values	3050000	3050001	0	1	
+1b014c92bd83	i686	xml	[Content_Types].xml	parse	ok	ok		0	0
+1b014c92bd83	i686	xml	[Content_Types].xml	element	{http://schemas.openxmlformats.org/package/2006/content-types}Override	6	8		
+1b014c92bd83	i686	xml	[Content_Types].xml	attribute	{http://schemas.openxmlformats.org/package/2006/content-types}Override@{}ContentType	6	8		
+1b014c92bd83	i686	xml	[Content_Types].xml	attribute	{http://schemas.openxmlformats.org/package/2006/content-types}Override@{}PartName	6	8		
+1b014c92bd83	i686	xml	[Content_Types].xml	values	16	20	0	4	
+1b014c92bd83	i686	xml	xl/worksheets/sheet1.xml	parse	ok	ok		0	0
+1b014c92bd83	i686	xml	xl/worksheets/sheet1.xml	element	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}legacyDrawing	0	1		
+1b014c92bd83	i686	xml	xl/worksheets/sheet1.xml	attribute	{http://schemas.openxmlformats.org/spreadsheetml/2006/main}legacyDrawing@{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id	0	1		
+1b014c92bd83	i686	xml	xl/worksheets/sheet1.xml	values	3050000	3050001	0	1	

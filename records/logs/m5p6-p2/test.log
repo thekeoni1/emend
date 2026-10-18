@@ -1,0 +1,2640 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m5p6-p2-test.sh 5e52758e379966672baa2e350e4bf997346aee01
+input: RERUN_NOTE: unset
+input: RERUN_FILES: unset
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+input: HOME: set, read for the paths under it, printed as <home>
+input: TEST_BUILD: unset (the build root, <build>)
+about: M5 part 6 P2 phase commit 5e52758e379966672baa2e350e4bf997346aee01; HEAD at run: 5e52758e379966672baa2e350e4bf997346aee01
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's full subject>, for each role
+  M5 part 6 P1's record commit (the base): 1cdd3ed8d05e275b4e1018f15f88da6544111c51
+  the doc commit: 09d82ac5cc8582358cab39b9759aef61a7042408
+  the trap commit (scripts/compare-run.sh, ruling I): 8593ba0049562d250931c33776da14eaf779561c
+  the start commit (scripts/passthrough-record.py, rulings K and P): 89ef6eb75b414c525c8dc7de659266720498e5b6
+  the compare commit (scripts/compare-record.py and its test, the phase commit): 5e52758e379966672baa2e350e4bf997346aee01
+command: git rev-parse <phase commit>~0 to <phase commit>~4
+    5e52758e379966672baa2e350e4bf997346aee01
+    89ef6eb75b414c525c8dc7de659266720498e5b6
+    8593ba0049562d250931c33776da14eaf779561c
+    09d82ac5cc8582358cab39b9759aef61a7042408
+    1cdd3ed8d05e275b4e1018f15f88da6544111c51
+  the compare commit, the start commit, the trap commit, the doc commit and the base, each the next one's parent, the compare commit the phase commit (change RA): yes
+  each role is at the full sha this phase recorded for it: yes
+  control: roles_pinned refuses the trap commit named as the doc commit: yes
+  control: roles_in_order refuses the start commit named as the compare commit: yes
+  control: roles_in_order refuses the doc commit named as the trap commit: yes
+
+phase: Milestone 5 part 6 P2 (specs/0037-measurement-and-close.md) test.log; run at 2026-10-16T17:25:23Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this log builds the release emend-copy and xlsx-diff for the host and emend-copy for i686 from a clone at the phase commit into <target>/test (change QD), and runs the phase commit's scripts over fictional fixtures (changes QB, QC and RB); it writes no record (change RA)
+  no cargo or rustc process was running at entry: yes
+root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh and specs/0037-measurement-and-close.md are read from it by git show at the phase commit, the working spec is hashed in it, it is cloned (read only) into <scratch>/w/clone and <scratch>/w/plant; nothing in it is run, built or written (change RA)
+root: <home> stands for the home directory of the account that ran this script
+root: <phase> stands for <home>/.cache/emend-build/m5p6-p2, the phase's directory on the disk
+root: <scripts> stands for <phase>/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)
+root: <target> stands for <phase>/target, the phase's one target root (specs/0001); this log builds into <target>/test alone (change QD)
+root: <build> stands for the build root on the disk, <phase>/test unless TEST_BUILD names another
+root: <superseded> stands for <phase>/superseded, where a rerun's superseded files are kept; read only
+root: <corpus-runs> stands for, in the printed scripts/compare-record.py, the directory it is given with --corpus-runs
+root: <scale-runs> stands for, in the printed scripts/compare-record.py, the directory it is given with --scale-runs
+root: <scratch>/w stands for this run's mktemp -d working directory under <build>, kept on the disk after the run (change QC): <scratch>/w/counting.sh the phase commit's library, sourced; <scratch>/w/clone a clone of <repo> at the phase commit, whose scripts are run and built; <scratch>/w/plant a second clone, the plants' (change QJ); <scratch>/w/bin the built binaries, copied; <scratch>/w/fx the fictional corpus, the programs this log writes and the run directories; <scratch>/w/rec the records the cases write; <scratch>/w/tmp the TMPDIR of every script this log runs, compare-record-test.py's temporary directory among them (change RB)
+  the roots other than <home> and <phase> are distinct, none inside another (<scratch>/w inside <build>): yes
+  control: apart refuses <scratch>/w against <build>, which holds it: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 1; of them this phase's logs or planning's spec 1; the lines:
+     M specs/0037-measurement-and-close.md
+  the phase commit given to this script: 5e52758e379966672baa2e350e4bf997346aee01
+  git rev-parse HEAD at this run:        5e52758e379966672baa2e350e4bf997346aee01
+  the controls' commits: the null commit 0000000000000000000000000000000000000000; the fabricated commit 5e52758e379966672baa2e350e4bf997346aee00 (the given one, its last hex digit changed); the short sha 5e52758
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  control: the same comparison refuses the null commit: yes
+  control: the same comparison refuses a fabricated commit: yes
+  control: the same comparison refuses a short sha of the real commit: yes
+  control: the short sha is the real commit's, so only its form is refused: yes
+  control: the phase's status pattern refuses a modified gate file: yes
+  control: the phase's status pattern refuses a modified spec other than specs/0037: yes
+  control: the phase's status pattern refuses a modified ROADMAP.md (committed and clean in this phase): yes
+  control: the phase's status pattern takes this phase's log and planning's modified spec alone, no other phase's log, no record, no sibling directory and no untracked spec (change RA): yes
+command: git show <phase commit>:specs/0037-measurement-and-close.md | sha256sum: 160c2984b483df57b2e2045d111d5655a944d4a2f1a9b56485fb5bad707404b0; sha256sum specs/0037-measurement-and-close.md (the working file, printed and not asserted: planning holds its rulings during P2 uncommitted; change RA): 2f5ec55ec56b70aa3e1bba436fe846c4181e835aa50cd03c7db0001ca415a934
+  the spec's blob at the phase commit is at the hash this log pins: yes
+  control: the same comparison refuses the hash of another file: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 5 part 6 P2 test.log
+    # (specs/0037-measurement-and-close.md, "P2: the runs", "The comparison
+    # runner", "Planning verification of P1", rulings H to K, and "Planning
+    # rulings during P2", rulings L to P). The phase commit's scripts, from a
+    # clone at the phase commit, over FICTIONAL fixtures this script builds in
+    # <scratch>/w (no corpus file is read; nothing runs in <repo>; no record is
+    # written):
+    #
+    #   T1 scripts/compare-record-test.py: exit 0, every expected line once (31
+    #      ok lines), no FAIL, the last line PASS.
+    #   T2 scripts/openpyxl-ops-test.sh in the image, as P1's T2 (the ops script
+    #      is unchanged; it is run again because the image and the log are).
+    #   T3 scripts/compare-run.sh over P1's fictional corpus (scale-gen tier t
+    #      and its xltx copy), the roundtrip and edit ops with --libreoffice:
+    #      P1's checker on every row; the trap (ruling I): the containers line
+    #      exactly once, the last line, after the files line; an unknown op
+    #      refused before the work directory exists, so no containers line; a
+    #      rerun refused after it, so the error line and the containers line.
+    #   T4 scripts/passthrough-record.py (rulings K and P): with
+    #      empty.openpyxl.tsv the exact container-start line; without it none;
+    #      a file of one run, and a file with another header, refused with
+    #      their messages; an openpyxl record without the file, and the emend
+    #      records (host and i686 together, and host alone), the same from the
+    #      base commit's record script and the phase commit's but for the
+    #      "Record written" line.
+    #   T5 the plants: four one-line mutations in a second clone (the trap set
+    #      back, compare-record's lo_in from the openpyxl summary, its median
+    #      as a mean, the container-start line dropped), each caught, each
+    #      undone; the unplanted control is T1 to T4's run of the same bytes.
+    #   The image's containers are counted at entry and at the end.
+    #   Every message is read from its source, never typed; each pass check has
+    #   a control that refuses another case's output.
+    #
+    # CARRIED TO M5 part 6 P2 from M5 part 6 P1's test script (printed in
+    # records/logs/m5p6-p1/test.log at 1cdd3ed), generated by
+    # <home>/.cache/emend-build/m5p6-p2/gen/test.py. Its comment text follows
+    # below as the carried history. What differs, and why:
+    #  RA. The phase, the log directory and the subjects are M5 part 6 P2's: the
+    #      base P1's record commit, then the doc commit, the trap commit, the
+    #      start commit and the compare commit, the phase commit, each found by
+    #      its full subject and checked at the full sha FACTS.md records. The
+    #      spec is specs/0037, pinned at its blob at the doc commit, 160c2984;
+    #      the working file, planning's rulings during P2, is printed and not
+    #      asserted. No record is written, so the image record's directory, its
+    #      input and its status allowance are gone; the status pattern allows
+    #      this phase's logs and planning's uncommitted specs/0037 alone.
+    #  RB. The scripts under test: the four this phase changes or adds
+    #      (compare-run.sh, passthrough-record.py, compare-record.py and its
+    #      test), and the ones the log runs unchanged, each checked to be the
+    #      phase commit's blob and the unchanged ones the base's; the two new
+    #      scripts printed in full, the two changed ones as their diffs from the
+    #      base. Two root lines declare the words compare-record.py's printed
+    #      docstring puts before a slash. The image's id is read and checked to
+    #      be P1's (894b239f). P1's T1 (the image record) is not rerun.
+    #  RC. T1 is compare-record-test.py, its lines read from its source.
+    #  RD. T2 is P1's, carried.
+    #  RE. T3 is P1's T3 cut to the roundtrip and edit ops, with the trap's line
+    #      order checked, and the unknown-op and rerun refusals read with the
+    #      trap's line (ruling I); P1's other refusals and its --ids case are
+    #      not rerun (the runner's code before the loop is unchanged but for the
+    #      trap).
+    #  RF. T4 is the container-start line (rulings K and P) and the emend
+    #      records against the base commit's record script.
+    #  RG. T5 carries P1's plant machinery with this phase's four plants.
+    #
+    # The carried history, M5 part 6 P1's test script's comment text:
+    # Milestone 5 part 6 P1 test.log
+    # (specs/0037-measurement-and-close.md, "P1: the image and the scripts",
+    # "The openpyxl image", "The operations", "The comparison runner", and
+    # "Planning rulings during P1", rulings A to F). The phase commit's scripts,
+    # from a clone at the phase commit, over FICTIONAL fixtures this script
+    # builds in <scratch>/w (no corpus file is read; nothing runs in <repo>):
+    #
+    #   T1 the openpyxl image and its record: the Containerfile (its FROM the
+    #      LibreOffice image's base digest, the two packages), podman's
+    #      version and rootless mode, the image's id, bytes and history,
+    #      /py-packages.txt and the Python, openpyxl and PIL versions read in
+    #      the image with --network=none; records/openpyxl-image-<utc-date>.md
+    #      written from those values (refused if it is there), every value
+    #      checked in it.
+    #   T2 scripts/openpyxl-ops-test.sh in the image: exit 0, every expected
+    #      line once, no FAIL, the last line PASS (ruling F).
+    #   T3 scripts/compare-run.sh over a corpus of two fictional workbooks
+    #      (scale-gen tier t, and a template copy of it with the extension xltx,
+    #      ruling D): every op of the eleven with --libreoffice, each run's
+    #      summary, entries and run tables checked against the runner's
+    #      headers and ruling E's run header, the outcomes, lo and lo_in
+    #      (ruling C), the outputs' extensions, the printed lines (no path),
+    #      the count line and the containers line (ruling A); refusals of an
+    #      unknown op, a rerun into a run directory, a run directory holding
+    #      an earlier run, a bad --ids entry and an id not in the manifest;
+    #      --ids selecting one row.
+    #   T4 scripts/passthrough-record.py: an openpyxl run directory refused
+    #      without --allow-single and written with it for each op (the title,
+    #      the openpyxl line, the Binaries line, the outcome columns of ruling
+    #      E); a planted cap row counted; refusals of an openpyxl run directory
+    #      whose run rows disagree on the op and of an outcome outside each
+    #      label's set; and emend run directories (host and i686 together, and
+    #      host alone), whose records from the base commit's record script and
+    #      the phase commit's are the same bytes but for the "Record written"
+    #      line.
+    #   T5 the plants: six one-line mutations of the new scripts, each in a
+    #      second clone, each caught by the case that should catch it, each
+    #      undone; the unplanted control is T2 to T4's run of the same bytes.
+    #   Every message is read from its source, never typed; each pass check has
+    #   a control that refuses another case's output.
+    #
+    # CARRIED TO M5 part 6 P1 from M4 part 1 P1's test script (printed in
+    # records/logs/m4p1-p1/test.log), generated by
+    # <home>/.cache/emend-build/m5p6-p1/gen/test.py. M4 part 1 P1's cases (the
+    # Excel list and the runner's earlier-run refusal) are its own and are not
+    # rerun. Its comment text follows below as the carried history; its frame
+    # and tail are carried, and the cases are this phase's. What differs, and
+    # why:
+    #  QA. The phase, the log directory and the subjects are M5 part 6 P1's: the
+    #      base M5 part 5's close-out record commit, then the doc commit, the
+    #      ops commit and the runner commit, the phase commit, each found by
+    #      its full subject and checked at the full sha FACTS.md records. The
+    #      spec is specs/0037, pinned at its blob at the doc commit, 931b7e5c;
+    #      the working file, planning's rulings during P1, is printed and not
+    #      asserted. The status pattern allows this phase's logs, an image
+    #      record and planning's uncommitted specs/0037 alone.
+    #  QB. The scripts under test are read from a clone of <repo> at the phase
+    #      commit in <scratch>/w/clone, each checked to be the phase commit's
+    #      blob; the new scripts are printed in full and the record script's
+    #      change as its diff from the base commit.
+    #  QC. The fixtures, built under <scratch>/w/fx by the phase commit's
+    #      scripts/scale-gen.py and a python3 -I -B program this script writes
+    #      beside them (printed), all fictional. <scratch>/w is kept on the
+    #      disk under <build>; this script removes no directory.
+    #  QD. This log builds: the release emend-copy and xlsx-diff for the host
+    #      and emend-copy for i686, from the clone, into <target>/test, with
+    #      --locked --offline; the copies in <scratch>/w/bin are hashed. M4
+    #      part 1 P1 copied the gate's debug binaries instead; this log is not
+    #      tied to what the gate builds.
+    #  QE. The image record (specs/0037 "The openpyxl image"): written by this
+    #      log into <repo>/records, or into TEST_RECORDS_DEST for a dry run,
+    #      from values the log reads by printed commands; refused if the file
+    #      is there.
+    #  QF. T2, the ops test (ruling F).
+    #  QG. T3, the comparison runner (rulings A to E).
+    #  QH. T4, the record script's openpyxl label (ruling E).
+    #  QI. Every container of the image counted at entry and at the end; both
+    #      counts 0.
+    #  QJ. T5, the plants, in <scratch>/w/plant.
+    #  QK. The log's own bytes and the status at the end are M4 part 1 P1's,
+    #      the status naming the image record.
+    #
+    # M4 part 1 P1's text:
+    # Milestone 4 part 1 P1 test.log
+    # (specs/0030-carries-and-api-changes.md, "### P1": "The test log: the
+    # script on a fixture run directory with and without a planted error row,
+    # the counts shown"; item 1; decision 1 A and "Planning rulings during P1"
+    # rulings 2 and 6). The phase commit's scripts/excel-check-list.py and
+    # scripts/passthrough-run.sh, over FICTIONAL fixtures this script builds in
+    # <scratch>/w/fx (no corpus file is read; nothing runs in <repo>):
+    #
+    #   T1 the list, --run root1/runs/run-formula --run-plain
+    #      root1/runs/run-plain, no error row: exit 0, the counts line, stderr
+    #      EMPTY (ruling 6: no note for a directory with none), the list with
+    #      mode 600, its rows counted by source.
+    #   T2 the same with run-plain copied to run-plain-planted and one error row
+    #      planted there (fx-b: outcome error, out_bytes empty, its output
+    #      removed, as the runner leaves it): exit 0, stderr exactly one line,
+    #      the note for 1 row of run-plain-planted (built from the source's
+    #      own form), one corpus row fewer than T1, fx-b absent under that
+    #      label.
+    #   T2b the planted row in the --run directory instead (run-formula copied
+    #      to run-formula-planted): the note names "host".
+    #   T3 the runner, the clone's scripts/passthrough-run.sh at the phase
+    #      commit, over the fixture corpus root rroot with the gate's DEBUG
+    #      emend-copy and xlsx-diff copied, no --libreoffice, --ids selecting
+    #      fa0000000001:
+    #      T3a a fresh run directory: exit 0, one ok row;
+    #      T3b a fresh run directory with fa0000000001/lo.host planted: exit 2,
+    #          the earlier-run message from the source, no row, no output, the
+    #          planted directory still there;
+    #      T3c the same with lo-in.host;
+    #      T3d only fa0000000001/lo.i686 planted, --label host: not refused,
+    #          one ok row, lo.i686 left in place;
+    #      T3e lo.host planted under fa0000000002, which --ids does not select:
+    #          refused (every subdirectory counts, ruling 2).
+    #   Every message and the note's form are read from the sources by grep,
+    #   never typed; each pass check has a control that refuses another case's
+    #   output.
+    #
+    # CARRIED TO M4 part 1 P1 from M3 part 7 P4's test script (printed in
+    # records/logs/m3p7-p4/test.log), generated by
+    # <home>/.cache/emend-build/m4p1-p1/gen/test.py with gen/p1_common.py.
+    # P4's cases (the carried close-out scripts and their generator) are P4's
+    # and are not rerun. P4's comment text follows below as the carried history;
+    # the code is this phase's. What differs, and why:
+    #  KA. The phase, the log directory and the subjects are M4 part 1 P1's: the
+    #      base M3 part 7's close-out record commit, then the doc commit, the
+    #      rules commit (specs/0001), the runner commit and the list commit,
+    #      the phase commit, each by its full subject. The spec is specs/0030,
+    #      pinned at its blob at the doc commit, 7bc47cae (FACTS.md); the
+    #      working file, planning's rulings during P1, is printed and not
+    #      asserted. The status pattern allows this phase's logs and
+    #      planning's uncommitted specs/0030 alone.
+    #  KB. No build. scripts/counting.sh and scripts/excel-check-list.py are
+    #      read at the phase commit by git show into <scratch>/w; the runner is
+    #      run from a clone of <repo> at the phase commit in <scratch>/w/clone
+    #      (the runner finds its repository as its own directory's parent and
+    #      reads its commit, Cargo.lock and rustc there, and sources
+    #      scripts/lo-check.sh beside it); the gate's DEBUG emend-copy and
+    #      xlsx-diff are copied from <target>/main/debug into <scratch>/w/bin
+    #      and each copy's sha256 checked against the one line gate.log
+    #      printed for it.
+    #  KC. The fixtures, built under <scratch>/w/fx by a python3 -I program this
+    #      script writes beside them (printed), all fictional. <scratch>/w, with
+    #      the fixtures, the clone and the cases' outputs, is kept on the disk
+    #      under <build>; this script removes no directory.
+    #  KD. Root lines for the placeholders the carried history prints before a
+    #      slash and this log never uses, each saying so.
+    #
+    # P4's text:
+    # Milestone 3 part 7 P4 test.log (specs/0029-engineering-close.md, "P4:
+    # the README and the list" as amended 2026-10-09, "The Excel check",
+    # "Close-out push (after P4)" as amended, and "Planning rulings during P4
+    # (2026-10-09)" rulings 3 and 4): the spec pinned by the hash of its
+    # committed blob, planning's working copy printed; the phase's three
+    # commits by role; T1 part 6's close-out push, ci-run and scan scripts,
+    # copied to <home>/.cache/emend-build/m3p7-close/carried, each equal to the
+    # text part 6's committed logs printed; T2 the counting library the
+    # close-out sources, equal to the phase commit's scripts/counting.sh, and
+    # its one line of difference from part 6's copy, which part 6's push.log
+    # printed; T3 gen.py printed and run into a scratch directory, the three
+    # scripts it writes equal to the ones on the disk; T4 each generated
+    # script's diff against part 6's, printed in full; T5 bash -n, the three
+    # shape greps with fixtures, and no non-ASCII byte, U+2014 or home path in
+    # each generated script; T6 the Excel-record check's three functions and
+    # its pre-mode section present once each, the base, record and tip
+    # patterns resolved or read; this log runs no cargo; this script's own
+    # stderr counted.
+    #
+    # Usage: m5p6-p2-test.sh <phase commit> > <file outside the tree>; the
+    # caller moves the output to records/logs/m5p6-p2/test.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/test.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    
+    C=${1:?phase commit required}
+    unset EMEND_CORPUS_DIR EMEND_KEEP_DIR
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    PHASE_DIR=$HOME/.cache/emend-build/m5p6-p2
+    BUILD_ROOT=${TEST_BUILD:-$PHASE_DIR/test}
+    SUPERSEDED_DIR=$PHASE_DIR/superseded
+    TARGET_DIR=$PHASE_DIR/target
+    SPEC=specs/0037-measurement-and-close.md
+    SPEC_WANT=160c2984b483df57b2e2045d111d5655a944d4a2f1a9b56485fb5bad707404b0
+    mkdir -p "$BUILD_ROOT" || exit 2
+    # Change QC: made on the disk under <build> and kept after the run.
+    B=$(mktemp -d -p "$BUILD_ROOT") || exit 2
+    git show "$C:scripts/counting.sh" >"$B/counting.sh" || exit 2
+    . "$B/counting.sh"
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    case "${C: -1}" in 0) LAST=1 ;; *) LAST=0 ;; esac
+    FAKE_SHA=${C:0:39}$LAST
+    SHORT_SHA=${C:0:7}
+    # This phase's logs and planning's uncommitted spec; this log writes no
+    # record (change RA).
+    OURS="^((\\?\\?| ?[MARCD]) records/logs/m5p6-p2/| M specs/0037-measurement-and-close[.]md\$)"
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs and planning's spec" >&2
+      exit 2
+    fi
+    
+    scrub() {
+      sed -e "s#$MAIN#<repo>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$B#<scratch>/w#g" \
+        -e "s#$BUILD_ROOT#<build>#g" -e "s#$SUPERSEDED_DIR#<superseded>#g" \
+        -e "s#$TARGET_DIR#<target>#g" -e "s#$PHASE_DIR#<phase>#g" \
+        -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    # The environment and path inputs, each on its labelled line.
+    echo "input: RERUN_NOTE: ${RERUN_NOTE:-unset}"
+    echo "input: RERUN_FILES: ${RERUN_FILES:-unset}"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    echo "input: HOME: set, read for the paths under it, printed as <home>"
+    echo "input: TEST_BUILD: ${TEST_BUILD:-unset} (the build root, <build>)"
+    echo "about: M5 part 6 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M5 part 6 P1 record: logs, the image record, the check')
+    DOC2=$(by_subject 'M5 part 6 P2: commit planning docs (the P1 verification and rulings)')
+    TRAP2=$(by_subject "M5 part 6 P2: the runner counts the image's containers in an EXIT trap")
+    START2=$(by_subject 'M5 part 6 P2: the record script names the container start of an openpyxl run')
+    CMP2=$(by_subject 'M5 part 6 P2: scripts/compare-record.py and its test')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's full subject>, for each role"
+    echo "  M5 part 6 P1's record commit (the base): ${REC:-none}"
+    echo "  the doc commit: ${DOC2:-none}"
+    echo "  the trap commit (scripts/compare-run.sh, ruling I): ${TRAP2:-none}"
+    echo "  the start commit (scripts/passthrough-record.py, rulings K and P): ${START2:-none}"
+    echo "  the compare commit (scripts/compare-record.py and its test, the phase commit): ${CMP2:-none}"
+    echo "command: git rev-parse <phase commit>~0 to <phase commit>~4"
+    for k in 0 1 2 3 4; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$CMP2" "$START2" "$TRAP2" "$DOC2" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "the compare commit, the start commit, the trap commit, the doc commit and the base, each the next one's parent, the compare commit the phase commit (change RA)" "$(yn roles_in_order)"
+    # The roles' full shas as this phase recorded them (FACTS.md); a role found
+    # by its subject at another sha fails here (change RA).
+    roles_pinned() { [ "$REC" = 1cdd3ed8d05e275b4e1018f15f88da6544111c51 ] && [ "$DOC2" = 09d82ac5cc8582358cab39b9759aef61a7042408 ] && [ "$TRAP2" = 8593ba0049562d250931c33776da14eaf779561c ] && [ "$START2" = 89ef6eb75b414c525c8dc7de659266720498e5b6 ] && [ "$CMP2" = 5e52758e379966672baa2e350e4bf997346aee01 ]; }
+    check "each role is at the full sha this phase recorded for it" "$(yn roles_pinned)"
+    roles_pinned_ctl() { local DOC2=$TRAP2; roles_pinned; }
+    check "control: roles_pinned refuses the trap commit named as the doc commit" "$(ynnot roles_pinned_ctl)"
+    roles_ctl() { local CMP2=$START2; roles_in_order; }
+    check "control: roles_in_order refuses the start commit named as the compare commit" "$(ynnot roles_ctl)"
+    roles_ctl2() { local TRAP2=$DOC2; roles_in_order; }
+    check "control: roles_in_order refuses the doc commit named as the trap commit" "$(ynnot roles_ctl2)"
+    echo
+    echo "phase: Milestone 5 part 6 P2 ($SPEC) test.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "rerun: the superseded files are kept in <superseded>"
+      echo "command: sha256sum and wc -c over each superseded attempt named above"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time\n' "$(basename "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this log builds the release emend-copy and xlsx-diff for the host and emend-copy for i686 from a clone at the phase commit into <target>/test (change QD), and runs the phase commit's scripts over fictional fixtures (changes QB, QC and RB); it writes no record (change RA)"
+    no_build_running() { [ "$((n_cargo + n_rustc))" = 0 ]; }
+    check "no cargo or rustc process was running at entry" "$(yn no_build_running)"
+    echo "root: <repo> stands for the repository's top level (inside <home>, so scrubbed first); scripts/counting.sh and $SPEC are read from it by git show at the phase commit, the working spec is hashed in it, it is cloned (read only) into <scratch>/w/clone and <scratch>/w/plant; nothing in it is run, built or written (change RA)"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <phase> stands for <home>/.cache/emend-build/m5p6-p2, the phase's directory on the disk"
+    echo "root: <scripts> stands for <phase>/scripts, this script's own directory on the disk, which holds the script and, in <scripts>/out, its own standard error (specs/0017 P1 verification ruling 7)"
+    echo "root: <target> stands for <phase>/target, the phase's one target root (specs/0001); this log builds into <target>/test alone (change QD)"
+    echo "root: <build> stands for the build root on the disk, <phase>/test unless TEST_BUILD names another"
+    echo "root: <superseded> stands for <phase>/superseded, where a rerun's superseded files are kept; read only"
+    # Change RB: the two words scripts/compare-record.py's printed docstring
+    # puts before a slash.
+    echo "root: <corpus-runs> stands for, in the printed scripts/compare-record.py, the directory it is given with --corpus-runs"
+    echo "root: <scale-runs> stands for, in the printed scripts/compare-record.py, the directory it is given with --scale-runs"
+    echo "root: <scratch>/w stands for this run's mktemp -d working directory under <build>, kept on the disk after the run (change QC): <scratch>/w/counting.sh the phase commit's library, sourced; <scratch>/w/clone a clone of <repo> at the phase commit, whose scripts are run and built; <scratch>/w/plant a second clone, the plants' (change QJ); <scratch>/w/bin the built binaries, copied; <scratch>/w/fx the fictional corpus, the programs this log writes and the run directories; <scratch>/w/rec the records the cases write; <scratch>/w/tmp the TMPDIR of every script this log runs, compare-record-test.py's temporary directory among them (change RB)"
+    
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() { apart "$BUILD_ROOT" "$MAIN" && apart "$BUILD_ROOT" "$SELF_DIR" && apart "$MAIN" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$SELF_DIR" && apart "$SUPERSEDED_DIR" "$BUILD_ROOT" && apart "$SUPERSEDED_DIR" "$MAIN" && apart "$TARGET_DIR" "$BUILD_ROOT" && apart "$TARGET_DIR" "$MAIN"; }
+    check "the roots other than <home> and <phase> are distinct, none inside another (<scratch>/w inside <build>)" "$(yn roots_distinct)"
+    roots_ctl() { apart "$B" "$BUILD_ROOT"; }
+    check "control: apart refuses <scratch>/w against <build>, which holds it" "$(ynnot roots_ctl)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them this phase's logs or planning's spec $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $(git rev-parse HEAD)"
+    echo "  the controls' commits: the null commit $NULL_SHA; the fabricated commit $FAKE_SHA (the given one, its last hex digit changed); the short sha $SHORT_SHA"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "control: the same comparison refuses the null commit" "$(ynnot given_ok "$NULL_SHA")"
+    check "control: the same comparison refuses a fabricated commit" "$(ynnot given_ok "$FAKE_SHA")"
+    check "control: the same comparison refuses a short sha of the real commit" "$(ynnot given_ok "$SHORT_SHA")"
+    short_names_head() { [ "$(git rev-parse "$SHORT_SHA")" = "$(git rev-parse HEAD)" ]; }
+    check "control: the short sha is the real commit's, so only its form is refused" "$(yn short_names_head)"
+    ours_ctl() { printf ' M scripts/check.sh\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified gate file" "$(ynnot ours_ctl)"
+    ours_spec_ctl() { printf ' M specs/0036-charts-write-second-set.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified spec other than specs/0037" "$(ynnot ours_spec_ctl)"
+    ours_roadmap_ctl() { printf ' M ROADMAP.md\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified ROADMAP.md (committed and clean in this phase)" "$(ynnot ours_roadmap_ctl)"
+    ours_rec_ctl() { printf '?? records/logs/m5p6-p2/test.log\n?? records/logs/m5p6-p1/gate.log\n?? records/openpyxl-image-2026-01-01.md\n?? records/compare-m5p6-2026-01-01-%s.md\n?? records/logs/m5p6-p2x/gate.log\n M ROADMAP.md\n M specs/0037-measurement-and-close.md\n?? specs/0037-measurement-and-close.md\n' "$SHORT_SHA" | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern takes this phase's log and planning's modified spec alone, no other phase's log, no record, no sibling directory and no untracked spec (change RA)" "$(yn [ "$(ours_rec_ctl)" = 2 ])"
+    SPEC_HAVE=$(sha256sum <"$SPEC" | cut -d' ' -f1)
+    SPEC_BLOB=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum: $SPEC_BLOB; sha256sum $SPEC (the working file, printed and not asserted: planning holds its rulings during P2 uncommitted; change RA): $SPEC_HAVE"
+    check "the spec's blob at the phase commit is at the hash this log pins" "$(yn [ "$SPEC_BLOB" = "$SPEC_WANT" ])"
+    spec_ctl() { [ "$(printf 'x' | sha256sum | cut -d' ' -f1)" = "$SPEC_WANT" ]; }
+    check "control: the same comparison refuses the hash of another file" "$(ynnot spec_ctl)"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources"
+    sed 's/^/    /' "$B/counting.sh"
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    SPEC_AT_DOC=$(git show "$DOC2:$SPEC" 2>/dev/null | sha256sum | cut -d' ' -f1)
+    echo "command: git show <doc commit>:$SPEC | sha256sum: $SPEC_AT_DOC (the spec pin, read at the doc commit)"
+    check "the spec's blob at the doc commit is the pin, $SPEC_WANT" "$(yn [ "$SPEC_AT_DOC" = "$SPEC_WANT" ])"
+    echo
+    echo "## the scripts under test, at the phase commit (change QB)"
+    echo "command: git clone -q <repo> <scratch>/w/clone; git -C <scratch>/w/clone checkout -q --detach <phase commit> (a scratch copy: nothing in <repo> is written)"
+    CL=$B/clone
+    git clone -q "$MAIN" "$CL" >"$B/clone.out" 2>"$B/clone.err" </dev/null
+    rc_clone=$?
+    git -C "$CL" checkout -q --detach "$C" >>"$B/clone.out" 2>>"$B/clone.err" </dev/null
+    rc_co=$?
+    CLONE_HEAD=$(git -C "$CL" rev-parse HEAD 2>/dev/null)
+    echo "  clone exit $rc_clone; checkout exit $rc_co; the clone's HEAD: ${CLONE_HEAD:-none}; output bytes $(wc -c <"$B/clone.out"), standard error bytes $(wc -c <"$B/clone.err")"
+    clone_ok() { [ "$rc_clone" = 0 ] && [ "$rc_co" = 0 ] && [ "$CLONE_HEAD" = "$C" ]; }
+    check "the clone is at the phase commit" "$(yn clone_ok)"
+    clone_ctl() { local CLONE_HEAD=$START2; clone_ok; }
+    check "control: the same check refuses a clone at the start commit" "$(ynnot clone_ctl)"
+    clone_clean() { [ -z "$(git -C "$CL" status --porcelain 2>/dev/null)" ]; }
+    check "the clone's working tree is clean" "$(yn clone_clean)"
+    # Change RB: this phase's four scripts under test, and the scripts this log
+    # runs that the phase does not change.
+    UNDER_TEST="scripts/compare-run.sh scripts/passthrough-record.py scripts/compare-record.py scripts/compare-record-test.py scripts/openpyxl-ops.py scripts/openpyxl-ops-test.sh scripts/passthrough-run.sh scripts/lo-check.sh scripts/scale-gen.py tests/fixtures/openpyxl-ops.xlsx"
+    echo "command: sha256sum of each file under test in the clone, and git show <phase commit>:<file> | sha256sum"
+    blobs_ok=yes
+    for file in $UNDER_TEST; do
+      have=$(sha256sum <"$CL/$file" 2>/dev/null | cut -d' ' -f1)
+      want=$(git show "$C:$file" 2>/dev/null | sha256sum | cut -d' ' -f1)
+      echo "  $file: ${have:-none}"
+      [ -n "$have" ] && [ "$have" = "$want" ] || blobs_ok=no
+    done
+    check "each file under test in the clone is the phase commit's blob" "$(yn [ "$blobs_ok" = yes ])"
+    for file in scripts/compare-record.py scripts/compare-record-test.py; do
+      echo "command: sed 's/^/    /' <scratch>/w/clone/$file"
+      sed 's/^/    /' "$CL/$file"
+    done
+    for file in scripts/compare-run.sh scripts/passthrough-record.py; do
+      echo "command: git diff <base> <phase commit> -- $file"
+      git diff "$REC" "$C" -- "$file" | sed 's/^/    /'
+    done
+    changed_paths=$(git diff --name-only "$REC" "$C" -- scripts/openpyxl-ops.py scripts/openpyxl-ops-test.sh scripts/passthrough-run.sh scripts/lo-check.sh scripts/scale-gen.py tests/fixtures | wc -l)
+    echo "  the ops script, its test, the passthrough runner, the open-check library, the generator and the fixtures changed between the base and the phase commit: $changed_paths"
+    check "the scripts this log runs and the phase does not change are the base's (change RB)" "$(yn [ "$changed_paths" = 0 ])"
+    mkdir -p "$B/tmp" "$B/rec" || exit 2
+    
+    echo
+    echo "## the release binaries this log builds (change QD)"
+    BIN=$B/bin
+    TB=$TARGET_DIR/test
+    mkdir -p "$BIN" || exit 2
+    echo "command: (cd <scratch>/w/clone && CARGO_TARGET_DIR=<target>/test cargo build --release --locked --offline -p emend-copy -p xlsx-diff)"
+    (cd "$CL" && CARGO_TARGET_DIR=$TB cargo build --release --locked --offline -p emend-copy -p xlsx-diff) >"$B/build-host.out" 2>"$B/build-host.err" </dev/null
+    rc_bh=$?
+    echo "command: (cd <scratch>/w/clone && CARGO_TARGET_DIR=<target>/test cargo build --release --locked --offline --target i686-unknown-linux-musl -p emend-copy)"
+    (cd "$CL" && CARGO_TARGET_DIR=$TB cargo build --release --locked --offline --target i686-unknown-linux-musl -p emend-copy) >"$B/build-i686.out" 2>"$B/build-i686.err" </dev/null
+    rc_bi=$?
+    nw_h=$(count_matches -E '^(warning|error)' "$B/build-host.err")
+    nw_i=$(count_matches -E '^(warning|error)' "$B/build-i686.err")
+    echo "  host build: exit $rc_bh; warning or error lines $nw_h; i686 build: exit $rc_bi; warning or error lines $nw_i"
+    builds_ok() { [ "$rc_bh" = 0 ] && [ "$rc_bi" = 0 ] && [ "$nw_h" = 0 ] && [ "$nw_i" = 0 ]; }
+    check "both builds exit 0 with no warning or error line" "$(yn builds_ok)"
+    cp "$TB/release/emend-copy" "$BIN/emend-copy" && cp "$TB/release/xlsx-diff" "$BIN/xlsx-diff" &&
+      cp "$TB/i686-unknown-linux-musl/release/emend-copy" "$BIN/emend-copy-i686" || exit 2
+    for b in emend-copy xlsx-diff emend-copy-i686; do
+      echo "  <scratch>/w/bin/$b: sha256 $(sha256sum <"$BIN/$b" | cut -d' ' -f1), bytes $(wc -c <"$BIN/$b")"
+    done
+    bins_x() { [ -x "$BIN/emend-copy" ] && [ -x "$BIN/xlsx-diff" ] && [ -x "$BIN/emend-copy-i686" ]; }
+    check "the three copies are executable" "$(yn bins_x)"
+    XD_SHA=$(sha256sum <"$BIN/xlsx-diff" | cut -d' ' -f1)
+    OPS_SCRIPT_SHA=$(sha256sum <"$CL/scripts/openpyxl-ops.py" | cut -d' ' -f1)
+    IMG_ID=$(podman image inspect --format '{{.Id}}' localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 2>/dev/null </dev/null)
+    echo "command: podman image inspect --format '{{.Id}}' localhost/emend-openpyxl:3.1.5-dfsg-2-deb13: ${IMG_ID:-none}"
+    check "the image is the one P1 recorded, 894b239f (change RB)" "$(yn [ "${IMG_ID:0:8}" = 894b239f ])"
+    
+    IMAGE=localhost/emend-openpyxl:3.1.5-dfsg-2-deb13
+    LO_IMAGE=localhost/emend-lo:25.2.3-2-deb13u6
+    echo
+    echo "## the image's containers at entry (ruling A; change QI)"
+    # image_containers: the names of every container of the image, running or not.
+    image_containers() { podman ps -a --filter "ancestor=$IMAGE" --format '{{.Names}}' </dev/null; }
+    echo "command: podman ps -a --filter ancestor=$IMAGE --format '{{.Names}}'"
+    image_containers >"$B/containers-entry.out" 2>"$B/containers-entry.err"
+    rc=$?
+    n_entry=$(awk 'NF { n++ } END { print n + 0 }' "$B/containers-entry.out")
+    echo "  exit $rc; containers of the image at entry: $n_entry"
+    entry_none() { [ "$rc" = 0 ] && [ "$n_entry" = 0 ]; }
+    check "podman lists the image's containers, and there are none at entry" "$(yn entry_none)"
+    
+    echo
+    echo "## T1: scripts/compare-record-test.py (specs/0037 P2, the comparison record's test; change RC)"
+    echo "command: TMPDIR=<scratch>/w/tmp python3 -I -B <scratch>/w/clone/scripts/compare-record-test.py"
+    # cr_test <name> <root>: a clone's compare-record test, its exit and outputs kept as <name>.rc/.out/.err.
+    cr_test() {
+      TMPDIR=$B/tmp python3 -I -B "$2/scripts/compare-record-test.py" >"$B/$1.out" 2>"$B/$1.err" </dev/null
+      echo "$?" >"$B/$1.rc"
+    }
+    cr_test T1 "$CL"
+    echo "  exit: $(cat "$B/T1.rc"); standard output:"
+    sed 's/^/    /' "$B/T1.out"
+    echo "  standard error:"
+    sed 's/^/    /' "$B/T1.err"
+    # The lines the test must print, each once (its source's check texts).
+    cat >"$B/T1.want" <<'CRWANT'
+    ok the record is written, exit 0, nothing on stderr
+    ok the one line names the stem, 11 ops and 72 scale rows
+    ok the corpus table holds 33 rows, three per op
+    ok emend host: 3 files, 3 ok
+    ok emend host: the entry totals 12, 1, 1, 0, 1
+    ok emend host: lo ok 3; lo_in ok 2, fail 1
+    ok emend host: wall median 2, sum 7; peak RSS median 2000, max 3000
+    ok openpyxl: 2 ok, 1 error
+    ok openpyxl: the entry totals over its ok rows 1, 7, 3, 5
+    ok openpyxl: lo ok 1, fail 1, not-run 1
+    ok openpyxl: lo_in counted from the emend host run, ok 2 and fail 1 (ruling C)
+    ok openpyxl: wall median 3, sum 9.50; peak RSS median 40000, max 50000
+    ok the openpyxl detail table holds 11 rows
+    ok the container start median of 0.40, 0.50, 0.70 is 0.50 (rulings K and P)
+    ok the settings named from run.openpyxl.tsv (ruling N)
+    ok the error row's class read from its stdout file
+    ok the lo_in source directory named (ruling C)
+    ok the scale table holds 72 rows: 24 ops over tiers a to d, three rows each
+    ok a scale cap row: outcome cap, no entry counts, the container start named
+    ok a scale emend row: ok, its wall time, lo ok on tier a, no container start
+    ok tier b records lo not-run as -
+    ok the image record's sha256
+    ok the record is ASCII
+    ok no workbook id is named
+    ok an existing record is refused
+    ok a missing openpyxl run directory refused, nothing written
+    ok a missing empty-run file refused
+    ok a summary with another header refused
+    ok a run row naming another op refused
+    ok runs that do not cover the same workbooks refused
+    ok a bad stamp refused
+    compare-record-test: PASS
+    CRWANT
+    echo "  lines the log expects once each: $(count_lines "$B/T1.want")"
+    # cr_passed <name>: exit 0, every expected line once, no FAIL line, 31 ok lines, the last line PASS, stderr empty.
+    cr_passed() {
+      local line
+      [ "$(cat "$B/$1.rc")" = 0 ] && [ ! -s "$B/$1.err" ] || return 1
+      [ "$(count_matches -E '^FAIL ' "$B/$1.out")" = 0 ] && [ "$(count_matches -E '^ok ' "$B/$1.out")" = 31 ] || return 1
+      [ "$(tail -n 1 "$B/$1.out")" = "compare-record-test: PASS" ] || return 1
+      while IFS= read -r line; do
+        [ "$(count_matches -xF "$line" "$B/$1.out")" = 1 ] || return 1
+      done <"$B/T1.want"
+    }
+    check "T1: exit 0, every expected line once, 31 ok lines, no FAIL, the last line PASS, nothing on stderr" "$(yn cr_passed T1)"
+    sed '0,/^ok /s//FAIL /' "$B/T1.out" >"$B/T1c.out"; cp "$B/T1.rc" "$B/T1c.rc"; : >"$B/T1c.err"
+    check "control: the same check refuses the output with one ok line made FAIL" "$(ynnot cr_passed T1c)"
+    echo
+    echo "## T2: scripts/openpyxl-ops-test.sh in the image (ruling F; change QF, carried by change RD)"
+    echo "command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/openpyxl-ops-test.sh $IMAGE"
+    # ops_test <name> <root>: a clone's ops test, its exit and outputs kept as <name>.rc/.out/.err.
+    ops_test() {
+      TMPDIR=$B/tmp bash "$2/scripts/openpyxl-ops-test.sh" "$IMAGE" >"$B/$1.out" 2>"$B/$1.err" </dev/null
+      echo "$?" >"$B/$1.rc"
+    }
+    ops_test T2 "$CL"
+    echo "  exit: $(cat "$B/T2.rc"); standard output:"
+    sed 's/^/    /' "$B/T2.out"
+    echo "  standard error:"
+    sed 's/^/    /' "$B/T2.err"
+    OPS_LIST="roundtrip read edit format insert-rows names table comment image add-chart copy"
+    # The lines the ops test must print, each once (from its source's check texts).
+    {
+      echo "ok scale-gen.py tier t exits 0"
+      echo "ok the generator reports tier t with the fixture's sha256"
+      echo "ok the committed fixture's sha256 is the one tests/fixtures/README.md names"
+      echo "ok the regenerated workbook is the committed fixture, byte for byte"
+      for op in $OPS_LIST; do
+        echo "ok $op: exit 0"
+        echo "ok $op: an output was written"
+        echo "ok $op: the last line is openpyxl=3.1.5 and a peak RSS"
+        echo "ok $op: nothing on standard error"
+      done
+      echo "ok read: the line cells=2500 (2 sheets, 2500 cells)"
+      echo "ok read: two lines, the count and the last line"
+      for op in $OPS_LIST; do [ "$op" = read ] || echo "ok $op: one line, the last line"; done
+      echo "ok the parts reader exits 0"
+      echo "ok the parts reader made its 12 checks"
+      echo "ok an unknown op exits 2"
+      echo "ok an unknown op prints the one line unknown op"
+      echo "openpyxl-ops-test: PASS"
+    } >"$B/T2.want"
+    echo "  lines the log expects once each: $(count_lines "$B/T2.want")"
+    # ops_passed <name>: exit 0, every expected line once, no FAIL line, 76 ok lines, the last line PASS, stderr empty.
+    ops_passed() {
+      local line
+      [ "$(cat "$B/$1.rc")" = 0 ] && [ ! -s "$B/$1.err" ] || return 1
+      [ "$(count_matches -E '^FAIL ' "$B/$1.out")" = 0 ] && [ "$(count_matches -E '^ok ' "$B/$1.out")" = 76 ] || return 1
+      [ "$(tail -n 1 "$B/$1.out")" = "openpyxl-ops-test: PASS" ] || return 1
+      while IFS= read -r line; do
+        [ "$(count_matches -xF "$line" "$B/$1.out")" = 1 ] || return 1
+      done <"$B/T2.want"
+    }
+    check "T2: exit 0, every expected line once, 76 ok lines, no FAIL, the last line PASS, nothing on stderr" "$(yn ops_passed T2)"
+    sed '0,/^ok /s//FAIL /' "$B/T2.out" >"$B/T2c.out"; cp "$B/T2.rc" "$B/T2c.rc"; : >"$B/T2c.err"
+    check "control: the same check refuses the output with one ok line made FAIL" "$(ynnot ops_passed T2c)"
+    
+    echo
+    echo "## T3: scripts/compare-run.sh over a fictional corpus, the roundtrip and edit ops (rulings A to E and I; changes QC, QG and RE)"
+    FX=$B/fx
+    mkdir -p "$FX" "$FX/runs" || exit 2
+    echo "command: python3 -I -B <scratch>/w/clone/scripts/scale-gen.py t <scratch>/w/fx/corpus"
+    python3 -I -B "$CL/scripts/scale-gen.py" t "$FX/corpus" >"$B/gen.out" 2>"$B/gen.err" </dev/null
+    rc_gen=$?
+    sed 's/^/    /' "$B/gen.out"
+    read -r _ G_TIER G_ID _ G_SHA _ <"$B/gen.out"
+    FIXTURE_SHA=$(sed -n 's/^- sha256: `\([0-9a-f]\{64\}\)`\.$/\1/p' "$CL/tests/fixtures/README.md")
+    echo "  exit $rc_gen; tier ${G_TIER:-none}; id ${G_ID:-none}; sha256 ${G_SHA:-none}; tests/fixtures/README.md's sha256 ${FIXTURE_SHA:-none}"
+    gen_ok() { [ "$rc_gen" = 0 ] && [ "$G_TIER" = t ] && [ -n "$FIXTURE_SHA" ] && [ "$G_SHA" = "$FIXTURE_SHA" ] && [ -f "$FX/corpus/corpus/$G_ID.xlsx" ]; }
+    check "the generator wrote tier t, the committed fixture's bytes, into a corpus directory" "$(yn gen_ok)"
+    CORPUS=$FX/corpus
+    cat >"$FX/mkxltx.py" <<'MKXLTX'
+    """Adds to the generated corpus a template copy of its one workbook: the same
+    entries, the workbook part's content type made the template's, the id fixed
+    below, the extension xltx, and its manifest row (the generated row with its
+    id, sha256, bytes and extension replaced). Fictional; prints nothing."""
+    import hashlib
+    import os
+    import sys
+    import zipfile
+    
+    top, src_id = sys.argv[1], sys.argv[2]
+    NEW_ID = "f00000000071"
+    MAIN_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+    TEMPLATE_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml"
+    src = os.path.join(top, "corpus", src_id + ".xlsx")
+    dst = os.path.join(top, "corpus", NEW_ID + ".xltx")
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, "x") as zout:
+        for info in zin.infolist():
+            data = zin.read(info.filename)
+            if info.filename == "[Content_Types].xml":
+                text = data.decode("utf-8")
+                if text.count(MAIN_CT) != 1:
+                    sys.exit(1)
+                data = text.replace(MAIN_CT, TEMPLATE_CT).encode("utf-8")
+            zout.writestr(info, data)
+    blob = open(dst, "rb").read()
+    path = os.path.join(top, "manifest.tsv")
+    lines = open(path).read().split("\n")
+    rows = [line for line in lines[1:] if line.startswith(src_id + "\t")]
+    if len(rows) != 1 or lines[-1] != "":
+        sys.exit(1)
+    cells = rows[0].split("\t")
+    cells[0:4] = [NEW_ID, hashlib.sha256(blob).hexdigest(), str(len(blob)), "xltx"]
+    with open(path, "a") as handle:
+        handle.write("\t".join(cells) + "\n")
+    MKXLTX
+    echo "command: python3 -I -B <scratch>/w/fx/mkxltx.py <scratch>/w/fx/corpus $G_ID (the program, printed below, sha256 $(sha256sum <"$FX/mkxltx.py" | cut -d' ' -f1))"
+    sed 's/^/    /' "$FX/mkxltx.py"
+    python3 -I -B "$FX/mkxltx.py" "$CORPUS" "$G_ID" >"$B/mkxltx.out" 2>"$B/mkxltx.err" </dev/null
+    rc_mk=$?
+    T_ID=f00000000071
+    echo "  exit $rc_mk; output bytes $(wc -c <"$B/mkxltx.out"); standard error bytes $(wc -c <"$B/mkxltx.err")"
+    echo "command: cut -f 1,3,4,5,9 <scratch>/w/fx/corpus/manifest.tsv (id, bytes, ext, producer, tags)"
+    cut -f 1,3,4,5,9 "$CORPUS/manifest.tsv" | sed 's/^/    /'
+    mk_ok() { [ "$rc_mk" = 0 ] && [ ! -s "$B/mkxltx.out" ] && [ ! -s "$B/mkxltx.err" ] && [ -f "$CORPUS/corpus/$T_ID.xltx" ] && [ "$(count_lines "$CORPUS/manifest.tsv")" = 3 ] && [ "$(awk -F'\t' -v i="$T_ID" '$1 == i { print $4 }' "$CORPUS/manifest.tsv")" = xltx ]; }
+    check "the corpus holds the generated workbook and its xltx template copy, each with a manifest row" "$(yn mk_ok)"
+    
+    # The runner's two table headers, read from scripts/passthrough-run.sh, and the
+    # comparison runner's own; ruling E's run header, as the ruling lists it.
+    hdr_of() { sed -n "s/^readonly $1=\\$'\\(.*\\)'\$/\\1/p" "$2"; }
+    SUM_H=$(hdr_of SUMMARY_HEADER "$CL/scripts/passthrough-run.sh")
+    ENT_H=$(hdr_of ENTRIES_HEADER "$CL/scripts/passthrough-run.sh")
+    echo "  the runner's summary header (from its source): $SUM_H"
+    echo "  the runner's entries header (from its source): $ENT_H"
+    heads_same() { [ -n "$SUM_H" ] && [ -n "$ENT_H" ] && [ "$(hdr_of SUMMARY_HEADER "$CL/scripts/compare-run.sh")" = "$SUM_H" ] && [ "$(hdr_of ENTRIES_HEADER "$CL/scripts/compare-run.sh")" = "$ENT_H" ]; }
+    check "scripts/compare-run.sh declares the runner's summary and entries headers, character for character" "$(yn heads_same)"
+    heads_ctl() { [ "$(hdr_of RUN_HEADER "$CL/scripts/compare-run.sh")" = "$(hdr_of RUN_HEADER "$CL/scripts/passthrough-run.sh")" ]; }
+    check "control: the same reading tells the two run headers apart" "$(ynnot heads_ctl)"
+    RUN_H='commit\tstarted\tended\timage_id\topenpyxl\ttimeout_s\tlo_timeout_s\tmemory_mib\tops_sha256\txlsx_diff_sha256\tfiles\top'
+    cat >"$FX/cmpcheck.py" <<'CMPCHECK'
+    """Checks one comparison run directory against what the test log expects:
+    the three headers, one summary row per expected id in manifest order, each
+    row's fields, its output and nothing else in the output directory, the
+    entries rows, and the one run row. Prints "yes" or "no", a tab and what
+    was checked, one line each; never a cell value."""
+    import os
+    import re
+    import sys
+    
+    e = os.environ
+    run, op = sys.argv[1], sys.argv[2]
+    want_ids = [pair.split(":") for pair in e["IDS"].split(",")]
+    out = []
+    
+    
+    def say(ok, what):
+        out.append("%s\t%s: %s" % ("yes" if ok else "no", op, what))
+    
+    
+    def table(name):
+        try:
+            lines = open(os.path.join(run, name)).read().split("\n")
+        except OSError:
+            return None, []
+        if lines and lines[-1] == "":
+            lines.pop()
+        return (lines[0] if lines else None), [line.split("\t") for line in lines[1:]]
+    
+    
+    sh, srows = table("summary.openpyxl.tsv")
+    eh, erows = table("entries.openpyxl.tsv")
+    rh, rrows = table("run.openpyxl.tsv")
+    summary_header = e["SUM_H"].replace("\\t", "\t")
+    say(sh == summary_header, "summary.openpyxl.tsv's header is the runner's")
+    say(eh == e["ENT_H"].replace("\\t", "\t"), "entries.openpyxl.tsv's header is the runner's")
+    say(rh == e["RUN_H"].replace("\\t", "\t"), "run.openpyxl.tsv's header is ruling E's")
+    cols = summary_header.split("\t")
+    rows = [dict(zip(cols, r)) for r in srows if len(r) == len(cols)]
+    say(len(rows) == len(srows) and [r["id"] for r in rows] == [i for i, _ in want_ids],
+        "one summary row per expected id, in manifest order")
+    for (wid, ext), r in zip(want_ids, rows):
+        o = os.path.join(run, wid, "out.openpyxl", wid + "." + ext)
+        others = sorted(set(os.listdir(os.path.dirname(o))) - {wid + "." + ext}) if os.path.isdir(os.path.dirname(o)) else ["-"]
+        say(r["label"] == "openpyxl", "%s: label openpyxl" % wid)
+        say(r["outcome"] == e["OUTCOME"] and r["exit"] == e["EXIT"], "%s: outcome %s, exit %s" % (wid, e["OUTCOME"], e["EXIT"]))
+        say(r["lo"] == e["LO"] and r["lo_in"] == "-", "%s: lo %s, lo_in - (ruling C)" % (wid, e["LO"]))
+        say(r["leftover"] == "no" and not others, "%s: leftover no, nothing beside the output in its directory" % wid)
+        if e["OUTCOME"] == "ok":
+            say(os.path.isfile(o) and r["out_bytes"] == str(os.path.getsize(o)),
+                "%s: the output keeps the extension %s (ruling D) and out_bytes is its size" % (wid, ext))
+            say(r["diff_exit"] in ("0", "1"), "%s: xlsx-diff exit 0 or 1" % wid)
+            say(re.fullmatch(r"[0-9]+\.[0-9]{2}", r["wall_s"]) is not None and re.fullmatch(r"[1-9][0-9]*", r["peak_rss_kb"]) is not None,
+                "%s: a wall time and a peak RSS" % wid)
+            say(any(x[0] == wid and x[1] == "openpyxl" for x in erows), "%s: entries rows under label openpyxl" % wid)
+    say(all(len(x) > 1 and x[1] == "openpyxl" for x in erows), "every entries row is under label openpyxl")
+    run_cols = e["RUN_H"].replace("\\t", "\t").split("\t")
+    ok = len(rrows) == 1 and len(rrows[0]) == len(run_cols)
+    r = dict(zip(run_cols, rrows[0])) if ok else {}
+    say(ok, "one run row")
+    say(r.get("commit") == e["COMMIT"], "the run row's commit is the phase commit")
+    say(r.get("image_id") == e["IMG_ID"], "the run row's image id is the image's")
+    say(r.get("openpyxl") == "3.1.5", "the run row's openpyxl is 3.1.5")
+    say(r.get("ops_sha256") == e["OPS_SHA"] and r.get("xlsx_diff_sha256") == e["XD_SHA"],
+        "the run row's ops script and xlsx-diff hashes are the clone's and the built binary's")
+    say(r.get("op") == op and r.get("files") == str(len(want_ids)), "the run row's op and file count")
+    say((r.get("timeout_s"), r.get("lo_timeout_s"), r.get("memory_mib")) == ("300", "600", "2048"),
+        "the run row's settings are the defaults, 300 s, 600 s and 2048 MiB")
+    print("\n".join(out))
+    CMPCHECK
+    echo "command: the checker <scratch>/w/fx/cmpcheck.py (printed below, sha256 $(sha256sum <"$FX/cmpcheck.py" | cut -d' ' -f1)), run as python3 -I -B <checker> <run directory> <op> with the expectations in its environment"
+    sed 's/^/    /' "$FX/cmpcheck.py"
+    # compare_case <name> <root> <op> <out dir> [arguments...]: a clone's comparison
+    # runner over the fictional corpus with the image and the built xlsx-diff;
+    # exit, stdout and stderr kept as <name>.rc/.out/.err.
+    compare_case() {
+      local name=$1 root=$2 op=$3 out=$4 rc
+      shift 4
+      echo "### $name"
+      echo "command: TMPDIR=<scratch>/w/tmp bash $root/scripts/compare-run.sh --op $op --image $IMAGE --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out $out $*"
+      TMPDIR=$B/tmp bash "$root/scripts/compare-run.sh" --op "$op" --image "$IMAGE" --xlsx-diff "$BIN/xlsx-diff" \
+        --corpus "$CORPUS" --out "$out" "$@" >"$B/$name.out" 2>"$B/$name.err" </dev/null
+      rc=$?
+      echo "$rc" >"$B/$name.rc"
+      echo "  exit: $rc; standard output:"
+      sed 's/^/    /' "$B/$name.out"
+      echo "  standard error:"
+      sed 's/^/    /' "$B/$name.err"
+    }
+    rc_of() { cat "$B/$1.rc"; }
+    # run_checker <name> <run dir> <op> <ids> <outcome> <exit> <lo>: the checker's lines into <name>.chk.
+    run_checker() {
+      IDS=$4 OUTCOME=$5 EXIT=$6 LO=$7 SUM_H=$SUM_H ENT_H=$ENT_H RUN_H=$RUN_H COMMIT=$C IMG_ID=$IMG_ID \
+        OPS_SHA=$OPS_SCRIPT_SHA XD_SHA=$XD_SHA python3 -I -B "$FX/cmpcheck.py" "$2" "$3" >"$B/$1.chk" 2>"$B/$1.chkerr" </dev/null
+      echo "$?" >"$B/$1.chkrc"
+    }
+    # checker_pass <name>: the checker exited 0, wrote lines, every one yes.
+    checker_pass() { [ "$(cat "$B/$1.chkrc")" = 0 ] && [ ! -s "$B/$1.chkerr" ] && [ "$(count_lines "$B/$1.chk")" -ge 1 ] && [ "$(count_matches -E '^no' "$B/$1.chk")" = 0 ]; }
+    # stdout_ok <name> <id>...: one line per id (id ok 0 wall rss), the count line, the containers line, nothing else, no slash.
+    stdout_ok() {
+      local name=$1 id n=0
+      shift
+      for id in "$@"; do
+        [ "$(count_matches -E "^$id ok 0 [0-9]+[.][0-9]{2} [1-9][0-9]*\$" "$B/$name.out")" = 1 ] || return 1
+        n=$((n + 1))
+      done
+      [ "$(count_matches -xF "files $n ok $n error 0 timeout 0 cap 0 no-output 0" "$B/$name.out")" = 1 ] || return 1
+      [ "$(count_matches -xF "containers of the image remaining: 0" "$B/$name.out")" = 1 ] || return 1
+      [ "$(count_lines "$B/$name.out")" = "$((n + 2))" ] && [ "$(count_matches -F / "$B/$name.out")" = 0 ] && [ ! -s "$B/$name.err" ] && [ "$(rc_of "$name")" = 0 ]
+    }
+    IDS_BOTH=$G_ID:xlsx,$T_ID:xltx
+    # Change RE: two ops, the runner's trap (ruling I) the change under test.
+    # trap_order <name>: the last two lines are the files line, then the containers line, once each.
+    trap_order() {
+      [ "$(tail -n 2 "$B/$1.out" | head -n 1)" = "files 2 ok 2 error 0 timeout 0 cap 0 no-output 0" ] || return 1
+      [ "$(tail -n 1 "$B/$1.out")" = "containers of the image remaining: 0" ] || return 1
+      [ "$(count_matches -E '^containers of the image remaining: ' "$B/$1.out")" = 1 ]
+    }
+    for op in roundtrip edit; do
+      compare_case "C-$op" "$CL" "$op" "$FX/runs/$op" --libreoffice "$LO_IMAGE"
+      check "C-$op: exit 0, one line per workbook, the count line and the containers line, no path, nothing on stderr" "$(yn stdout_ok "C-$op" "$G_ID" "$T_ID")"
+      check "C-$op: the containers line exactly once, the last line, after the files line (ruling I)" "$(yn trap_order "C-$op")"
+      run_checker "C-$op" "$FX/runs/$op" "$op" "$IDS_BOTH" ok 0 ok
+      echo "  the checker: exit $(cat "$B/C-$op.chkrc"); standard error bytes $(wc -c <"$B/C-$op.chkerr")"
+      while IFS=$TAB read -r verdict what; do
+        check "C-$op: $what" "$verdict"
+      done <"$B/C-$op.chk"
+      check "C-$op: the checker exited 0 and every one of its lines reads yes" "$(yn checker_pass "C-$op")"
+    done
+    echo "### the controls"
+    run_checker C-ctl "$FX/runs/roundtrip" edit "$IDS_BOTH" ok 0 ok
+    check "control: the checker refuses the roundtrip run read as the edit op's" "$(ynnot checker_pass C-ctl)"
+    { cat "$B/C-roundtrip.out"; echo "$G_ID ok 0 0.10 1 /planted/path"; } >"$B/C-pathctl.out"
+    cp "$B/C-roundtrip.rc" "$B/C-pathctl.rc"; : >"$B/C-pathctl.err"
+    check "control: the stdout check refuses an output holding a planted path" "$(ynnot stdout_ok C-pathctl "$G_ID" "$T_ID")"
+    head -n -1 "$B/C-roundtrip.out" >"$B/C-trapctl.out"; cp "$B/C-roundtrip.rc" "$B/C-trapctl.rc"; : >"$B/C-trapctl.err"
+    check "control: the order check refuses an output without its containers line" "$(ynnot trap_order C-trapctl)"
+    
+    echo
+    echo "### T3 refusals, every message read from scripts/compare-run.sh; the trap prints its line once the work directory exists (ruling I)"
+    CR=$CL/scripts/compare-run.sh
+    USAGE_V=$(sed -n 's/^readonly USAGE="\(.*\)"$/\1/p' "$CR")
+    die_of() { LC_ALL=C "$G" -o -e "die \"$1[^\"]*\"" "$CR" | sed -e 's/^die "//' -e 's/"$//'; }
+    RAW_OP=$(die_of '--op must name')
+    RAW_DUP=$(die_of 'id [$]dup already has a row')
+    MSG_OP=${RAW_OP/\$USAGE/$USAGE_V}
+    MSG_DUP=${RAW_DUP/\$dup/$G_ID}
+    MSG_DUP=${MSG_DUP/\$LABEL/openpyxl}
+    echo "  the unknown-op message: $MSG_OP"
+    echo "  the rerun message: $MSG_DUP"
+    one_line_msg() { [ -n "$1" ] && [ "$(printf '%s\n' "$1" | wc -l)" = 1 ]; }
+    msgs_ok() { one_line_msg "$RAW_OP" && one_line_msg "$RAW_DUP" && [ -n "$USAGE_V" ]; }
+    check "each message is found once in the source, and the usage line" "$(yn msgs_ok)"
+    msg_ctl() { one_line_msg "$(die_of 'no such message')"; }
+    check "control: the same reading finds no message for a start the source does not hold" "$(ynnot msg_ctl)"
+    # refused_as <name> <message>: exit 2, the one error line, nothing on stdout.
+    refused_as() { [ "$(rc_of "$1")" = 2 ] && [ "$(count_lines "$B/$1.err")" = 1 ] && [ "$(count_matches -xF "error: $2" "$B/$1.err")" = 1 ] && [ ! -s "$B/$1.out" ]; }
+    # refused_counted <name> <message>: exit 2, the one error line, and stdout the containers line alone (ruling I).
+    refused_counted() { [ "$(rc_of "$1")" = 2 ] && [ "$(count_lines "$B/$1.err")" = 1 ] && [ "$(count_matches -xF "error: $2" "$B/$1.err")" = 1 ] && [ "$(cat "$B/$1.out")" = "containers of the image remaining: 0" ]; }
+    compare_case R-op "$CL" no-such-op "$FX/runs/no-such-op"
+    check "R-op: an unknown op refused with its message before the work directory exists, so nothing on stdout" "$(yn refused_as R-op "$MSG_OP")"
+    check "R-op: the run directory was not made" "$(ynnot test -e "$FX/runs/no-such-op")"
+    compare_case R-rerun "$CL" roundtrip "$FX/runs/roundtrip"
+    check "R-rerun: a rerun into a run directory holding the ids refused with its message, and the trap's containers line printed (ruling I)" "$(yn refused_counted R-rerun "$MSG_DUP")"
+    check "R-rerun: the summary still holds its two rows" "$(yn [ "$(count_lines "$FX/runs/roundtrip/summary.openpyxl.tsv")" = 3 ])"
+    check "control: the counted refusal check refuses R-op's output, which has no containers line" "$(ynnot refused_counted R-op "$MSG_OP")"
+    echo
+    echo "## T4: scripts/passthrough-record.py, the container start (rulings K and P; change RF)"
+    REC_NEW=$CL/scripts/passthrough-record.py
+    REC_OLD=$B/record-base.py
+    git show "$REC:scripts/passthrough-record.py" >"$REC_OLD" || exit 2
+    echo "command: git show <base>:scripts/passthrough-record.py > <scratch>/w/record-base.py; sha256sum: $(sha256sum <"$REC_OLD" | cut -d' ' -f1); the phase commit's: $(sha256sum <"$REC_NEW" | cut -d' ' -f1)"
+    fail_of() { LC_ALL=C "$G" -o -e "Failure(\"$1[^\"]*\"" "$REC_NEW" | sed -e 's/^Failure("//' -e 's/"$//'; }
+    MSG_EMPTY=$(fail_of 'empty.openpyxl.tsv does not hold runs 1 to 3')
+    RAW_HEADER=$(fail_of '%s does not start with the expected header')
+    MSG_HEADER=$(printf "$RAW_HEADER" empty.openpyxl.tsv)
+    echo "  the malformed-file message: $MSG_EMPTY"
+    echo "  the header message for the empty-run file: $MSG_HEADER"
+    msgs4_ok() { one_line_msg "$MSG_EMPTY" && one_line_msg "$RAW_HEADER"; }
+    check "each record message is found once in the source" "$(yn msgs4_ok)"
+    # record_case <name> <script> <run dir> <stem> [arguments...]: the record script into <scratch>/w/rec.
+    record_case() {
+      local name=$1 script=$2 run=$3 stem=$4 rc
+      shift 4
+      echo "### $name"
+      echo "command: python3 -I -B $script --run $run --out <scratch>/w/rec --stem $stem $*"
+      python3 -I -B "$script" --run "$run" --out "$B/rec" --stem "$stem" "$@" >"$B/$name.out" 2>"$B/$name.err" </dev/null
+      rc=$?
+      echo "$rc" >"$B/$name.rc"
+      echo "  exit: $rc; standard output:"
+      sed 's/^/    /' "$B/$name.out"
+      echo "  standard error:"
+      sed 's/^/    /' "$B/$name.err"
+    }
+    # empty_file <run dir> <lines...>: the empty-run file written as given, printed.
+    empty_file() {
+      local run=$1
+      shift
+      printf '%s\n' "$@" >"$run/empty.openpyxl.tsv" || exit 2
+      echo "command: printf into $run/empty.openpyxl.tsv:"
+      sed 's/^/    /' "$run/empty.openpyxl.tsv"
+    }
+    EMPTY_LINE='- Container start: an empty run of the image (python3 -I -B -c pass, the same mounts and flags), three runs 0.52, 0.48, 0.61 s, median 0.52 s; the openpyxl wall times include it (specs/0037 rulings K and P)'
+    echo "  the container-start line expected: $EMPTY_LINE"
+    # start_ok <name> <stem>: written, exit 0, the container-start line once, exactly.
+    start_ok() { [ "$(rc_of "$1")" = 0 ] && [ ! -s "$B/$1.err" ] && [ "$(count_matches -xF "$EMPTY_LINE" "$B/rec/$2.md")" = 1 ]; }
+    # start_absent <name> <stem>: written, exit 0, no container-start line.
+    start_absent() { [ "$(rc_of "$1")" = 0 ] && [ ! -s "$B/$1.err" ] && [ "$(count_matches -F 'Container start' "$B/rec/$2.md")" = 0 ]; }
+    for d in start nostart short badhead; do cp -a "$FX/runs/roundtrip" "$FX/runs/$d" || exit 2; done
+    echo "command: cp -a <scratch>/w/fx/runs/roundtrip to <scratch>/w/fx/runs/start, nostart, short and badhead"
+    empty_file "$FX/runs/start" 'run	wall_s' '1	0.52' '2	0.48' '3	0.61'
+    record_case S1 "$REC_NEW" "$FX/runs/start" s1 --allow-single
+    check "S1: with empty.openpyxl.tsv, the record names the three runs and their median, the exact line" "$(yn start_ok S1 s1)"
+    record_case S2 "$REC_NEW" "$FX/runs/nostart" s2 --allow-single
+    check "S2: without the file, no container-start line" "$(yn start_absent S2 s2)"
+    check "control: the start check refuses S2's record" "$(ynnot start_ok S2 s2)"
+    empty_file "$FX/runs/short" 'run	wall_s' '1	0.52'
+    record_case S3 "$REC_NEW" "$FX/runs/short" s3 --allow-single
+    check "S3: a file of one run refused with its message, no record written" "$(yn refused_as S3 "$MSG_EMPTY")"
+    check "S3: no record was written" "$(ynnot test -e "$B/rec/s3.md")"
+    empty_file "$FX/runs/badhead" 'run	seconds' '1	0.52' '2	0.48' '3	0.61'
+    record_case S4 "$REC_NEW" "$FX/runs/badhead" s4 --allow-single
+    check "S4: a file with another header refused with its message" "$(yn refused_as S4 "$MSG_HEADER")"
+    # same_record <old stem> <new stem>: the .txt byte for byte; the .md the same once its one "Record written" line is left out.
+    same_record() {
+      local o=$B/rec/$1 n=$B/rec/$2
+      cmp -s "$o.txt" "$n.txt" || return 1
+      [ "$(count_matches -E '^- Record written: ' "$o.md")" = 1 ] && [ "$(count_matches -E '^- Record written: ' "$n.md")" = 1 ] || return 1
+      # Each record names its own companion .txt by its stem; the stems differ
+      # by design, so each is read as STEM before the comparison.
+      LC_ALL=C "$G" -v -E '^- Record written: ' "$o.md" | sed "s/\\b$1[.]txt\\b/STEM.txt/g" >"$o.cmp" &&
+        LC_ALL=C "$G" -v -E '^- Record written: ' "$n.md" | sed "s/\\b$2[.]txt\\b/STEM.txt/g" >"$n.cmp" && cmp -s "$o.cmp" "$n.cmp"
+    }
+    record_case S5-old "$REC_OLD" "$FX/runs/nostart" s5-old --allow-single
+    record_case S5-new "$REC_NEW" "$FX/runs/nostart" s5-new --allow-single
+    check "S5: an openpyxl record without the file, the base commit's record script and the phase commit's the same but for the Record written line" "$(yn same_record s5-old s5-new)"
+    record_case S6-old "$REC_OLD" "$FX/runs/start" s6-old --allow-single
+    check "control: the comparison refuses the base commit's record of the directory holding the file against S1's, which names it" "$(ynnot same_record s6-old s1)"
+    
+    echo
+    echo "### T4: the emend records, the base commit's record script against the phase commit's"
+    # runner_case <name> <label> <binary> <out dir> [arguments...]: the clone's passthrough runner over the fictional corpus.
+    runner_case() {
+      local name=$1 label=$2 bin=$3 out=$4 rc
+      shift 4
+      echo "### $name"
+      echo "command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label $label --passthrough $bin --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out $out --libreoffice $LO_IMAGE $*"
+      TMPDIR=$B/tmp bash "$CL/scripts/passthrough-run.sh" --label "$label" --passthrough "$bin" --xlsx-diff "$BIN/xlsx-diff" \
+        --corpus "$CORPUS" --out "$out" --libreoffice "$LO_IMAGE" "$@" >"$B/$name.out" 2>"$B/$name.err" </dev/null
+      rc=$?
+      echo "$rc" >"$B/$name.rc"
+      echo "  exit: $rc; standard output:"
+      sed 's/^/    /' "$B/$name.out"
+      echo "  standard error:"
+      sed 's/^/    /' "$B/$name.err"
+    }
+    ran_two() { [ "$(rc_of "$1")" = 0 ] && [ ! -s "$B/$1.err" ] && [ "$(count_matches -xF "files 2 ok 2 error 0 timeout 0 panic 0 crash 0" "$B/$1.out")" = 1 ]; }
+    runner_case E-host host "$BIN/emend-copy" "$FX/runs/emend"
+    check "E-host: the host run over the two workbooks, both ok" "$(yn ran_two E-host)"
+    runner_case E-i686 i686 "$BIN/emend-copy-i686" "$FX/runs/emend"
+    check "E-i686: the i686 run into the same run directory, both ok" "$(yn ran_two E-i686)"
+    runner_case E-solo host "$BIN/emend-copy" "$FX/runs/emend-solo"
+    check "E-solo: a host run alone, both ok" "$(yn ran_two E-solo)"
+    record_case R6-old "$REC_OLD" "$FX/runs/emend" e2-old
+    record_case R6-new "$REC_NEW" "$FX/runs/emend" e2-new
+    record_case R7-old "$REC_OLD" "$FX/runs/emend-solo" e1-old --allow-single
+    record_case R7-new "$REC_NEW" "$FX/runs/emend-solo" e1-new --allow-single
+    rec_ran() { [ "$(rc_of "$1")" = 0 ] && [ ! -s "$B/$1.err" ]; }
+    both_ran() { rec_ran R6-old && rec_ran R6-new && rec_ran R7-old && rec_ran R7-new; }
+    check "the four records were written, each exit 0 with nothing on stderr" "$(yn both_ran)"
+    echo "  host and i686: the md's line counts $(count_lines "$B/rec/e2-old.md") and $(count_lines "$B/rec/e2-new.md"); host alone: $(count_lines "$B/rec/e1-old.md") and $(count_lines "$B/rec/e1-new.md")"
+    check "R6: host and i686, the base commit's record and the phase commit's are the same but for the Record written line" "$(yn same_record e2-old e2-new)"
+    check "R7: host alone, the same" "$(yn same_record e1-old e1-new)"
+    sed 's/^- Targets: .*/- Targets: planted/' "$B/rec/e2-new.md" >"$B/rec/e2-ctl.md" && cp "$B/rec/e2-new.txt" "$B/rec/e2-ctl.txt"
+    check "control: the comparison refuses a record with its Targets line changed" "$(ynnot same_record e2-old e2-ctl)"
+    echo
+    echo "## T5: the plants, in a second clone (change QJ's machinery; this phase's plants, change RG)"
+    PL=$B/plant
+    echo "command: git clone -q <repo> <scratch>/w/plant; git -C <scratch>/w/plant checkout -q --detach <phase commit>"
+    git clone -q "$MAIN" "$PL" >"$B/plant-clone.out" 2>"$B/plant-clone.err" </dev/null &&
+      git -C "$PL" checkout -q --detach "$C" >>"$B/plant-clone.out" 2>>"$B/plant-clone.err" </dev/null
+    rc=$?
+    plant_at_c() { [ "$(git -C "$PL" rev-parse HEAD)" = "$C" ] && [ -z "$(git -C "$PL" status --porcelain)" ]; }
+    plant_made() { [ "$rc" = 0 ] && plant_at_c; }
+    check "the plant clone is at the phase commit, its tree clean" "$(yn plant_made)"
+    cat >"$B/plant.py" <<'PLANT'
+    """Replaces one text in one file of the plant clone, refusing unless the old
+    text is there exactly once. Prints nothing."""
+    import os
+    import sys
+    
+    path = sys.argv[1]
+    old, new = os.environ["PLANT_OLD"], os.environ["PLANT_NEW"]
+    text = open(path).read()
+    if text.count(old) != 1:
+        sys.exit(1)
+    open(path, "w").write(text.replace(old, new))
+    PLANT
+    echo "command: the planter <scratch>/w/plant.py (printed below, sha256 $(sha256sum <"$B/plant.py" | cut -d' ' -f1)), run as python3 -I -B <planter> <file> with the old and new text in its environment"
+    sed 's/^/    /' "$B/plant.py"
+    # plant <name> <file> <old> <new>: the mutation in the plant clone, printed.
+    plant() {
+      echo "### $1: in $2, the text"
+      printf '%s\n' "$3" | sed 's/^/    /'
+      echo "  made"
+      printf '%s\n' "$4" | sed 's/^/    /'
+      PLANT_OLD=$3 PLANT_NEW=$4 python3 -I -B "$B/plant.py" "$PL/$2" >"$B/$1-plant.out" 2>"$B/$1-plant.err" </dev/null
+      echo "$?" >"$B/$1-plant.rc"
+      check "$1: planted (the old text found once)" "$(yn [ "$(cat "$B/$1-plant.rc")" = 0 ])"
+    }
+    # unplant <name> <file>: the file restored from the phase commit, the clone clean again.
+    unplant() {
+      git -C "$PL" checkout -q -- "$2" >"$B/$1-unplant.out" 2>"$B/$1-unplant.err" </dev/null
+      check "$1: undone, the plant clone clean" "$(yn [ -z "$(git -C "$PL" status --porcelain)" ])"
+    }
+    plant P1 scripts/compare-run.sh 'trap finish EXIT' 'trap '"'"'rm -rf "${WORK:?}"'"'"' EXIT'
+    compare_case P1 "$PL" roundtrip "$FX/runs/p1"
+    check "P1: the trap set back to the removal alone caught: the stdout check refuses the run, which prints no containers line" "$(ynnot stdout_ok P1 "$G_ID" "$T_ID")"
+    check "P1: and the order check refuses it (ruling I)" "$(ynnot trap_order P1)"
+    unplant P1 scripts/compare-run.sh
+    plant P2 scripts/compare-record.py 'corpus_cells(stats(ox, lo_in_rows=host))' 'corpus_cells(stats(ox))'
+    cr_test P2 "$PL"
+    echo "  the plant's compare-record test: exit $(cat "$B/P2.rc"); its FAIL lines:"
+    LC_ALL=C "$G" -E '^FAIL ' "$B/P2.out" | sed 's/^/    /'
+    p2_caught() { [ "$(count_matches -xF "FAIL openpyxl: lo_in counted from the emend host run, ok 2 and fail 1 (ruling C)" "$B/P2.out")" = 1 ] && [ "$(cat "$B/P2.rc")" = 1 ]; }
+    check "P2: compare-record taking lo_in from the openpyxl summary caught by its test's ruling C line" "$(yn p2_caught)"
+    check "P2: the T1 pass check refuses the plant's output" "$(ynnot cr_passed P2)"
+    unplant P2 scripts/compare-record.py
+    plant P3 scripts/compare-record.py 'out["wall median"] = statistics.median(walls) if walls else None' 'out["wall median"] = statistics.mean(walls) if walls else None'
+    cr_test P3 "$PL"
+    echo "  the plant's compare-record test: exit $(cat "$B/P3.rc"); its FAIL lines:"
+    LC_ALL=C "$G" -E '^FAIL ' "$B/P3.out" | sed 's/^/    /'
+    p3_caught() { [ "$(count_matches -xF "FAIL emend host: wall median 2, sum 7; peak RSS median 2000, max 3000" "$B/P3.out")" = 1 ] && [ "$(cat "$B/P3.rc")" = 1 ]; }
+    check "P3: the wall median computed as a mean caught by its test's emend host median line" "$(yn p3_caught)"
+    unplant P3 scripts/compare-record.py
+    plant P4 scripts/passthrough-record.py '    if empty is not None:' '    if False:'
+    record_case P4 "$PL/scripts/passthrough-record.py" "$FX/runs/start" p4 --allow-single
+    check "P4: the record script dropping the container-start line caught by S1's check" "$(ynnot start_ok P4 p4)"
+    unplant P4 scripts/passthrough-record.py
+    check "the plant clone is back at the phase commit's bytes" "$(yn plant_at_c)"
+    echo "  the unplanted control: T1, T3 and T4 above ran the same scripts from <scratch>/w/clone at the phase commit and passed"
+    echo
+    echo "## the image's containers at the end (ruling A; change QI)"
+    image_containers >"$B/containers-end.out" 2>"$B/containers-end.err"
+    rc=$?
+    n_end=$(awk 'NF { n++ } END { print n + 0 }' "$B/containers-end.out")
+    echo "command: podman ps -a --filter ancestor=$IMAGE --format '{{.Names}}': exit $rc; containers of the image: $n_end"
+    end_none() { [ "$rc" = 0 ] && [ "$n_end" = 0 ]; }
+    check "no container of the image remains at the end" "$(yn end_none)"
+    echo
+    echo "## the log itself"
+    ALL=()
+    for f in "$B"/*.out "$B"/*.err; do ALL+=("$f"); done
+    nbytes=$(cat "${ALL[@]}" | LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' | wc -c)
+    printf 'x \033[31mred\033[m y caf\303\251\n' >"$B/ctl-bytes"
+    nctl=$(LC_ALL=C tr -cd '\000-\010\013\014\016-\037\177\200-\377' <"$B/ctl-bytes" | wc -c)
+    echo "  captured outputs: ${#ALL[@]}; control and non-ASCII bytes in them: $nbytes; in a control file with two ESC and one two-byte character: $nctl"
+    check "no control or non-ASCII byte in any captured output" "$(yn [ "$nbytes" = 0 ])"
+    check "control: the same count finds four bytes in the control file" "$(yn [ "$nctl" = 4 ])"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "status lines: $st_all; of them this phase's logs or planning's spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's logs or planning's uncommitted spec (change RA)" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/test.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "test log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "${d:?}"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+command: git show <doc commit>:specs/0037-measurement-and-close.md | sha256sum: 160c2984b483df57b2e2045d111d5655a944d4a2f1a9b56485fb5bad707404b0 (the spec pin, read at the doc commit)
+  the spec's blob at the doc commit is the pin, 160c2984b483df57b2e2045d111d5655a944d4a2f1a9b56485fb5bad707404b0: yes
+
+## the scripts under test, at the phase commit (change QB)
+command: git clone -q <repo> <scratch>/w/clone; git -C <scratch>/w/clone checkout -q --detach <phase commit> (a scratch copy: nothing in <repo> is written)
+  clone exit 0; checkout exit 0; the clone's HEAD: 5e52758e379966672baa2e350e4bf997346aee01; output bytes 0, standard error bytes 0
+  the clone is at the phase commit: yes
+  control: the same check refuses a clone at the start commit: yes
+  the clone's working tree is clean: yes
+command: sha256sum of each file under test in the clone, and git show <phase commit>:<file> | sha256sum
+  scripts/compare-run.sh: 52bc65deaa9ed7d300f097d3e2ec09f7641c883f4afc23a355c64370ef97c3bd
+  scripts/passthrough-record.py: 04283e29d7bd00c28150c287d54347f918e360e11aeceb1aac5d68775b43d991
+  scripts/compare-record.py: e580e82e89f85cf3ff6e7f3caef4629c96cf6d9b8c2b04e8a4bbeac548680009
+  scripts/compare-record-test.py: e9f8f17631381c6bb41086ca40edfed2089ea0508c66a996cc6b2f3cd1f072da
+  scripts/openpyxl-ops.py: 3d56b34cc32f861fec1bf4538a4e67d14fa4f670b9e00790b84b9374dc6e89f5
+  scripts/openpyxl-ops-test.sh: c4d829c47639be023e536538fc4f5e19b50ef01707ec53c07d69ce0d008de0f1
+  scripts/passthrough-run.sh: 82d2c2d4a025b2ee89f68d13d8356f642163efe219cdf64eb56f1b4f26508df4
+  scripts/lo-check.sh: ffbd05fef005b17d78c645849994c978b10c7ba38a66d542933f925f658f8bef
+  scripts/scale-gen.py: afb59d05d8b472fd753fde32da52f8a699b4c05f0f480c63da9def682f57098f
+  tests/fixtures/openpyxl-ops.xlsx: 12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd
+  each file under test in the clone is the phase commit's blob: yes
+command: sed 's/^/    /' <scratch>/w/clone/scripts/compare-record.py
+    #!/usr/bin/env python3
+    """The openpyxl comparison record (specs/0037-measurement-and-close.md, "The
+    comparison runner", "What is measured and how it is read", and the planning
+    rulings C, K, L, N, O and P).
+    
+    usage: compare-record.py --corpus-runs <dir> --scale-runs <dir> --stamp <utc-date>-<shortsha>
+                             --image-record <path> [--out <dir>] [--stem <stem>]
+    
+    Reads the run directories' summary, run and empty-run files, never a log,
+    and writes <stem>.md (default compare-m5p6-<stamp>.md) into --out (default
+    records/ in the repository):
+    
+    - per op, one row per tool and label (emend host, emend i686, openpyxl) from
+      <corpus-runs>/<stamp>-<op> (scripts/passthrough-run.sh, both labels) and
+      <corpus-runs>/<stamp>-openpyxl-<op> (scripts/compare-run.sh): files run,
+      outcomes, the entries identical, recompressed, changed, dropped and added
+      (totals over the files), the LibreOffice verdicts, wall time (median and
+      sum, seconds) and peak RSS (median and maximum, kB). The openpyxl row's
+      lo_in is "-" in its own summary (ruling C), so its input verdicts are the
+      emend host run's, and the record names that directory;
+    - per op, the openpyxl directory's settings, its container start (the
+      median of the three empty runs in empty.openpyxl.tsv, which its wall times
+      include; rulings K and P) and the exception class of every error row, read
+      from that row's stdout.openpyxl.txt, whose first line the ops script makes
+      the class name alone;
+    - the scale table: tiers a and b for every op, tiers c and d for roundtrip
+      (decision 2 A), from <scale-runs>/<stamp>-scale-<tier>-<op> (both labels)
+      and <scale-runs>/<stamp>-openpyxl-scale-<tier>-<op> (ruling L), one row per
+      tool and label with the outcome, exit, wall time, peak RSS, bytes in and
+      out, the entry counts, the open verdict and, for openpyxl, the container
+      start;
+    - the openpyxl image record's sha256.
+    
+    Counts, times and bytes only: a workbook is never named, and no entry name is
+    listed. Medians are taken over the rows that hold a value. Standard library
+    only. Errors print one "error: " line without a path and exit 2.
+    """
+    
+    import argparse
+    import hashlib
+    import os
+    import re
+    import statistics
+    import sys
+    
+    OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
+           "comment", "image", "add-chart", "copy")
+    SCALE = (("a", OPS), ("b", OPS), ("c", ("roundtrip",)), ("d", ("roundtrip",)))
+    SUMMARY_HEADER = [
+        "id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s",
+        "peak_rss_kb", "in_bytes", "out_bytes", "diff_exit", "identical",
+        "recompressed", "changed", "dropped", "added", "flagged",
+        "order_preserved", "comment_equal", "files_identical", "leftover", "lo",
+        "lo_in",
+    ]
+    RUN_HEADERS = {
+        "emend": ["commit", "started", "ended", "rustc", "zip", "timeout_s", "lo_timeout_s",
+                  "memory_mib", "passthrough_sha256", "xlsx_diff_sha256", "files", "tool_args"],
+        "openpyxl": ["commit", "started", "ended", "image_id", "openpyxl", "timeout_s",
+                     "lo_timeout_s", "memory_mib", "ops_sha256", "xlsx_diff_sha256", "files", "op"],
+    }
+    EMPTY_HEADER = ["run", "wall_s"]
+    OUTCOMES = ("ok", "error", "timeout", "cap", "no-output", "panic", "crash")
+    ENTRY_COLUMNS = ("identical", "recompressed", "changed", "dropped", "added")
+    LO_VALUES = ("ok", "fail", "error", "-")
+    CLASS_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+    
+    
+    class Failure(Exception):
+        pass
+    
+    
+    def read_table(path, header, what):
+        try:
+            with open(path, encoding="utf-8", newline="\n") as handle:
+                lines = handle.read().split("\n")
+        except OSError as err:
+            raise Failure("cannot read %s: %s" % (what, err.strerror))
+        except UnicodeDecodeError:
+            raise Failure("%s is not UTF-8" % what)
+        if lines and lines[-1] == "":
+            lines.pop()
+        if not lines or lines[0].split("\t") != header:
+            raise Failure("%s does not start with the expected header" % what)
+        rows = []
+        for number, line in enumerate(lines[1:], start=2):
+            cells = line.split("\t")
+            if len(cells) != len(header):
+                raise Failure("%s line %d has %d columns, not %d" % (what, number, len(cells), len(header)))
+            rows.append(dict(zip(header, cells)))
+        return rows
+    
+    
+    def summary(run_dir, label, what):
+        if not os.path.isdir(run_dir):
+            raise Failure("the run directory %s does not exist" % what)
+        rows = read_table(os.path.join(run_dir, "summary.%s.tsv" % label), SUMMARY_HEADER,
+                          "%s summary.%s.tsv" % (what, label))
+        if not rows:
+            raise Failure("%s summary.%s.tsv holds no row" % (what, label))
+        ids = [r["id"] for r in rows]
+        if len(set(ids)) != len(ids):
+            raise Failure("%s summary.%s.tsv lists an id twice" % (what, label))
+        for r in rows:
+            if r["label"] != label or r["outcome"] not in OUTCOMES:
+                raise Failure("%s summary.%s.tsv has a row of another label or an unknown outcome" % (what, label))
+            for column in ("lo", "lo_in"):
+                if r[column] not in LO_VALUES:
+                    raise Failure("%s summary.%s.tsv has an unknown %s value" % (what, label, column))
+        return rows
+    
+    
+    def run_rows(run_dir, label, what):
+        tool = "openpyxl" if label == "openpyxl" else "emend"
+        rows = read_table(os.path.join(run_dir, "run.%s.tsv" % label), RUN_HEADERS[tool],
+                          "%s run.%s.tsv" % (what, label))
+        if not rows:
+            raise Failure("%s run.%s.tsv holds no row" % (what, label))
+        return rows
+    
+    
+    def empty_median(run_dir, what):
+        rows = read_table(os.path.join(run_dir, "empty.openpyxl.tsv"), EMPTY_HEADER, "%s empty.openpyxl.tsv" % what)
+        if [r["run"] for r in rows] != ["1", "2", "3"] or not all(
+                re.fullmatch(r"[0-9]+[.][0-9]{2}", r["wall_s"]) for r in rows):
+            raise Failure("%s empty.openpyxl.tsv does not hold runs 1 to 3, each a time in seconds" % what)
+        return "%.2f" % sorted(float(r["wall_s"]) for r in rows)[1]
+    
+    
+    def number(text):
+        return re.fullmatch(r"[0-9]+([.][0-9]+)?", text) is not None
+    
+    
+    def fmt(value):
+        if value is None:
+            return "-"
+        if float(value).is_integer():
+            return "%d" % value
+        return "%.2f" % value
+    
+    
+    def stats(rows, lo_in_rows=None):
+        """One row's figures from a summary's rows. lo_in_rows, when given, are
+        the rows whose lo_in is counted (the emend host run's, ruling C)."""
+        out = {"files": len(rows)}
+        for o in OUTCOMES:
+            out[o] = sum(1 for r in rows if r["outcome"] == o)
+        for c in ENTRY_COLUMNS:
+            out[c] = sum(int(r[c]) for r in rows if r[c].isdigit())
+        for v in LO_VALUES:
+            out["lo " + v] = sum(1 for r in rows if r["lo"] == v)
+            out["lo_in " + v] = sum(1 for r in (lo_in_rows if lo_in_rows is not None else rows) if r["lo_in"] == v)
+        walls = [float(r["wall_s"]) for r in rows if number(r["wall_s"])]
+        rss = [int(r["peak_rss_kb"]) for r in rows if r["peak_rss_kb"].isdigit()]
+        out["wall median"] = statistics.median(walls) if walls else None
+        out["wall sum"] = sum(walls) if walls else None
+        out["rss median"] = statistics.median(rss) if rss else None
+        out["rss max"] = max(rss) if rss else None
+        return out
+    
+    
+    def error_classes(run_dir, rows, what):
+        counts = {}
+        for r in rows:
+            if r["outcome"] != "error":
+                continue
+            name = "unread"
+            try:
+                with open(os.path.join(run_dir, r["id"], "stdout.openpyxl.txt"), encoding="utf-8") as handle:
+                    first = handle.readline().rstrip("\n")
+                if CLASS_RE.fullmatch(first) and not first.startswith("openpyxl="):
+                    name = first
+            except (OSError, UnicodeDecodeError):
+                pass
+            counts[name] = counts.get(name, 0) + 1
+        return counts
+    
+    
+    def md_row(cells):
+        return "| " + " | ".join(str(c) for c in cells) + " |"
+    
+    
+    CORPUS_COLUMNS = (("files",) + OUTCOMES + ENTRY_COLUMNS
+                      + tuple("lo " + v for v in LO_VALUES) + tuple("lo_in " + v for v in LO_VALUES)
+                      + ("wall median", "wall sum", "rss median", "rss max"))
+    
+    
+    def corpus_cells(s):
+        return [fmt(s[c]) if c.startswith(("wall", "rss")) else s[c] for c in CORPUS_COLUMNS]
+    
+    
+    def heading(c):
+        return {"wall median": "wall median s", "wall sum": "wall sum s", "rss median": "peak RSS median kB",
+                "rss max": "peak RSS max kB"}.get(c, c.replace("lo -", "lo not-run").replace("lo_in -", "lo_in not-run"))
+    
+    
+    def build(args):
+        out = []
+        out += [
+            "# openpyxl comparison, Milestone 5 part 6 P2 (%s)" % args.stamp,
+            "",
+            "Written by `scripts/compare-record.py` from the run directories' summary, run and"
+            " empty-run files (`specs/0037-measurement-and-close.md`, \"The comparison runner\";"
+            " rulings C, K, L, N, O and P). Counts, times and bytes only. Each tool's output is"
+            " compared with its input by `xlsx-diff`; the two tools' outputs are never compared"
+            " with each other. emend's wall time is the process's own, as"
+            " `scripts/passthrough-run.sh` measures it; openpyxl's wraps `podman run` and so"
+            " includes the container's start, whose time from an empty run of the image is"
+            " named beside each op (rulings K and P). Medians are over the rows that hold a value.",
+            "",
+            "## The corpus, per op",
+            "",
+            md_row(("op", "tool", "label") + tuple(heading(c) for c in CORPUS_COLUMNS)),
+            md_row(("---",) * (3 + len(CORPUS_COLUMNS))),
+        ]
+        details = []
+        for op in OPS:
+            e_dir = os.path.join(args.corpus_runs, "%s-%s" % (args.stamp, op))
+            o_dir = os.path.join(args.corpus_runs, "%s-openpyxl-%s" % (args.stamp, op))
+            e_name = os.path.basename(e_dir)
+            o_name = os.path.basename(o_dir)
+            host = summary(e_dir, "host", e_name)
+            i686 = summary(e_dir, "i686", e_name)
+            ox = summary(o_dir, "openpyxl", o_name)
+            for label in ("host", "i686"):
+                run_rows(e_dir, label, e_name)
+            ox_runs = run_rows(o_dir, "openpyxl", o_name)
+            if {r["op"] for r in ox_runs} != {op}:
+                raise Failure("%s run.openpyxl.tsv names another op" % o_name)
+            if sorted(r["id"] for r in ox) != sorted(r["id"] for r in host) or \
+                    sorted(r["id"] for r in i686) != sorted(r["id"] for r in host):
+                raise Failure("the %s runs do not cover the same workbooks" % op)
+            out.append(md_row([op, "emend", "host"] + corpus_cells(stats(host))))
+            out.append(md_row([op, "emend", "i686"] + corpus_cells(stats(i686))))
+            out.append(md_row([op, "openpyxl", "openpyxl"] + corpus_cells(stats(ox, lo_in_rows=host))))
+            classes = error_classes(o_dir, ox, o_name)
+            details.append(md_row([
+                op, o_name, "timeout %s s; memory %s MiB" % (
+                    ", ".join(sorted({r["timeout_s"] for r in ox_runs})),
+                    ", ".join(sorted({r["memory_mib"] for r in ox_runs}))),
+                empty_median(o_dir, o_name), e_name,
+                ", ".join("%s %d" % (k, classes[k]) for k in sorted(classes)) or "none"]))
+        out += [
+            "",
+            "## The openpyxl runs: settings, container start and error classes",
+            "",
+            "The openpyxl row's lo_in counts above are the emend host run's (ruling C), read"
+            " from the directory named in the lo_in column here.",
+            "",
+            md_row(("op", "openpyxl run directory", "settings", "container start median s",
+                    "lo_in from", "error rows by exception class")),
+            md_row(("---",) * 6),
+        ] + details
+    
+        scale_cols = ("outcome", "exit", "wall_s", "peak_rss_kb", "in_bytes", "out_bytes") + ENTRY_COLUMNS + ("lo",)
+        out += [
+            "",
+            "## The scale tiers",
+            "",
+            "Tiers a and b for every op, tiers c and d for roundtrip (decision 2 A); one run"
+            " directory per tier per op per tool (ruling L); openpyxl under --memory 16384"
+            " --timeout 3600, emend as specs/0023 ran it (ruling M).",
+            "",
+            md_row(("tier", "op", "tool", "label") + scale_cols + ("container start median s",)),
+            md_row(("---",) * (5 + len(scale_cols))),
+        ]
+        for tier, ops in SCALE:
+            for op in ops:
+                e_dir = os.path.join(args.scale_runs, "%s-scale-%s-%s" % (args.stamp, tier, op))
+                o_dir = os.path.join(args.scale_runs, "%s-openpyxl-scale-%s-%s" % (args.stamp, tier, op))
+                for tool, label, run_dir in (("emend", "host", e_dir), ("emend", "i686", e_dir),
+                                             ("openpyxl", "openpyxl", o_dir)):
+                    name = os.path.basename(run_dir)
+                    rows = summary(run_dir, label, name)
+                    run_rows(run_dir, label, name)
+                    if len(rows) != 1:
+                        raise Failure("%s summary.%s.tsv does not hold one row" % (name, label))
+                    r = rows[0]
+                    start = empty_median(run_dir, name) if tool == "openpyxl" else "-"
+                    out.append(md_row([tier, op, tool, label] + [r[c] or "-" for c in scale_cols] + [start]))
+    
+        try:
+            with open(args.image_record, "rb") as handle:
+                image_sha = hashlib.sha256(handle.read()).hexdigest()
+        except OSError as err:
+            raise Failure("cannot read the image record: %s" % err.strerror)
+        out += [
+            "",
+            "## The openpyxl image",
+            "",
+            "`records/%s`, sha256 %s." % (os.path.basename(args.image_record), image_sha),
+        ]
+        return "\n".join(out) + "\n"
+    
+    
+    def main(argv):
+        parser = argparse.ArgumentParser(prog="scripts/compare-record.py")
+        parser.add_argument("--corpus-runs", required=True)
+        parser.add_argument("--scale-runs", required=True)
+        parser.add_argument("--stamp", required=True)
+        parser.add_argument("--image-record", required=True)
+        parser.add_argument("--out")
+        parser.add_argument("--stem")
+        args = parser.parse_args(argv)
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}-[0-9a-f]{7,40}", args.stamp):
+            raise Failure("--stamp is not <utc-date>-<shortsha>")
+        if not re.fullmatch(r"openpyxl-image-\d{4}-\d{2}-\d{2}[.]md", os.path.basename(args.image_record)):
+            raise Failure("--image-record is not an openpyxl image record")
+        stem = args.stem or "compare-m5p6-" + args.stamp
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", stem):
+            raise Failure("the stem may hold only letters, digits, dot, dash and underscore")
+        out_dir = args.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "records")
+        if not os.path.isdir(out_dir):
+            raise Failure("the output directory does not exist")
+        text = build(args)
+        target = os.path.join(out_dir, stem + ".md")
+        if os.path.exists(target):
+            raise Failure("%s.md exists; this script does not overwrite" % stem)
+        with open(target, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+        print("wrote %s.md: ops %d; scale rows %d" % (
+            stem, len(OPS), 3 * sum(len(ops) for _, ops in SCALE)))
+        return 0
+    
+    
+    if __name__ == "__main__":
+        try:
+            sys.exit(main(sys.argv[1:]))
+        except Failure as err:
+            print("error: %s" % err, file=sys.stderr)
+            sys.exit(2)
+command: sed 's/^/    /' <scratch>/w/clone/scripts/compare-record-test.py
+    #!/usr/bin/env python3
+    """The test of scripts/compare-record.py (specs/0037-measurement-and-close.md
+    P2, "the comparison record by scripts/compare-record.py with its test").
+    
+    usage: compare-record-test.py
+    
+    Builds fictional run directories in a temporary directory, in the forms
+    scripts/passthrough-run.sh and scripts/compare-run.sh write (summary, run and
+    empty-run files; one stdout file for an error row), for the eleven ops on a
+    corpus of three made-up ids and for the scale tiers, runs compare-record.py
+    on them, and asserts the record's rows: the outcome, entry and open-check
+    counts, the medians, sums and maxima, the openpyxl row's lo_in taken from
+    the emend host run (ruling C), the container start median (rulings K and P),
+    the exception class of the error row, the scale rows, and the image record's
+    sha256. Then each refusal: a missing run directory, a missing empty-run file,
+    a summary with another header, a run row naming another op, runs that do not
+    cover the same workbooks, an existing record, a bad stamp.
+    
+    Prints one line per assertion, "ok" or "FAIL" then what was asserted, and a
+    last line "compare-record-test: PASS" or "compare-record-test: FAIL"; exits 0
+    or 1. Everything it writes is fictional.
+    """
+    import hashlib
+    import os
+    import subprocess
+    import sys
+    import tempfile
+    
+    HERE = os.path.dirname(os.path.realpath(__file__))
+    SCRIPT = os.path.join(HERE, "compare-record.py")
+    STAMP = "2026-01-01-abcdef0"
+    OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
+           "comment", "image", "add-chart", "copy")
+    IDS = ("aaaaaaaaaaa1", "aaaaaaaaaaa2", "aaaaaaaaaaa3")
+    SUMMARY_HEADER = ("id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\t"
+                      "diff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\t"
+                      "comment_equal\tfiles_identical\tleftover\tlo\tlo_in")
+    EMEND_RUN = ("commit\tstarted\tended\trustc\tzip\ttimeout_s\tlo_timeout_s\tmemory_mib\tpassthrough_sha256\t"
+                 "xlsx_diff_sha256\tfiles\ttool_args")
+    OX_RUN = ("commit\tstarted\tended\timage_id\topenpyxl\ttimeout_s\tlo_timeout_s\tmemory_mib\tops_sha256\t"
+              "xlsx_diff_sha256\tfiles\top")
+    
+    failed = 0
+    
+    
+    def check(ok, what):
+        global failed
+        print("%s %s" % ("ok" if ok else "FAIL", what))
+        if not ok:
+            failed += 1
+    
+    
+    def row(id_, label, outcome, wall, rss, counts, lo, lo_in):
+        ident, recomp, changed, dropped, added = counts
+        return "\t".join([id_, label, "made-up", "test", outcome, "0" if outcome == "ok" else "1", "", wall, rss,
+                          "100", "90" if outcome == "ok" else "", "1" if outcome == "ok" else "",
+                          ident, recomp, changed, dropped, added, "0", "yes", "yes", "no", "no", lo, lo_in])
+    
+    
+    def write(path, lines):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write("\n".join(lines) + "\n")
+    
+    
+    def emend_dir(root, name, ids, label_rows):
+        for label in ("host", "i686"):
+            write(os.path.join(root, name, "summary.%s.tsv" % label), [SUMMARY_HEADER] + label_rows(label))
+            write(os.path.join(root, name, "run.%s.tsv" % label),
+                  [EMEND_RUN, "c\ts\te\trustc\t2\t300\t600\t2048\tp\tx\t%d\t" % len(ids)])
+    
+    
+    def ox_dir(root, name, op, rows, memory, empty=("0.50", "0.40", "0.70")):
+        write(os.path.join(root, name, "summary.openpyxl.tsv"), [SUMMARY_HEADER] + rows)
+        write(os.path.join(root, name, "run.openpyxl.tsv"),
+              [OX_RUN, "c\ts\te\timg\t3.1.5\t600\t600\t%s\to\tx\t%d\t%s" % (memory, len(rows), op)])
+        if empty is not None:
+            write(os.path.join(root, name, "empty.openpyxl.tsv"),
+                  ["run\twall_s"] + ["%d\t%s" % (i + 1, t) for i, t in enumerate(empty)])
+    
+    
+    def build(base):
+        corpus = os.path.join(base, "corpus-runs")
+        scale = os.path.join(base, "scale-runs")
+        for op in OPS:
+            def emend_rows(label):
+                return [row(IDS[0], label, "ok", "1.00", "1000", ("5", "0", "1", "0", "0"), "ok", "ok"),
+                        row(IDS[1], label, "ok", "2.00", "3000", ("4", "1", "0", "0", "0"), "ok", "fail"),
+                        row(IDS[2], label, "ok", "4.00", "2000", ("3", "0", "0", "0", "1"), "ok", "ok")]
+            emend_dir(corpus, "%s-%s" % (STAMP, op), IDS, emend_rows)
+            ox = [row(IDS[0], "openpyxl", "ok", "3.00", "40000", ("0", "0", "4", "2", "3"), "ok", "-"),
+                  row(IDS[1], "openpyxl", "error", "1.50", "38000", ("", "", "", "", ""), "-", "-"),
+                  row(IDS[2], "openpyxl", "ok", "5.00", "50000", ("1", "0", "3", "1", "2"), "fail", "-")]
+            name = "%s-openpyxl-%s" % (STAMP, op)
+            ox_dir(corpus, name, op, ox, "4096")
+            write(os.path.join(corpus, name, IDS[1], "stdout.openpyxl.txt"),
+                  ["KeyError", "openpyxl=3.1.5\tpeak_rss_kb=38000"])
+        for tier, ops in (("a", OPS), ("b", OPS), ("c", ("roundtrip",)), ("d", ("roundtrip",))):
+            for op in ops:
+                sid = "bbbbbbbbbbb" + tier
+                emend_dir(scale, "%s-scale-%s-%s" % (STAMP, tier, op), (sid,),
+                          lambda label: [row(sid, label, "ok", "9.50", "7000", ("6", "0", "1", "0", "0"),
+                                             "ok" if tier == "a" else "-", "ok" if tier == "a" else "-")])
+                outcome = "cap" if tier in ("c", "d") else "ok"
+                ox_dir(scale, "%s-openpyxl-scale-%s-%s" % (STAMP, tier, op), op,
+                       [row(sid, "openpyxl", outcome, "60.00", "900000",
+                            ("0", "0", "5", "1", "2") if outcome == "ok" else ("", "", "", "", ""),
+                            "ok" if tier == "a" and outcome == "ok" else "-", "-")], "16384")
+        record = os.path.join(base, "openpyxl-image-2026-01-01.md")
+        write(record, ["# a made-up image record"])
+        return corpus, scale, record
+    
+    
+    def run(args):
+        proc = subprocess.run([sys.executable, "-I", "-B", SCRIPT] + args, capture_output=True, text=True)
+        return proc.returncode, proc.stdout, proc.stderr
+    
+    
+    def table_rows(text, heading):
+        lines = text.split("\n")
+        i = lines.index(heading)
+        rows = []
+        for line in lines[i + 1:]:
+            if line.startswith("## "):
+                break
+            if line.startswith("| ") and not line.startswith("| ---"):
+                rows.append([c.strip() for c in line.strip("|").split("|")])
+        return rows[0], rows[1:]
+    
+    
+    def main():
+        with tempfile.TemporaryDirectory() as base:
+            corpus, scale, record = build(base)
+            out = os.path.join(base, "out")
+            os.makedirs(out)
+            common = ["--corpus-runs", corpus, "--scale-runs", scale, "--stamp", STAMP, "--image-record", record, "--out", out]
+            rc, so, se = run(common)
+            check(rc == 0 and se == "", "the record is written, exit 0, nothing on stderr")
+            check(so.strip() == "wrote compare-m5p6-%s.md: ops 11; scale rows 72" % STAMP, "the one line names the stem, 11 ops and 72 scale rows")
+            text = open(os.path.join(out, "compare-m5p6-%s.md" % STAMP), encoding="utf-8").read()
+            head, rows = table_rows(text, "## The corpus, per op")
+            check(len(rows) == 33, "the corpus table holds 33 rows, three per op")
+            by = {(r[0], r[1], r[2]): dict(zip(head, r)) for r in rows}
+            h = by[("edit", "emend", "host")]
+            check(h["files"] == "3" and h["ok"] == "3" and h["error"] == "0", "emend host: 3 files, 3 ok")
+            check((h["identical"], h["recompressed"], h["changed"], h["dropped"], h["added"]) == ("12", "1", "1", "0", "1"),
+                  "emend host: the entry totals 12, 1, 1, 0, 1")
+            check(h["lo ok"] == "3" and h["lo_in ok"] == "2" and h["lo_in fail"] == "1", "emend host: lo ok 3; lo_in ok 2, fail 1")
+            check((h["wall median s"], h["wall sum s"], h["peak RSS median kB"], h["peak RSS max kB"]) == ("2", "7", "2000", "3000"),
+                  "emend host: wall median 2, sum 7; peak RSS median 2000, max 3000")
+            x = by[("edit", "openpyxl", "openpyxl")]
+            check(x["ok"] == "2" and x["error"] == "1", "openpyxl: 2 ok, 1 error")
+            check((x["identical"], x["changed"], x["dropped"], x["added"]) == ("1", "7", "3", "5"),
+                  "openpyxl: the entry totals over its ok rows 1, 7, 3, 5")
+            check(x["lo ok"] == "1" and x["lo fail"] == "1" and x["lo not-run"] == "1", "openpyxl: lo ok 1, fail 1, not-run 1")
+            check(x["lo_in ok"] == "2" and x["lo_in fail"] == "1" and x["lo_in not-run"] == "0",
+                  "openpyxl: lo_in counted from the emend host run, ok 2 and fail 1 (ruling C)")
+            check((x["wall median s"], x["wall sum s"], x["peak RSS median kB"], x["peak RSS max kB"]) == ("3", "9.50", "40000", "50000"),
+                  "openpyxl: wall median 3, sum 9.50; peak RSS median 40000, max 50000")
+            dhead, drows = table_rows(text, "## The openpyxl runs: settings, container start and error classes")
+            d = {r[0]: dict(zip(dhead, r)) for r in drows}
+            check(len(drows) == 11, "the openpyxl detail table holds 11 rows")
+            check(d["edit"]["container start median s"] == "0.50", "the container start median of 0.40, 0.50, 0.70 is 0.50 (rulings K and P)")
+            check(d["edit"]["settings"] == "timeout 600 s; memory 4096 MiB", "the settings named from run.openpyxl.tsv (ruling N)")
+            check(d["edit"]["error rows by exception class"] == "KeyError 1", "the error row's class read from its stdout file")
+            check(d["edit"]["lo_in from"] == "%s-edit" % STAMP, "the lo_in source directory named (ruling C)")
+            shead, srows = table_rows(text, "## The scale tiers")
+            check(len(srows) == 72, "the scale table holds 72 rows: 24 ops over tiers a to d, three rows each")
+            s = {(r[0], r[1], r[2], r[3]): dict(zip(shead, r)) for r in srows}
+            sc = s[("c", "roundtrip", "openpyxl", "openpyxl")]
+            check(sc["outcome"] == "cap" and sc["identical"] == "-" and sc["container start median s"] == "0.50",
+                  "a scale cap row: outcome cap, no entry counts, the container start named")
+            sa = s[("a", "copy", "emend", "i686")]
+            check(sa["outcome"] == "ok" and sa["wall_s"] == "9.50" and sa["lo"] == "ok" and sa["container start median s"] == "-",
+                  "a scale emend row: ok, its wall time, lo ok on tier a, no container start")
+            check(s[("b", "copy", "emend", "host")]["lo"] == "-", "tier b records lo not-run as -")
+            want = hashlib.sha256(open(record, "rb").read()).hexdigest()
+            check("`records/openpyxl-image-2026-01-01.md`, sha256 %s." % want in text, "the image record's sha256")
+            check(all(ord(c) < 128 for c in text), "the record is ASCII")
+            check(not any(i in text for i in IDS), "no workbook id is named")
+    
+            rc, so, se = run(common)
+            check(rc == 2 and "does not overwrite" in se, "an existing record is refused")
+    
+            def refused(mutate, words, what):
+                with tempfile.TemporaryDirectory() as b2:
+                    c2, s2, r2 = build(b2)
+                    mutate(c2, s2)
+                    os.makedirs(os.path.join(b2, "out"))
+                    rc, so, se = run(["--corpus-runs", c2, "--scale-runs", s2, "--stamp", STAMP, "--image-record", r2,
+                                      "--out", os.path.join(b2, "out")])
+                    check(rc == 2 and words in se and so == "" and not os.listdir(os.path.join(b2, "out")), what)
+    
+            refused(lambda c, s: os.rename(os.path.join(c, "%s-openpyxl-copy" % STAMP), os.path.join(c, "moved")),
+                    "does not exist", "a missing openpyxl run directory refused, nothing written")
+            refused(lambda c, s: os.remove(os.path.join(c, "%s-openpyxl-names" % STAMP, "empty.openpyxl.tsv")),
+                    "cannot read", "a missing empty-run file refused")
+            refused(lambda c, s: write(os.path.join(c, "%s-table" % STAMP, "summary.i686.tsv"), ["id\tlabel"]),
+                    "expected header", "a summary with another header refused")
+            refused(lambda c, s: write(os.path.join(c, "%s-openpyxl-image" % STAMP, "run.openpyxl.tsv"),
+                                       [OX_RUN, "c\ts\te\timg\t3.1.5\t600\t600\t4096\to\tx\t3\tcopy"]),
+                    "names another op", "a run row naming another op refused")
+            refused(lambda c, s: write(os.path.join(c, "%s-openpyxl-read" % STAMP, "summary.openpyxl.tsv"),
+                                       [SUMMARY_HEADER, row(IDS[0], "openpyxl", "ok", "1.00", "1", ("1", "0", "0", "0", "0"), "ok", "-")]),
+                    "same workbooks", "runs that do not cover the same workbooks refused")
+            rc, so, se = run(["--corpus-runs", corpus, "--scale-runs", scale, "--stamp", "bad", "--image-record", record, "--out", out])
+            check(rc == 2 and "--stamp" in se, "a bad stamp refused")
+        if failed:
+            print("compare-record-test: FAIL")
+            return 1
+        print("compare-record-test: PASS")
+        return 0
+    
+    
+    if __name__ == "__main__":
+        sys.exit(main())
+command: git diff <base> <phase commit> -- scripts/compare-run.sh
+    diff --git a/scripts/compare-run.sh b/scripts/compare-run.sh
+    index 814b650..8a07f57 100755
+    --- a/scripts/compare-run.sh
+    +++ b/scripts/compare-run.sh
+    @@ -25,7 +25,10 @@
+     # podman client and not the container, so after exit 124 the runner removes
+     # the container by name with podman rm -f --time 0 (no grace period), its
+     # output and exit kept in the run subdirectory; at the end it counts the
+    -# image's containers and fails if any remain (ruling A).
+    +# image's containers and fails if any remain (ruling A). The count runs in
+    +# an EXIT trap, so it is printed whatever ends the script once the work
+    +# directory exists, a die inside the loop included (specs/0037 "Planning
+    +# verification of P1", ruling I).
+     #
+     # Outcomes (ruling B): ok, exit 0 with an output file; no-output, exit 0
+     # without one; timeout, exit 124; cap, exit 137 (the ops script's MemoryError);
+    @@ -108,7 +111,29 @@ fi
+     mkdir -p "$OUT" || die "cannot create the run directory"
+     
+     WORK=$(mktemp -d) || die "cannot create a temporary directory"
+    -trap 'rm -rf "${WORK:?}"' EXIT
+    +
+    +# finish: on every exit from here on, count the image's containers, print the
+    +# count line, fail if any remain or the count cannot be made, and remove the
+    +# work directory (ruling I). A non-zero status already on its way out is kept.
+    +finish() {
+    +  local rc=$? remaining=""
+    +  if podman ps -a --filter "ancestor=$IMAGE" --format '{{.Names}}' </dev/null >"$WORK/containers" 3>&-; then
+    +    remaining=$(awk 'NF { n++ } END { print n + 0 }' "$WORK/containers")
+    +  fi
+    +  if [ -z "$remaining" ]; then
+    +    echo "error: cannot count the image's containers" >&"$DIE_FD"
+    +    rc=2
+    +  else
+    +    echo "containers of the image remaining: $remaining"
+    +    if [ "$remaining" != 0 ]; then
+    +      echo "error: containers of the image remain after the run: $remaining" >&"$DIE_FD"
+    +      rc=2
+    +    fi
+    +  fi
+    +  rm -rf "${WORK:?}"
+    +  exit "$rc"
+    +}
+    +trap finish EXIT
+     
+     # The manifest's id, ext, producer and tags columns, in manifest order. The
+     # private columns are never read into the script.
+    @@ -268,9 +293,5 @@ printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$COMMIT" "$STARTED" "
+       die "cannot append to run.$LABEL.tsv"
+     echo "files $n_files ok $n_ok error $n_error timeout $n_timeout cap $n_cap no-output $n_nooutput"
+     
+    -# No container of the image may outlive the run (ruling A).
+    -podman ps -a --filter "ancestor=$IMAGE" --format '{{.Names}}' </dev/null >"$WORK/containers" 3>&- ||
+    -  die "cannot list the image's containers"
+    -remaining=$(awk 'NF { n++ } END { print n + 0 }' "$WORK/containers") || die "cannot count the image's containers"
+    -echo "containers of the image remaining: $remaining"
+    -[ "$remaining" = 0 ] || die "containers of the image remain after the run: $remaining"
+    +# No container of the image may outlive the run (ruling A): the EXIT trap,
+    +# finish, counts them and prints the line (ruling I).
+command: git diff <base> <phase commit> -- scripts/passthrough-record.py
+    diff --git a/scripts/passthrough-record.py b/scripts/passthrough-record.py
+    index 8422da8..cc7988d 100755
+    --- a/scripts/passthrough-record.py
+    +++ b/scripts/passthrough-record.py
+    @@ -28,7 +28,12 @@ entries tables have the runner's headers, the outcomes are openpyxl's own
+     (the image id, the openpyxl version and the op in place of rustc, zip, the
+     passthrough binary and the tool arguments), and the Binaries line names the
+     image id, the ops script's sha256 and xlsx-diff's. An openpyxl run directory
+    -holds that one label, so its record is written with --allow-single.
+    +holds that one label, so its record is written with --allow-single. When the
+    +run directory holds empty.openpyxl.tsv (header run, wall_s; three rows), the
+    +time of an empty run of the image that the P2 run log writes, the record
+    +names its median as the container start the openpyxl wall times include
+    +(specs/0037 "Planning verification of P1", ruling K, and "Planning rulings
+    +during P2", ruling P).
+     
+     It never reads the corpus manifest, so no original name or note can reach the
+     record: a workbook is cited by id, producer and tags only, and entry names
+    @@ -98,6 +103,24 @@ OPENPYXL_RUN_HEADER = [
+     ]
+     
+     
+    +EMPTY_HEADER = ["run", "wall_s"]
+    +
+    +
+    +def empty_timing(run_dir):
+    +    """The empty runs' wall times and their median from empty.openpyxl.tsv,
+    +    or None when the file is absent. Three rows, run 1 to 3, each a time in
+    +    seconds with two decimals."""
+    +    path = os.path.join(run_dir, "empty.openpyxl.tsv")
+    +    if not os.path.exists(path):
+    +        return None
+    +    rows = read_table(path, EMPTY_HEADER, "empty.openpyxl.tsv")
+    +    if [r["run"] for r in rows] != ["1", "2", "3"] or not all(
+    +            re.fullmatch(r"[0-9]+[.][0-9]{2}", r["wall_s"]) for r in rows):
+    +        raise Failure("empty.openpyxl.tsv does not hold runs 1 to 3, each a time in seconds")
+    +    times = sorted(float(r["wall_s"]) for r in rows)
+    +    return [r["wall_s"] for r in rows], "%.2f" % times[1]
+    +
+    +
+     def outcomes_of(label):
+         return OPENPYXL_OUTCOMES if label == "openpyxl" else OUTCOMES
+     
+    @@ -389,7 +412,7 @@ def write_tsv(path, labels, data):
+             handle.write("\n".join(lines) + "\n")
+     
+     
+    -def write_md(path, run_name, stem, labels, data):
+    +def write_md(path, run_name, stem, labels, data, empty=None):
+         """The record's prose table. `stem` names the companion .txt, which is not
+         always "step0-" + run_name: --stem overrides it."""
+         runs = [row for label in labels for row in data[label][2]]
+    @@ -433,6 +456,10 @@ def write_md(path, run_name, stem, labels, data):
+             out.append("- openpyxl: version %s; op %s" % (
+                 ", ".join(distinct(r["openpyxl"] for r in openpyxl_runs)),
+                 ", ".join(distinct(r["op"] for r in openpyxl_runs))))
+    +    if empty is not None:
+    +        out.append("- Container start: an empty run of the image (python3 -I -B -c pass, the same"
+    +                   " mounts and flags), three runs %s s, median %s s; the openpyxl wall times"
+    +                   " include it (specs/0037 rulings K and P)" % (", ".join(empty[0]), empty[1]))
+         out += [binaries_line(label, data[label][2]) for label in labels]
+         # Every outcome any present label can have, in the order of each set.
+         columns = tuple(distinct(o for label in labels for o in outcomes_of(label)))
+    @@ -561,10 +588,11 @@ def main(argv):
+         if not os.path.isdir(out_dir):
+             raise Failure("the output directory does not exist")
+         labels, data = load(run_dir)
+    +    empty = empty_timing(run_dir) if "openpyxl" in labels else None
+         if len(labels) == 1 and not args.allow_single:
+             raise Failure("the run directory has only the %s label; give --allow-single for a single-label record" % labels[0])
+         write_tsv(os.path.join(out_dir, stem + ".txt"), labels, data)
+    -    write_md(os.path.join(out_dir, stem + ".md"), run_name, stem, labels, data)
+    +    write_md(os.path.join(out_dir, stem + ".md"), run_name, stem, labels, data, empty)
+         print("wrote %s.txt and %s.md: labels %s; files %s; entry rows %s; xml rows %s" % (
+             stem, stem, ",".join(labels),
+             ",".join(str(len(data[l][0])) for l in labels),
+  the ops script, its test, the passthrough runner, the open-check library, the generator and the fixtures changed between the base and the phase commit: 0
+  the scripts this log runs and the phase does not change are the base's (change RB): yes
+
+## the release binaries this log builds (change QD)
+command: (cd <scratch>/w/clone && CARGO_TARGET_DIR=<target>/test cargo build --release --locked --offline -p emend-copy -p xlsx-diff)
+command: (cd <scratch>/w/clone && CARGO_TARGET_DIR=<target>/test cargo build --release --locked --offline --target i686-unknown-linux-musl -p emend-copy)
+  host build: exit 0; warning or error lines 0; i686 build: exit 0; warning or error lines 0
+  both builds exit 0 with no warning or error line: yes
+  <scratch>/w/bin/emend-copy: sha256 6a8652ede1bb7eed181da445f2b54811b12abbe3a435418aeda4df5dad337e65, bytes 3628760
+  <scratch>/w/bin/xlsx-diff: sha256 1445523df9522bff56d4f0e03d7bde2ab333bac294020da256de42c01ef71f6b, bytes 897296
+  <scratch>/w/bin/emend-copy-i686: sha256 883acdf355e8b9b780bce3075b09ef9587b0774505b34c452721721b50c67895, bytes 3483292
+  the three copies are executable: yes
+command: podman image inspect --format '{{.Id}}' localhost/emend-openpyxl:3.1.5-dfsg-2-deb13: 894b239fc0d1cd90df5fd3e86d89d662adc9562504da38d1a4ea32666985cf63
+  the image is the one P1 recorded, 894b239f (change RB): yes
+
+## the image's containers at entry (ruling A; change QI)
+command: podman ps -a --filter ancestor=localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 --format '{{.Names}}'
+  exit 0; containers of the image at entry: 0
+  podman lists the image's containers, and there are none at entry: yes
+
+## T1: scripts/compare-record-test.py (specs/0037 P2, the comparison record's test; change RC)
+command: TMPDIR=<scratch>/w/tmp python3 -I -B <scratch>/w/clone/scripts/compare-record-test.py
+  exit: 0; standard output:
+    ok the record is written, exit 0, nothing on stderr
+    ok the one line names the stem, 11 ops and 72 scale rows
+    ok the corpus table holds 33 rows, three per op
+    ok emend host: 3 files, 3 ok
+    ok emend host: the entry totals 12, 1, 1, 0, 1
+    ok emend host: lo ok 3; lo_in ok 2, fail 1
+    ok emend host: wall median 2, sum 7; peak RSS median 2000, max 3000
+    ok openpyxl: 2 ok, 1 error
+    ok openpyxl: the entry totals over its ok rows 1, 7, 3, 5
+    ok openpyxl: lo ok 1, fail 1, not-run 1
+    ok openpyxl: lo_in counted from the emend host run, ok 2 and fail 1 (ruling C)
+    ok openpyxl: wall median 3, sum 9.50; peak RSS median 40000, max 50000
+    ok the openpyxl detail table holds 11 rows
+    ok the container start median of 0.40, 0.50, 0.70 is 0.50 (rulings K and P)
+    ok the settings named from run.openpyxl.tsv (ruling N)
+    ok the error row's class read from its stdout file
+    ok the lo_in source directory named (ruling C)
+    ok the scale table holds 72 rows: 24 ops over tiers a to d, three rows each
+    ok a scale cap row: outcome cap, no entry counts, the container start named
+    ok a scale emend row: ok, its wall time, lo ok on tier a, no container start
+    ok tier b records lo not-run as -
+    ok the image record's sha256
+    ok the record is ASCII
+    ok no workbook id is named
+    ok an existing record is refused
+    ok a missing openpyxl run directory refused, nothing written
+    ok a missing empty-run file refused
+    ok a summary with another header refused
+    ok a run row naming another op refused
+    ok runs that do not cover the same workbooks refused
+    ok a bad stamp refused
+    compare-record-test: PASS
+  standard error:
+  lines the log expects once each: 32
+  T1: exit 0, every expected line once, 31 ok lines, no FAIL, the last line PASS, nothing on stderr: yes
+  control: the same check refuses the output with one ok line made FAIL: yes
+
+## T2: scripts/openpyxl-ops-test.sh in the image (ruling F; change QF, carried by change RD)
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/openpyxl-ops-test.sh localhost/emend-openpyxl:3.1.5-dfsg-2-deb13
+  exit: 0; standard output:
+    ok scale-gen.py tier t exits 0
+    ok the generator reports tier t with the fixture's sha256
+    ok the committed fixture's sha256 is the one tests/fixtures/README.md names
+    ok the regenerated workbook is the committed fixture, byte for byte
+    ok roundtrip: exit 0
+    ok roundtrip: an output was written
+    ok roundtrip: the last line is openpyxl=3.1.5 and a peak RSS
+    ok roundtrip: nothing on standard error
+    ok read: exit 0
+    ok read: an output was written
+    ok read: the last line is openpyxl=3.1.5 and a peak RSS
+    ok read: nothing on standard error
+    ok edit: exit 0
+    ok edit: an output was written
+    ok edit: the last line is openpyxl=3.1.5 and a peak RSS
+    ok edit: nothing on standard error
+    ok format: exit 0
+    ok format: an output was written
+    ok format: the last line is openpyxl=3.1.5 and a peak RSS
+    ok format: nothing on standard error
+    ok insert-rows: exit 0
+    ok insert-rows: an output was written
+    ok insert-rows: the last line is openpyxl=3.1.5 and a peak RSS
+    ok insert-rows: nothing on standard error
+    ok names: exit 0
+    ok names: an output was written
+    ok names: the last line is openpyxl=3.1.5 and a peak RSS
+    ok names: nothing on standard error
+    ok table: exit 0
+    ok table: an output was written
+    ok table: the last line is openpyxl=3.1.5 and a peak RSS
+    ok table: nothing on standard error
+    ok comment: exit 0
+    ok comment: an output was written
+    ok comment: the last line is openpyxl=3.1.5 and a peak RSS
+    ok comment: nothing on standard error
+    ok image: exit 0
+    ok image: an output was written
+    ok image: the last line is openpyxl=3.1.5 and a peak RSS
+    ok image: nothing on standard error
+    ok add-chart: exit 0
+    ok add-chart: an output was written
+    ok add-chart: the last line is openpyxl=3.1.5 and a peak RSS
+    ok add-chart: nothing on standard error
+    ok copy: exit 0
+    ok copy: an output was written
+    ok copy: the last line is openpyxl=3.1.5 and a peak RSS
+    ok copy: nothing on standard error
+    ok read: the line cells=2500 (2 sheets, 2500 cells)
+    ok read: two lines, the count and the last line
+    ok roundtrip: one line, the last line
+    ok edit: one line, the last line
+    ok format: one line, the last line
+    ok insert-rows: one line, the last line
+    ok names: one line, the last line
+    ok table: one line, the last line
+    ok comment: one line, the last line
+    ok image: one line, the last line
+    ok add-chart: one line, the last line
+    ok copy: one line, the last line
+    ok the parts reader exits 0
+    ok roundtrip: the output holds the workbook part and 2 sheets
+    ok edit: cells A101, B101 and C101 written below the last row, 100
+    ok edit: C101 is a boolean
+    ok format: A101 written with a style
+    ok format: A101's cell format is number format 4, #,##0.00
+    ok insert-rows: the first sheet's rows run 2 to 101
+    ok names: the defined name emend_compare over $A$1
+    ok table: one table part, displayName EmendCompare over A102:B103
+    ok comment: a comments part
+    ok image: one media entry
+    ok add-chart: one chart part, a bar chart over B2:B101 and A2:A101
+    ok copy: 3 sheets
+    ok the parts reader made its 12 checks
+    ok an unknown op exits 2
+    ok an unknown op prints the one line unknown op
+    openpyxl-ops-test: PASS
+  standard error:
+  lines the log expects once each: 65
+  T2: exit 0, every expected line once, 76 ok lines, no FAIL, the last line PASS, nothing on stderr: yes
+  control: the same check refuses the output with one ok line made FAIL: yes
+
+## T3: scripts/compare-run.sh over a fictional corpus, the roundtrip and edit ops (rulings A to E and I; changes QC, QG and RE)
+command: python3 -I -B <scratch>/w/clone/scripts/scale-gen.py t <scratch>/w/fx/corpus
+    generated t 12ec7ca04a52 29191 12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd sheet_bytes=83005 seconds=0.0
+  exit 0; tier t; id 12ec7ca04a52; sha256 12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd; tests/fixtures/README.md's sha256 12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd
+  the generator wrote tier t, the committed fixture's bytes, into a corpus directory: yes
+command: python3 -I -B <scratch>/w/fx/mkxltx.py <scratch>/w/fx/corpus 12ec7ca04a52 (the program, printed below, sha256 c0783bf1f7ed037dafe85c84f9ca4723f43a9d154605d28630539d177fdf9181)
+    """Adds to the generated corpus a template copy of its one workbook: the same
+    entries, the workbook part's content type made the template's, the id fixed
+    below, the extension xltx, and its manifest row (the generated row with its
+    id, sha256, bytes and extension replaced). Fictional; prints nothing."""
+    import hashlib
+    import os
+    import sys
+    import zipfile
+    
+    top, src_id = sys.argv[1], sys.argv[2]
+    NEW_ID = "f00000000071"
+    MAIN_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+    TEMPLATE_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml"
+    src = os.path.join(top, "corpus", src_id + ".xlsx")
+    dst = os.path.join(top, "corpus", NEW_ID + ".xltx")
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, "x") as zout:
+        for info in zin.infolist():
+            data = zin.read(info.filename)
+            if info.filename == "[Content_Types].xml":
+                text = data.decode("utf-8")
+                if text.count(MAIN_CT) != 1:
+                    sys.exit(1)
+                data = text.replace(MAIN_CT, TEMPLATE_CT).encode("utf-8")
+            zout.writestr(info, data)
+    blob = open(dst, "rb").read()
+    path = os.path.join(top, "manifest.tsv")
+    lines = open(path).read().split("\n")
+    rows = [line for line in lines[1:] if line.startswith(src_id + "\t")]
+    if len(rows) != 1 or lines[-1] != "":
+        sys.exit(1)
+    cells = rows[0].split("\t")
+    cells[0:4] = [NEW_ID, hashlib.sha256(blob).hexdigest(), str(len(blob)), "xltx"]
+    with open(path, "a") as handle:
+        handle.write("\t".join(cells) + "\n")
+  exit 0; output bytes 0; standard error bytes 0
+command: cut -f 1,3,4,5,9 <scratch>/w/fx/corpus/manifest.tsv (id, bytes, ext, producer, tags)
+    id	bytes	ext	producer	tags
+    12ec7ca04a52	29191	xlsx	scale-gen	scale,tiert
+    f00000000071	29195	xltx	scale-gen	scale,tiert
+  the corpus holds the generated workbook and its xltx template copy, each with a manifest row: yes
+  the runner's summary header (from its source): id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover\tlo\tlo_in
+  the runner's entries header (from its source): id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags
+  scripts/compare-run.sh declares the runner's summary and entries headers, character for character: yes
+  control: the same reading tells the two run headers apart: yes
+command: the checker <scratch>/w/fx/cmpcheck.py (printed below, sha256 0f30c3a5b3dc66f8193f4420c262cc10e11a59edc534d5134324755926dcf7c4), run as python3 -I -B <checker> <run directory> <op> with the expectations in its environment
+    """Checks one comparison run directory against what the test log expects:
+    the three headers, one summary row per expected id in manifest order, each
+    row's fields, its output and nothing else in the output directory, the
+    entries rows, and the one run row. Prints "yes" or "no", a tab and what
+    was checked, one line each; never a cell value."""
+    import os
+    import re
+    import sys
+    
+    e = os.environ
+    run, op = sys.argv[1], sys.argv[2]
+    want_ids = [pair.split(":") for pair in e["IDS"].split(",")]
+    out = []
+    
+    
+    def say(ok, what):
+        out.append("%s\t%s: %s" % ("yes" if ok else "no", op, what))
+    
+    
+    def table(name):
+        try:
+            lines = open(os.path.join(run, name)).read().split("\n")
+        except OSError:
+            return None, []
+        if lines and lines[-1] == "":
+            lines.pop()
+        return (lines[0] if lines else None), [line.split("\t") for line in lines[1:]]
+    
+    
+    sh, srows = table("summary.openpyxl.tsv")
+    eh, erows = table("entries.openpyxl.tsv")
+    rh, rrows = table("run.openpyxl.tsv")
+    summary_header = e["SUM_H"].replace("\\t", "\t")
+    say(sh == summary_header, "summary.openpyxl.tsv's header is the runner's")
+    say(eh == e["ENT_H"].replace("\\t", "\t"), "entries.openpyxl.tsv's header is the runner's")
+    say(rh == e["RUN_H"].replace("\\t", "\t"), "run.openpyxl.tsv's header is ruling E's")
+    cols = summary_header.split("\t")
+    rows = [dict(zip(cols, r)) for r in srows if len(r) == len(cols)]
+    say(len(rows) == len(srows) and [r["id"] for r in rows] == [i for i, _ in want_ids],
+        "one summary row per expected id, in manifest order")
+    for (wid, ext), r in zip(want_ids, rows):
+        o = os.path.join(run, wid, "out.openpyxl", wid + "." + ext)
+        others = sorted(set(os.listdir(os.path.dirname(o))) - {wid + "." + ext}) if os.path.isdir(os.path.dirname(o)) else ["-"]
+        say(r["label"] == "openpyxl", "%s: label openpyxl" % wid)
+        say(r["outcome"] == e["OUTCOME"] and r["exit"] == e["EXIT"], "%s: outcome %s, exit %s" % (wid, e["OUTCOME"], e["EXIT"]))
+        say(r["lo"] == e["LO"] and r["lo_in"] == "-", "%s: lo %s, lo_in - (ruling C)" % (wid, e["LO"]))
+        say(r["leftover"] == "no" and not others, "%s: leftover no, nothing beside the output in its directory" % wid)
+        if e["OUTCOME"] == "ok":
+            say(os.path.isfile(o) and r["out_bytes"] == str(os.path.getsize(o)),
+                "%s: the output keeps the extension %s (ruling D) and out_bytes is its size" % (wid, ext))
+            say(r["diff_exit"] in ("0", "1"), "%s: xlsx-diff exit 0 or 1" % wid)
+            say(re.fullmatch(r"[0-9]+\.[0-9]{2}", r["wall_s"]) is not None and re.fullmatch(r"[1-9][0-9]*", r["peak_rss_kb"]) is not None,
+                "%s: a wall time and a peak RSS" % wid)
+            say(any(x[0] == wid and x[1] == "openpyxl" for x in erows), "%s: entries rows under label openpyxl" % wid)
+    say(all(len(x) > 1 and x[1] == "openpyxl" for x in erows), "every entries row is under label openpyxl")
+    run_cols = e["RUN_H"].replace("\\t", "\t").split("\t")
+    ok = len(rrows) == 1 and len(rrows[0]) == len(run_cols)
+    r = dict(zip(run_cols, rrows[0])) if ok else {}
+    say(ok, "one run row")
+    say(r.get("commit") == e["COMMIT"], "the run row's commit is the phase commit")
+    say(r.get("image_id") == e["IMG_ID"], "the run row's image id is the image's")
+    say(r.get("openpyxl") == "3.1.5", "the run row's openpyxl is 3.1.5")
+    say(r.get("ops_sha256") == e["OPS_SHA"] and r.get("xlsx_diff_sha256") == e["XD_SHA"],
+        "the run row's ops script and xlsx-diff hashes are the clone's and the built binary's")
+    say(r.get("op") == op and r.get("files") == str(len(want_ids)), "the run row's op and file count")
+    say((r.get("timeout_s"), r.get("lo_timeout_s"), r.get("memory_mib")) == ("300", "600", "2048"),
+        "the run row's settings are the defaults, 300 s, 600 s and 2048 MiB")
+    print("\n".join(out))
+### C-roundtrip
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/compare-run.sh --op roundtrip --image localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/roundtrip --libreoffice localhost/emend-lo:25.2.3-2-deb13u6
+  exit: 0; standard output:
+    12ec7ca04a52 ok 0 0.81 37776
+    f00000000071 ok 0 0.81 37784
+    files 2 ok 2 error 0 timeout 0 cap 0 no-output 0
+    containers of the image remaining: 0
+  standard error:
+  C-roundtrip: exit 0, one line per workbook, the count line and the containers line, no path, nothing on stderr: yes
+  C-roundtrip: the containers line exactly once, the last line, after the files line (ruling I): yes
+  the checker: exit 0; standard error bytes 0
+  C-roundtrip: roundtrip: summary.openpyxl.tsv's header is the runner's: yes
+  C-roundtrip: roundtrip: entries.openpyxl.tsv's header is the runner's: yes
+  C-roundtrip: roundtrip: run.openpyxl.tsv's header is ruling E's: yes
+  C-roundtrip: roundtrip: one summary row per expected id, in manifest order: yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: label openpyxl: yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: outcome ok, exit 0: yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: lo ok, lo_in - (ruling C): yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: leftover no, nothing beside the output in its directory: yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: the output keeps the extension xlsx (ruling D) and out_bytes is its size: yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: xlsx-diff exit 0 or 1: yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: a wall time and a peak RSS: yes
+  C-roundtrip: roundtrip: 12ec7ca04a52: entries rows under label openpyxl: yes
+  C-roundtrip: roundtrip: f00000000071: label openpyxl: yes
+  C-roundtrip: roundtrip: f00000000071: outcome ok, exit 0: yes
+  C-roundtrip: roundtrip: f00000000071: lo ok, lo_in - (ruling C): yes
+  C-roundtrip: roundtrip: f00000000071: leftover no, nothing beside the output in its directory: yes
+  C-roundtrip: roundtrip: f00000000071: the output keeps the extension xltx (ruling D) and out_bytes is its size: yes
+  C-roundtrip: roundtrip: f00000000071: xlsx-diff exit 0 or 1: yes
+  C-roundtrip: roundtrip: f00000000071: a wall time and a peak RSS: yes
+  C-roundtrip: roundtrip: f00000000071: entries rows under label openpyxl: yes
+  C-roundtrip: roundtrip: every entries row is under label openpyxl: yes
+  C-roundtrip: roundtrip: one run row: yes
+  C-roundtrip: roundtrip: the run row's commit is the phase commit: yes
+  C-roundtrip: roundtrip: the run row's image id is the image's: yes
+  C-roundtrip: roundtrip: the run row's openpyxl is 3.1.5: yes
+  C-roundtrip: roundtrip: the run row's ops script and xlsx-diff hashes are the clone's and the built binary's: yes
+  C-roundtrip: roundtrip: the run row's op and file count: yes
+  C-roundtrip: roundtrip: the run row's settings are the defaults, 300 s, 600 s and 2048 MiB: yes
+  C-roundtrip: the checker exited 0 and every one of its lines reads yes: yes
+### C-edit
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/compare-run.sh --op edit --image localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/edit --libreoffice localhost/emend-lo:25.2.3-2-deb13u6
+  exit: 0; standard output:
+    12ec7ca04a52 ok 0 0.71 37940
+    f00000000071 ok 0 0.71 38088
+    files 2 ok 2 error 0 timeout 0 cap 0 no-output 0
+    containers of the image remaining: 0
+  standard error:
+  C-edit: exit 0, one line per workbook, the count line and the containers line, no path, nothing on stderr: yes
+  C-edit: the containers line exactly once, the last line, after the files line (ruling I): yes
+  the checker: exit 0; standard error bytes 0
+  C-edit: edit: summary.openpyxl.tsv's header is the runner's: yes
+  C-edit: edit: entries.openpyxl.tsv's header is the runner's: yes
+  C-edit: edit: run.openpyxl.tsv's header is ruling E's: yes
+  C-edit: edit: one summary row per expected id, in manifest order: yes
+  C-edit: edit: 12ec7ca04a52: label openpyxl: yes
+  C-edit: edit: 12ec7ca04a52: outcome ok, exit 0: yes
+  C-edit: edit: 12ec7ca04a52: lo ok, lo_in - (ruling C): yes
+  C-edit: edit: 12ec7ca04a52: leftover no, nothing beside the output in its directory: yes
+  C-edit: edit: 12ec7ca04a52: the output keeps the extension xlsx (ruling D) and out_bytes is its size: yes
+  C-edit: edit: 12ec7ca04a52: xlsx-diff exit 0 or 1: yes
+  C-edit: edit: 12ec7ca04a52: a wall time and a peak RSS: yes
+  C-edit: edit: 12ec7ca04a52: entries rows under label openpyxl: yes
+  C-edit: edit: f00000000071: label openpyxl: yes
+  C-edit: edit: f00000000071: outcome ok, exit 0: yes
+  C-edit: edit: f00000000071: lo ok, lo_in - (ruling C): yes
+  C-edit: edit: f00000000071: leftover no, nothing beside the output in its directory: yes
+  C-edit: edit: f00000000071: the output keeps the extension xltx (ruling D) and out_bytes is its size: yes
+  C-edit: edit: f00000000071: xlsx-diff exit 0 or 1: yes
+  C-edit: edit: f00000000071: a wall time and a peak RSS: yes
+  C-edit: edit: f00000000071: entries rows under label openpyxl: yes
+  C-edit: edit: every entries row is under label openpyxl: yes
+  C-edit: edit: one run row: yes
+  C-edit: edit: the run row's commit is the phase commit: yes
+  C-edit: edit: the run row's image id is the image's: yes
+  C-edit: edit: the run row's openpyxl is 3.1.5: yes
+  C-edit: edit: the run row's ops script and xlsx-diff hashes are the clone's and the built binary's: yes
+  C-edit: edit: the run row's op and file count: yes
+  C-edit: edit: the run row's settings are the defaults, 300 s, 600 s and 2048 MiB: yes
+  C-edit: the checker exited 0 and every one of its lines reads yes: yes
+### the controls
+  control: the checker refuses the roundtrip run read as the edit op's: yes
+  control: the stdout check refuses an output holding a planted path: yes
+  control: the order check refuses an output without its containers line: yes
+
+### T3 refusals, every message read from scripts/compare-run.sh; the trap prints its line once the work directory exists (ruling I)
+  the unknown-op message: --op must name one of the eleven ops; usage: scripts/compare-run.sh --op <op> --image <image> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>]
+  the rerun message: id 12ec7ca04a52 already has a row in summary.openpyxl.tsv; use a new run directory
+  each message is found once in the source, and the usage line: yes
+  control: the same reading finds no message for a start the source does not hold: yes
+### R-op
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/compare-run.sh --op no-such-op --image localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/no-such-op 
+  exit: 2; standard output:
+  standard error:
+    error: --op must name one of the eleven ops; usage: scripts/compare-run.sh --op <op> --image <image> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>]
+  R-op: an unknown op refused with its message before the work directory exists, so nothing on stdout: yes
+  R-op: the run directory was not made: yes
+### R-rerun
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/compare-run.sh --op roundtrip --image localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/roundtrip 
+  exit: 2; standard output:
+    containers of the image remaining: 0
+  standard error:
+    error: id 12ec7ca04a52 already has a row in summary.openpyxl.tsv; use a new run directory
+  R-rerun: a rerun into a run directory holding the ids refused with its message, and the trap's containers line printed (ruling I): yes
+  R-rerun: the summary still holds its two rows: yes
+  control: the counted refusal check refuses R-op's output, which has no containers line: yes
+
+## T4: scripts/passthrough-record.py, the container start (rulings K and P; change RF)
+command: git show <base>:scripts/passthrough-record.py > <scratch>/w/record-base.py; sha256sum: e24b198394072a8ec9f7a669c07eb54f29df7588ecda9fa4e864d2169b76415d; the phase commit's: 04283e29d7bd00c28150c287d54347f918e360e11aeceb1aac5d68775b43d991
+  the malformed-file message: empty.openpyxl.tsv does not hold runs 1 to 3, each a time in seconds
+  the header message for the empty-run file: empty.openpyxl.tsv does not start with the expected header
+  each record message is found once in the source: yes
+  the container-start line expected: - Container start: an empty run of the image (python3 -I -B -c pass, the same mounts and flags), three runs 0.52, 0.48, 0.61 s, median 0.52 s; the openpyxl wall times include it (specs/0037 rulings K and P)
+command: cp -a <scratch>/w/fx/runs/roundtrip to <scratch>/w/fx/runs/start, nostart, short and badhead
+command: printf into <scratch>/w/fx/runs/start/empty.openpyxl.tsv:
+    run	wall_s
+    1	0.52
+    2	0.48
+    3	0.61
+### S1
+command: python3 -I -B <scratch>/w/clone/scripts/passthrough-record.py --run <scratch>/w/fx/runs/start --out <scratch>/w/rec --stem s1 --allow-single
+  exit: 0; standard output:
+    wrote s1.txt and s1.md: labels openpyxl; files 2; entry rows 22; xml rows 188
+  standard error:
+  S1: with empty.openpyxl.tsv, the record names the three runs and their median, the exact line: yes
+### S2
+command: python3 -I -B <scratch>/w/clone/scripts/passthrough-record.py --run <scratch>/w/fx/runs/nostart --out <scratch>/w/rec --stem s2 --allow-single
+  exit: 0; standard output:
+    wrote s2.txt and s2.md: labels openpyxl; files 2; entry rows 22; xml rows 188
+  standard error:
+  S2: without the file, no container-start line: yes
+  control: the start check refuses S2's record: yes
+command: printf into <scratch>/w/fx/runs/short/empty.openpyxl.tsv:
+    run	wall_s
+    1	0.52
+### S3
+command: python3 -I -B <scratch>/w/clone/scripts/passthrough-record.py --run <scratch>/w/fx/runs/short --out <scratch>/w/rec --stem s3 --allow-single
+  exit: 2; standard output:
+  standard error:
+    error: empty.openpyxl.tsv does not hold runs 1 to 3, each a time in seconds
+  S3: a file of one run refused with its message, no record written: yes
+  S3: no record was written: yes
+command: printf into <scratch>/w/fx/runs/badhead/empty.openpyxl.tsv:
+    run	seconds
+    1	0.52
+    2	0.48
+    3	0.61
+### S4
+command: python3 -I -B <scratch>/w/clone/scripts/passthrough-record.py --run <scratch>/w/fx/runs/badhead --out <scratch>/w/rec --stem s4 --allow-single
+  exit: 2; standard output:
+  standard error:
+    error: empty.openpyxl.tsv does not start with the expected header
+  S4: a file with another header refused with its message: yes
+### S5-old
+command: python3 -I -B <scratch>/w/record-base.py --run <scratch>/w/fx/runs/nostart --out <scratch>/w/rec --stem s5-old --allow-single
+  exit: 0; standard output:
+    wrote s5-old.txt and s5-old.md: labels openpyxl; files 2; entry rows 22; xml rows 188
+  standard error:
+### S5-new
+command: python3 -I -B <scratch>/w/clone/scripts/passthrough-record.py --run <scratch>/w/fx/runs/nostart --out <scratch>/w/rec --stem s5-new --allow-single
+  exit: 0; standard output:
+    wrote s5-new.txt and s5-new.md: labels openpyxl; files 2; entry rows 22; xml rows 188
+  standard error:
+  S5: an openpyxl record without the file, the base commit's record script and the phase commit's the same but for the Record written line: yes
+### S6-old
+command: python3 -I -B <scratch>/w/record-base.py --run <scratch>/w/fx/runs/start --out <scratch>/w/rec --stem s6-old --allow-single
+  exit: 0; standard output:
+    wrote s6-old.txt and s6-old.md: labels openpyxl; files 2; entry rows 22; xml rows 188
+  standard error:
+  control: the comparison refuses the base commit's record of the directory holding the file against S1's, which names it: yes
+
+### T4: the emend records, the base commit's record script against the phase commit's
+### E-host
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label host --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/emend --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 
+  exit: 0; standard output:
+    12ec7ca04a52 host ok 0 0.10 7540
+    f00000000071 host ok 0 0.10 7716
+    files 2 ok 2 error 0 timeout 0 panic 0 crash 0
+  standard error:
+  E-host: the host run over the two workbooks, both ok: yes
+### E-i686
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label i686 --passthrough <scratch>/w/bin/emend-copy-i686 --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/emend --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 
+  exit: 0; standard output:
+    12ec7ca04a52 i686 ok 0 0.10 7756
+    f00000000071 i686 ok 0 0.10 7524
+    files 2 ok 2 error 0 timeout 0 panic 0 crash 0
+  standard error:
+  E-i686: the i686 run into the same run directory, both ok: yes
+### E-solo
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/clone/scripts/passthrough-run.sh --label host --passthrough <scratch>/w/bin/emend-copy --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/emend-solo --libreoffice localhost/emend-lo:25.2.3-2-deb13u6 
+  exit: 0; standard output:
+    12ec7ca04a52 host ok 0 0.10 7696
+    f00000000071 host ok 0 0.10 7820
+    files 2 ok 2 error 0 timeout 0 panic 0 crash 0
+  standard error:
+  E-solo: a host run alone, both ok: yes
+### R6-old
+command: python3 -I -B <scratch>/w/record-base.py --run <scratch>/w/fx/runs/emend --out <scratch>/w/rec --stem e2-old 
+  exit: 0; standard output:
+    wrote e2-old.txt and e2-old.md: labels host,i686; files 2,2; entry rows 18,18; xml rows 0,0
+  standard error:
+### R6-new
+command: python3 -I -B <scratch>/w/clone/scripts/passthrough-record.py --run <scratch>/w/fx/runs/emend --out <scratch>/w/rec --stem e2-new 
+  exit: 0; standard output:
+    wrote e2-new.txt and e2-new.md: labels host,i686; files 2,2; entry rows 18,18; xml rows 0,0
+  standard error:
+### R7-old
+command: python3 -I -B <scratch>/w/record-base.py --run <scratch>/w/fx/runs/emend-solo --out <scratch>/w/rec --stem e1-old --allow-single
+  exit: 0; standard output:
+    wrote e1-old.txt and e1-old.md: labels host; files 2; entry rows 18; xml rows 0
+  standard error:
+### R7-new
+command: python3 -I -B <scratch>/w/clone/scripts/passthrough-record.py --run <scratch>/w/fx/runs/emend-solo --out <scratch>/w/rec --stem e1-new --allow-single
+  exit: 0; standard output:
+    wrote e1-new.txt and e1-new.md: labels host; files 2; entry rows 18; xml rows 0
+  standard error:
+  the four records were written, each exit 0 with nothing on stderr: yes
+  host and i686: the md's line counts 70 and 70; host alone: 49 and 49
+  R6: host and i686, the base commit's record and the phase commit's are the same but for the Record written line: yes
+  R7: host alone, the same: yes
+  control: the comparison refuses a record with its Targets line changed: yes
+
+## T5: the plants, in a second clone (change QJ's machinery; this phase's plants, change RG)
+command: git clone -q <repo> <scratch>/w/plant; git -C <scratch>/w/plant checkout -q --detach <phase commit>
+  the plant clone is at the phase commit, its tree clean: yes
+command: the planter <scratch>/w/plant.py (printed below, sha256 997caf1073d7c27f2570f9256a3940c9d6305d8f035e92d235e5e3255bd29973), run as python3 -I -B <planter> <file> with the old and new text in its environment
+    """Replaces one text in one file of the plant clone, refusing unless the old
+    text is there exactly once. Prints nothing."""
+    import os
+    import sys
+    
+    path = sys.argv[1]
+    old, new = os.environ["PLANT_OLD"], os.environ["PLANT_NEW"]
+    text = open(path).read()
+    if text.count(old) != 1:
+        sys.exit(1)
+    open(path, "w").write(text.replace(old, new))
+### P1: in scripts/compare-run.sh, the text
+    trap finish EXIT
+  made
+    trap 'rm -rf "${WORK:?}"' EXIT
+  P1: planted (the old text found once): yes
+### P1
+command: TMPDIR=<scratch>/w/tmp bash <scratch>/w/plant/scripts/compare-run.sh --op roundtrip --image localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 --xlsx-diff <scratch>/w/bin/xlsx-diff --corpus <scratch>/w/fx/corpus --out <scratch>/w/fx/runs/p1 
+  exit: 0; standard output:
+    12ec7ca04a52 ok 0 0.81 37672
+    f00000000071 ok 0 0.81 37776
+    files 2 ok 2 error 0 timeout 0 cap 0 no-output 0
+  standard error:
+  P1: the trap set back to the removal alone caught: the stdout check refuses the run, which prints no containers line: yes
+  P1: and the order check refuses it (ruling I): yes
+  P1: undone, the plant clone clean: yes
+### P2: in scripts/compare-record.py, the text
+    corpus_cells(stats(ox, lo_in_rows=host))
+  made
+    corpus_cells(stats(ox))
+  P2: planted (the old text found once): yes
+  the plant's compare-record test: exit 1; its FAIL lines:
+    FAIL openpyxl: lo_in counted from the emend host run, ok 2 and fail 1 (ruling C)
+  P2: compare-record taking lo_in from the openpyxl summary caught by its test's ruling C line: yes
+  P2: the T1 pass check refuses the plant's output: yes
+  P2: undone, the plant clone clean: yes
+### P3: in scripts/compare-record.py, the text
+    out["wall median"] = statistics.median(walls) if walls else None
+  made
+    out["wall median"] = statistics.mean(walls) if walls else None
+  P3: planted (the old text found once): yes
+  the plant's compare-record test: exit 1; its FAIL lines:
+    FAIL emend host: wall median 2, sum 7; peak RSS median 2000, max 3000
+    FAIL openpyxl: wall median 3, sum 9.50; peak RSS median 40000, max 50000
+  P3: the wall median computed as a mean caught by its test's emend host median line: yes
+  P3: undone, the plant clone clean: yes
+### P4: in scripts/passthrough-record.py, the text
+        if empty is not None:
+  made
+        if False:
+  P4: planted (the old text found once): yes
+### P4
+command: python3 -I -B <scratch>/w/plant/scripts/passthrough-record.py --run <scratch>/w/fx/runs/start --out <scratch>/w/rec --stem p4 --allow-single
+  exit: 0; standard output:
+    wrote p4.txt and p4.md: labels openpyxl; files 2; entry rows 22; xml rows 188
+  standard error:
+  P4: the record script dropping the container-start line caught by S1's check: yes
+  P4: undone, the plant clone clean: yes
+  the plant clone is back at the phase commit's bytes: yes
+  the unplanted control: T1, T3 and T4 above ran the same scripts from <scratch>/w/clone at the phase commit and passed
+
+## the image's containers at the end (ruling A; change QI)
+command: podman ps -a --filter ancestor=localhost/emend-openpyxl:3.1.5-dfsg-2-deb13 --format '{{.Names}}': exit 0; containers of the image: 0
+  no container of the image remains at the end: yes
+
+## the log itself
+  captured outputs: 88; control and non-ASCII bytes in them: 0; in a control file with two ESC and one two-byte character: 4
+  no control or non-ASCII byte in any captured output: yes
+  control: the same count finds four bytes in the control file: yes
+command: git status --porcelain
+     M specs/0037-measurement-and-close.md
+status lines: 1; of them this phase's logs or planning's spec: 1
+  every change in the working tree is this phase's logs or planning's uncommitted spec (change RA): yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/test.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-16T17:27:12Z
+test log checks all as expected: yes
