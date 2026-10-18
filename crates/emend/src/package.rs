@@ -1591,9 +1591,11 @@
 //!   position. The drawing is the one the sheet's `<drawing>` element's
 //!   `r:id` names, for the read and the write alike.
 //! - What cannot be read, under "a drawing part or its relationship cannot
-//!   be read", beside the spec's list: a `pic` with no `blip`, an empty
-//!   `wsDr` root on an append, a `cNvPr` `id` that is not a decimal number
-//!   within `u32`, and an external drawing or `r:embed` relationship.
+//!   be read", beside the spec's list: a `pic` with no `blip`, a `cNvPr`
+//!   `id` that is not a decimal number within `u32`, and an external
+//!   drawing or `r:embed` relationship. A self-closing `wsDr` root is an
+//!   empty drawing, appended to as any other (`specs/0037-measurement-and-
+//!   close.md`, decision 3 A).
 //! - Anchors (`specs/0028-images-and-comments-second-half.md`, "Anchors"):
 //!   `Package::add_image_at` writes a one-cell anchor with its offsets, a
 //!   two-cell anchor with `editAs` always written and `from` and `to`, or
@@ -7678,7 +7680,7 @@ impl<R: Read + Seek> Package<R> {
     /// a part with two `<drawing>` elements, or one out of schema order, "a
     /// worksheet has two drawing elements"; a `<drawing>` without `r:id` or
     /// naming no drawing relationship, a relationship whose part is missing,
-    /// and a drawing part whose root is not `wsDr`, or is empty, or that
+    /// and a drawing part whose root is not `wsDr`, or that
     /// holds a `cNvPr` `id` that is not a number or leaves none below
     /// `u32::MAX`, "a drawing part or its relationship cannot be read"; a
     /// sheet added in the same write, "no such part"; a part this write
@@ -10268,7 +10270,7 @@ impl<'a> Parts<'a> {
             }
             match (drawing, kept) {
                 (Some(target), Some((bytes, read))) => {
-                    let mut out = bytes[..read.end].to_vec();
+                    let mut anchors = Vec::new();
                     let mut id = read.highest;
                     for ((anchor, addition), entry) in additions.iter().zip(&added) {
                         let rel = self.add_relationship(
@@ -10281,14 +10283,14 @@ impl<'a> Parts<'a> {
                             .checked_add(1)
                             .filter(|id| *id <= u64::from(u32::MAX))
                             .ok_or(DRAWING_UNREADABLE)?;
-                        out.extend_from_slice(&anchor_bytes(
+                        anchors.extend_from_slice(&anchor_bytes(
                             &read.form,
                             anchor,
                             addition.extent(),
                             &addition.body(&read.form, id, &rel),
                         ));
                     }
-                    out.extend_from_slice(&bytes[read.end..]);
+                    let out = read.appended(&bytes, &anchors);
                     self.replace_part(&target, replacement_from_reader(Cursor::new(out)));
                 }
                 _ => {
@@ -20484,21 +20486,49 @@ struct DrawingForm {
 }
 
 /// What the write reads of a kept drawing part: its form, the largest
-/// `cNvPr` `id` anywhere in it, and where its root's end tag starts.
+/// `cNvPr` `id` anywhere in it, and where its root's end tag starts. A
+/// self-closing root is an empty drawing (`specs/0037-measurement-and-
+/// close.md`, decision 3 A): `end` is where its `/>` starts, and the
+/// write puts `>`, the anchors and `close`, the root's end tag, in place
+/// of those two bytes.
 #[cfg(any(feature = "images", feature = "charts"))]
 struct DrawingRead {
     form: DrawingForm,
     highest: u64,
     end: usize,
+    close: Option<Vec<u8>>,
+}
+
+#[cfg(any(feature = "images", feature = "charts"))]
+impl DrawingRead {
+    /// `bytes`, the part `self` was read from, with `anchors` appended
+    /// inside its root.
+    fn appended(&self, bytes: &[u8], anchors: &[u8]) -> Vec<u8> {
+        let mut out = bytes[..self.end].to_vec();
+        match &self.close {
+            Some(close) => {
+                out.push(b'>');
+                out.extend_from_slice(anchors);
+                out.extend_from_slice(close);
+                out.extend_from_slice(&bytes[self.end + 2..]);
+            }
+            None => {
+                out.extend_from_slice(anchors);
+                out.extend_from_slice(&bytes[self.end..]);
+            }
+        }
+        out
+    }
 }
 
 /// Reads a kept drawing part held whole (`specs/0022-comments-and-
 /// images.md`, "Images: the parts", and P3 ruling 1: the largest `id` is
 /// taken over the whole part, an `AlternateContent`'s `Choice` and
 /// `Fallback` included). A part the parser refuses, a root other than
-/// `wsDr` in the spreadsheet-drawing namespace or an empty one, and a
-/// `cNvPr` `id` that is not a decimal number cannot be read; an element
-/// whose prefix nothing binds meets part 2's refusal.
+/// `wsDr` in the spreadsheet-drawing namespace, and a `cNvPr` `id` that is
+/// not a decimal number cannot be read; an element whose prefix nothing
+/// binds meets part 2's refusal. A self-closing root reads as an empty
+/// drawing (decision 3 A of `specs/0037-measurement-and-close.md`).
 #[cfg(any(feature = "images", feature = "charts"))]
 fn read_drawing(bytes: &[u8], index: usize) -> Result<DrawingRead, Error> {
     let unreadable = |error: Error| match error {
@@ -20516,6 +20546,7 @@ fn read_drawing(bytes: &[u8], index: usize) -> Result<DrawingRead, Error> {
     let mut form = None;
     let mut highest = 0u64;
     let mut end = None;
+    let mut close = None;
     while let Some(token) = stream.next().map_err(unreadable)? {
         let from = at;
         at = at.checked_add(token.raw.len()).ok_or(DRAWING_UNREADABLE)?;
@@ -20531,8 +20562,19 @@ fn read_drawing(bytes: &[u8], index: usize) -> Result<DrawingRead, Error> {
                         Some(namespace) if namespace == SPREADSHEET_DRAWING[1] => true,
                         _ => return Err(DRAWING_UNREADABLE),
                     };
-                    if local != b"wsDr" || empty {
+                    if local != b"wsDr" {
                         return Err(DRAWING_UNREADABLE);
+                    }
+                    if empty {
+                        // The empty-element tag ends in `/>`, which the
+                        // write replaces.
+                        if !token.raw.ends_with(b"/>") {
+                            return Err(DRAWING_UNREADABLE);
+                        }
+                        end = Some(at - 2);
+                        close = Some(
+                            [b"</".as_slice(), start.name().as_ref().as_bytes(), b">"].concat(),
+                        );
                     }
                     let x = match start.name().prefix() {
                         Some(prefix) => [prefix.into_inner().as_bytes(), b":"].concat(),
@@ -20584,6 +20626,7 @@ fn read_drawing(bytes: &[u8], index: usize) -> Result<DrawingRead, Error> {
         form: form.ok_or(DRAWING_UNREADABLE)?,
         highest,
         end: end.ok_or(DRAWING_UNREADABLE)?,
+        close,
     })
 }
 

@@ -28,7 +28,9 @@ records/ in the repository):
   and <scale-runs>/<stamp>-openpyxl-scale-<tier>-<op> (ruling L), one row per
   tool and label with the outcome, exit, wall time, peak RSS, bytes in and
   out, the entry counts, the open verdict and, for openpyxl, the container
-  start;
+  start; the openpyxl settings its sentence names are read from the scale
+  runs' run.openpyxl.tsv, whose op is checked as the corpus runs' is (ruling
+  U of the planning verification of P2);
 - the openpyxl image record's sha256.
 
 Counts, times and bytes only: a workbook is never named, and no entry name is
@@ -253,17 +255,10 @@ def build(args):
     ] + details
 
     scale_cols = ("outcome", "exit", "wall_s", "peak_rss_kb", "in_bytes", "out_bytes") + ENTRY_COLUMNS + ("lo",)
-    out += [
-        "",
-        "## The scale tiers",
-        "",
-        "Tiers a and b for every op, tiers c and d for roundtrip (decision 2 A); one run"
-        " directory per tier per op per tool (ruling L); openpyxl under --memory 16384"
-        " --timeout 3600, emend as specs/0023 ran it (ruling M).",
-        "",
-        md_row(("tier", "op", "tool", "label") + scale_cols + ("container start median s",)),
-        md_row(("---",) * (5 + len(scale_cols))),
-    ]
+    # Ruling U (specs/0037, "Planning verification of P2"): the settings
+    # sentence is read from the scale runs' run.openpyxl.tsv, and their op
+    # is checked as the corpus runs' is.
+    scale_rows, memory, timeout = [], set(), set()
     for tier, ops in SCALE:
         for op in ops:
             e_dir = os.path.join(args.scale_runs, "%s-scale-%s-%s" % (args.stamp, tier, op))
@@ -272,12 +267,29 @@ def build(args):
                                          ("openpyxl", "openpyxl", o_dir)):
                 name = os.path.basename(run_dir)
                 rows = summary(run_dir, label, name)
-                run_rows(run_dir, label, name)
+                runs = run_rows(run_dir, label, name)
+                if tool == "openpyxl":
+                    if {r["op"] for r in runs} != {op}:
+                        raise Failure("%s run.openpyxl.tsv names another op" % name)
+                    memory.update(r["memory_mib"] for r in runs)
+                    timeout.update(r["timeout_s"] for r in runs)
                 if len(rows) != 1:
                     raise Failure("%s summary.%s.tsv does not hold one row" % (name, label))
                 r = rows[0]
                 start = empty_median(run_dir, name) if tool == "openpyxl" else "-"
-                out.append(md_row([tier, op, tool, label] + [r[c] or "-" for c in scale_cols] + [start]))
+                scale_rows.append(md_row([tier, op, tool, label] + [r[c] or "-" for c in scale_cols] + [start]))
+    out += [
+        "",
+        "## The scale tiers",
+        "",
+        "Tiers a and b for every op, tiers c and d for roundtrip (decision 2 A); one run"
+        " directory per tier per op per tool (ruling L); openpyxl under --memory %s"
+        " --timeout %s, emend as specs/0023 ran it (ruling M)." % (
+            ", ".join(sorted(memory)), ", ".join(sorted(timeout))),
+        "",
+        md_row(("tier", "op", "tool", "label") + scale_cols + ("container start median s",)),
+        md_row(("---",) * (5 + len(scale_cols))),
+    ] + scale_rows
 
     try:
         with open(args.image_record, "rb") as handle:

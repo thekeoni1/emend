@@ -533,6 +533,41 @@ fn a_kept_drawing_with_no_rels_part_gets_one() {
 }
 
 #[test]
+fn a_chart_is_appended_to_a_self_closing_drawing_root() {
+    // Decision 3 A of `specs/0037-measurement-and-close.md`: the shared
+    // drawing writer reads the root `<xdr:wsDr .../>` as an empty drawing
+    // and appends the frame inside it, the bytes after the root kept.
+    let drawing = format!("{DECLARATION}\n<xdr:wsDr xmlns:xdr=\"{XDR_NS}\" xmlns:a=\"{A_NS}\"/>\n");
+    let parts = with_drawing(BODY, drawing, None, false);
+    let output = edited_output(parts.clone(), |p| add(p, box_anchor(), &column_chart()));
+    assert_untouched(
+        &output,
+        &parts,
+        &[DRAWING, DRAWING_RELS, b"[Content_Types].xml".as_slice()],
+    );
+    assert_eq!(
+        text_of(&output, DRAWING),
+        format!("{}\n", drawing_xml(&written_box(&frame(1, "rId1"))))
+    );
+    assert_eq!(
+        text_of(&output, DRAWING_RELS),
+        rels(&relationship(
+            "rId1",
+            &format!("{ATTR_NS}/chart"),
+            "../charts/chart1.xml"
+        ))
+    );
+    assert_eq!(
+        charts_of(&output),
+        vec![ChartEntry {
+            part: CHART1.to_vec(),
+            anchor: BOX_READ,
+            chart: column_read(),
+        }]
+    );
+}
+
+#[test]
 fn a_bar_chart_with_direction_bar_swaps_the_axes() {
     let chart = bare(NewPlot::Bar {
         direction: BarDirection::Bar,

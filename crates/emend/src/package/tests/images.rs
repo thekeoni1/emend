@@ -532,6 +532,31 @@ fn an_addition_to_a_drawing_of_two_anchors_appends_with_the_next_id() {
 }
 
 #[test]
+fn a_self_closing_drawing_root_is_an_empty_drawing_the_addition_appends_to() {
+    // Decision 3 A of `specs/0037-measurement-and-close.md`: the root
+    // `<xdr:wsDr .../>` reads as an empty drawing; the write opens it,
+    // appends the anchor and closes it, the bytes after the root kept.
+    let drawing = format!("{DECLARATION}\n<xdr:wsDr xmlns:xdr=\"{XDR_NS}\" xmlns:a=\"{A_NS}\"/>\n");
+    let parts = with_drawing(BODY, drawing, None, &[]);
+    assert!(read(parts.clone()).expect("read").is_empty());
+    let output = edited_output(parts.clone(), |p| add(p, "C5"));
+    assert_untouched(
+        &output,
+        &parts,
+        &[DRAWING, DRAWING_RELS, b"[Content_Types].xml".as_slice()],
+    );
+    assert_eq!(
+        text_of(&output, DRAWING),
+        format!("{}\n", drawing_xml(&added_anchor(2, 4, 1, "rId1")))
+    );
+    assert_eq!(
+        text_of(&output, DRAWING_RELS),
+        rels(&image_rel("rId1", "../media/image1.png"))
+    );
+    assert_eq!(part_of(&output, b"xl/media/image1.png"), PNG.to_vec());
+}
+
+#[test]
 fn the_namespaces_are_bound_on_the_added_elements_or_taken_from_the_root() {
     // A root binding neither `a` nor `r`: both bound on the added elements.
     let kept = two_cell(0, 0, &chart(1)).replace(

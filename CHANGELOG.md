@@ -88,6 +88,14 @@
 - `Archive::prefix_len` made crate-private, compiled for the crate's own tests
   only (`specs/0030-carries-and-api-changes.md`).
 
+### Fixed
+
+- An image or chart added to a sheet whose drawing part has a self-closing
+  `<xdr:wsDr/>` root: the shared drawing writer reads the root as an empty
+  drawing and appends to it, where it refused before, "a drawing part or its
+  relationship cannot be read" (`specs/0037-measurement-and-close.md`,
+  decision 3 A).
+
 ### Measured
 
 - Fidelity: each of the four editing samples (copy a sheet, move an image's

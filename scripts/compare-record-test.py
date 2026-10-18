@@ -13,8 +13,11 @@ counts, the medians, sums and maxima, the openpyxl row's lo_in taken from
 the emend host run (ruling C), the container start median (rulings K and P),
 the exception class of the error row, the scale rows, and the image record's
 sha256. Then each refusal: a missing run directory, a missing empty-run file,
-a summary with another header, a run row naming another op, runs that do not
-cover the same workbooks, an existing record, a bad stamp.
+a summary with another header, a run row naming another op, a scale run row
+naming another op, runs that do not cover the same workbooks, an existing
+record, a bad stamp. The scale settings sentence is read from the scale
+runs' run.openpyxl.tsv (ruling U of the planning verification of P2), shown
+on the fixture's values and on a fixture whose runs hold two.
 
 Prints one line per assertion, "ok" or "FAIL" then what was asserted, and a
 last line "compare-record-test: PASS" or "compare-record-test: FAIL"; exits 0
@@ -174,6 +177,8 @@ def main():
         check(sa["outcome"] == "ok" and sa["wall_s"] == "9.50" and sa["lo"] == "ok" and sa["container start median s"] == "-",
               "a scale emend row: ok, its wall time, lo ok on tier a, no container start")
         check(s[("b", "copy", "emend", "host")]["lo"] == "-", "tier b records lo not-run as -")
+        check("openpyxl under --memory 16384 --timeout 600, emend" in text,
+              "the scale settings sentence read from the scale runs' run.openpyxl.tsv, not fixed text (ruling U)")
         want = hashlib.sha256(open(record, "rb").read()).hexdigest()
         check("`records/openpyxl-image-2026-01-01.md`, sha256 %s." % want in text, "the image record's sha256")
         check(all(ord(c) < 128 for c in text), "the record is ASCII")
@@ -203,6 +208,19 @@ def main():
         refused(lambda c, s: write(os.path.join(c, "%s-openpyxl-read" % STAMP, "summary.openpyxl.tsv"),
                                    [SUMMARY_HEADER, row(IDS[0], "openpyxl", "ok", "1.00", "1", ("1", "0", "0", "0", "0"), "ok", "-")]),
                 "same workbooks", "runs that do not cover the same workbooks refused")
+        refused(lambda c, s: write(os.path.join(s, "%s-openpyxl-scale-b-names" % STAMP, "run.openpyxl.tsv"),
+                                   [OX_RUN, "c\ts\te\timg\t3.1.5\t600\t600\t16384\to\tx\t1\tcopy"]),
+                "names another op", "a scale run row naming another op refused (ruling U)")
+        with tempfile.TemporaryDirectory() as b3:
+            c3, s3, r3 = build(b3)
+            write(os.path.join(s3, "%s-openpyxl-scale-a-edit" % STAMP, "run.openpyxl.tsv"),
+                  [OX_RUN, "c\ts\te\timg\t3.1.5\t3600\t600\t8192\to\tx\t1\tedit"])
+            os.makedirs(os.path.join(b3, "out"))
+            rc, so, se = run(["--corpus-runs", c3, "--scale-runs", s3, "--stamp", STAMP, "--image-record", r3,
+                              "--out", os.path.join(b3, "out")])
+            t3 = open(os.path.join(b3, "out", "compare-m5p6-%s.md" % STAMP), encoding="utf-8").read() if rc == 0 else ""
+            check(rc == 0 and "openpyxl under --memory 16384, 8192 --timeout 3600, 600, emend" in t3,
+                  "a scale run with other settings: the sentence names every value the runs hold (ruling U)")
         rc, so, se = run(["--corpus-runs", corpus, "--scale-runs", scale, "--stamp", "bad", "--image-record", record, "--out", out])
         check(rc == 2 and "--stamp" in se, "a bad stamp refused")
     if failed:
