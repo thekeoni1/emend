@@ -31,6 +31,13 @@ readonly LO_SHEET_PATTERN='<(?:[A-Za-z_][A-Za-z0-9._-]*:)?sheet(?=[\s/>])'
 # holds as many <table:table elements as the reference workbook's
 # xl/workbook.xml holds <sheet elements. It prints nothing: the reason goes to
 # the reason file, which stays in the run directory.
+# The container is named emend-lo-<shell pid>-<subshell pid>-<n>, n counting
+# this shell's calls. A timeout kills the podman client and not the
+# container, so after exit 124 the container is removed by name with podman
+# rm -f --time 0 (no grace period), its output and exit kept in the work
+# directory as rm.txt and rm-exit.txt (specs/0037-measurement-and-close.md,
+# "Planning rulings during P1", ruling A, carried to P3 as engineering-close
+# item 7: the runner's form).
 # Returns 0 for ok, 1 for fail (LibreOffice refused the file, or the ODS is
 # missing or wrong) and 2 for error, which is the check not running at all:
 # the conversion directory, a conversion that timed out under --lo-timeout, a
@@ -38,15 +45,18 @@ readonly LO_SHEET_PATTERN='<(?:[A-Za-z_][A-Za-z0-9._-]*:)?sheet(?=[\s/>])'
 # part that cannot be read. Planning ruled the two apart on 2026-09-15 and
 # fixed their order on 2026-09-16, so a broken tool is never read as a broken
 # archive.
+LO_CHECK_N=0
 lo_check() {
   local file=$1 work=$2 reason=$3 reference=$4
-  local indir base outdir ods rc counts sheets tables
+  local indir base outdir ods rc counts sheets tables name
+  LO_CHECK_N=$((LO_CHECK_N + 1))
+  name=emend-lo-$$-$BASHPID-$LO_CHECK_N
   indir=$(dirname -- "$file")
   base=$(basename -- "$file")
   outdir=$work/ods
   mkdir -p "$work" && rm -rf "$outdir" && mkdir -p "$outdir" ||
     { printf 'cannot prepare the conversion directory\n' >"$reason"; return 2; }
-  timeout --signal=KILL "$LO_TIMEOUT" podman run --rm --network=none --userns=keep-id \
+  timeout --signal=KILL "$LO_TIMEOUT" podman run --rm --name "$name" --network=none --userns=keep-id \
     -v "$indir":/in:ro -v "$outdir":/out "$LO_IMAGE" \
     --convert-to ods --outdir /out "/in/$base" \
     </dev/null >"$work/stdout.txt" 2>"$work/stderr.txt" 3>&-
@@ -60,6 +70,9 @@ lo_check() {
   # error. A status of 1 to 123 is LibreOffice refusing the file: a fail, with
   # the status in the reason.
   if [ "$rc" -eq 124 ]; then
+    # The kill ended the podman client; the container is removed by name.
+    podman rm -f --time 0 "$name" </dev/null >"$work/rm.txt" 2>&1 3>&-
+    echo "$?" >"$work/rm-exit.txt"
     printf 'the conversion timed out after %s s\n' "$LO_TIMEOUT" >"$reason"
     return 2
   fi
