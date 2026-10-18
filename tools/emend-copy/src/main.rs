@@ -713,9 +713,10 @@
 //! - `--charts-sample`: the charts sample of `specs/0034-charts-read.md`,
 //!   "Harness runs", with every field (P1's, then P2's axes, legend, pivot
 //!   source and style): the input written back
-//!   unedited and `Package::charts` of every worksheet of the workbook's
-//!   sheet list. One line: the word `charts` then `sheets` (worksheets
-//!   read), `charts`, `plots`, `kind_bar` (bar and 3D bar plots),
+//!   unedited and `Package::charts` of every worksheet and chartsheet of
+//!   the workbook's sheet list (`specs/0038-chartsheets.md`, "Harness
+//!   runs"). One line: the word `charts` then `sheets` (worksheets and
+//!   chartsheets read), `charts`, `plots`, `kind_bar` (bar and 3D bar plots),
 //!   `kind_line` (line and 3D line), `kind_pie` (pie and 3D pie),
 //!   `kind_doughnut`, `kind_scatter`, `kind_other` (every other kind),
 //!   `combined` (charts with two or more plots), `bar_dir_bar`,
@@ -868,6 +869,23 @@
 //!   part and the content types changing (P3 ruling M); a failure is exit
 //!   2 with the message and no output, and so is a refusal by the layer (a
 //!   chart the input's count cannot read: P3 ruling N).
+//! - `--chartsheet-sample`: the chartsheet sample of
+//!   `specs/0038-chartsheets.md`, "Harness runs": on each workbook, with W,
+//!   M and its quoted name as `--add-chart-sample` has them,
+//!   `Package::add_chartsheet` of the name `emend chartsheet` holding the
+//!   add-chart sample's chart at the size 960 by 640 pixels (9144000 by
+//!   6096000 EMU); the output written and reopened. One line: the word
+//!   `chartsheet` then `part_length` (the new part's name's length),
+//!   `charts` and `series` (`Package::charts` of the new part),
+//!   `sheets_after` (the sheet list's length) and `kept_charts` (the charts
+//!   of the input's chartsheets, read before the call). COUNTS ONLY.
+//!   Asserted: one sheet more, the last a chartsheet of that name at the
+//!   returned part, its one chart in an absolute anchor at 0,0 reading as
+//!   the call gave it, every field compared, and the charts of every
+//!   chartsheet `kept_charts` plus one; a failure is exit 2 with the
+//!   message and no output, and so is a refusal by the layer (an input
+//!   chartsheet whose charts cannot be read, "no such part" for one the
+//!   workbook's relationship names and the archive lacks).
 //! - `--commentbox-sample`: the comment box sample of
 //!   `specs/0028-images-and-comments-second-half.md`, "Harness runs": on W,
 //!   with M as `--table-sample` has it, a comment by `emend` with the text
@@ -986,7 +1004,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
-| --chart-3d-sample | --chart-labels-sample | --remove-chart-sample]";
+| --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1121,6 +1139,9 @@ enum Operation {
     /// A chart added and removed again, the first kept one removed, and
     /// the counts.
     RemoveChartSample,
+    /// A chartsheet holding a column chart at the end of the list, and the
+    /// counts.
+    ChartsheetSample,
     /// A comment with a shown box past the last row, and the counts.
     CommentboxSample,
     /// The first worksheet with comments, or W, copied, and the counts.
@@ -1188,6 +1209,7 @@ enum Error {
     Chart3dSample(&'static str),
     ChartLabelsSample(&'static str),
     RemoveChartSample(&'static str),
+    ChartsheetSample(&'static str),
     ReadSample(&'static str),
     CommentboxSample(&'static str),
     CopySample(&'static str),
@@ -1313,7 +1335,7 @@ impl fmt::Display for Error {
             Error::ChartsSample(what) => {
                 write!(f, "the input's {what} is not what the charts imply")
             }
-            Error::AddChartSample(what) => {
+            Error::AddChartSample(what) | Error::ChartsheetSample(what) => {
                 write!(f, "the output's {what} is not what the chart implies")
             }
             Error::ChartKindsSample(what)
@@ -1558,6 +1580,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::RemoveChartSample,
         ),
+        [input, output, flag] if flag == "--chartsheet-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartsheetSample,
+        ),
         [input, output, flag] if flag == "--roundtrip-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1748,6 +1775,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::RemoveChartSample) {
         return remove_chart_sample(input, output);
     }
+    if matches!(operation, Operation::ChartsheetSample) {
+        return chartsheet_sample(input, output);
+    }
     if matches!(operation, Operation::CommentboxSample) {
         return commentbox_sample(input, output);
     }
@@ -1834,6 +1864,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::Chart3dSample => unreachable!("the 3D sample has its own path"),
         Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
         Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
+        Operation::ChartsheetSample => unreachable!("the chartsheet sample has its own path"),
         Operation::CommentboxSample => unreachable!("the comment box sample has its own path"),
         Operation::CopySample => unreachable!("the sheet copy sample has its own path"),
         Operation::AnchorSample => unreachable!("the anchor sample has its own path"),
@@ -7921,22 +7952,37 @@ fn added_chart_reads_back(
     chart: &emend::package::NewChart<'_>,
     anchor: ImageAnchor,
 ) -> bool {
-    use emend::package::{
-        AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartKind, Data,
-        NewPlot, NewSeriesName, Plot, Series, SeriesName,
-    };
+    use emend::package::ChartAnchor;
     let ImageAnchor::TwoCell {
         from, to, edit_as, ..
     } = anchor
     else {
         return false;
     };
+    let anchored = ChartAnchor {
+        kind: Anchor::TwoCell,
+        from: (from.col - 1, from.row - 1),
+        to: Some((to.col - 1, to.row - 1)),
+        edit_as: Some(edit_as),
+    };
+    entry.anchor == anchored && expected_bar_chart(chart).is_some_and(|want| entry.chart == want)
+}
+
+/// The chart `charts` reads back for the bar chart `chart` as
+/// `specs/0035-charts-write-first-set.md`, "The call", gives it, every
+/// field; `None` for another plot. The add-chart and chartsheet samples
+/// share it.
+fn expected_bar_chart(chart: &emend::package::NewChart<'_>) -> Option<emend::package::Chart> {
+    use emend::package::{
+        AxisKind, AxisPosition, BarDirection, Chart, ChartAxis, ChartKind, Data, NewPlot,
+        NewSeriesName, Plot, Series, SeriesName,
+    };
     let NewPlot::Bar {
         direction,
         grouping,
     } = chart.plot
     else {
-        return false;
+        return None;
     };
     let data = |formula: &str| Data::Reference {
         formula: formula.to_owned(),
@@ -8006,13 +8052,154 @@ fn added_chart_reads_back(
         pivot_source: None,
         style: None,
     };
-    let anchored = ChartAnchor {
-        kind: Anchor::TwoCell,
-        from: (from.col - 1, from.row - 1),
-        to: Some((to.col - 1, to.row - 1)),
-        edit_as: Some(edit_as),
+    Some(expected)
+}
+
+/// The chartsheet sample (`specs/0038-chartsheets.md`, "Harness runs",
+/// `--chartsheet-sample`): the add-chart sample's column chart on a new
+/// chartsheet at 960 by 640 pixels, 9144000 by 6096000 EMU, the output
+/// written and read back. A failure after the output is in place removes
+/// it; a refusal by the layer is exit 2 with no output.
+fn chartsheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, Grouping, LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName,
     };
-    entry.anchor == anchored && entry.chart == expected
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let sheets_before = package.workbook()?.sheets.len() as u64;
+    let kept_before = chartsheet_charts(&mut package)?;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    let last = sampled.max_row.saturating_add(1);
+    let categories = format!("{sheet}!$A$1:$A${last}");
+    let first_values = format!("{sheet}!$B$1:$B${last}");
+    let second_name = format!("{sheet}!$C$1");
+    let second_values = format!("{sheet}!$C$1:$C${last}");
+    let series = [
+        NewSeries {
+            name: Some(NewSeriesName::Text("emend series")),
+            categories: Some(&categories),
+            values: &first_values,
+            sizes: None,
+            color: None,
+            labels: None,
+        },
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&second_name)),
+            categories: None,
+            values: &second_values,
+            sizes: None,
+            color: None,
+            labels: None,
+        },
+    ];
+    let chart = NewChart {
+        plot: NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        title: Some("emend chart"),
+        series: &series,
+        category_axis_title: Some("emend categories"),
+        value_axis_title: Some("emend values"),
+        category_axis_format: None,
+        value_axis_format: None,
+        legend: Some(LegendPosition::Bottom),
+        size: Some((960, 640)),
+        combined: None,
+    };
+    let added = package.add_chartsheet("emend chartsheet", &chart)?;
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chartsheet_read_back(output, &added, sheets_before, kept_before, &chart);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (charts, series, sheets_after) = checked?;
+    edit_line_named(
+        "chartsheet",
+        &[
+            ("part_length", added.len() as u64),
+            ("charts", charts),
+            ("series", series),
+            ("sheets_after", sheets_after),
+            ("kept_charts", kept_before),
+        ],
+    )
+}
+
+/// The charts of every chartsheet of the workbook's sheet list.
+fn chartsheet_charts<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<u64, Error> {
+    let parts: Vec<Vec<u8>> = package
+        .workbook()?
+        .sheets
+        .iter()
+        .filter(|sheet| sheet.kind == SheetKind::Chartsheet)
+        .map(|sheet| sheet.part.clone())
+        .collect();
+    let mut count = 0u64;
+    for part in &parts {
+        count += package.charts(part)?.len() as u64;
+    }
+    Ok(count)
+}
+
+/// Reopens the chartsheet sample's output and asserts one more sheet, the
+/// last a chartsheet named `emend chartsheet` at `part`, its one chart read
+/// back as `chart` gave it in an absolute anchor at 0,0, and the input's
+/// chartsheets' charts kept; gives the chart and series counts of the new
+/// part and the sheet count after.
+fn chartsheet_read_back(
+    output: &Path,
+    part: &[u8],
+    sheets_before: u64,
+    kept_before: u64,
+    chart: &emend::package::NewChart<'_>,
+) -> Result<(u64, u64, u64), Error> {
+    use emend::package::ChartAnchor;
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let sheets = package.workbook()?.sheets.clone();
+    if sheets.len() as u64 != sheets_before + 1 {
+        return Err(Error::ChartsheetSample("sheet count"));
+    }
+    let last = sheets
+        .last()
+        .ok_or(Error::ChartsheetSample("sheet count"))?;
+    if last.kind != SheetKind::Chartsheet || last.name != "emend chartsheet" || last.part != part {
+        return Err(Error::ChartsheetSample("added sheet"));
+    }
+    let charts = package.charts(part)?;
+    let absolute = ChartAnchor {
+        kind: Anchor::Absolute,
+        from: (0, 0),
+        to: None,
+        edit_as: None,
+    };
+    let equal = charts.len() == 1
+        && charts[0].anchor == absolute
+        && expected_bar_chart(chart).is_some_and(|want| charts[0].chart == want);
+    if !equal {
+        return Err(Error::ChartsheetSample("read-back chart"));
+    }
+    if chartsheet_charts(&mut package)? != kept_before + 1 {
+        return Err(Error::ChartsheetSample("kept chartsheets' chart count"));
+    }
+    let series = charts[0]
+        .chart
+        .plots
+        .iter()
+        .map(|plot| plot.series.len() as u64)
+        .sum();
+    Ok((charts.len() as u64, series, sheets.len() as u64))
 }
 
 /// The chart kinds sample (`specs/0035-charts-write-first-set.md`,
@@ -9137,11 +9324,13 @@ fn charts_sample(input: &Path, output: &Path) -> Result<(), Error> {
     };
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
+    // A chartsheet's chart is read as a worksheet's
+    // (`specs/0038-chartsheets.md`, "Reading").
     let parts: Vec<Vec<u8>> = package
         .workbook()?
         .sheets
         .iter()
-        .filter(|sheet| sheet.kind == SheetKind::Worksheet)
+        .filter(|sheet| matches!(sheet.kind, SheetKind::Worksheet | SheetKind::Chartsheet))
         .map(|sheet| sheet.part.clone())
         .collect();
     let mut counts: [(&str, u64); 50] = [

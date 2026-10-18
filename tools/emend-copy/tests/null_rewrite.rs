@@ -7155,3 +7155,79 @@ fn the_extlink_sample_refuses_a_book_whose_relationship_is_internal_and_leaves_n
     assert_eq!(ran.stdout, "", "a line was printed");
     assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
 }
+
+#[test]
+fn the_chartsheet_sample_adds_a_chartsheet_and_reads_its_chart_back() {
+    // `specs/0038-chartsheets.md`, "Harness runs": the new part is
+    // xl/chartsheets/sheet1.xml (25 bytes), one chart of two series, the
+    // sheet list one longer; every entry of the input but the workbook,
+    // its rels part and the content types comes back as it went in.
+    let specs = image_specs(A_CELL, "", false);
+    let dir = TempDir::new("chartsheet-sample");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chartsheet-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "chartsheet\tpart_length=25\tcharts=1\tseries=2\tsheets_after=2\tkept_charts=0\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    for name in [
+        b"xl/chartsheets/sheet1.xml".as_slice(),
+        b"xl/chartsheets/_rels/sheet1.xml.rels",
+        b"xl/drawings/drawing1.xml",
+        b"xl/drawings/_rels/drawing1.xml.rels",
+        b"xl/charts/chart1.xml",
+    ] {
+        entry_named(&entries, name);
+    }
+    untouched_but(
+        &entries,
+        &specs,
+        &[
+            b"xl/workbook.xml",
+            b"xl/_rels/workbook.xml.rels",
+            b"[Content_Types].xml",
+        ],
+    );
+}
+
+#[test]
+fn the_chartsheet_sample_refuses_a_chartsheet_relationship_with_no_part_and_leaves_nothing() {
+    // The negative log's refusal through the binary as well
+    // (`specs/0038-chartsheets.md`, "P1"): the workbook names a chartsheet
+    // whose part the archive lacks, which the sample's read of the input's
+    // chartsheets meets.
+    let mut specs = image_specs(A_CELL, "", false);
+    for spec in &mut specs {
+        let text = String::from_utf8(spec.data.clone()).unwrap_or_default();
+        if spec.name == b"xl/workbook.xml" {
+            let text = text.replace(
+                "</sheets>",
+                "<sheet name=\"Gone\" sheetId=\"9\" r:id=\"rId9\"/></sheets>",
+            );
+            *spec = Spec::deflated(b"xl/workbook.xml", text.as_bytes());
+        } else if spec.name == b"xl/_rels/workbook.xml.rels" {
+            let text = text.replace(
+                "</Relationships>",
+                &format!(
+                    "<Relationship Id=\"rId9\" Type=\"{ATTR_NS}/chartsheet\" \
+                     Target=\"chartsheets/sheet1.xml\"/></Relationships>"
+                ),
+            );
+            *spec = Spec::deflated(b"xl/_rels/workbook.xml.rels", text.as_bytes());
+        }
+    }
+    let dir = TempDir::new("chartsheet-sample-no-part");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chartsheet-sample"]);
+    assert_eq!(ran.status, 2, "stdout: {}", ran.stdout);
+    assert_eq!(ran.stderr, "error: no such part\n", "the message");
+    assert_eq!(ran.stdout, "", "a line was printed");
+    assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
+}
