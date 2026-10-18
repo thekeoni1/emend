@@ -919,6 +919,62 @@ AM. P4 is DONE. The close-out follows "Close-out push (after P4)"
    push, in Milestone 6 part 1's doc commit. The push waits for the
    maintainer's authorisation typed in the implementing session.
 
+## Planning verification of the close-out (2026-10-18)
+
+Pre mode, verified from primaries before planning's word: the doc commit
+c970940 holding specs/0037 (090c3201) and ROADMAP.md (8198f87a) alone;
+origin/main at c4a01cf by ls-remote; 20 commits in the range, 543c418
+once, one identity (the noreply address) on 20 of 20, no Claude-Session
+line; push.log be785bbd "pre checks all as expected: yes"; scan-pre.log
+a7763112 RESULT: PASS over 212 files and 20 messages; planning's own
+privacy scan over c4a01cf..c970940 (20 commits, 2014 blobs, 0 findings);
+no U+2014 and no home path in the range's diff; the independent check Q1
+YES, Q2 YES, Q3 PARTLY, blocking 0.
+
+Push mode, verified from primaries after the push: origin/main c970940
+by ls-remote; push.log (8c73e36f) ends "push checks all as expected:
+yes" with the maintainer's authorisation "push" dated 10/18/2026
+recorded, the hook's "privacy: 20 commit(s), 2014 blob(s) scanned, 0
+finding(s)" and PASS privacy, "git reported c4a01cf..c970940 for main:
+yes", remote main equal to local main, still PRIVATE; ci-run.log
+(897659ef) run 39175897896 on c970940, branch main, event push, status
+completed, conclusion success, "ci-run log checks all as expected: yes";
+scan.log (9fe48a8e) base c4a01cf, tip c970940, 20 messages scanned,
+RESULT: PASS; the record commit 67c9144 holds the three logs alone
+(1489, 771 and 3983 lines), its message ASCII with no U+2014 and the Co-
+Authored-By line alone; no home path and no address in the three logs
+(the account name stands in the remote's path 13 times, as in part 5's
+logs); planning's own privacy scan over c970940..67c9144: 1 commit, 1993
+blobs, 0 findings.
+
+AN. The close-out generator's changes are 43, 44 and 45: "continuing
+   from 43" means the first new change is 43, as part 5's "continuing
+   from 41" began at 41. Planning's brief said "from 44" in error; the
+   numbering stands.
+
+AO. FINDING, change 45: the first pre-stage scan read
+   `tests/fixtures/openpyxl-ops.xlsx` (P1's generated fixture) as text
+   and counted 18207 non-ASCII and control-byte hits. The carry of P1's
+   change IC (archives read as their entries' text, every archive under
+   `tests/fixtures/` named by sha256 in its README, two zip controls) is
+   accepted as faithful; the second scan's undeclared placeholder
+   reworded; both failed runs kept under superseded. The push script's
+   header listing 43 and 44 only, with 45 in its change list, is
+   accepted as disclosed.
+
+AP. Planning's word for the push given 2026-10-18 on the pre log; the
+   push waited for the maintainer's authorisation typed in the
+   implementing session, given the same day.
+
+AQ. Close-out DONE; Milestone 5 is DONE and PUSHED. The record commit
+   67c9144 is local and goes with Milestone 6 part 1's push. Its message
+   states the CI run id and the change numbers: the count rule (P1
+   change AD) runs in the phase scans, whose range begins after the
+   record commit, and not in the close-out scan, so no scan reads a
+   close-out record's message, as with part 5's 543c418; noted, no
+   action. This section, the Milestone 5 heading and the part 6 Close
+   row go in Milestone 6 part 1's doc commit.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-16: 1, 2 and 3 as recommended (A
