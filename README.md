@@ -29,8 +29,9 @@ probe it is measured against, from the size record.
 - `images`, the images of `specs/0022-comments-and-images.md`: 67832 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
 - `richtext`, the rich text runs of `specs/0024-rich-text.md`: 13384 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
 - `sheetprops`, the sheet and print settings of `specs/0025-sheet-and-print-settings.md`: 28284 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
-- `read`, the typed reads of `specs/0027-read-back.md`: 51988 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
+- `read`, the typed reads of `specs/0027-read-back.md`, widened by `specs/0032-read-breadth-styles.md` and `specs/0033-read-breadth-survey.md`: 112600 (`records/size-m5p6-2026-10-18-ef9da37.md`).
 - `copy`, the worksheet copy of `specs/0028-images-and-comments-second-half.md`: 13820 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
+- `charts`, the chart reads and writes of `specs/0034-charts-read.md`, `specs/0035-charts-write-first-set.md` and `specs/0036-charts-write-second-set.md`: 105916 (`records/size-m5p6-2026-10-18-ef9da37.md`).
 
 ## Building and testing
 
@@ -56,13 +57,17 @@ Each sentence here cites the record that holds its figures.
 
 Fidelity: each of the four editing samples (copy a sheet, move an image's anchor, remove an image, size a comment box) ran over the 27 workbooks of the private test corpus, and on the host all 27 outputs were written and opened in LibreOffice, as were all 27 inputs (`records/m3p6-p4-copy-2026-10-08-9cfd92e.md`, `records/m3p6-p4-anchor-2026-10-08-9cfd92e.md`, `records/m3p6-p4-removeimage-2026-10-08-9cfd92e.md`, `records/m3p6-p4-commentbox-2026-10-08-9cfd92e.md`).
 
+Each of Milestone 5's five chart samples (read the charts, add more chart kinds, add the 3D kinds, add coloured and labelled charts, remove a chart) ran over the same 27 workbooks, and on the host and on the static target all 27 outputs were written and opened in LibreOffice, as were all 27 inputs (`records/m5p5-p4-charts-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartmore-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chart3d-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartlabels-2026-10-15-a8bfe71.md`, `records/m5p5-p4-removechart-2026-10-15-a8bfe71.md`).
+
 In the copy sample, 784 of the 917 zip entries on the host came back byte for byte: the entries the copy did not touch (`records/m3p6-p4-copy-2026-10-08-9cfd92e.md`).
 
 Of the 1093 output files the crate's and the copy tool's tests keep, LibreOffice opened 1082; the record's own sections explain the eleven it did not (`records/m3p6-open-2026-10-08-9cfd92e.md`).
 
-Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 436992 section bytes, 21760 under the ceiling of 458752 (`records/size-m3p7-2026-10-09-09d2e0f.md`).
+Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 436992 section bytes, 21760 under the ceiling of 458752 (`records/size-m5p6-2026-10-18-ef9da37.md`).
 
-Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`).
+Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`). In Milestone 5's rerun of the tiers, emend's roundtrip of the tier c workbook, 1159829654 bytes, took 2.10 s at a peak of 7896 kB on the host (`records/compare-m5p6-2026-10-16-5e52758.md`).
+
+Comparison with openpyxl: over the 27 workbooks and the eleven ops of the comparison, each tool's output compared with its input, emend on the host and on the static target and openpyxl each wrote 27 of 27 outputs for every op, and LibreOffice opened every one (`records/compare-m5p6-2026-10-16-5e52758.md`). On the roundtrip emend left 870 zip entries byte-identical and dropped none, where openpyxl left 28 identical and dropped 533 (`records/compare-m5p6-2026-10-16-5e52758.md`). The median wall time per workbook was 0.10 s for emend on the host and 0.81 s for openpyxl on every op, openpyxl's including its container's start, and the roundtrip's largest peak RSS was 8012 kB for emend on the host and 673976 kB for openpyxl (`records/compare-m5p6-2026-10-16-5e52758.md`). On the scale tiers emend completed every run, and openpyxl ended at its memory cap on the tier c roundtrip, exit 137 after 320.13 s at a peak of 16576384 kB (`records/compare-m5p6-2026-10-16-5e52758.md`).
 
 ## Out of scope by design
 
