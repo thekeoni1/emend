@@ -800,6 +800,125 @@ AE. P3 is DONE. Planning's ROADMAP edits for P4's doc commit, made
    delivered and what Milestone 6 carries. P4 is briefed as the
    spec's "P4: the README" with rulings Z, AA and AD.
 
+## Planning rulings during P4 (2026-10-18)
+
+The doc commit ee2564b verified by planning: specs/0037 (09ad50a1)
+and ROADMAP.md (1b5ef67c) as planning left them, nothing else. The
+README commit 324c8ce read: README.md alone, 8 lines added and 3
+deleted, every figure found by planning in the record the sentence
+cites (105916 and 112600 and the budget line in the size record;
+the five part 5 P4 records' host and i686 rows 27 written, 27
+opened; the compare record's roundtrip rows 870 and 0 against 28
+and 533, medians 0.10 and 0.81, max RSS 8012 and 673976; tier c
+emend host 2.10 s, 7896 kB, 1159829654 bytes; openpyxl cap 137,
+320.13 s, 16576384 kB); no "faster" or "better"; no U+2014; the
+count sentence present.
+
+AF. The P4 log set as proposed: gate (P3's carried, pruning P3's
+   target root only, the defined-helper lines for every P4 script,
+   ruling AD's yn and ynnot check with its control, the phase diff
+   README.md alone); test (M4 part 2 P1's form, no API record and
+   no plants); negative (M3 part 7 P4's form: the README check
+   program on planted sentences, each refused, the committed README
+   as the control); run (`specs/0029` P4's form: every sentence
+   holding a digit cites a `records/` path at HEAD, every figure
+   read from its record by a printed command, the number set equal
+   to the figures checked, the feature list equal to the manifest's
+   with a `specs/` path each, the hygiene checks with a planted
+   control); scan (P3's carried). No size log: no code or Cargo
+   change. Two additions: the run log reads the fidelity sentence's
+   "host and static target" from both labels' rows of each of the
+   five records, and the negative log's planted set includes a
+   sentence citing a record that exists but holds a different
+   figure (a figure moved by one). Rulings Z and AA apply to every
+   script.
+
+AG. The doc commit's message said "the Milestone 6 section", a
+   count under change AD's rule (only ruling, decision, part, phase
+   and section are identifier words); found by the scan generator
+   before any log ran. Rewritten in ruling X's form, "the next
+   milestone's section": doc aad0b35 (was ee2564b) and README
+   a1c60f6 (was 324c8ce, its message byte-identical), `git diff`
+   old against new empty for both, verified by planning; the old
+   pair on the local branch `p4-before-reword`, never pushed; the
+   report discloses the rewrite. The phase commit is a1c60f6.
+
+AH. FINDING, found by the run generator's README check before any
+   log ran: three sentences of the comparison paragraph held digits
+   and cited nothing, the paragraph's last sentence alone citing
+   the compare record. Planning's read of the commit (above) checked
+   the figures and missed the per-sentence rule. Amended in ruling
+   X's form: README commit 7355d98 (was a1c60f6, kept on the local
+   branch `p4-before-cite`), parent aad0b35, message byte-identical,
+   one line changed, the three sentences each ending with the
+   compare record's path, verified by planning. The phase commit is
+   7355d98; the report discloses the amendment.
+
+AI. The independent check's three README points, all four logs
+   having passed at 7355d98. (1) The feature list mixes vintages:
+   `images` cites M3 part 7's 67832 where P3's size record, which
+   the README names as the closing figure, gives 57620 (the shrink
+   the record attributes). Ruled wider than (a): every feature line
+   cites `records/size-m5p6-2026-10-18-ef9da37.md`, which carries
+   every one of the twelve costs, so the list has one vintage; the
+   figures are that record's (images 57620; the other ten equal to
+   M3 part 7's, read and charts already its). (2) "On the roundtrip"
+   is per op, which "per op or for the set" allows: left as it is.
+   (3) "Milestone 5's five chart samples" becomes "part 5's five
+   chart samples" (ruling W reruns seven). One second README commit
+   on 7355d98, README.md alone, its message carrying the count
+   sentence, nothing rewritten; the generators repinned to it; the
+   four logs rerun with the fix named; the scan last; the two
+   earlier logs kept under `<phase>/superseded`, named in the
+   report. The check's answer stands in the report as given, with
+   the second check, if any, on the rerun.
+
+## Planning verification of P4 (2026-10-18)
+
+Verified from primaries: the chain aad0b35, 7355d98, 9e171da and
+b821213 on c5a529b; the doc blobs 09ad50a1 and 1b5ef67c as planning
+left them; 9e171da README.md alone, every feature line citing P3's
+size record with that record's figure (images 57620, the other nine
+unchanged, read and charts already its), the fidelity sentence
+naming Milestone 5 part 5's five samples; the record commit adds
+the eight files of `records/logs/m5p6-p4` and nothing else; the
+four logs at the README's hashes, each ending "checks all as
+expected: yes", the scan "RESULT: PASS" under PLANNING_SPEC
+8019cc25 with its four earlier scans named and hashed; planning's
+own privacy scan over c5a529b..b821213 (4 commits, 1992 blobs, 0
+findings); planning's own README check at 9e171da: every sentence
+holding a digit outside a command block cites a `records/` path,
+the 14 cited paths all exist, no absolute path, no U+2014. The gate
+log's twenty defined-helper lines and AD's control; the run log's
+own ruling Z block over the script that wrote it; the second
+check's Q1 YES on every figure.
+
+AJ. FINDING, change RRO (the second run log's undeclared `<phase>`
+   placeholder, caught by the scan's pre-check) accepted; the third
+   run log names and hashes both earlier ones. The first final
+   scan's structural failure (a superseded file named at its live
+   path) accepted; the committed scan names all four.
+AK. The second check's gaps: (a) the gate's ruling Z line covers 0
+   names because the gate calls its helpers through `is` and
+   `isnot`; the gate passed, so every helper it called existed, and
+   from Milestone 6 part 1 on `defined.py` reads `is` and `isnot`
+   calls too, with the gate's count no longer 0; (b) from Milestone
+   6 part 1 on every rerun log asserts its RERUN_FILES hashing with
+   a check line, the run log's form; (c) ruling AI's "the other
+   ten" reads nine (twelve features less images, read and charts);
+   the figures the ruling names are right; (d) the logs README's
+   sentence naming two pre-checks where the scan names three and a
+   first final scan is left as written, the scan log being the
+   primary.
+AL. The P3 target root was pruned by the first gate log, superseded
+   by ruling AI; the committed gate reads "target: absent". Accepted
+   as disclosed; the pruned size is the session's statement.
+AM. P4 is DONE. The close-out follows "Close-out push (after P4)"
+   as written, with the ROADMAP's P4 row DONE in the close-out doc
+   commit; the Milestone 5 heading reads DONE and PUSHED after the
+   push, in Milestone 6 part 1's doc commit. The push waits for the
+   maintainer's authorisation typed in the implementing session.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-16: 1, 2 and 3 as recommended (A
