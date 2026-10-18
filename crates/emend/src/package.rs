@@ -888,6 +888,22 @@
 //!   names no chart part, or a part whose root is not `chartSpace`
 //!   (`chart_write::a_frame_naming_no_chart_part_is_refused_at_the_write`).
 //!
+//! Chartsheets add three, the Cargo feature `charts`'s too
+//! (`specs/0038-chartsheets.md`, "Errors"): the first raised by
+//! `Package::charts` and by [`Package::write_to`] after `add_chart` or
+//! `remove_chart`, the other two by the write after `add_chart` on a
+//! chartsheet:
+//!
+//! - "the sheet part's root is not worksheet or chartsheet", for a part the
+//!   chart calls are given whose root is neither, a dialogsheet's included
+//!   (`chartsheet::the_chart_calls_on_a_dialogsheet_part_are_refused_with_the_new_root_message`).
+//! - "a chartsheet's chart takes an absolute anchor", for a one-cell or
+//!   two-cell anchor on a chartsheet (decision 1 A;
+//!   `chartsheet::a_chart_on_a_chartsheet_in_a_one_cell_or_two_cell_anchor_is_refused`).
+//! - "a chartsheet holds one chart", for a chart added to a chartsheet whose
+//!   drawing holds a chart frame, or two added in one write (decision 2 A,
+//!   P1 ruling A; `chartsheet::a_second_chart_on_a_chartsheet_is_refused`).
+//!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
 //! formats and those the same write adds, every recorded style checked, one
@@ -4798,6 +4814,13 @@ enum SheetEdit {
         part: Vec<u8>,
         sheet_id: u32,
         rel_id: Vec<u8>,
+        /// The kind of the sheet: a worksheet, or with the Cargo feature
+        /// `charts` a chartsheet (`specs/0038-chartsheets.md`).
+        kind: SheetKind,
+        /// The parts added with the sheet beside its entry, which leave
+        /// with it when the pending sheet is removed: a chartsheet's rels
+        /// part, drawing, drawing rels part and chart part.
+        carried: Vec<Vec<u8>>,
     },
     /// The sheet named `from` takes the name `to`.
     Rename { from: String, to: String },
@@ -4839,6 +4862,8 @@ fn project(file: &[Sheet], edits: &[SheetEdit]) -> Result<Vec<Projected>, Error>
                 part,
                 sheet_id,
                 rel_id,
+                kind,
+                ..
             } => list.push(Projected {
                 sheet: Sheet {
                     name: name.clone(),
@@ -4846,7 +4871,7 @@ fn project(file: &[Sheet], edits: &[SheetEdit]) -> Result<Vec<Projected>, Error>
                     rel_id: rel_id.clone(),
                     state: None,
                     part: part.clone(),
-                    kind: SheetKind::Worksheet,
+                    kind: *kind,
                 },
                 origin: None,
                 renamed: false,
@@ -5749,6 +5774,19 @@ const TEMPLATE: [(&[u8], &[u8]); 6] = [
 const BLANK_WORKSHEET: &[u8] = TEMPLATE[4].1;
 
 /// The transitional worksheet content type, which the strict form shares.
+/// The blank chartsheet a chartsheet addition starts from
+/// (`specs/0038-chartsheets.md`, decision 3 A): one `sheetView` with
+/// `workbookViewId` 0 and `zoomToFit` 1, then the `drawing` naming the
+/// part's one relationship; the worksheet template's declaration and
+/// namespace, with `r`.
+#[cfg(feature = "charts")]
+const BLANK_CHARTSHEET: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<chartsheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheetViews><sheetView workbookViewId=\"0\" zoomToFit=\"1\"/></sheetViews><drawing r:id=\"rId1\"/></chartsheet>";
+
+/// A chartsheet's content type (`specs/0038-chartsheets.md`).
+#[cfg(feature = "charts")]
+const CHARTSHEET_CONTENT_TYPE: &[u8] =
+    b"application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml";
+
 const WORKSHEET_CONTENT_TYPE: &[u8] =
     b"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 
@@ -7814,7 +7852,8 @@ impl<R: Read + Seek> Package<R> {
     /// [`Package::cells`] reads the file and not the pending cell edits. A
     /// sheet added and not yet written has `part`, `sheet_id` and `rel_id` set
     /// to the values it will get, `state` `None` and `kind`
-    /// [`SheetKind::Worksheet`].
+    /// [`SheetKind::Worksheet`], or [`SheetKind::Chartsheet`] for one
+    /// `Package::add_chartsheet` added (the Cargo feature `charts`).
     ///
     /// # Errors
     ///
@@ -10139,24 +10178,41 @@ impl<'a> Parts<'a> {
     /// order, are refused with the two-elements message; an element without
     /// `r:id`, or one naming no such relationship or a target outside the
     /// package, with the drawing read message.
-    #[cfg(any(feature = "images", feature = "charts"))]
+    #[cfg(feature = "images")]
     fn drawing_of(&mut self, part: &[u8], index: usize) -> Result<Option<Vec<u8>>, Error> {
-        let element = element_rel_id(
+        Ok(self.sheet_drawing_of(part, index, false)?.0)
+    }
+
+    /// [`Parts::drawing_of`] for a caller that also takes a chartsheet when
+    /// `chartsheet` is set (the chart calls, `specs/0038-chartsheets.md`,
+    /// "Reading"), and whether the part is one.
+    #[cfg(any(feature = "images", feature = "charts"))]
+    fn sheet_drawing_of(
+        &mut self,
+        part: &[u8],
+        index: usize,
+        chartsheet: bool,
+    ) -> Result<(Option<Vec<u8>>, bool), Error> {
+        let (element, met) = sheet_element_rel_id(
             self.archive.read(index)?,
             index,
             DRAWING_ELEMENT,
             TWO_DRAWINGS,
             DRAWING_UNREADABLE,
+            chartsheet,
         )?;
         let Some(id) = element else {
-            return Ok(None);
+            return Ok((None, met));
         };
         let rels = self.relationships(part)?;
         let rel = rels
             .by_id(&id)
             .filter(|rel| !rel.external && DRAWING.contains(&rel.kind.as_slice()))
             .ok_or(DRAWING_UNREADABLE)?;
-        Ok(Some(rels.target_part(rel).map_err(|_| DRAWING_UNREADABLE)?))
+        Ok((
+            Some(rels.target_part(rel).map_err(|_| DRAWING_UNREADABLE)?),
+            met,
+        ))
     }
 
     /// Records each worksheet's image and chart additions
@@ -10204,7 +10260,19 @@ impl<'a> Parts<'a> {
             if self.edits.shifts.iter().any(|(at, _)| *at == part) {
                 return Err(SHIFT_ALONE);
             }
-            let drawing = self.drawing_of(&part, index)?;
+            // A chartsheet takes chart additions alone, each in an absolute
+            // anchor, and one chart in all (`specs/0038-chartsheets.md`,
+            // decisions 1 and 2 A, P1 ruling A); an image on one is refused
+            // as before.
+            #[cfg(feature = "charts")]
+            let charts_only = additions
+                .iter()
+                .all(|(_, addition)| matches!(addition, NewDrawing::Chart(_)));
+            #[cfg(not(feature = "charts"))]
+            let charts_only = false;
+            let (drawing, _chartsheet) = self.sheet_drawing_of(&part, index, charts_only)?;
+            #[cfg(feature = "charts")]
+            let chartsheet = _chartsheet;
             // A drawing part this write removes, replaces or adds through the
             // part calls is not read for the edit, as a comment's parts are.
             self.edited_part_untouched(drawing.as_deref())?;
@@ -10221,6 +10289,25 @@ impl<'a> Parts<'a> {
                 }
                 None => None,
             };
+            #[cfg(feature = "charts")]
+            if chartsheet {
+                if !additions
+                    .iter()
+                    .all(|(anchor, _)| matches!(anchor, ImageAnchor::Absolute { .. }))
+                {
+                    return Err(chart_write::CHARTSHEET_ANCHOR);
+                }
+                // A chartsheet without `<drawing>` is invalid by the schema;
+                // the worksheet pass that would create the element takes a
+                // worksheet alone.
+                let Some((bytes, _)) = &kept else {
+                    return Err(DRAWING_UNREADABLE);
+                };
+                let held = chart::chart_frames(Cursor::new(bytes.as_slice()), index)?.len();
+                if held + additions.len() > 1 {
+                    return Err(chart_write::ONE_CHART);
+                }
+            }
             let created = DrawingForm {
                 x: b"xdr:".to_vec(),
                 a: Some(b"a".to_vec()),
@@ -10424,14 +10511,21 @@ impl<'a> Parts<'a> {
             if self.edits.shifts.iter().any(|(at, _)| *at == part) {
                 return Err(SHIFT_ALONE);
             }
-            let element = element_rel_id(
+            #[cfg(feature = "charts")]
+            let charts_only = removals
+                .iter()
+                .all(|removal| matches!(removal, Removal::Chart(_)));
+            #[cfg(not(feature = "charts"))]
+            let charts_only = false;
+            let (element, _) = sheet_element_rel_id(
                 self.archive.read(index)?,
                 index,
                 DRAWING_ELEMENT,
                 TWO_DRAWINGS,
                 DRAWING_UNREADABLE,
+                charts_only,
             )?;
-            let drawing = self.drawing_of(&part, index)?;
+            let (drawing, chartsheet) = self.sheet_drawing_of(&part, index, charts_only)?;
             self.edited_part_untouched(drawing.as_deref())?;
             let (Some(target), Some(element)) = (drawing, element) else {
                 return Err(removals[0].missing());
@@ -10532,7 +10626,10 @@ impl<'a> Parts<'a> {
             for id in &removed {
                 skipped.push((target.clone(), id.clone()));
             }
-            if anchors_left {
+            // A chartsheet's drawing stays, empty, its `<drawing>` required
+            // by the schema (`specs/0038-chartsheets.md`, "`add_chart` and
+            // `remove_chart` on a chartsheet").
+            if anchors_left || chartsheet {
                 for id in &removed {
                     self.remove_relationship(&target, id);
                 }
@@ -10660,11 +10757,15 @@ impl<'a> Parts<'a> {
             .collect();
         let rels = self.relationships(&workbook)?;
         for rel in rels.all().iter().chain(added.iter()) {
-            if !rel.external
-                && WORKSHEET.contains(&rel.kind.as_slice())
-                && rels.target_part(rel).is_ok_and(|target| target == part)
-            {
-                return Ok(rel.kind.as_slice() == WORKSHEET[1]);
+            let kind = rel.kind.as_slice();
+            // A chartsheet's relationship counts for the chart calls
+            // (`specs/0038-chartsheets.md`).
+            #[cfg(feature = "charts")]
+            let sheet = WORKSHEET.contains(&kind) || CHARTSHEET.contains(&kind);
+            #[cfg(not(feature = "charts"))]
+            let sheet = WORKSHEET.contains(&kind);
+            if !rel.external && sheet && rels.target_part(rel).is_ok_and(|target| target == part) {
+                return Ok(kind == WORKSHEET[1] || kind == CHARTSHEET[1]);
             }
         }
         Ok(false)
@@ -10699,8 +10800,10 @@ impl<'a> Parts<'a> {
         project(&file, &self.edits.sheet_edits)
     }
 
-    /// The body of [`Package::add_sheet`].
-    fn add_sheet(&mut self, name: &str) -> Result<Vec<u8>, Error> {
+    /// What a sheet addition named `name` takes: the name checked, then the
+    /// `sheetId` one above the largest of the projected list, the workbook
+    /// part and its directory.
+    fn sheet_addition(&mut self, name: &str) -> Result<(u32, Vec<u8>, Vec<u8>), Error> {
         let list = self.projected()?;
         check_sheet_name(name, &list, None)?;
         let sheet_id = list
@@ -10715,6 +10818,12 @@ impl<'a> Parts<'a> {
             Some(slash) => workbook[..=slash].to_vec(),
             None => Vec::new(),
         };
+        Ok((sheet_id, workbook, dir))
+    }
+
+    /// The body of [`Package::add_sheet`].
+    fn add_sheet(&mut self, name: &str) -> Result<Vec<u8>, Error> {
+        let (sheet_id, workbook, dir) = self.sheet_addition(name)?;
         let mut n = 1u32;
         let part = loop {
             let mut candidate = dir.clone();
@@ -10754,6 +10863,134 @@ impl<'a> Parts<'a> {
             part: part.clone(),
             sheet_id,
             rel_id,
+            kind: SheetKind::Worksheet,
+            carried: Vec::new(),
+        });
+        Ok(part)
+    }
+
+    /// The body of [`Package::add_chartsheet`] (`specs/0038-chartsheets.md`,
+    /// "`add_chartsheet`"): every read and check before the first record,
+    /// so a refusal records nothing.
+    #[cfg(feature = "charts")]
+    fn add_chartsheet(
+        &mut self,
+        name: &str,
+        chart: &chart_write::NewChart<'_>,
+    ) -> Result<Vec<u8>, Error> {
+        let (sheet_id, workbook, dir) = self.sheet_addition(name)?;
+        // Decision 1 A: the chart fills an absolute anchor at 0,0 of its
+        // size, which the anchor requires (P1 ruling B).
+        let anchor = ImageAnchor::Absolute { position: (0, 0) };
+        let work = chart_write::chart_work(anchor, chart)?;
+        let covered = self.content_types()?.defaults().iter().any(|default| {
+            default.extension.eq_ignore_ascii_case(b"xml")
+                && default.content_type == CHARTSHEET_CONTENT_TYPE
+        });
+        // The form of the workbook's worksheet relationships, as
+        // `add_sheet` takes it.
+        let strict = self
+            .relationships(&workbook)?
+            .all()
+            .iter()
+            .find(|rel| WORKSHEET.contains(&rel.kind.as_slice()))
+            .is_some_and(|rel| rel.kind.as_slice() == WORKSHEET[1]);
+        self.rels_default()?;
+        let prefix = rels_prefix(self.archive)?;
+        let mut entries = self.taken_entries();
+        let dir_text = String::from_utf8_lossy(&dir).into_owned();
+        let part = free_entry(&entries, |n| format!("{dir_text}chartsheets/sheet{n}.xml"));
+        entries.push(part.to_ascii_lowercase());
+        let drawing = free_entry(&entries, |n| format!("xl/drawings/drawing{n}.xml"));
+        entries.push(drawing.to_ascii_lowercase());
+        let chart_part = free_entry(&entries, |n| format!("xl/charts/chart{n}.xml"));
+        let (part, drawing, chart_part) = (
+            part.into_bytes(),
+            drawing.into_bytes(),
+            chart_part.into_bytes(),
+        );
+        let created = DrawingForm {
+            x: b"xdr:".to_vec(),
+            a: Some(b"a".to_vec()),
+            r: None,
+            strict: false,
+        };
+        let chart_bytes = work.part_bytes(created.strict);
+        let addition = NewDrawing::Chart(Box::new(work));
+        let anchors = anchor_bytes(
+            &created,
+            &anchor,
+            addition.extent(),
+            &addition.body(&created, 1, b"rId1"),
+        );
+        let rels_part = |kind: &[u8], target: &[u8]| {
+            let mut out = prefix.clone();
+            out.extend_from_slice(
+                &[
+                    b"<Relationships xmlns=\"".as_slice(),
+                    RELATIONSHIPS_NS,
+                    b"\"><Relationship Id=\"rId1\" Type=\"",
+                    kind,
+                    b"\" Target=\"",
+                    target,
+                    b"\"/></Relationships>",
+                ]
+                .concat(),
+            );
+            out
+        };
+        let sheet_rels = rels_part(
+            DRAWING[usize::from(strict)],
+            &relative_target(&part, &drawing),
+        );
+        let drawing_rels = rels_part(
+            CHART[usize::from(strict)],
+            &relative_target(&drawing, &chart_part),
+        );
+        self.add_part(&part, replacement_from_reader(BLANK_CHARTSHEET));
+        if !covered {
+            self.add_override(&[b"/".as_slice(), &part].concat(), CHARTSHEET_CONTENT_TYPE);
+        }
+        let carried = vec![
+            rels_part_name(&part),
+            drawing.clone(),
+            rels_part_name(&drawing),
+            chart_part.clone(),
+        ];
+        self.add_part(
+            &carried[0],
+            replacement_from_reader(Cursor::new(sheet_rels)),
+        );
+        self.add_part(
+            &drawing,
+            replacement_from_reader(Cursor::new(drawing_part_bytes(&anchors))),
+        );
+        self.add_override(&[b"/".as_slice(), &drawing].concat(), DRAWING_CONTENT_TYPE);
+        self.add_part(
+            &carried[2],
+            replacement_from_reader(Cursor::new(drawing_rels)),
+        );
+        self.add_part(
+            &chart_part,
+            replacement_from_reader(Cursor::new(chart_bytes)),
+        );
+        self.add_override(
+            &[b"/".as_slice(), &chart_part].concat(),
+            chart_write::CHART_CONTENT_TYPE,
+        );
+        let rel_id = self.add_relationship(
+            &workbook,
+            CHARTSHEET[usize::from(strict)],
+            &part[dir.len()..],
+            false,
+        )?;
+        self.edits.sheet_edits.push(SheetEdit::Add {
+            name: name.to_string(),
+            part: part.clone(),
+            sheet_id,
+            rel_id,
+            kind: SheetKind::Chartsheet,
+            carried,
         });
         Ok(part)
     }
@@ -11083,6 +11320,30 @@ impl<'a> Parts<'a> {
         self.edits
             .override_additions
             .retain(|(name, _)| *name != part_name);
+        // What a chartsheet's addition carried leaves with it.
+        let carried: Vec<Vec<u8>> = self
+            .edits
+            .sheet_edits
+            .iter()
+            .filter_map(|edit| match edit {
+                SheetEdit::Add {
+                    part: added,
+                    carried,
+                    ..
+                } if added == part => Some(carried.clone()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        for entry in &carried {
+            let over = [b"/".as_slice(), entry].concat();
+            self.edits
+                .part_additions
+                .retain(|(added, _)| added != entry);
+            self.edits
+                .override_additions
+                .retain(|(name, _)| *name != over);
+        }
         self.edits
             .rel_additions
             .retain(|(source, rel)| !(source == workbook && rel.id == sheet.rel_id));
@@ -14616,6 +14877,34 @@ const VIEWS_POSITION: usize = 2;
 /// A root child's place in [`WORKSHEET_CHILDREN`].
 fn schema_position(local: &[u8]) -> Option<usize> {
     WORKSHEET_CHILDREN.iter().position(|name| *name == local)
+}
+
+/// A chartsheet's root children in the order ECMA-376 part 1 gives them
+/// (`CT_Chartsheet`; `specs/0038-chartsheets.md`, "Facts planning
+/// checked"), where the chart calls look up `<drawing>`'s place on a
+/// chartsheet.
+#[cfg(feature = "charts")]
+const CHARTSHEET_CHILDREN: [&[u8]; 14] = [
+    b"sheetPr",
+    b"sheetViews",
+    b"sheetProtection",
+    b"customSheetViews",
+    b"pageMargins",
+    b"pageSetup",
+    b"headerFooter",
+    b"drawing",
+    b"legacyDrawing",
+    b"legacyDrawingHF",
+    b"drawingHF",
+    b"picture",
+    b"webPublishItems",
+    b"extLst",
+];
+
+/// A root child's place in [`CHARTSHEET_CHILDREN`].
+#[cfg(feature = "charts")]
+fn chartsheet_position(local: &[u8]) -> Option<usize> {
+    CHARTSHEET_CHILDREN.iter().position(|name| *name == local)
 }
 
 /// The frozen pane and its one selection for a freeze at `at`, with
@@ -19201,7 +19490,7 @@ const DRAWING_ELEMENT: &[u8] = b"drawing";
 /// "Comments: the parts" and "Images: the calls"): a second such element,
 /// or one after a root child that follows it in schema order, is refused
 /// with `two`, and one without an `r:id` with `unreadable`.
-#[cfg(any(feature = "comments", feature = "images", feature = "charts"))]
+#[cfg(feature = "comments")]
 fn element_rel_id(
     input: impl Read,
     index: usize,
@@ -19209,10 +19498,33 @@ fn element_rel_id(
     two: Error,
     unreadable: Error,
 ) -> Result<Option<Vec<u8>>, Error> {
+    Ok(sheet_element_rel_id(input, index, name, two, unreadable, false)?.0)
+}
+
+/// [`element_rel_id`] for a caller that also takes a chartsheet when
+/// `chartsheet` is set, and whether the root met is one
+/// (`specs/0038-chartsheets.md`, "Reading", the root rule): the chart calls
+/// take a `worksheet` or a `chartsheet` root and refuse any other with "the
+/// sheet part's root is not worksheet or chartsheet"; every other caller
+/// takes a `worksheet` alone, as before. The element's schema place is
+/// looked up in the list of the root met, [`WORKSHEET_CHILDREN`] or
+/// [`CHARTSHEET_CHILDREN`].
+#[cfg(any(feature = "comments", feature = "images", feature = "charts"))]
+#[cfg_attr(not(feature = "charts"), allow(unused_mut, unused_variables))]
+fn sheet_element_rel_id(
+    input: impl Read,
+    index: usize,
+    name: &[u8],
+    two: Error,
+    unreadable: Error,
+    chartsheet: bool,
+) -> Result<(Option<Vec<u8>>, bool), Error> {
     let mut stream = Stream::new(input, index)?;
     let mut scope = Scope::new(index);
     let mut depth = 0usize;
-    let place = schema_position(name).unwrap_or(0);
+    let mut position: fn(&[u8]) -> Option<usize> = schema_position;
+    let mut place = schema_position(name).unwrap_or(0);
+    let mut chartsheet_met = false;
     // The furthest schema place of a root child met so far.
     let mut furthest = 0usize;
     let mut found: Option<Vec<u8>> = None;
@@ -19225,8 +19537,22 @@ fn element_rel_id(
                 if depth <= 2 {
                     let (namespace, local) = scope.resolve_element(start.name())?;
                     let ours = is_main(namespace);
-                    if depth == 1 && (!ours || local != b"worksheet") {
-                        return Err(Error::Package("the worksheet part's root is not worksheet"));
+                    if depth == 1 {
+                        #[cfg(feature = "charts")]
+                        if chartsheet && ours && local == b"chartsheet" {
+                            chartsheet_met = true;
+                            position = chartsheet_position;
+                            place = chartsheet_position(name).unwrap_or(0);
+                        }
+                        if !chartsheet_met && (!ours || local != b"worksheet") {
+                            #[cfg(feature = "charts")]
+                            if chartsheet {
+                                return Err(chart_write::NOT_SHEET_ROOT);
+                            }
+                            return Err(Error::Package(
+                                "the worksheet part's root is not worksheet",
+                            ));
+                        }
                     }
                     if depth == 2 && ours {
                         if local == name {
@@ -19248,7 +19574,7 @@ fn element_rel_id(
                                 return Err(unreadable);
                             }
                         }
-                        if let Some(at) = schema_position(local) {
+                        if let Some(at) = position(local) {
                             furthest = furthest.max(at);
                         }
                     }
@@ -19265,7 +19591,7 @@ fn element_rel_id(
             _ => {}
         }
     }
-    Ok(found)
+    Ok((found, chartsheet_met))
 }
 
 /// A text as the comments part writes it in element content: escaped as a

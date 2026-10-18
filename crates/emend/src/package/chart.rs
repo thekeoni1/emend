@@ -347,8 +347,10 @@ impl<R: Read + Seek> Package<R> {
     /// value that is not a number, an `axId` or `crossAx` that is not a
     /// decimal integer an `i64` holds (P1 ruling C), and a boolean `val`
     /// that is not one; a plot's `axId` naming no axis of the chart. "no such part" for a part the
-    /// archive lacks; "the worksheet part's root is not worksheet"
-    /// for any other part, a chartsheet included (P1 ruling B); "a
+    /// archive lacks; "the sheet part's root is not worksheet or
+    /// chartsheet" for any other part, a dialogsheet included
+    /// (`specs/0038-chartsheets.md`, "Reading": a chartsheet's chart is
+    /// read as a worksheet's, superseding P1 ruling B); "a
     /// worksheet has two drawing elements" and "a drawing part or its
     /// relationship cannot be read" as [`Package::images`](super::Package)
     /// raises them, and the latter for a chart's anchor whose `from` or
@@ -365,7 +367,7 @@ impl Parts<'_> {
     /// The body of [`Package::charts`].
     fn charts(&mut self, part: &[u8]) -> Result<Vec<ChartEntry>, Error> {
         let sheet = self.archive.index_of(part).ok_or(NO_SUCH_PART)?;
-        let Some(target) = self.drawing_of(part, sheet)? else {
+        let (Some(target), _) = self.sheet_drawing_of(part, sheet, true)? else {
             return Ok(Vec::new());
         };
         let index = self.archive.index_of(&target).ok_or(DRAWING_UNREADABLE)?;

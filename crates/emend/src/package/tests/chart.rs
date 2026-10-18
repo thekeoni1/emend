@@ -419,8 +419,10 @@ fn a_drawing_with_no_chart_has_none() {
 }
 
 #[test]
-fn a_chartsheet_part_is_refused_as_not_a_worksheet() {
-    // P1 ruling B: the existing message of the drawing walk.
+fn a_chartsheet_part_is_read_through_its_drawing_element() {
+    // `specs/0038-chartsheets.md`, "Reading", supersedes P1 ruling B: a
+    // chartsheet's drawing is read as a worksheet's, so a `drawing` naming
+    // no relationship meets the drawing read message.
     let mut parts = smallest();
     set(
         &mut parts,
@@ -430,10 +432,7 @@ fn a_chartsheet_part_is_refused_as_not_a_worksheet() {
              <drawing r:id=\"rId1\"/></chartsheet>"
         ),
     );
-    assert_package(
-        charts_of(parts).expect_err("refused"),
-        "the worksheet part's root is not worksheet",
-    );
+    assert_package(charts_of(parts).expect_err("refused"), DRAWING_UNREADABLE);
 }
 
 #[test]

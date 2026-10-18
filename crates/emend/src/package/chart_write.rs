@@ -48,6 +48,17 @@ pub(crate) const NO_CHART_AT: Error = Error::Package("no chart at that position"
 /// What a chart removal whose frame names no chart part, or a part that is
 /// not a `chartSpace`, is refused with at the write.
 pub(crate) const CHART_PART_UNREADABLE: Error = Error::Package("a chart part cannot be read");
+/// What the chart calls refuse a part whose root is neither a worksheet
+/// nor a chartsheet with (`specs/0038-chartsheets.md`, "Errors").
+pub(crate) const NOT_SHEET_ROOT: Error =
+    Error::Package("the sheet part's root is not worksheet or chartsheet");
+/// What a chart on a chartsheet in another than an absolute anchor is
+/// refused with at the write (decision 1 A).
+pub(crate) const CHARTSHEET_ANCHOR: Error =
+    Error::Package("a chartsheet's chart takes an absolute anchor");
+/// What a second chart on a chartsheet is refused with at the write
+/// (decision 2 A, P1 ruling A).
+pub(crate) const ONE_CHART: Error = Error::Package("a chartsheet holds one chart");
 
 /// A chart part's content type (`specs/0035-charts-write-first-set.md`,
 /// "The parts").
@@ -374,6 +385,17 @@ impl<R: Read + Seek> Package<R> {
     /// says it refuses of the part, a part this write also removes an image
     /// from, "no image at that position" (P1 ruling B), and one it removes a
     /// chart from, "no chart at that position".
+    ///
+    /// `part` may be a chartsheet's (`specs/0038-chartsheets.md`, "`add_chart`
+    /// and `remove_chart` on a chartsheet"): the write then refuses an anchor
+    /// other than [`ImageAnchor::Absolute`], "a chartsheet's chart takes an
+    /// absolute anchor"; a chart beside a chart frame its drawing holds, or
+    /// a second added in the same write, "a chartsheet holds one chart"
+    /// (replacing a chart takes two writes, `remove_chart` then this call:
+    /// P1 ruling A); a chartsheet without a `drawing` element, "a drawing
+    /// part or its relationship cannot be read"; and a part whose root is
+    /// neither a worksheet nor a chartsheet, "the sheet part's root is not
+    /// worksheet or chartsheet".
     pub fn add_chart(
         &mut self,
         part: &[u8],
@@ -406,9 +428,46 @@ impl<R: Read + Seek> Package<R> {
     /// relationship names no chart part, or a part whose root is not
     /// `chartSpace`, "a chart part cannot be read"; and what
     /// [`Package::add_image`](super::Package) says it refuses of the part,
-    /// as an image removal does.
+    /// as an image removal does. On a chartsheet the drawing stays, empty,
+    /// its `drawing` element required (`specs/0038-chartsheets.md`); a part
+    /// whose root is neither a worksheet nor a chartsheet is refused with
+    /// "the sheet part's root is not worksheet or chartsheet".
     pub fn remove_chart(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
         self.parts().remove_chart(part, index)
+    }
+
+    /// Records a new chartsheet named `name` at the end of the list, holding
+    /// `chart`, and returns its entry name (`specs/0038-chartsheets.md`,
+    /// "`add_chartsheet`"). The Cargo feature `charts`.
+    ///
+    /// Recorded as [`Package::add_sheet`](super::Package) records a
+    /// worksheet, the name checked by the same rules and the `<sheet>`
+    /// taking `sheetId` one above the largest: the entry
+    /// `<dir>/chartsheets/sheet<n>.xml`, `n` the smallest positive integer
+    /// whose name no entry of the archive or of this write's additions
+    /// takes, ASCII case folded, holding `sheetViews` (one `sheetView` with
+    /// `workbookViewId` 0 and `zoomToFit` 1) and `drawing`; its `Override`
+    /// of the chartsheet content type unless a `Default` for `xml` names
+    /// it; a chartsheet relationship on the workbook part in the form of
+    /// the workbook's worksheet relationships; and the sheet's rels part,
+    /// a drawing part with its `Override` and rels part, and the chart part
+    /// with its `Override`, the chart's frame in an `absoluteAnchor` at 0,0
+    /// of the chart's `size`, as [`Package::add_chart`] writes one. The
+    /// projected list shows the sheet as
+    /// [`SheetKind::Chartsheet`](super::SheetKind). The chart calls do not
+    /// take the new part until it is written ("no such part"), as for a
+    /// worksheet added in the same write.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Package`] at the call, nothing recorded: the name rules'
+    /// messages and what [`Package::add_sheet`](super::Package) refuses;
+    /// then what [`Package::add_chart`] refuses of the chart, "a chart
+    /// size does not apply to its anchor" for no `size` (P1 ruling B)
+    /// among them; and "no Default covers rels" for a package whose
+    /// content types have no `Default` for the `rels` extension.
+    pub fn add_chartsheet(&mut self, name: &str, chart: &NewChart<'_>) -> Result<Vec<u8>, Error> {
+        self.parts().add_chartsheet(name, chart)
     }
 }
 
@@ -421,6 +480,27 @@ impl Parts<'_> {
         anchor: ImageAnchor,
         chart: &NewChart<'_>,
     ) -> Result<(), Error> {
+        let work = chart_work(anchor, chart)?;
+        self.edits
+            .drawing_edits
+            .push((part.to_vec(), anchor, NewDrawing::Chart(Box::new(work))));
+        Ok(())
+    }
+
+    /// The body of [`Package::remove_chart`].
+    fn remove_chart(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
+        self.edits
+            .drawing_removals
+            .push((part.to_vec(), Removal::Chart(index)));
+        Ok(())
+    }
+}
+
+/// [`Package::add_chart`]'s checks of `anchor` and `chart`, in P1 ruling
+/// C's order, and the chart as the write takes it; [`Package::add_chartsheet`]
+/// checks its chart the same way (`specs/0038-chartsheets.md`).
+pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<ChartWork, Error> {
+    {
         let most = u64::from(i32::MAX.unsigned_abs());
         let fits = |(across, down): (u32, u32)| {
             u64::from(across) * EMU_PER_PIXEL <= most && u64::from(down) * EMU_PER_PIXEL <= most
@@ -526,32 +606,19 @@ impl Parts<'_> {
             }),
             None => None,
         };
-        self.edits.drawing_edits.push((
-            part.to_vec(),
-            anchor,
-            NewDrawing::Chart(Box::new(ChartWork {
-                plot: chart.plot,
-                title,
-                series,
-                category_axis_title,
-                value_axis_title,
-                category_axis_format,
-                value_axis_format,
-                legend: chart.legend,
-                combined,
-                cx,
-                cy,
-            })),
-        ));
-        Ok(())
-    }
-
-    /// The body of [`Package::remove_chart`].
-    fn remove_chart(&mut self, part: &[u8], index: usize) -> Result<(), Error> {
-        self.edits
-            .drawing_removals
-            .push((part.to_vec(), Removal::Chart(index)));
-        Ok(())
+        Ok(ChartWork {
+            plot: chart.plot,
+            title,
+            series,
+            category_axis_title,
+            value_axis_title,
+            category_axis_format,
+            value_axis_format,
+            legend: chart.legend,
+            combined,
+            cx,
+            cy,
+        })
     }
 }
 
