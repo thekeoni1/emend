@@ -12,8 +12,12 @@
 # asserts for each: exit 0, an output written, the last line
 # "openpyxl=3.1.5<TAB>peak_rss_kb=<n>", nothing on standard error, and the one
 # thing the op asks for, read from the output's parts (the read op's count of
-# 2500 cells from its own line). Last, an unknown op exits 2 with the one line
-# "unknown op".
+# 2500 cells from its own line). Then an unknown op exits 2 with the one line
+# "unknown op". Last, ruling Y of specs/0037 on two planted copies of the
+# script: a MemoryError from the op exits 137 with its two lines, MemoryError
+# and the last line, and nothing on standard error; and a MemoryError raised
+# while another exception is reported does the same, where before it escaped
+# with a traceback and exit 1.
 #
 # Run and printed by the phase's test log, never by the gate, so CI is
 # unchanged. Prints one line per assertion, "ok" or "FAIL" then what was
@@ -155,6 +159,48 @@ rc=$?
 check "$(yn [ "$rc" = 2 ])" "an unknown op exits 2"
 unknown_ok() { [ "$(cat "$WORK/unknown.stdout")" = "unknown op" ] && [ ! -s "$WORK/unknown.stderr" ]; }
 check "$(yn unknown_ok)" "an unknown op prints the one line unknown op"
+
+# Ruling Y: planted copies of the script. M1 raises MemoryError from the op
+# (the control: the cap's two lines). M2 raises ValueError from the op and a
+# MemoryError while that exception's class is printed.
+plant() {
+  local name=$1 from=$2 to=$3
+  python3 -I -B -c 'import sys
+s = open(sys.argv[1]).read()
+if s.count(sys.argv[2]) != 1:
+    sys.exit(1)
+open(sys.argv[3], "w").write(s.replace(sys.argv[2], sys.argv[4]))' \
+    "$ROOT/scripts/openpyxl-ops.py" "$from" "$WORK/$name.py" "$to"
+}
+run_plant() {
+  podman run --rm --network=none --userns=keep-id -v "$WORK/$1.py":/ops.py:ro "$IMAGE" \
+    python3 -I -B /ops.py roundtrip /in/x.xlsx /out/x.xlsx </dev/null >"$WORK/$1.stdout" 2>"$WORK/$1.stderr"
+  echo "$?" >"$WORK/$1.rc"
+}
+cap_lines_ok() {
+  [ "$(cat "$WORK/$1.rc")" = 137 ] && [ "$(wc -l <"$WORK/$1.stdout")" = 2 ] &&
+    [ "$(head -n 1 "$WORK/$1.stdout")" = MemoryError ] && last_ok "$(tail -n 1 "$WORK/$1.stdout")" &&
+    [ ! -s "$WORK/$1.stderr" ]
+}
+plant M1 "        run(*argv)" "        raise MemoryError"
+m1_rc=$?
+plant M2 "        run(*argv)" "        raise ValueError"
+m2_rc=$?
+if [ "$m2_rc" = 0 ]; then
+  mv "$WORK/M2.py" "$WORK/M2a.py"
+  python3 -I -B -c 'import sys
+s = open(sys.argv[1]).read()
+old = "        print(type(err).__name__)"
+if s.count(old) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w").write(s.replace(old, "        raise MemoryError"))' "$WORK/M2a.py" "$WORK/M2.py"
+  m2_rc=$?
+fi
+check "$(yn [ "$m1_rc$m2_rc" = 00 ])" "the two planted copies are made, each replacement found once"
+run_plant M1
+run_plant M2
+check "$(yn cap_lines_ok M1)" "control M1: a MemoryError from the op exits 137 with MemoryError and the last line, nothing on standard error (ruling Y)"
+check "$(yn cap_lines_ok M2)" "M2: a MemoryError raised while another exception is reported exits 137 with the same two lines, nothing on standard error (ruling Y)"
 
 if [ "$failed" -eq 0 ]; then
   echo "openpyxl-ops-test: PASS"

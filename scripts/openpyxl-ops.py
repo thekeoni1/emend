@@ -44,11 +44,15 @@ resource.getrusage(RUSAGE_SELF). Nothing it prints names a path or a cell
 value.
 
 Exits: 0 when the op saved its output; 1 on an exception (its class printed);
-137 on MemoryError, so the runner classes it as the cap; 2, with the one line
+137 on MemoryError, so the runner classes it as the cap, a MemoryError raised
+while the script reports another exception included (specs/0037, ruling Y:
+that path writes its two lines with bytes made before the op, by os.write,
+and leaves by os._exit, so it needs no new memory to end); 2, with the one line
 "unknown op" and nothing else, for an op it does not know or a wrong number of
 arguments. openpyxl's own warnings go to standard error, which the runner
 keeps in the run directory and never prints.
 """
+import os
 import resource
 import sys
 
@@ -132,6 +136,34 @@ def last_line(version):
     print("openpyxl=%s\tpeak_rss_kb=%d" % (version, rss))
 
 
+# The cap's two lines, made before the op (ruling Y): the class name, and the
+# last line's prefix, its version filled in once openpyxl is imported.
+MEMORY_LINE = b"MemoryError\n"
+NO_RSS = b"-\n"
+LAST_PREFIX = [b"openpyxl=-\tpeak_rss_kb="]
+
+
+def cap_exit():
+    """Ends the script with 137 after a MemoryError, wherever it was raised:
+    what print has buffered is flushed if it can be, the two lines go out by
+    os.write, the peak RSS as "-" if even its digits cannot be made, and
+    os._exit leaves whatever happens on the way."""
+    try:
+        try:
+            sys.stdout.flush()
+        except BaseException:
+            pass
+        os.write(1, MEMORY_LINE)
+        os.write(1, LAST_PREFIX[0])
+        try:
+            rss = b"%d\n" % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        except MemoryError:
+            rss = NO_RSS
+        os.write(1, rss)
+    finally:
+        os._exit(137)
+
+
 def main(argv):
     if len(argv) != 3 or argv[0] not in OPS:
         print("unknown op")
@@ -140,11 +172,10 @@ def main(argv):
     try:
         import openpyxl
         version = openpyxl.__version__
+        LAST_PREFIX[0] = ("openpyxl=%s\tpeak_rss_kb=" % version).encode()
         run(*argv)
     except MemoryError:
-        print("MemoryError")
-        last_line(version)
-        return 137
+        cap_exit()
     except Exception as err:
         print(type(err).__name__)
         last_line(version)
@@ -154,4 +185,10 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    # A MemoryError raised while another exception is reported, or anywhere
+    # outside the op, ends as the cap too (ruling Y).
+    try:
+        code = main(sys.argv[1:])
+    except MemoryError:
+        cap_exit()
+    sys.exit(code)
