@@ -519,6 +519,166 @@ K. The runner's wall time wraps `podman run`, so it includes the
 P1 is DONE. P2's doc commit carries this spec (rulings A to K and
 this section) and ROADMAP's P1 row.
 
+## Planning rulings during P2 (2026-10-16)
+
+The doc commit 09d82ac verified by planning: specs/0037 (160c2984)
+and ROADMAP.md (d1f095bc) unedited, nothing else, the tree clean.
+The first code commit 8593ba0 (ruling I's EXIT trap) read: the
+count line printed whatever ends the script, exit 2 if any
+remain, a non-zero status kept; the argument refusals before it.
+
+L. The scale layout: one run directory per tier per op per tool,
+   `runs/<utc-date>-<shortsha>-openpyxl-scale-<tier>-<op>` and
+   `runs/<utc-date>-<shortsha>-scale-<tier>-<op>` under the scale
+   directory's `runs/`, as `specs/0023`'s runs were laid out per
+   sample per tier. "The scale tiers" read as a shape; neither
+   runner changes. The record pairs follow: `records/m5p6-
+   openpyxl-scale-<tier>-<op>-...` and `records/m5p6-scale-<tier>-
+   <op>-...`.
+M. emend on the scale tiers exactly as `specs/0023` ran them: both
+   labels on every tier it reaches, `--memory 2048`, `--timeout
+   3600`, the host `xlsx-diff` for both labels on tier c; tier d
+   both labels. The open check on tier a only for both tools
+   (`specs/0023` decision 2); tiers b to d record `lo not-run`.
+N. openpyxl's settings on the corpus runs: `--memory 4096
+   --timeout 600`, so the corpus measures openpyxl and not the
+   cap (planning's own roundtrip run peaked at 674876 kB under
+   4096), named in `run.openpyxl.tsv` and in every record. emend
+   keeps the passthrough runner's defaults on the corpus, as every
+   sample record did. A cap or timeout under these settings is
+   still an outcome to record, not a reason to raise them.
+O. emend's op mapping as proposed: `roundtrip` is `emend-copy
+   <in> <out>` with no tool argument (the passthrough), not
+   `--roundtrip-sample`; the other ten are `--<op>-sample` as the
+   table names them.
+P. Ruling K's empty-image timing is per openpyxl run directory,
+   corpus and scale alike: three empty runs, the median printed
+   in the run log and carried into that directory's record pair
+   and the comparison record. The planned order (the 22 corpus
+   runs, the records, the keep and the open record, then the
+   scale runs last, tier a to d, openpyxl then emend per op, then
+   the comparison record) is accepted.
+
+## Planning rulings during P2, second set (2026-10-18)
+
+The logged run (attempt 3, phase commit 5e52758) ended 2026-10-16
+23:11:51Z with exit 1 and "run log checks all as expected: no".
+Planning read the log, the script, the script's standard error and
+the openpyxl image run directory. Every run and every record was
+written, the outer stderr is empty, and the three failing checks
+are defects in the run script's checks, not in the measurements:
+
+- `keep_pairs_ok` is called (script line 3582) and never defined;
+  the P5 scripts defined it and the P2 generator dropped the
+  definition. The keep is whole by the log's own counts (1435
+  pairs, 2870 files, only whole pairs, every row matching the
+  committed open record).
+- The script's 105-byte standard error is that one "command not
+  found" line.
+- "openpyxl: the xml families are the changed entries' families"
+  is no for the openpyxl image op alone (yes in its other 104
+  places): openpyxl re-encodes the images, so the media family's
+  changed entries are four PNGs with no XML comparison row.
+
+The dry run exercised neither check: it ran with `RUN_SKIP_KEEP=yes`
+over a two-workbook subset without media.
+
+Q. The fix as proposed. Regenerate the run script with
+   `keep_pairs_ok` restored and its planted controls as in P5.
+   Narrow the family check to "the xml families are the changed
+   entries' xml families": a changed family counts when at least
+   one of its changed entries has an XML comparison row in the
+   run's diff table, so a family whose changed entries are all
+   binary (media) is not expected in the xml table. Two planted
+   controls: an entries table with a changed media entry and no
+   xml row reads yes; an xml table naming a family with no changed
+   entry reads no. The generator also prints, for every script it
+   writes, that every helper a `yn` or `ynnot` call names is
+   defined in that script (the shape `bash -n` cannot see), with a
+   planted undefined name as its control.
+R. No full rerun. The 114 run directories, the keep and the records
+   are the measurement, written by the phase commit's binaries, and
+   nothing in them is in question; a second 12.5 h run would
+   measure nothing new and would be the re-run the rules forbid.
+   What runs again with the fix named is the checks: a check-only
+   log, `logs/check.log` from a generated `m5p6-p2-check.sh`, that
+   (1) names the failing run log by sha256 and quotes its end line,
+   (2) recomputes the sha256 of every installed record and of the
+   host keep's listing and matches each against the line the run
+   log printed, counting matches against the record count, (3) runs
+   the restored keep check and the corrected 12-check block over
+   every record pair, corpus and scale, with ruling Q's controls,
+   (4) prints the tree state as the run log does, and (5) ends
+   "check log checks all as expected: yes" with an empty standard
+   error. The failing run log stays as `logs/run.log` and is
+   disclosed in the report, the logs README and the record commit
+   message; the independent checks receive both logs. The run
+   script that produced the run log is kept beside the regenerated
+   one under `<phase>/superseded/run-script-3` and both are named
+   by sha256 in the README; the regenerated script is the one the
+   close-out's generator starts from.
+
+## Planning verification of P2 (2026-10-18)
+
+Verified from primaries, not from the report: the five local
+commits on 1cdd3ed (09d82ac, 8593ba0, 89ef6eb, 5e52758, the record
+d5e73cb of 151 files, 143 records and 8 logs, its message
+disclosing the failed run log); the tree clean but for this
+working spec; the eight committed logs and the comparison record
+rehashed to the sha256 the report and the logs README cite
+(gate da7b322f, test 1c3bdc6b, negative b74a1500, run 66e39a92,
+check 41f34b40, README 15d42a1a, the check's answer 837a0a2f,
+scan f093875b, the record 2faf8ff1); gate, test, negative and
+check ending "yes", run ending "no" with exactly the three ruled
+lines (plus the 12-check block that reports one of them), the
+scan "total hits: 0", "structural checks failed: 0", "RESULT:
+PASS" under PLANNING_SPEC ce89ba9c; planning's own privacy scan
+over 1cdd3ed..d5e73cb (5 commits, 1958 blobs, 0 findings, PASS);
+planning's own re-derivation of every comparison-record row from
+the run directories' summary and empty-run tables (105 rows agree,
+0 disagree); the record's figures (27 of 27 outputs per op and
+tool, roundtrip 870 identical and 0 dropped for emend against 28
+and 533 for openpyxl, medians 0.10 s and 0.81 s, the run log's
+ratio 8.10 on all eleven ops, tier c roundtrip openpyxl cap 137 at
+320.13 s and 16576384 kB); ruling N's settings in the 11 corpus
+openpyxl records (timeout 600 s, memory 4096 MiB) and the scale
+tiers' (3600 s, 16384 MiB) in the 24; ruling P's container-start
+line in all 35 openpyxl records and in the comparison record;
+ruling H's stderr count line in the run log once per openpyxl run
+directory (24 at 0 files, 11 at 13 files and 4489 bytes); the
+check log's 143 of 143 record matches, 70 of 70 record pairs, the
+restored keep check with its controls and the family controls; the
+superseded run script 04ce3671, its stderr ffae65ef and generator
+c81d5833, the regenerated 7c32179e, the check script 84064a18, the
+scan 568cd01f, the first scan 3a44144b, the first check log
+b6dd7cee, the raw answer 41182690 and the first final scan
+82ae55f7, each rehashed under `<phase>`; the generator's
+defined-helper output f60e8ca3 read (yes with its control for all
+three scripts, `keep_pairs_ok` named undefined in the old one, 56
+names called). The independent check's PARTLY and its four fixes
+are answered in the final report; the stderr's line 2850 is `yn`'s
+definition, where bash reports the call, as planning read it too.
+
+S. Ruling Q's defined-helper lines are generator output, printed
+   by no P2 log; accepted for P2 as the session's statement with
+   the kept output's sha256 named in the report. From P3 on, the
+   gate log prints them for every script the phase generates, each
+   with its planted control.
+T. Ruling P's "record pair" reads as the pair's `.md`; the `.txt`
+   holds the run tables only, as every pair's `.txt` has. The `.md`
+   alone carries the median. No change.
+U. `scripts/compare-record.py` carries two items into P3's first
+   code commit, with tests: the scale section's settings sentence
+   read from each scale run's `run.openpyxl.tsv` rather than fixed
+   text; the op check on `run.openpyxl.tsv` applied to the scale
+   directories as to the corpus ones. The committed comparison
+   record is unchanged: its fixed text matches the tables planning
+   read (3600 s, 16384 MiB in all 24).
+V. The first check log, the first final scan (4 non-ASCII hits from
+   the checker's two multiplication signs, the committed answer
+   writing them as the letter x and saying so) and the never-logged
+   first scan script are accepted as disclosed.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-16: 1, 2 and 3 as recommended (A
