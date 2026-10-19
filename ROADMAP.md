@@ -1109,7 +1109,7 @@ this milestone either. Each part has its own spec before it starts
 and is scoped into phases as before. The milestone starts after
 Milestone 5 part 6's close-out push.
 
-### Part 1: chartsheets (`specs/0038-chartsheets.md`, APPROVED 2026-10-18, decisions 1 to 3 A; IN PROGRESS from 2026-10-18)
+### Part 1: chartsheets (`specs/0038-chartsheets.md`, APPROVED 2026-10-18, decisions 1 to 3 A; DONE and PUSHED 2026-10-19)
 
 `charts` reads the chart parts a chartsheet's drawing holds (refused
 today, `specs/0034` P1 ruling B); `add_chartsheet` creates one holding
@@ -1126,13 +1126,27 @@ no `pageMargins` written (openpyxl's form, confirmed on the image).
 | P1 | the root rule and `CHARTSHEET_CHILDREN`; `charts` on a chartsheet; the chartsheet form; `add_chartsheet`, `add_chart` and `remove_chart` on a chartsheet; the three messages; `--chartsheet-sample`; the tests on built packages; the negative log; the corpus run and the open record | DONE 2026-10-19 (doc 715aa75, core 56b2937, tool f917618, record f948fd9, local; rulings A to C during the phase; verified by planning from primaries, its own privacy scan, the core diff read whole; corpus 27 of 27 on both targets, 35 new keep pairs, open record 1472 pairs, no finding; charts probe 10316 over part 6's record, inside the estimate; one finding, change NWZ, ruling D; rulings D to I, `specs/0038` "Planning verification of P1") |
 | P2 | the `chartsheet` op of `scripts/openpyxl-ops.py` with its test; the `package` header's catalogue and limits; the fixture written by the image; the samples on it; P1's corpus run rerun byte-identical | DONE 2026-10-19 (doc 50def41, carry 1117c8e, op aae54ea, limits 2a706dc, record ef645e2, local; ruling J during the phase, the openpyxl fixture refusing a sheet add by `specs/0016`'s no-prefix rule, no crate change; verified by planning from primaries, its own privacy scan, the three diffs read whole; corpus rerun 27 of 27 byte-identical to P1's on both targets, fixture charts read on both, open record 1474 pairs, no finding; rulings K to M, `specs/0038` "Planning verification of P2") |
 | P3 | the probe's `add_chartsheet`; the size record (`charts` against part 5's 105424, `images`, `comments` and the core each judged); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | DONE 2026-10-19 (doc 8910350, probe 3a5ea11, changelog 4cc4f2e, record 20d00be, local; verified by planning from primaries, its own privacy scan, the two diffs read whole; `charts` costs 119344, this part's cost 15396 over part 6's record, above the 15000 line, a finding recorded and not fixed, ruling O; `images` and `comments` costs moved -116 and -64, inside 1500, the record's two FINDING lines a generator fault, ruling N; core 1968, accepted; budget 438960, 19792 under; API one row new, `Package::add_chartsheet`; corpus rerun 27 of 27 byte-identical on both targets; open record 1474 pairs unchanged; rulings N to Q, `specs/0038` "Planning verification of P3") |
-| Close | close-out push after P3, carrying 67c9144, base c970940 by its subject, `PREV` `^M5 part 6 close-out record`, no Excel-record check | PLANNED |
+| Close | close-out push after P3, carrying 67c9144, base c970940 by its subject, `PREV` `^M5 part 6 close-out record`, no Excel-record check | DONE 2026-10-19 (doc 5b8b25a pushed, origin/main c970940..5b8b25a, 15 commits, 2051 blobs, 0 findings; CI run 39285297969 success; the post-push scan PASS; record 6cecae7 local, goes with Milestone 6 part 2's push; the maintainer's authorisation typed 2026-10-19 in the implementing session after planning's word the same day; one independent check at the pre stage, blocking 0; change 48, the scan's no-archive check, ruling R; verified by planning from git, `gh`, the three logs and its own blob scans; `specs/0038` "Planning verification of the close-out", R to T) |
 
-### Part 2: chart kinds and visual formatting (PLANNED)
+### Part 2: chart kinds and visual formatting (`specs/0039-chart-kinds-and-formatting.md`, APPROVED 2026-10-19, decisions 1 to 4 A; IN PROGRESS from 2026-10-19)
 
-Surface and of-pie written kinds; marker symbol and size; line width
-and dash style; per-point formatting (`dPt`). The visual half of
-`specs/0036`'s out-of-scope list.
+Surface and of-pie written kinds (`NewPlot::Surface`, `Surface3D`,
+`OfPie` with its type and split); a series' marker (symbol, size,
+colour), line width and dash style; per-point formatting (`dPt`:
+a colour, an explosion, a marker). The visual half of
+`specs/0036`'s out-of-scope list. openpyxl's `SurfaceChart`,
+`ProjectedPieChart`, `Marker`, `LineProperties` and `DataPoint`.
+The reader is unchanged (it models `marker` as a flag). Decisions
+1 to 4 A: a line width in EMU; the custom split out; a marker on a
+3D line refused; a point carries index, colour, explosion, marker.
+Estimate 15500 to 25500 under `charts`, a finding above 30000.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the surface and of-pie kinds, their rules and forms, the surface axes, the new range message; `--chart-surface-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | PLANNED |
+| P2 | markers, lines and points on `NewSeries`; `--chart-format-sample`; the `chart-format` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | PLANNED |
+| P3 | the probe's three kinds and series options; the size record (`charts` against part 1's 119344, `images`, `comments` and the core each judged by ruling N's form); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | PLANNED |
+| Close | close-out push after P3, carrying 6cecae7, base 5b8b25a by its subject, `PREV` `^M6 part 1 close-out record`, no Excel-record check | PLANNED |
 
 ### Part 3: analytic chart elements (PLANNED)
 

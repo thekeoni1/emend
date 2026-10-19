@@ -682,6 +682,54 @@ Q. P3 DONE. Part 1's close-out as the spec's "Close-out push (after
    close-out record, as its first commit, `PREV` `^M5 part 6 close-out
    record` once, base c970940 by its subject.
 
+## Planning verification of the close-out (2026-10-19)
+
+Pre mode, verified from primaries before planning's word: the doc commit
+5b8b25a holds the two planning files at planning's hashes (896e41d8...,
+c13bd270...) and nothing else, its message in part 6's form with the
+Co-Authored-By line alone; the range c970940..5b8b25a is 15 commits,
+67c9144 first and once, every message ASCII, no session link; the
+range's diff holds no home path, no U+2014, no address, and adds no
+archive; planning's own privacy scan over the range (15 commits, 2051
+blobs, 0 findings, PASS); the pre push.log and scan-pre.log at the
+report's hashes (f6248d1d..., 5c51f6cf...), "pre checks all as expected:
+yes" and RESULT: PASS with 54 files and 15 messages scanned, 0 hits; the
+independent check verbatim in the report, blocking 0.
+
+R. Change 48 accepted in its form: the carried signature test still runs
+   over every file of the range (its count, archives in the range: 0),
+   and "the range holds no archive" reads that listing empty, with a
+   control refusing a listing naming the fixture; the rest of change 45
+   stands. The two cosmetic leftovers (the scan's comment above change
+   45's checks; the push script's change-list line 48's carried tail)
+   are noted and not fixed, since a fix would change the scripts' hashes
+   and rerun pre mode for a comment; the next close-out's generator
+   corrects both.
+
+S. Planning's word for the push of c970940..5b8b25a, given 2026-10-19
+   after the pre verification above; the maintainer's authorisation was
+   typed in the implementing session the same day ("push", recorded
+   verbatim in push.log with its date).
+
+Push mode, the CI run and the post scan, verified from git, `gh` and the
+three committed logs: origin/main and `ls-remote` are 5b8b25a; the
+hook's scan 15 commits, 2051 blobs, 0 findings; the repository PRIVATE;
+CI run 39285297969 on 5b8b25a completed with conclusion success; the
+post scan RESULT: PASS, structural 0, 0 hits; the committed push.log's
+first 1433 lines are the pre log byte for byte, then push mode appended,
+ending "push checks all as expected: yes"; the three logs at the
+report's hashes (push 942fe9be..., ci-run 586e2752..., scan
+60875195...), no home path, no address, no U+2014; the record commit
+6cecae7 holds the three logs only, its message ASCII with the
+Co-Authored-By line alone; planning's own privacy scan of it (1 commit,
+2033 blobs, 0 findings, PASS).
+
+T. The close-out is DONE: Milestone 6 part 1 DONE and PUSHED 2026-10-19.
+   The record commit 6cecae7 stays local and goes with part 2's push, as
+   67c9144 went with this one; part 2's close-out names `PREV` `^M6 part
+   1 close-out record`, base 5b8b25a by its subject, generator changes
+   from 49.
+
 ## Decisions for the maintainer
 
 1. The anchor of a chartsheet's chart: A (recommended), an
