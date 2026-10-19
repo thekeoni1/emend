@@ -591,6 +591,97 @@ M. P2 DONE. P3 as the spec's "P3: the probe, the size record, the API
    not); P2's runs rerun with the size log's release binaries byte-
    identical by sha256.
 
+## Planning verification of P3 (2026-10-19)
+
+Verified from primaries: the chain 8910350 (the two planning files at
+planning's hashes, f15be1a0 and e39db59f), 3a5ea11, 4cc4f2e and 20d00be
+on ef645e2; the record commit adds the eight files of
+`records/logs/m6p1-p3` and the six records and nothing else; no crate
+file changed; the messages ASCII with the count sentence and the Co-
+Authored-By line alone; the eight logs and six records at the hashes the
+README and the report give, each log ending "checks all as expected:
+yes", the scan RESULT: PASS naming its passing pre-check (29ee3bf7, in
+`<phase>/superseded/pre-check-1`) by RERUN_NOTE and RERUN_FILES;
+planning's own privacy scan over ef645e2..20d00be (4 commits, 2032
+blobs, 0 findings). The two diffs read whole: the probe's
+`add_chartsheet` of the first set's column chart at (960, 640), written
+and reopened, `charts` of the new part printed as `chartsheet_charts` (1
+at every kind index); the CHANGELOG's one bullet under "Added" citing
+this spec. The API record: one row new, `Package::add_chartsheet`, none
+gone, the three messages crate-private. The negative log: N6 to N8 as
+P1's and P2's, N9 new (ruling P), CHARTSHEET_ANCHOR and ONE_CHART
+unreachable through the binary with five planted controls and their
+covering tests named (ruling M met). The run log: P2's corpus run rerun
+on the size log's release binaries 27 of 27 byte-identical by sha256 on
+both targets; the fixture two ways (ruling O); the keep 1474 pairs
+unchanged, 0 new, the open .txt P2's byte for byte. The independent
+check's answer in the report verbatim (its file carries a five-line
+heading before it). The size figures are read off size.log and the
+record, and judged by planning here, below.
+
+N. The size record stands as committed, with two of its judgments
+   corrected by this ruling and not by a rerun. (a) The `images` and
+   `comments` bands of "Size and packaging" are on the features' costs'
+   movements, which the record prints: images 57504 against 57620, a
+   move of -116; comments 63292 against 63356, a move of -64; each
+   inside 1500, no finding. The record's two FINDING lines for those
+   probes judge the probes' growth (1852 and 1904), which is each move
+   with the core's growth of 1968, and so are not findings of this part;
+   the size log's findings for this part are one, the charts probe's.
+   (b) The record's copy paragraph cites this spec for an expected
+   growth of 0 it does not state; the bands table's judgment is the one
+   that stands: `copy` 1792 and the pair 1932, each accepted up to 2000,
+   no finding. Both are generator faults of the size log; a rerun of the
+   size log and the run log for two labels is not asked. Generator rule
+   from the next size log on (Milestone 6 part 2): the `images` and
+   `comments` bands judge the costs' movements, printed and judged under
+   their own names, with the probes' growth printed beside them
+   unjudged; the copy paragraph cites the band it is judged by, or the
+   spec section that states its expectation, never a section that does
+   not.
+
+O. Finding 2 of the report stands as a finding: this part's cost, the
+   charts probe's growth over part 6's record, 15396 section bytes,
+   above the finding line of 15000 and planning's estimate of 6000 to
+   11000; the feature `charts` costs 119344, a move of 13428 over part
+   6's 105916 and 13920 over part 5's 105424; the core grew 1968,
+   expected 0, accepted up to 2000; the budget figure 438960, 19792
+   under 458752. Recorded, not fixed: the cost lies with P1's chart
+   writer and package code (56b2937, the one commit changing code lines
+   among the probes' sources). Against the estimate's top of 11000 the
+   `charts` cost moved 2428 more, and the core's 1968, expected 0, is
+   the rest; planning's reading, not measured, is that
+   `SheetEdit::Add`'s kind and carried children sit in the core's sheet
+   path, not under `charts`. Milestone 6 part 6 (measurement and close)
+   reads the `charts` cost whole and decides whether any of it is to be
+   regated; no part of Milestone 6 takes this as a reason to change
+   code.
+
+P. The fixture's "byte-identical" reading is confirmed. openpyxl writes
+   a new file each run, so a fresh fixture's outputs cannot match P2's
+   by sha256; the run log reruns P2's own kept fixture (the one whose op
+   output P2's run.log hashed, 834a7f6d) byte for byte on both targets,
+   2 of 2, and compares a fresh fixture's charts line and refusal's
+   standard error with P2's run.log, each target. That is what ruling
+   M's "byte-identical by sha256" asks of the P2 runs. N9 stays: the
+   add-chart sample on B4 with its worksheet part's root a chartsheet,
+   refused by the cell read with NOT_WORKSHEET before
+   `Package::add_chart`, with its refusal-text controls; it is the
+   binary's half of why CHARTSHEET_ANCHOR is unreachable, and the
+   accepted add-chart sample on B0 (B1) is its accepted control. An
+   accepted add-chart sample on B4 itself is not asked. The carry: the
+   brief named none, and the test log's comment says P2's was the
+   part's; no carry commit is owed.
+
+Q. P3 DONE. Part 1's close-out as the spec's "Close-out push (after
+   P3)": the doc commit commits this verification and rulings N to Q and
+   the ROADMAP's P3 row; pre mode on a clean tree; planning's word, then
+   the maintainer's typed authorisation in the implementing session; the
+   push; the CI run; the post scan; the record commit with the three
+   logs. The pushed range carries 67c9144, Milestone 5 part 6's
+   close-out record, as its first commit, `PREV` `^M5 part 6 close-out
+   record` once, base c970940 by its subject.
+
 ## Decisions for the maintainer
 
 1. The anchor of a chartsheet's chart: A (recommended), an
