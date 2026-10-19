@@ -834,15 +834,15 @@
 //!   charts placed as the more kinds sample's, the k-th (k from 0) titled
 //!   `emend surface k`: a contour surface (`wireframe` false) and a 3D
 //!   surface (`wireframe` true), each of three series named by B1, C1 and
-//!   D1 of W over the categories A2:A(M' + 1) and the values of B, C and D,
-//!   rows 2 to M' + 1, with the axis titles `emend x` and `emend y` and no
+//!   D1 of W over the categories A2:A(L) and the values of B, C and D, rows
+//!   2 to L, L being the smaller of M' + 1 and 1001 (ruling A), with the axis titles `emend x` and `emend y` and no
 //!   legend; a pie of pie with no split and a bar of pie split at position
 //!   2, each of the kinds sample's one series with the legend at the right.
 //!   The output is reopened. One line: the word `chartsurface` then
 //!   `charts_before` and `charts_after` (`Package::charts` of W),
 //!   `surface`, `surface_3d` and `of_pie` (the plots of each kind among the
 //!   last four entries of the output's charts of W), `series` (their
-//!   series), `read_back` (how many of them read as their calls gave them,
+//!   series), `rows` (L - 1, the data rows referenced), `read_back` (how many of them read as their calls gave them,
 //!   every field compared) and `chart_parts_after` (entries under
 //!   `xl/charts/`). COUNTS ONLY, as the add-chart sample's. Asserted:
 //!   `charts_after` and `chart_parts_after` four more than before,
@@ -8678,6 +8678,11 @@ fn chart_3d_read_back(
     Ok((after, read_back))
 }
 
+/// The last row the surface sample references (`specs/0039`, "Planning
+/// rulings during P1", ruling A): at most 1000 data rows, rows 2 to 1001,
+/// so that LibreOffice opens the output inside the harness's budget.
+const SAMPLE_LAST_ROW: u32 = 1001;
+
 /// The surface sample (`specs/0039-chart-kinds-and-formatting.md`, "Harness
 /// runs", `--chart-surface-sample`): a contour and a 3D surface of three
 /// series and a pie of pie and a bar of pie of one on W past its last row,
@@ -8700,8 +8705,14 @@ fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let sampled = sample(&mut package, &part)?;
     let before = chart_kinds_counts(&mut package, &part)?.0;
     let sheet = format!("'{}'", name.replace('\'', "''"));
-    // The references take row 2 at least, an empty sheet's included.
-    let last = sampled.max_row.max(1).saturating_add(1);
+    // The references take row 2 at least, an empty sheet's included, and
+    // row SAMPLE_LAST_ROW at most (specs/0039, ruling A).
+    let last = sampled
+        .max_row
+        .max(1)
+        .saturating_add(1)
+        .min(SAMPLE_LAST_ROW);
+    let rows = u64::from(last - 1);
     let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
     let named = |letter: char| format!("{sheet}!${letter}$1");
     let (b_name, c_name, d_name) = (named('B'), named('C'), named('D'));
@@ -8792,6 +8803,7 @@ fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
             ("surface_3d", kinds[1]),
             ("of_pie", kinds[2]),
             ("series", series),
+            ("rows", rows),
             ("read_back", read_back),
             ("chart_parts_after", after.chart_parts),
         ],

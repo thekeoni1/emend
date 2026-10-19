@@ -6213,7 +6213,7 @@ fn the_chart_surface_sample_adds_two_surfaces_and_two_of_pies_and_reads_them_bac
     // one, on one-cell anchors at rows 3, 19, 35 and 51 of column A, M
     // being 1.
     let line = "chartsurface\tcharts_before=0\tcharts_after=4\tsurface=1\tsurface_3d=1\
-                \tof_pie=2\tseries=8\tread_back=4\tchart_parts_after=4\n";
+                \tof_pie=2\tseries=8\trows=1\tread_back=4\tchart_parts_after=4\n";
     for (label, drawing, after) in [
         ("chart-surface-sample-created", false, ""),
         (
@@ -6333,6 +6333,52 @@ fn the_chart_surface_sample_writes_each_plot_s_form() {
             assert!(text.contains(form), "{form} in {text}");
         }
     }
+}
+
+#[test]
+fn the_chart_surface_sample_references_at_most_a_thousand_rows() {
+    // `specs/0039-chart-kinds-and-formatting.md`, "Planning rulings during
+    // P1", ruling A: M is 1500, so every reference stops at row 1001 and the
+    // first chart still sits at row 1502, the first past the data plus one.
+    let cell = "<sheetData><row r=\"1500\"><c r=\"A1500\"><v>1</v></c></row></sheetData>";
+    let specs = image_specs(cell, "", false);
+    let dir = TempDir::new("chart-surface-sample-bound");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-surface-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "chartsurface\tcharts_before=0\tcharts_after=4\tsurface=1\tsurface_3d=1\
+         \tof_pie=2\tseries=8\trows=1000\tread_back=4\tchart_parts_after=4\n",
+        "the line"
+    );
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let mut text_of = |name: &str| {
+        let index = package.part(name.as_bytes()).expect("the part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        text
+    };
+    for n in 1..=4 {
+        let text = text_of(&format!("xl/charts/chart{n}.xml"));
+        assert!(
+            text.contains("<c:f>'Sheet1'!$B$2:$B$1001</c:f>"),
+            "chart{n}: {text}"
+        );
+        assert!(!text.contains("$1002<"), "chart{n}: {text}");
+    }
+    let drawing = text_of("xl/drawings/drawing1.xml");
+    assert!(
+        drawing.contains(
+            "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1501</xdr:row>"
+        ),
+        "{drawing}"
+    );
 }
 
 #[test]
