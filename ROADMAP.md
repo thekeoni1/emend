@@ -1124,7 +1124,7 @@ no `pageMargins` written (openpyxl's form, confirmed on the image).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | P1 | the root rule and `CHARTSHEET_CHILDREN`; `charts` on a chartsheet; the chartsheet form; `add_chartsheet`, `add_chart` and `remove_chart` on a chartsheet; the three messages; `--chartsheet-sample`; the tests on built packages; the negative log; the corpus run and the open record | DONE 2026-10-19 (doc 715aa75, core 56b2937, tool f917618, record f948fd9, local; rulings A to C during the phase; verified by planning from primaries, its own privacy scan, the core diff read whole; corpus 27 of 27 on both targets, 35 new keep pairs, open record 1472 pairs, no finding; charts probe 10316 over part 6's record, inside the estimate; one finding, change NWZ, ruling D; rulings D to I, `specs/0038` "Planning verification of P1") |
-| P2 | the `chartsheet` op of `scripts/openpyxl-ops.py` with its test; the `package` header's catalogue and limits; the fixture written by the image; the samples on it; P1's corpus run rerun byte-identical | PLANNED |
+| P2 | the `chartsheet` op of `scripts/openpyxl-ops.py` with its test; the `package` header's catalogue and limits; the fixture written by the image; the samples on it; P1's corpus run rerun byte-identical | DONE 2026-10-19 (doc 50def41, carry 1117c8e, op aae54ea, limits 2a706dc, record ef645e2, local; ruling J during the phase, the openpyxl fixture refusing a sheet add by `specs/0016`'s no-prefix rule, no crate change; verified by planning from primaries, its own privacy scan, the three diffs read whole; corpus rerun 27 of 27 byte-identical to P1's on both targets, fixture charts read on both, open record 1474 pairs, no finding; rulings K to M, `specs/0038` "Planning verification of P2") |
 | P3 | the probe's `add_chartsheet`; the size record (`charts` against part 5's 105424, `images`, `comments` and the core each judged); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | PLANNED |
 | Close | close-out push after P3, carrying 67c9144, base c970940 by its subject, `PREV` `^M5 part 6 close-out record`, no Excel-record check | PLANNED |
 
@@ -1165,6 +1165,13 @@ milestone delivered.
 
 Listed so they are not lost. Scoping any of them needs the maintainer's
 approval.
+
+- A sheet add on a workbook whose root binds no prefix for the
+  relationships namespace: openpyxl declares it on each `<sheet>`
+  element, so `add_sheet` and `add_chartsheet` refuse every
+  openpyxl-written workbook (`specs/0016`'s rule; found 2026-10-19 on
+  Milestone 6 part 1 P2's fixture, `specs/0038` ruling J). The fix
+  is a `<sheet>` carrying its own declaration, as openpyxl writes it.
 
 - Size-measurement consumer: scoped into Milestone 1 part 1 P3 as
   `probe-emend-copy` (2026-09-16).

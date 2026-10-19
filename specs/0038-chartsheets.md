@@ -508,6 +508,89 @@ I. The core commit amended after the first dry test log (an unused test
    `p1-before-fix`: local, unreported commits (`specs/0001`). The dry
    negative driver fault, rerun with the gate log, noted. P1 DONE.
 
+## Planning rulings during P2 (2026-10-19)
+
+J. The openpyxl fixture refuses `--chartsheet-sample`. openpyxl declares
+   the relationships namespace on each `<sheet>` element, not on the
+   workbook root, so `add_chartsheet`, through `add_sheet`'s path, is
+   refused with "the workbook root binds no prefix for the relationships
+   namespace" (`specs/0016`, the sheet-add rule, tested by
+   `a_workbook_root_binding_no_relationships_prefix_refuses_an_add`);
+   the corpus never met it because no corpus workbook is openpyxl's. The
+   spec's "adds a second chartsheet beside it" was planning's error.
+   Ruled as the implementer's option A: no crate change; the run log
+   checks the refusal on the fixture (exit 2, that message, no output
+   file) with `--charts-sample`'s read as the positive check (sheets 3,
+   charts 1, series 1, the bar kind, the absolute anchor), on both
+   targets. A sheet add on a workbook whose root binds no relationships
+   prefix (every openpyxl-written workbook) is a parity item for a later
+   part, listed in `ROADMAP.md` "Unscoped"; the maintainer decides when.
+
+## Planning verification of P2 (2026-10-19)
+
+Verified from primaries: the chain 50def41 (the two planning files at
+planning's hashes), 1117c8e, aae54ea, 2a706dc and ef645e2 on f948fd9;
+the record commit adds the seven files of `records/logs/m6p1-p2` and the
+two record pairs and nothing else; the messages ASCII with the count
+sentence and the Co-Authored-By line alone; no U+2014 and no home path
+in the range's diff; the seven logs and four records at the hashes the
+README and the report give, each log ending "checks all as expected:
+yes", the scan RESULT: PASS naming its passing pre-check by RERUN_NOTE
+and RERUN_FILES; planning's own privacy scan over f948fd9..ef645e2 (5
+commits, 2021 blobs, 0 findings). The three code diffs read whole:
+ruling E's test (added, renamed, moved first, read back through the
+sheet list and `charts`); the `chartsheet` op and its test line (one
+absolute anchor at 0,0 of ext 0 by 0, one bar chart over the fixture's
+ranges, 13 checks); the header's chartsheet limits paragraph with two
+doc hunks (ruling K). Test totals on both targets off 515, charts 635,
+charts,images 677, charts,comments 680, charts,read 738, every feature
+1117, one above P1's in each set that builds the test; the corpus rerun
+27 of 27 on both targets byte-identical to P1's by sha256, `lo` and
+`lo_in` ok on 27; the openpyxl fixture written by the pinned image
+rootless as uid 1001 with the image id checked against the image record;
+`--charts-sample` on it sheets 3, charts 1, series 1, a bar in an
+absolute anchor, `lo` and `lo_in` ok; `--chartsheet-sample` refused on
+both targets with the NO_RELATIONSHIPS_PREFIX literal, no output and no
+temporary (ruling J); N8 the same refusal through the binary on a
+fixture of openpyxl's form; the keep 1474 pairs, 2 new; the open
+record's 12 and 11 LibreOffice failures as before, no finding; the
+charts probe 1086440, 0 over P1. The report's corrections after check 1
+(the negative log's end time 08:33:50Z, the pre-check's directory, two
+statements marked the session's) read against the logs.
+
+K. The limits commit's two doc hunks outside ruling G's "the limits
+   alone": (a) the charts-reading sentence "A chartsheet is not read (P1
+   ruling B)", false since P1, replaced by the reading through the
+   chartsheet's one `drawing` element; (b) the worksheet content type's
+   doc comment moved back to its constant, from which P1's chartsheet
+   constants had parted it. Both ruled in: (a) is the catalogue's own
+   correction, which "catalogue and limits" covers before ruling G
+   narrowed it, and the header must not state a falsehood; (b) is P1's
+   misplacement. The report disclosed (b) only and check 1 found (a);
+   the commit message names both.
+
+L. The dry gate's generator fault (change I69 cut the line setting
+   PKG_TESTS; fixed, the failed log and its script kept under
+   superseded) and the dry driver that ran nothing: noted; neither was a
+   logged attempt (ruling F). `compare-run.sh` and `compare-record.py`
+   unchanged, the chartsheet op being a fixture op and not a comparison
+   op: accepted as the session's statement, and Milestone 6 part 6
+   decides whether the comparison gains it.
+
+M. P2 DONE. P3 as the spec's "P3: the probe, the size record, the API
+   listing, the CHANGELOG", with these readings: the size record states
+   the `charts` feature's whole cost, part 6's record's figure (105916,
+   probe 1076124) and part 5's 105424 as the spec names, and the delta
+   over part 6's record, judged against the estimate of 6000 to 11000
+   and the finding line at 15000; the `images` and `comments` movements
+   and the core's growth each printed and judged (0 expected, accepted
+   to 1500 each and 2000); the size generator's stale labels corrected
+   (`specs/0037` ruling AC d); the negative log through the binary for
+   every message of the part reachable there (N6 to N8 as P1's and P2's,
+   the anchor and one-chart messages if reachable, else the log says why
+   not); P2's runs rerun with the size log's release binaries byte-
+   identical by sha256.
+
 ## Decisions for the maintainer
 
 1. The anchor of a chartsheet's chart: A (recommended), an
