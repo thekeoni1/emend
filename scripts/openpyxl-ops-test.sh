@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The test of scripts/openpyxl-ops.py (specs/0037-measurement-and-close.md P1,
-# and "Planning rulings during P1", ruling F).
+# and "Planning rulings during P1", ruling F; the chartsheet op,
+# specs/0038-chartsheets.md P2).
 #
 # usage: scripts/openpyxl-ops-test.sh <image>
 #
@@ -31,7 +32,7 @@ IMAGE=$1
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || exit 2
 FIXTURE=$ROOT/tests/fixtures/openpyxl-ops.xlsx
 readonly FIXTURE_SHA=12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd
-readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy"
+readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet"
 
 failed=0
 check() {
@@ -142,6 +143,14 @@ checks.append(("add-chart: one chart part, a bar chart over B2:B101 and A2:A101"
                len(charts) == 1 and "barChart" in charts[0] and "$B$2:$B$101" in charts[0] and "$A$2:$A$101" in charts[0]))
 p, names = parts("copy")
 checks.append(("copy: 3 sheets", sheets(p) == 3))
+p, names = parts("chartsheet")
+drawing = p.get("xl/drawings/drawing1.xml", "")
+charts = [v for n, v in p.items() if re.match(r"xl/charts/chart\d+\.xml$", n)]
+checks.append(("chartsheet: 3 sheets, the chartsheet part, its drawing one absoluteAnchor at 0,0 of ext 0 by 0, and one bar chart over B2:B101 and A2:A101",
+               sheets(p) == 3 and "xl/chartsheets/sheet1.xml" in names
+               and "/relationships/chartsheet" in p.get("xl/_rels/workbook.xml.rels", "")
+               and drawing.count("<absoluteAnchor>") == 1 and '<pos x="0" y="0"/>' in drawing and '<ext cx="0" cy="0"/>' in drawing
+               and len(charts) == 1 and "barChart" in charts[0] and "$B$2:$B$101" in charts[0] and "$A$2:$A$101" in charts[0]))
 for what, ok in checks:
     print("%s\t%s" % ("yes" if ok else "no", what))
 PY
@@ -150,7 +159,7 @@ check "$(yn [ "$py_rc" -eq 0 ])" "the parts reader exits 0"
 while IFS=$'\t' read -r verdict what; do
   check "$verdict" "$what"
 done <"$WORK/parts.txt"
-check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 12 ])" "the parts reader made its 12 checks"
+check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 13 ])" "the parts reader made its 13 checks"
 
 # An op the script does not know.
 podman run --rm --network=none --userns=keep-id -v "$ROOT/scripts/openpyxl-ops.py":/ops.py:ro "$IMAGE" \

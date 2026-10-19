@@ -35,6 +35,11 @@ The ops and every constant they write:
   add-chart    a BarChart, one series over B2:B(M+1), categories A2:A(M+1),
                added at (M+2, A). (--add-chart-sample)
   copy         copy_worksheet(W). (--copy-sample)
+  chartsheet   create_chartsheet(), then add_chart of a BarChart, one series
+               over W's B2:B(M+1), categories A2:A(M+1), on the chartsheet,
+               which openpyxl anchors in an absoluteAnchor of ext 0 by 0
+               (specs/0038-chartsheets.md, "Harness runs": the openpyxl
+               fixture of --charts-sample and --chartsheet-sample).
 
 What it prints, on standard output: for read, the line "cells=<n>"; for an
 exception, one line holding the exception's class name only, never its
@@ -57,7 +62,7 @@ import resource
 import sys
 
 OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
-       "comment", "image", "add-chart", "copy")
+       "comment", "image", "add-chart", "copy", "chartsheet")
 
 EDIT_NUMBER = 42.5
 EDIT_TEXT = "emend compare"
@@ -127,6 +132,11 @@ def run(op, source, target):
         ws.add_chart(chart, "A%d" % (m + 2))
     elif op == "copy":
         wb.copy_worksheet(ws)
+    elif op == "chartsheet":
+        chart = BarChart()
+        chart.add_data(Reference(ws, min_col=2, min_row=2, max_row=m + 1), titles_from_data=False)
+        chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=m + 1))
+        wb.create_chartsheet().add_chart(chart)
     wb.save(target)
     return openpyxl.__version__
 
