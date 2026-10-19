@@ -828,6 +828,27 @@
 //!   `chart_parts_after` five more than before, `kinds_read_back` 5; a
 //!   failure is exit 2 with the message and no output, and so is a refusal
 //!   by the layer.
+//! - `--chart-surface-sample`: the surface sample of
+//!   `specs/0039-chart-kinds-and-formatting.md`, "Harness runs": on W, with
+//!   M, M' and its quoted name as `--chart-kinds-sample` has them, four
+//!   charts placed as the more kinds sample's, the k-th (k from 0) titled
+//!   `emend surface k`: a contour surface (`wireframe` false) and a 3D
+//!   surface (`wireframe` true), each of three series named by B1, C1 and
+//!   D1 of W over the categories A2:A(M' + 1) and the values of B, C and D,
+//!   rows 2 to M' + 1, with the axis titles `emend x` and `emend y` and no
+//!   legend; a pie of pie with no split and a bar of pie split at position
+//!   2, each of the kinds sample's one series with the legend at the right.
+//!   The output is reopened. One line: the word `chartsurface` then
+//!   `charts_before` and `charts_after` (`Package::charts` of W),
+//!   `surface`, `surface_3d` and `of_pie` (the plots of each kind among the
+//!   last four entries of the output's charts of W), `series` (their
+//!   series), `read_back` (how many of them read as their calls gave them,
+//!   every field compared) and `chart_parts_after` (entries under
+//!   `xl/charts/`). COUNTS ONLY, as the add-chart sample's. Asserted:
+//!   `charts_after` and `chart_parts_after` four more than before,
+//!   `surface` 1, `surface_3d` 1, `of_pie` 2, `series` 8 and `read_back` 4;
+//!   a failure is exit 2 with the message and no output, and so is a
+//!   refusal by the layer.
 //! - `--chart-labels-sample`: the labels sample of
 //!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
 //!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
@@ -1004,7 +1025,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --namedstyles-sample | --colors-sample | --commentbox-sample | --anchor-sample \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
-| --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample]";
+| --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample \
+| --chart-surface-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1133,6 +1155,9 @@ enum Operation {
     /// Four 3D charts and a combined chart past the last row of W, and the
     /// counts.
     Chart3dSample,
+    /// Two surface charts and two of-pie charts past the last row of W, and
+    /// the counts.
+    ChartSurfaceSample,
     /// A column chart and a pie with colours, labels and axis formats past
     /// the last row of W, and the counts.
     ChartLabelsSample,
@@ -1207,6 +1232,7 @@ enum Error {
     ChartKindsSample(&'static str),
     ChartMoreSample(&'static str),
     Chart3dSample(&'static str),
+    ChartSurfaceSample(&'static str),
     ChartLabelsSample(&'static str),
     RemoveChartSample(&'static str),
     ChartsheetSample(&'static str),
@@ -1341,6 +1367,7 @@ impl fmt::Display for Error {
             Error::ChartKindsSample(what)
             | Error::ChartMoreSample(what)
             | Error::Chart3dSample(what)
+            | Error::ChartSurfaceSample(what)
             | Error::ChartLabelsSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
@@ -1570,6 +1597,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::Chart3dSample,
         ),
+        [input, output, flag] if flag == "--chart-surface-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartSurfaceSample,
+        ),
         [input, output, flag] if flag == "--chart-labels-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1769,6 +1801,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::Chart3dSample) {
         return chart_3d_sample(input, output);
     }
+    if matches!(operation, Operation::ChartSurfaceSample) {
+        return chart_surface_sample(input, output);
+    }
     if matches!(operation, Operation::ChartLabelsSample) {
         return chart_labels_sample(input, output);
     }
@@ -1862,6 +1897,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ChartKindsSample => unreachable!("the chart kinds sample has its own path"),
         Operation::ChartMoreSample => unreachable!("the more kinds sample has its own path"),
         Operation::Chart3dSample => unreachable!("the 3D sample has its own path"),
+        Operation::ChartSurfaceSample => unreachable!("the surface sample has its own path"),
         Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
         Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
         Operation::ChartsheetSample => unreachable!("the chartsheet sample has its own path"),
@@ -8640,6 +8676,170 @@ fn chart_3d_read_back(
         return Err(Error::Chart3dSample("read-back chart"));
     }
     Ok((after, read_back))
+}
+
+/// The surface sample (`specs/0039-chart-kinds-and-formatting.md`, "Harness
+/// runs", `--chart-surface-sample`): a contour and a 3D surface of three
+/// series and a pie of pie and a bar of pie of one on W past its last row,
+/// the output written and read back. A failure after the output is in place
+/// removes it; a refusal by the layer is exit 2 with no output.
+fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName, OfPieKind, OfPieSplit,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    // The references take row 2 at least, an empty sheet's included.
+    let last = sampled.max_row.max(1).saturating_add(1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let named = |letter: char| format!("{sheet}!${letter}$1");
+    let (b_name, c_name, d_name) = (named('B'), named('C'), named('D'));
+    let (a, b, c, d) = (column('A'), column('B'), column('C'), column('D'));
+    let over_b = NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+        color: None,
+        labels: None,
+    };
+    let three = [
+        over_b,
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&c_name)),
+            values: &c,
+            ..over_b
+        },
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&d_name)),
+            values: &d,
+            ..over_b
+        },
+    ];
+    let one = [over_b];
+    let plots: [(NewPlot, &[NewSeries<'_>]); 4] = [
+        (NewPlot::Surface { wireframe: false }, &three),
+        (NewPlot::Surface3D { wireframe: true }, &three),
+        (
+            NewPlot::OfPie {
+                kind: OfPieKind::Pie,
+                split: None,
+            },
+            &one,
+        ),
+        (
+            NewPlot::OfPie {
+                kind: OfPieKind::Bar,
+                split: Some(OfPieSplit::Position(2)),
+            },
+            &one,
+        ),
+    ];
+    let titles: Vec<String> = (0..plots.len())
+        .map(|k| format!("emend surface {k}"))
+        .collect();
+    let mut calls = Vec::with_capacity(plots.len());
+    for (((plot, series), title), k) in plots.into_iter().zip(&titles).zip(0u32..) {
+        let surface = matches!(plot, NewPlot::Surface { .. } | NewPlot::Surface3D { .. });
+        let chart = NewChart {
+            plot,
+            title: Some(title),
+            series,
+            category_axis_title: surface.then_some("emend x"),
+            value_axis_title: surface.then_some("emend y"),
+            category_axis_format: None,
+            value_axis_format: None,
+            legend: (!surface).then_some(LegendPosition::Right),
+            size: Some((480, 288)),
+            combined: None,
+        };
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, &chart)?;
+        calls.push(chart);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_surface_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, kinds, series, read_back) = checked?;
+    edit_line_named(
+        "chartsurface",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("surface", kinds[0]),
+            ("surface_3d", kinds[1]),
+            ("of_pie", kinds[2]),
+            ("series", series),
+            ("read_back", read_back),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// Reopens the surface sample's output and asserts four more charts and
+/// chart parts, the last four charts of W one contour, one 3D surface and
+/// two of-pie plots of eight series in all, each read back as its call gave
+/// it; gives the counts after, the plots of each kind, the series and how
+/// many read back.
+fn chart_surface_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, [u64; 3], u64, u64), Error> {
+    use emend::package::ChartKind;
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartSurfaceSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartSurfaceSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let plots = || last.iter().flat_map(|entry| &entry.chart.plots);
+    let kinds = [ChartKind::Surface, ChartKind::Surface3D, ChartKind::OfPie]
+        .map(|kind| plots().filter(|plot| plot.kind == kind).count() as u64);
+    let series = plots().map(|plot| plot.series.len() as u64).sum::<u64>();
+    if kinds != [1, 1, 2] {
+        return Err(Error::ChartSurfaceSample("plot kinds"));
+    }
+    if series != 8 {
+        return Err(Error::ChartSurfaceSample("series count"));
+    }
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| entry.chart == chart_as_read(chart))
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartSurfaceSample("read-back chart"));
+    }
+    Ok((after, kinds, series, read_back))
 }
 
 /// The labels sample (`specs/0036-charts-write-second-set.md`, "Harness

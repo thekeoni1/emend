@@ -6207,6 +6207,135 @@ fn the_chart_3d_sample_refuses_a_drawing_whose_root_is_not_ws_dr_and_leaves_noth
 }
 
 #[test]
+fn the_chart_surface_sample_adds_two_surfaces_and_two_of_pies_and_reads_them_back() {
+    // `specs/0039-chart-kinds-and-formatting.md`, "Harness runs": a contour
+    // and a 3D surface of three series, a pie of pie and a bar of pie of
+    // one, on one-cell anchors at rows 3, 19, 35 and 51 of column A, M
+    // being 1.
+    let line = "chartsurface\tcharts_before=0\tcharts_after=4\tsurface=1\tsurface_3d=1\
+                \tof_pie=2\tseries=8\tread_back=4\tchart_parts_after=4\n";
+    for (label, drawing, after) in [
+        ("chart-surface-sample-created", false, ""),
+        (
+            "chart-surface-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-surface-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for n in 1..=4 {
+            entry_named(&entries, format!("xl/charts/chart{n}.xml").as_bytes());
+        }
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(text.matches("<xdr:oneCellAnchor>").count(), 4, "{text}");
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chart_surface_sample_writes_each_plot_s_form() {
+    // M is 1, so every reference runs from row 2 to row 2, quoted.
+    use emend::package::ChartKind;
+    let specs = image_specs(A_CELL, "", false);
+    let dir = TempDir::new("chart-surface-sample-forms");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-surface-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let charts = package
+        .charts(b"xl/worksheets/sheet1.xml")
+        .expect("the charts");
+    let kinds: Vec<Vec<ChartKind>> = charts
+        .iter()
+        .map(|entry| entry.chart.plots.iter().map(|plot| plot.kind).collect())
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            vec![ChartKind::Surface],
+            vec![ChartKind::Surface3D],
+            vec![ChartKind::OfPie],
+            vec![ChartKind::OfPie],
+        ]
+    );
+    let axes: Vec<usize> = charts.iter().map(|entry| entry.chart.axes.len()).collect();
+    assert_eq!(axes, [3, 3, 0, 0], "the axes");
+    for (name, forms) in [
+        (
+            b"xl/charts/chart1.xml".as_slice(),
+            [
+                "<c:view3D><c:rotX val=\"90\"/><c:rotY val=\"0\"/><c:rAngAx val=\"0\"/>\
+                 <c:perspective val=\"0\"/></c:view3D>",
+                "<c:surfaceChart><c:wireframe val=\"0\"/><c:ser>",
+                "<c:axId val=\"30\"/></c:surfaceChart>",
+            ],
+        ),
+        (
+            b"xl/charts/chart2.xml",
+            [
+                "<c:view3D><c:rotX val=\"15\"/><c:rotY val=\"20\"/><c:rAngAx val=\"1\"/>\
+                 </c:view3D>",
+                "<c:surface3DChart><c:wireframe val=\"1\"/><c:ser>",
+                "</c:valAx><c:serAx><c:axId val=\"30\"/>",
+            ],
+        ),
+        (
+            b"xl/charts/chart3.xml",
+            [
+                "<c:ofPieChart><c:ofPieType val=\"pie\"/><c:varyColors val=\"1\"/><c:ser>",
+                "<c:gapWidth val=\"150\"/><c:splitType val=\"auto\"/><c:secondPieSize \
+                 val=\"75\"/><c:serLines/></c:ofPieChart>",
+                "<c:val><c:numRef><c:f>'Sheet1'!$B$2:$B$2</c:f></c:numRef></c:val>",
+            ],
+        ),
+        (
+            b"xl/charts/chart4.xml",
+            [
+                "<c:ofPieChart><c:ofPieType val=\"bar\"/><c:varyColors val=\"1\"/><c:ser>",
+                "<c:splitType val=\"pos\"/><c:splitPos val=\"2\"/><c:secondPieSize \
+                 val=\"75\"/>",
+                "<c:legend><c:legendPos val=\"r\"/>",
+            ],
+        ),
+    ] {
+        let index = package.part(name).expect("the chart part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        for form in forms {
+            assert!(text.contains(form), "{form} in {text}");
+        }
+    }
+}
+
+#[test]
 fn the_chart_labels_sample_adds_a_coloured_labelled_bar_and_pie_and_reads_them_back() {
     // `specs/0036-charts-write-second-set.md`, "Harness runs": a clustered
     // column chart of two coloured series labelled outside their ends with
