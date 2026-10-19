@@ -73,6 +73,10 @@
   charts with a second plot on a secondary axis, series colours, data labels
   and axis number formats, and a chart removed from a sheet with the parts only
   it reaches (`specs/0036-charts-write-second-set.md`).
+- Chartsheets, with the feature `charts`: a chartsheet's chart read as a
+  worksheet's; a chartsheet added holding one chart; its chart removed and
+  another added; and a chartsheet renamed, moved and removed with the sheet
+  calls (`specs/0038-chartsheets.md`).
 
 ### Changed
 
