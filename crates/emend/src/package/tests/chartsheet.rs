@@ -443,6 +443,64 @@ fn a_chartsheet_removed_in_the_write_that_added_it_leaves_nothing() {
 }
 
 #[test]
+fn a_chartsheet_renamed_and_moved_in_the_write_that_added_it_is_written_so() {
+    // P1 verification ruling E: a pending chartsheet takes the sheet edits
+    // as any sheet of the projected list (specs/0016 P4 ruling 4).
+    let (parts, mut package) = opened(smallest());
+    let part = package
+        .add_chartsheet("Chart1", &column_chart())
+        .expect("added");
+    package.rename_sheet("Chart1", "Revenue").expect("renamed");
+    package.move_sheet("Revenue", 0).expect("moved");
+    let projected = package.sheets().expect("sheets");
+    assert_eq!(sheet_names(&mut package), ["Revenue", "Sheet1"]);
+    assert_eq!(projected[0].kind, SheetKind::Chartsheet, "the kind");
+    assert_eq!(projected[0].sheet_id, 2, "sheetId one above the largest");
+    let out = written(package);
+    assert_names(
+        &out,
+        &[
+            b"[Content_Types].xml".as_slice(),
+            b"_rels/.rels",
+            b"xl/workbook.xml",
+            b"xl/_rels/workbook.xml.rels",
+            SHEET,
+            b"xl/styles.xml",
+            CHARTSHEET,
+            CHARTSHEET_RELS,
+            DRAWING,
+            DRAWING_RELS,
+            CHART1,
+        ],
+    );
+    assert_untouched(
+        &out,
+        &parts,
+        &[
+            b"[Content_Types].xml",
+            b"xl/workbook.xml",
+            b"xl/_rels/workbook.xml.rels",
+        ],
+    );
+    assert_eq!(text_of(&out, CHARTSHEET), chartsheet_form());
+    assert_eq!(text_of(&out, DRAWING), absolute_drawing());
+    // The written list: the chartsheet first under its new name, the
+    // worksheet after it, and the chart read back as given.
+    let mut back = Package::open(Cursor::new(out.clone())).expect("open the output");
+    let sheets = back.workbook().expect("workbook").sheets.clone();
+    assert_eq!(sheets.len(), 2, "two sheets");
+    assert_eq!(sheets[0].name, "Revenue");
+    assert_eq!(sheets[0].kind, SheetKind::Chartsheet, "the written kind");
+    assert_eq!(sheets[0].part, part);
+    assert_eq!(sheets[0].sheet_id, 2);
+    assert_eq!(sheets[1].name, "Sheet1");
+    assert_eq!(sheets[1].kind, SheetKind::Worksheet);
+    assert_eq!(sheets[1].part, SHEET);
+    let read = assert_one_chart(&charts_of(&out, CHARTSHEET), &column_chart());
+    assert_eq!(read, CHART1, "the chart part");
+}
+
+#[test]
 fn the_chart_calls_on_a_chartsheet_added_in_the_same_write_are_no_such_part() {
     // P1 ruling C: as on a worksheet added in the same write.
     let (_, mut package) = opened(smallest());
