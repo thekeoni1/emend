@@ -397,6 +397,117 @@ commit and this part's commits, on planning's word and the
 maintainer's authorisation typed in the implementing session. The
 hashes and the change number are filled in at the briefing.
 
+## Planning rulings during P1 (2026-10-18)
+
+A. Remove-then-add in one write. The spec's "`add_chart` and
+   `remove_chart` on a chartsheet" paragraph said the removal's skip and
+   the addition's append replace a chartsheet's chart in one write, "as
+   on a worksheet"; on a worksheet that write is refused today
+   (`record_removals`, "no chart at that position" for a removal on a
+   part the same write adds to; `specs/0036` P2's test "a removal and an
+   addition on one part refused"; `remove_chart`'s doc), so the spec
+   contradicted the tested rule. Ruled as the implementer's option B:
+   the refusal stands for every sheet kind; on a chartsheet a
+   replacement takes two writes, `remove_chart` then `add_chart`; "a
+   chartsheet holds one chart" counts the frames the drawing holds, so
+   `add_chart` on a chartsheet whose drawing holds a frame is refused;
+   the P1 test "remove-then-add in one write" reads remove, write, add,
+   write, with a control that remove and add in one write is refused
+   with the worksheet's message. Decision 2 A's "remove-then-add
+   replaces it" means in two writes.
+
+B. Message text. The spec's "a chart's size is required by its anchor"
+   names no string in the crate; the existing `CHART_SIZE_ANCHOR`, "a
+   chart size does not apply to its anchor", already covers a missing
+   size on an absolute anchor. Reused as it stands; the spec's wording
+   is corrected by this ruling, and the message count of the part is
+   three as "Errors" says.
+
+C. Noted, no ruling: `NewChart::size` is in pixels (9525 EMU each), so
+   the sample's 9144000 by 6096000 EMU is `size` (960, 640); a sheet
+   added in the same write has no archive entry, so `add_chartsheet`
+   writes its drawing, chart and rels itself through the shared writers,
+   and the chart calls on a chartsheet added in the same write are
+   refused with "no such part", as on a worksheet added in the same
+   write.
+
+## Planning verification of P1 (2026-10-19)
+
+Verified from primaries: the chain 715aa75 (the three planning files at
+planning's hashes), 56b2937, f917618 and f948fd9 on 67c9144; the record
+commit adds the seven files of `records/logs/m6p1-p1` and the two record
+pairs and nothing else; the messages ASCII, each carrying the count
+sentence and the Co-Authored-By line alone; no U+2014 and no home path
+in the range's diff; the seven logs and four records at the hashes the
+README and the report give, each log ending "checks all as expected:
+yes", the scan RESULT: PASS; planning's own privacy scan over
+67c9144..f948fd9 (4 commits, 2013 blobs, 0 findings). The core diff read
+whole: the root rule through `sheet_element_rel_id` with the
+chartsheet's child list, the chartsheet form (decision 3 A),
+`SheetEdit::Add` with a kind and the carried parts, `add_chartsheet`
+with every read and check before the first record, the anchor and one-
+chart checks at the write (decisions 1 and 2 A, ruling A), the empty
+drawing kept, the three messages; nothing outside P1's list. The created
+drawing takes `strict: false` and the `xl/` names as `add_chart`'s own
+created drawing does (parts 4 and 5), so check 1's item 4 is the
+existing rule. The chartsheet sample's chart equals `add_chart_sample`'s
+field for field but `size` (960, 640), so item 5 is answered. Test
+totals on both targets off 515, charts 634, charts,images 676,
+charts,comments 679, charts,read 737, every feature 1116; the corpus 27
+of 27 on both targets, `lo` and `lo_in` ok on 27, the entry families as
+"Harness runs" expects (the workbook part, its rels and the content
+types changed; the chartsheet, two rels, the drawing and the chart
+added); the keep's 35 new pairs; the open record 1472 pairs with the
+same 12 and 11 LibreOffice failures as its predecessor's 1437, so no
+finding. The charts probe reads 1086440, 10316 over part 6's record,
+inside the estimate of 6000 to 11000; P3's size record judges it.
+Planning hashed the superseded run script itself (335c74f5) and the two
+dry logs (af1a3dbf, ca08ba01): as the report says.
+
+D. FINDING, change NWZ: the first run log printed two placeholders
+   before a slash with no root line declaring them, found by the scan's
+   pre-check; the run generator's own check read a fixed token list. The
+   rerun at the same commit under RERUN_NOTE and RERUN_FILES is accepted
+   (rulings AA and AK b honoured). The widened check's control is a
+   session's statement no log prints: from P2 on, a generator's own
+   placeholder check prints its control in the log it writes, the scan's
+   form.
+
+E. The same-write rule for an added chartsheet. The spec's sentence
+   ("cannot be removed, renamed or moved in the same write") was
+   planning's error; the crate's rule is `specs/0016` P4 ruling 4, a
+   pending sheet may be removed (its additions dropped, nothing
+   written), renamed or moved like any sheet of the projected list. The
+   chartsheet takes that rule, its removal dropping the four carried
+   parts, as tested. The sentence is corrected by this ruling. P2's
+   first code commit adds the test of a pending chartsheet renamed and
+   moved in the write that added it, the output read back through the
+   sheet list and `charts`.
+
+F. Ruling AA's reach. AA names logged attempts. For P1: the first run
+   log, its stderr and its pre-check hashed by RERUN_FILES is accepted;
+   the first run's records derive from it and need no hash; the two dry
+   logs hashed in the README alone is accepted, a dry run being no
+   logged attempt. From P2 on, RERUN_FILES also names the superseded
+   script that wrote the attempt, so the rerun's log hashes the
+   generator state it replaced.
+
+G. The three messages catalogued in the `package` header in P1, which
+   the spec gave to P2, is accepted: the catalogue test requires it.
+   P2's "catalogue and limits" reads the limits alone.
+
+H. N7, "the sheet part's root is not worksheet or chartsheet" reachable
+   through the binary on a chartsheet relationship to a dialogsheet
+   part, noted as shown; the message count stays three. The sample
+   line's `kept_charts` key and `--charts-sample` reading chartsheets
+   are accepted as disclosed; the fixture run of P2 needs the latter.
+
+I. The core commit amended after the first dry test log (an unused test
+   constant under two feature sets, an intra-doc link with no features)
+   and the tool commit replayed, messages unchanged, the old pair on
+   `p1-before-fix`: local, unreported commits (`specs/0001`). The dry
+   negative driver fault, rerun with the gate log, noted. P1 DONE.
+
 ## Decisions for the maintainer
 
 1. The anchor of a chartsheet's chart: A (recommended), an
