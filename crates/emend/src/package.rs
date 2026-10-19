@@ -2088,7 +2088,9 @@
 //!   `AlternateContent`'s first `Choice`, whose `graphicFrame` holds a
 //!   `c:chart`, with the chart part that names: the anchor; the title; the
 //!   plots, their series and axis ids; the axes; the legend's position;
-//!   the pivot source; the style. A chartsheet is not read (P1 ruling B).
+//!   the pivot source; the style. A chartsheet's charts are read the same
+//!   way through its one `drawing` element, and a chartsheet with none
+//!   reads as no charts (`specs/0038-chartsheets.md`, "Reading").
 //! - The title rules: a chart's or an axis's title is the `a:t` text of
 //!   every run of its `tx/rich` paragraphs, the paragraphs joined by a
 //!   newline, or the text of its `tx/strRef` cache's first point; a title
@@ -2159,6 +2161,40 @@
 //!   transitional chart part, as an image does (P1 rulings E and H).
 //! - None of this has been through an Excel check yet: the harness opens
 //!   every output in LibreOffice; what Excel draws for a chart is Excel's.
+//!
+//! Chartsheets add these, under the same Cargo feature `charts`
+//! (`specs/0038-chartsheets.md`, "Design", the decisions and the rulings of
+//! its phases):
+//!
+//! - What `Package::add_chartsheet` writes: a chartsheet at the end of the
+//!   list holding one chart in an `absoluteAnchor` at 0,0 of the chart's
+//!   `size` (decision 1 A); the chartsheet part from a blank form, one
+//!   `sheetView` (`workbookViewId` 0, `zoomToFit` 1) and the `drawing`
+//!   (decision 3 A); its rels part, the drawing and its rels part and the
+//!   chart part, each with its `Override` unless a `Default` names the
+//!   type; the workbook relationship in the form the workbook's worksheet
+//!   relationships use; the `<sheet>` with `sheetId` one above the
+//!   largest. The created parts are transitional, as `add_chart`'s created
+//!   drawing is. Nothing else of a chartsheet is written: no `sheetPr`, no
+//!   protection, no page setup.
+//! - A chart on a chartsheet: `add_chart` takes an absolute anchor alone,
+//!   and a chartsheet holds one chart, so a replacement takes two writes,
+//!   `remove_chart` then `add_chart` (decision 2 A, P1 ruling A); a removal
+//!   leaves the chartsheet's drawing in place with no anchor, never drops
+//!   it; a chartsheet with no `drawing` element takes no chart ("a drawing
+//!   part or its relationship cannot be read").
+//! - A chartsheet added in a write: the chart calls on it are "no such
+//!   part" in that write (P1 ruling C); it may be renamed, moved or
+//!   removed as any sheet added and not yet written, a removal dropping
+//!   its four other parts with it (`specs/0016-new-workbook-and-sheets.md`
+//!   P4 ruling 4; P1 verification ruling E).
+//! - A workbook whose root binds no prefix for the relationships namespace,
+//!   as openpyxl writes it, refuses the addition as it refuses
+//!   `Package::add_sheet` (`specs/0016-new-workbook-and-sheets.md`; P2
+//!   ruling J).
+//! - Images and comments still take a worksheet alone: on a chartsheet
+//!   they are refused with "the worksheet part's root is not worksheet".
+//! - None of this has been through an Excel check yet.
 //!
 //! # What streams and what is held
 //!
@@ -5773,7 +5809,6 @@ const TEMPLATE: [(&[u8], &[u8]); 6] = [
 /// The template's blank worksheet: the part every added sheet starts as.
 const BLANK_WORKSHEET: &[u8] = TEMPLATE[4].1;
 
-/// The transitional worksheet content type, which the strict form shares.
 /// The blank chartsheet a chartsheet addition starts from
 /// (`specs/0038-chartsheets.md`, decision 3 A): one `sheetView` with
 /// `workbookViewId` 0 and `zoomToFit` 1, then the `drawing` naming the
@@ -5787,6 +5822,7 @@ const BLANK_CHARTSHEET: &[u8] = b"<?xml version=\"1.0\" encoding=\"UTF-8\" stand
 const CHARTSHEET_CONTENT_TYPE: &[u8] =
     b"application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml";
 
+/// The transitional worksheet content type, which the strict form shares.
 const WORKSHEET_CONTENT_TYPE: &[u8] =
     b"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 
