@@ -6,6 +6,9 @@
 //! combined with the first, data labels, a solid colour per series and the
 //! axes' number formats, and [`Package::remove_chart`].
 //!
+//! `specs/0039-chart-kinds-and-formatting.md` adds the surface plots, the
+//! contour form and the 3D one, and the of-pie plot with its split.
+//!
 //! [`Package::add_chart`] checks the call and records the chart as an image
 //! is recorded: the write adds the chart part, created whole from the
 //! caller's strings, and an anchor holding a `graphicFrame` that names it,
@@ -59,6 +62,11 @@ pub(crate) const CHARTSHEET_ANCHOR: Error =
 /// What a second chart on a chartsheet is refused with at the write
 /// (decision 2 A, P1 ruling A).
 pub(crate) const ONE_CHART: Error = Error::Package("a chartsheet holds one chart");
+/// What a chart number outside its range is refused with
+/// (`specs/0039-chart-kinds-and-formatting.md`, "Errors"): an of-pie's
+/// position below 1, a split value that is not finite or is negative, a
+/// percent above 100.
+pub(crate) const CHART_VALUE_RANGE: Error = Error::Package("a chart value is out of its range");
 
 /// A chart part's content type (`specs/0035-charts-write-first-set.md`,
 /// "The parts").
@@ -73,7 +81,7 @@ const REFERENCE_LIMIT: usize = 8_192;
 /// A chart as a caller gives it to [`Package::add_chart`]
 /// (`specs/0035-charts-write-first-set.md`, "The call"). The Cargo feature
 /// `charts`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NewChart<'a> {
     /// The plot: its kind and the options the kind takes.
     pub plot: NewPlot,
@@ -105,7 +113,7 @@ pub struct NewChart<'a> {
 /// second-set.md`, "The call"): a bar, line, area or scatter plot of a
 /// variant other than the first's, on the primary axes or on a secondary
 /// pair. The Cargo feature `charts`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NewCombined<'a> {
     /// The second plot: its kind and the options the kind takes.
     pub plot: NewPlot,
@@ -122,7 +130,7 @@ pub struct NewCombined<'a> {
 
 /// A new chart's plot: its kind and the options the kind takes. The Cargo
 /// feature `charts`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NewPlot {
     /// `barChart`: its direction and its grouping, `Clustered`, `Stacked`
     /// or `PercentStacked`.
@@ -192,6 +200,49 @@ pub enum NewPlot {
         /// How the series are grouped.
         grouping: Grouping,
     },
+    /// `surfaceChart`, the contour form seen from above: one or more
+    /// series, which take no colour and no labels; the axes a line's and
+    /// the series axis (`specs/0039-chart-kinds-and-formatting.md`).
+    Surface {
+        /// Whether the surface is drawn as a wireframe, `wireframe`.
+        wireframe: bool,
+    },
+    /// `surface3DChart`: as `Surface`, drawn in 3D.
+    Surface3D {
+        /// Whether the surface is drawn as a wireframe, `wireframe`.
+        wireframe: bool,
+    },
+    /// `ofPieChart`: one series, no axes, `varyColors` 1, as `Pie`; its
+    /// second plot a pie or a bar.
+    OfPie {
+        /// The second plot's form, `ofPieType`.
+        kind: OfPieKind,
+        /// Which points go to the second plot; `None` writes `splitType`
+        /// `auto`.
+        split: Option<OfPieSplit>,
+    },
+}
+
+/// An of-pie plot's second plot, `ofPieType`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OfPieKind {
+    /// `pie`: pie of pie.
+    Pie,
+    /// `bar`: bar of pie.
+    Bar,
+}
+
+/// An of-pie plot's split, `splitType` with `splitPos`
+/// (`specs/0039-chart-kinds-and-formatting.md`, "The call"; the custom
+/// split is out of scope, decision 2 A). The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum OfPieSplit {
+    /// `pos`: the last N points go to the second plot; N at least 1.
+    Position(u32),
+    /// `val`: the points below the value; finite and not negative.
+    Value(f64),
+    /// `percent`: the points below the percentage; finite, 0 to 100.
+    Percent(f64),
 }
 
 /// A new radar plot's `radarStyle`. The Cargo feature `charts`.
@@ -369,8 +420,13 @@ impl<R: Read + Seek> Package<R> {
     /// plot's series without sizes or another plot's with them, a category
     /// axis format on a scatter or a bubble, a colour above `0xFFFFFF` or on
     /// a stock plot's series, a label's percentage on a plot other than a
-    /// pie, a 3D pie or a doughnut, a label position the plot does not take,
-    /// then for a combined plot a first plot other than a bar, line or area,
+    /// pie, a 3D pie, a doughnut or an of-pie, a label position the plot
+    /// does not take, a colour or labels on a surface's series, an of-pie
+    /// with more than one series or an axis title or format; "a chart value
+    /// is out of its range" for an of-pie's split position below 1, a split
+    /// value that is not finite or is negative, or a percent above 100
+    /// (`specs/0039-chart-kinds-and-formatting.md`, "Applicability"); "a
+    /// chart option does not apply to its kind", then, for a combined plot a first plot other than a bar, line or area,
     /// a second other than a bar, line, area or scatter or of the first's
     /// variant, a second with no series or that breaks its own kind's rules,
     /// a scatter second or a secondary title or format without
@@ -554,6 +610,21 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
         if !plot_applies(chart.plot, chart.series, axes) {
             return Err(CHART_OPTION_KIND);
         }
+        if let NewPlot::OfPie {
+            split: Some(split), ..
+        } = chart.plot
+        {
+            let in_range = match split {
+                OfPieSplit::Position(points) => points >= 1,
+                OfPieSplit::Value(value) => value.is_finite() && value >= 0.0,
+                OfPieSplit::Percent(percent) => {
+                    percent.is_finite() && (0.0..=100.0).contains(&percent)
+                }
+            };
+            if !in_range {
+                return Err(CHART_VALUE_RANGE);
+            }
+        }
         if let Some(combined) = &chart.combined {
             // The first plot a bar, line or area (no 3D plot combines: P2
             // ruling G; a scatter's x axis cannot share a category axis: P2
@@ -643,7 +714,9 @@ impl AxisOptions {
 /// Whether `plot` takes `series` and the axis options given (`specs/0036-
 /// charts-write-second-set.md`, "Applicability"): its grouping, its series
 /// count, a doughnut's hole, sizes on a bubble's series alone, the axis
-/// titles and formats, each series' colour and its labels.
+/// titles and formats, each series' colour and its labels; a surface's
+/// series take no colour and no labels, an of-pie takes a pie's rules
+/// (`specs/0039-chart-kinds-and-formatting.md`, "Applicability").
 fn plot_applies(plot: NewPlot, series: &[NewSeries<'_>], axes: AxisOptions) -> bool {
     let count = series.len();
     let bubble = plot == NewPlot::Bubble;
@@ -654,7 +727,7 @@ fn plot_applies(plot: NewPlot, series: &[NewSeries<'_>], axes: AxisOptions) -> b
         | NewPlot::Area { grouping }
         | NewPlot::Line3D { grouping }
         | NewPlot::Area3D { grouping } => grouping != Grouping::Clustered,
-        NewPlot::Pie | NewPlot::Pie3D => count == 1 && no_axis,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::OfPie { .. } => count == 1 && no_axis,
         NewPlot::Doughnut { hole_size } => (1..=90).contains(&hole_size) && no_axis,
         NewPlot::Stock => (3..=4).contains(&count),
         NewPlot::Scatter { .. } | NewPlot::Bubble => !axes.category_format,
@@ -662,15 +735,17 @@ fn plot_applies(plot: NewPlot, series: &[NewSeries<'_>], axes: AxisOptions) -> b
     };
     let round = matches!(
         plot,
-        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. }
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
     );
+    let surface = matches!(plot, NewPlot::Surface { .. } | NewPlot::Surface3D { .. });
     kind && series.iter().all(|one| {
         one.sizes.is_some() == bubble
             && one
                 .color
-                .is_none_or(|color| color <= 0xFF_FFFF && plot != NewPlot::Stock)
+                .is_none_or(|color| color <= 0xFF_FFFF && plot != NewPlot::Stock && !surface)
             && one.labels.is_none_or(|labels| {
-                (round || !labels.percent)
+                !surface
+                    && (round || !labels.percent)
                     && labels
                         .position
                         .is_none_or(|position| takes_position(plot, position))
@@ -680,8 +755,8 @@ fn plot_applies(plot: NewPlot, series: &[NewSeries<'_>], axes: AxisOptions) -> b
 
 /// Whether `plot`'s labels take `position` ("Applicability", P3 ruling L):
 /// a bar's the four, `OutsideEnd` not when stacked; a line's, a scatter's
-/// and a radar's other than filled the five; a pie's and a 3D pie's the
-/// four; no other plot's any.
+/// and a radar's other than filled the five; a pie's, a 3D pie's and an
+/// of-pie's the four; no other plot's any.
 fn takes_position(plot: NewPlot, position: LabelPosition) -> bool {
     use LabelPosition::{
         Above, Below, BestFit, Center, InsideBase, InsideEnd, Left, OutsideEnd, Right,
@@ -697,7 +772,7 @@ fn takes_position(plot: NewPlot, position: LabelPosition) -> bool {
         | NewPlot::Radar {
             style: RadarStyle::Standard | RadarStyle::Marker,
         } => matches!(position, Center | Left | Right | Above | Below),
-        NewPlot::Pie | NewPlot::Pie3D => {
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::OfPie { .. } => {
             matches!(position, BestFit | Center | InsideEnd | OutsideEnd)
         }
         _ => false,
@@ -742,7 +817,8 @@ fn series_work(series: &[NewSeries<'_>]) -> Result<Vec<SeriesWork>, Error> {
 }
 
 /// Whether `plot` writes the series axis, id 30: a `Standard` bar or area
-/// 3D plot, and a 3D line plot whatever its grouping (P2 ruling F).
+/// 3D plot, a 3D line plot whatever its grouping (P2 ruling F), and both
+/// surfaces (`specs/0039-chart-kinds-and-formatting.md`).
 fn series_axis(plot: NewPlot) -> bool {
     matches!(
         plot,
@@ -752,6 +828,8 @@ fn series_axis(plot: NewPlot) -> bool {
         } | NewPlot::Area3D {
             grouping: Grouping::Standard
         } | NewPlot::Line3D { .. }
+            | NewPlot::Surface { .. }
+            | NewPlot::Surface3D { .. }
     )
 }
 
@@ -807,12 +885,15 @@ impl ChartWork {
             if self.title.is_some() { b"0" } else { b"1" },
         );
         // A 3D plot's view (`specs/0036-charts-write-second-set.md`, "The
-        // chart part").
+        // chart part"); the contour's from above, with no perspective
+        // (`specs/0039-chart-kinds-and-formatting.md`).
         let view: Option<[&[u8]; 3]> = match self.plot {
-            NewPlot::Bar3D { .. } | NewPlot::Line3D { .. } | NewPlot::Area3D { .. } => {
-                Some([b"15", b"20", b"1"])
-            }
+            NewPlot::Bar3D { .. }
+            | NewPlot::Line3D { .. }
+            | NewPlot::Area3D { .. }
+            | NewPlot::Surface3D { .. } => Some([b"15", b"20", b"1"]),
             NewPlot::Pie3D => Some([b"30", b"0", b"0"]),
+            NewPlot::Surface { .. } => Some([b"90", b"0", b"0"]),
             _ => None,
         };
         if let Some([x, y, r]) = view {
@@ -820,6 +901,9 @@ impl ChartWork {
             value_element(&mut out, b"rotX", x);
             value_element(&mut out, b"rotY", y);
             value_element(&mut out, b"rAngAx", r);
+            if matches!(self.plot, NewPlot::Surface { .. }) {
+                value_element(&mut out, b"perspective", b"0");
+            }
             out.extend_from_slice(b"</c:view3D>");
         }
         out.extend_from_slice(b"<c:plotArea><c:layout/>");
@@ -864,7 +948,7 @@ impl ChartWork {
     /// The first plot's axes: the category axis then the value axis; a bar
     /// plot with direction `Bar` has its category axis at `l` and its value
     /// axis at `b`; a scatter's or a bubble's x axis is a value axis with no
-    /// gridlines; a pie and a doughnut have none; then the series axis when
+    /// gridlines; a pie, a doughnut and an of-pie have none; then the series axis when
     /// the plot writes it, and a combined plot's secondary pair.
     fn axes_bytes(&self, out: &mut Vec<u8>) {
         let x = &self.category_axis_title;
@@ -878,7 +962,7 @@ impl ChartWork {
             crosses: b"autoZero",
         };
         match self.plot {
-            NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } => {}
+            NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. } => {}
             NewPlot::Scatter { .. } | NewPlot::Bubble => {
                 let x_axis = Axis {
                     title: x,
@@ -1057,6 +1141,9 @@ fn plot_bytes(
         NewPlot::Line3D { .. } => b"line3DChart",
         NewPlot::Pie3D => b"pie3DChart",
         NewPlot::Area3D { .. } => b"area3DChart",
+        NewPlot::Surface { .. } => b"surfaceChart",
+        NewPlot::Surface3D { .. } => b"surface3DChart",
+        NewPlot::OfPie { .. } => b"ofPieChart",
     };
     tag(out, b"<c:", element);
     match plot {
@@ -1089,6 +1176,18 @@ fn plot_bytes(
                 RadarStyle::Filled => b"filled",
             },
         ),
+        NewPlot::Surface { wireframe } | NewPlot::Surface3D { wireframe } => {
+            value_element(out, b"wireframe", if wireframe { b"1" } else { b"0" });
+        }
+        // The schema's order puts `ofPieType` first.
+        NewPlot::OfPie { kind, .. } => value_element(
+            out,
+            b"ofPieType",
+            match kind {
+                OfPieKind::Pie => b"pie",
+                OfPieKind::Bar => b"bar",
+            },
+        ),
         _ => {}
     }
     if let NewPlot::Bar { grouping, .. }
@@ -1100,13 +1199,14 @@ fn plot_bytes(
     {
         value_element(out, b"grouping", grouping_value(grouping));
     }
-    // A pie's and a doughnut's slices vary; a stock plot has no
-    // `varyColors`.
+    // A pie's, a doughnut's and an of-pie's slices vary; a stock plot and
+    // the surfaces have no `varyColors`.
     let round = matches!(
         plot,
-        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. }
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
     );
-    if plot != NewPlot::Stock {
+    let surface = matches!(plot, NewPlot::Surface { .. } | NewPlot::Surface3D { .. });
+    if plot != NewPlot::Stock && !surface {
         value_element(out, b"varyColors", if round { b"1" } else { b"0" });
     }
     series_bytes(out, plot, series, first);
@@ -1133,6 +1233,21 @@ fn plot_bytes(
             value_element(out, b"showNegBubbles", b"0");
         }
         NewPlot::Stock => out.extend_from_slice(b"<c:hiLowLines/>"),
+        NewPlot::OfPie { split, .. } => {
+            value_element(out, b"gapWidth", b"150");
+            let (split_type, position): (&[u8], Option<String>) = match split {
+                None => (b"auto", None),
+                Some(OfPieSplit::Position(points)) => (b"pos", Some(points.to_string())),
+                Some(OfPieSplit::Value(value)) => (b"val", Some(value.to_string())),
+                Some(OfPieSplit::Percent(percent)) => (b"percent", Some(percent.to_string())),
+            };
+            value_element(out, b"splitType", split_type);
+            if let Some(position) = position {
+                value_element(out, b"splitPos", position.as_bytes());
+            }
+            value_element(out, b"secondPieSize", b"75");
+            out.extend_from_slice(b"<c:serLines/>");
+        }
         _ => {}
     }
     if !round {

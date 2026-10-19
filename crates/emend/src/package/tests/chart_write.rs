@@ -4,7 +4,8 @@
 //! write-second-set.md`, "P1: the compaction, doughnut, radar, bubble and
 //! stock charts", "P2: the 3D kinds and combined charts", P2 rulings F
 //! to J, and "P3: labels, colours, number formats; `remove_chart`; the
-//! catalogue", P3 rulings L and O):
+//! catalogue", P3 rulings L and O; `specs/0039-chart-kinds-and-
+//! formatting.md`, "P1: the surface and of-pie kinds"):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -15,8 +16,8 @@ use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
     ChartKind, Data, EditAs, Grouping, ImageAnchor, LabelPosition, LegendPosition, NewChart,
-    NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, Plot, RadarStyle, ScatterStyle,
-    Series, SeriesName,
+    NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, OfPieKind, OfPieSplit, Plot,
+    RadarStyle, ScatterStyle, Series, SeriesName,
 };
 
 /// The drawing and chart parts' content types.
@@ -45,6 +46,7 @@ const SIZE: &str = "a chart size does not apply to its anchor";
 const ANCHOR: &str = "a chart anchor is out of range";
 const GRID: &str = "a row or column index or count is out of range";
 const DRAWING_UNREADABLE: &str = "a drawing part or its relationship cannot be read";
+const RANGE: &str = "a chart value is out of its range";
 
 /// The worksheet body the drawing fixtures use.
 const BODY: &str = "<sheetData/><drawing r:id=\"rId1\"/>";
@@ -3678,4 +3680,386 @@ fn a_chart_removal_on_a_part_the_same_write_adds_an_image_to_is_refused() {
         }),
         NO_CHART,
     );
+}
+
+/// Three series over B to D against A, each with a reference name, for the
+/// surfaces (`specs/0039-chart-kinds-and-formatting.md`, "P1").
+const THREE_NAMED: [NewSeries<'static>; 3] = [
+    NewSeries {
+        name: Some(NewSeriesName::Reference("Sheet1!$B$1")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$B$2:$B$4",
+        sizes: None,
+        color: None,
+        labels: None,
+    },
+    NewSeries {
+        name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$C$2:$C$4",
+        sizes: None,
+        color: None,
+        labels: None,
+    },
+    NewSeries {
+        name: Some(NewSeriesName::Reference("Sheet1!$D$1")),
+        categories: Some("Sheet1!$A$2:$A$4"),
+        values: "Sheet1!$D$2:$D$4",
+        sizes: None,
+        color: None,
+        labels: None,
+    },
+];
+
+/// The series forms of `THREE_NAMED` as written: `idx`, `order`, `tx`,
+/// `cat` and `val`, nothing else.
+fn three_named_written() -> String {
+    ["B", "C", "D"]
+        .iter()
+        .enumerate()
+        .map(|(k, column)| {
+            format!(
+                "<c:ser><c:idx val=\"{k}\"/><c:order val=\"{k}\"/><c:tx>{}</c:tx><c:cat>{}\
+                 </c:cat><c:val>{}</c:val></c:ser>",
+                reference("strRef", &format!("Sheet1!${column}$1")),
+                reference("strRef", "Sheet1!$A$2:$A$4"),
+                reference("numRef", &format!("Sheet1!${column}$2:${column}$4")),
+            )
+        })
+        .collect()
+}
+
+/// `THREE_NAMED` as `charts` reads it.
+fn three_named_read() -> Vec<Series> {
+    ["B", "C", "D"]
+        .iter()
+        .zip(0..)
+        .map(|(column, k)| {
+            series_ref(
+                Some(SeriesName::Reference(format!("Sheet1!${column}$1"))),
+                Some("Sheet1!$A$2:$A$4"),
+                &format!("Sheet1!${column}$2:${column}$4"),
+                k,
+            )
+        })
+        .collect()
+}
+
+/// The contour's view: from above, no perspective.
+const CONTOUR_VIEW: &str = "<c:view3D><c:rotX val=\"90\"/><c:rotY val=\"0\"/><c:rAngAx \
+                            val=\"0\"/><c:perspective val=\"0\"/></c:view3D>";
+
+#[test]
+fn a_contour_and_a_3d_surface_of_three_series_take_each_wireframe_and_three_axes() {
+    for (three_d, wireframe) in [(false, false), (false, true), (true, false), (true, true)] {
+        let (plot, element, view, kind) = if three_d {
+            (
+                NewPlot::Surface3D { wireframe },
+                "surface3DChart",
+                VIEW_3D,
+                ChartKind::Surface3D,
+            )
+        } else {
+            (
+                NewPlot::Surface { wireframe },
+                "surfaceChart",
+                CONTOUR_VIEW,
+                ChartKind::Surface,
+            )
+        };
+        let chart = titled(plot, &THREE_NAMED, (Some("Month"), Some("Units")));
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let wire = u8::from(wireframe);
+        // The plot: `wireframe`, the series, the three axis ids; no
+        // `varyColors`; the axes a line's, then the series axis last.
+        assert_eq!(
+            text_of(&output, CHART1),
+            chart_part(&format!(
+                "{}<c:autoTitleDeleted val=\"0\"/>{view}<c:plotArea><c:layout/><c:{element}>\
+                 <c:wireframe val=\"{wire}\"/>{}<c:axId val=\"10\"/><c:axId val=\"20\"/>\
+                 <c:axId val=\"30\"/></c:{element}>{}{SERIES_AXIS}</c:plotArea><c:legend>\
+                 <c:legendPos val=\"r\"/><c:overlay val=\"0\"/></c:legend><c:plotVisOnly \
+                 val=\"1\"/><c:dispBlanksAs val=\"gap\"/>",
+                title("Share"),
+                three_named_written(),
+                axes("b", "l", &title("Month"), &title("Units")),
+            ))
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![plot_read(kind, false, three_named_read(), vec![10, 20, 30])]
+        );
+        assert_eq!(
+            read.axes,
+            read_axes_3d(AxisPosition::Bottom, AxisPosition::Left, true)
+        );
+        // A surface takes one series too, and the axis formats.
+        let one = NewChart {
+            category_axis_format: Some("0"),
+            value_axis_format: Some("0.0"),
+            ..titled(plot, &ONE_NAMED, (None, None))
+        };
+        call(box_anchor(), &one).expect("taken");
+    }
+}
+
+#[test]
+fn a_surface_series_with_a_colour_or_labels_is_refused() {
+    for plot in [
+        NewPlot::Surface { wireframe: false },
+        NewPlot::Surface3D { wireframe: true },
+    ] {
+        let coloured = THREE_NAMED.map(|one| NewSeries {
+            color: Some(0x00_80FF),
+            ..one
+        });
+        let chart = titled(plot, &coloured, (None, None));
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        let last_coloured = [
+            THREE_NAMED[0],
+            THREE_NAMED[1],
+            NewSeries {
+                color: Some(0),
+                ..THREE_NAMED[2]
+            },
+        ];
+        let chart = titled(plot, &last_coloured, (None, None));
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        for labels in [
+            value_labels(None),
+            value_labels(Some(LabelPosition::Center)),
+        ] {
+            let labelled = labelled(THREE_NAMED, labels);
+            let chart = titled(plot, &labelled, (None, None));
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+    }
+}
+
+#[test]
+fn a_surface_as_either_combined_plot_is_refused() {
+    let line = second(NewPlot::Line {
+        grouping: Grouping::Standard,
+    });
+    for plot in [
+        NewPlot::Surface { wireframe: false },
+        NewPlot::Surface3D { wireframe: false },
+    ] {
+        let first = NewChart {
+            combined: Some(line),
+            ..titled(plot, &THREE_NAMED, (None, None))
+        };
+        assert_package(call(box_anchor(), &first).expect_err("refused"), OPTION);
+        let as_second = combined(second(plot));
+        assert_package(call(box_anchor(), &as_second).expect_err("refused"), OPTION);
+        let on_secondary = combined(NewCombined {
+            secondary_axis: true,
+            ..second(plot)
+        });
+        assert_package(
+            call(box_anchor(), &on_secondary).expect_err("refused"),
+            OPTION,
+        );
+    }
+}
+
+/// The of-pie plot's form around `ONE_NAMED`: `ofPieType` `kind` first,
+/// then `varyColors` 1, the series, and the options after it, the split's
+/// `split` (its `splitType`, then its `splitPos` when given).
+fn of_pie_written(kind: &str, split: &str) -> String {
+    format!(
+        "<c:ofPieChart><c:ofPieType val=\"{kind}\"/><c:varyColors val=\"1\"/>{}<c:gapWidth \
+         val=\"150\"/>{split}<c:secondPieSize val=\"75\"/><c:serLines/></c:ofPieChart>",
+        one_named_written(),
+    )
+}
+
+#[test]
+fn an_of_pie_of_each_type_and_each_split_writes_its_form() {
+    for (kind, kind_value) in [(OfPieKind::Pie, "pie"), (OfPieKind::Bar, "bar")] {
+        for (split, split_form) in [
+            (None, "<c:splitType val=\"auto\"/>"),
+            (
+                Some(OfPieSplit::Position(2)),
+                "<c:splitType val=\"pos\"/><c:splitPos val=\"2\"/>",
+            ),
+            (
+                Some(OfPieSplit::Position(1)),
+                "<c:splitType val=\"pos\"/><c:splitPos val=\"1\"/>",
+            ),
+            (
+                Some(OfPieSplit::Value(2.5)),
+                "<c:splitType val=\"val\"/><c:splitPos val=\"2.5\"/>",
+            ),
+            (
+                Some(OfPieSplit::Value(0.0)),
+                "<c:splitType val=\"val\"/><c:splitPos val=\"0\"/>",
+            ),
+            (
+                Some(OfPieSplit::Value(1250.0)),
+                "<c:splitType val=\"val\"/><c:splitPos val=\"1250\"/>",
+            ),
+            (
+                Some(OfPieSplit::Percent(10.0)),
+                "<c:splitType val=\"percent\"/><c:splitPos val=\"10\"/>",
+            ),
+            (
+                Some(OfPieSplit::Percent(12.75)),
+                "<c:splitType val=\"percent\"/><c:splitPos val=\"12.75\"/>",
+            ),
+            (
+                Some(OfPieSplit::Percent(100.0)),
+                "<c:splitType val=\"percent\"/><c:splitPos val=\"100\"/>",
+            ),
+        ] {
+            let chart = titled(NewPlot::OfPie { kind, split }, &ONE_NAMED, (None, None));
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            // No view, no axes.
+            assert_eq!(
+                text_of(&output, CHART1),
+                chart_part(&format!(
+                    "{}<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/>{}</c:plotArea>\
+                     <c:legend><c:legendPos val=\"r\"/><c:overlay val=\"0\"/></c:legend>\
+                     <c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/>",
+                    title("Share"),
+                    of_pie_written(kind_value, split_form),
+                ))
+            );
+            let read = &charts_of(&output)[0].chart;
+            assert_eq!(
+                read.plots,
+                vec![plot_read(
+                    ChartKind::OfPie,
+                    true,
+                    vec![one_named_read()],
+                    Vec::new()
+                )]
+            );
+            assert!(read.axes.is_empty());
+        }
+    }
+}
+
+#[test]
+fn an_of_pie_takes_a_colour_the_percent_and_a_pie_s_positions() {
+    let plot = NewPlot::OfPie {
+        kind: OfPieKind::Bar,
+        split: None,
+    };
+    let coloured = [NewSeries {
+        color: Some(0x12_34AB),
+        ..ONE_NAMED[0]
+    }];
+    let output = edited_output(smallest(), |p| {
+        add(p, box_anchor(), &titled(plot, &coloured, (None, None)));
+    });
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:ofPieChart><c:ofPieType val=\"bar\"/><c:varyColors val=\"1\"/><c:ser><c:idx \
+             val=\"0\"/><c:order val=\"0\"/>{ONE_NAMED_TX}<c:spPr><a:solidFill><a:srgbClr \
+             val=\"1234AB\"/></a:solidFill></c:spPr><c:cat>{}</c:cat><c:val>{}</c:val></c:ser>\
+             <c:gapWidth val=\"150\"/><c:splitType val=\"auto\"/><c:secondPieSize val=\"75\"/>\
+             <c:serLines/></c:ofPieChart>",
+            reference("strRef", "Sheet1!$A$2:$A$4"),
+            reference("numRef", "Sheet1!$B$2:$B$4"),
+        )),
+        "{part}"
+    );
+    use LabelPosition::{
+        Above, Below, BestFit, Center, InsideBase, InsideEnd, Left, OutsideEnd, Right,
+    };
+    for position in [BestFit, Center, InsideEnd, OutsideEnd] {
+        let labels = NewLabels {
+            percent: true,
+            ..value_labels(Some(position))
+        };
+        let labelled = labelled(ONE_NAMED, labels);
+        call(box_anchor(), &titled(plot, &labelled, (None, None))).expect("taken");
+    }
+    for position in [InsideBase, Left, Right, Above, Below] {
+        let labelled = labelled(ONE_NAMED, value_labels(Some(position)));
+        let chart = titled(plot, &labelled, (None, None));
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+}
+
+#[test]
+fn an_of_pie_with_two_series_an_axis_option_or_a_combined_plot_is_refused() {
+    let plot = NewPlot::OfPie {
+        kind: OfPieKind::Pie,
+        split: Some(OfPieSplit::Position(2)),
+    };
+    let two = titled(plot, &TWO_NAMED, (None, None));
+    assert_package(call(box_anchor(), &two).expect_err("refused"), OPTION);
+    for axis_titles in [(Some("Month"), None), (None, Some("Units"))] {
+        let chart = titled(plot, &ONE_NAMED, axis_titles);
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+    let formats = [
+        NewChart {
+            category_axis_format: Some("0"),
+            ..titled(plot, &ONE_NAMED, (None, None))
+        },
+        NewChart {
+            value_axis_format: Some("0"),
+            ..titled(plot, &ONE_NAMED, (None, None))
+        },
+    ];
+    for chart in formats {
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+    let line = second(NewPlot::Line {
+        grouping: Grouping::Standard,
+    });
+    let first = NewChart {
+        combined: Some(line),
+        ..titled(plot, &ONE_NAMED, (None, None))
+    };
+    assert_package(call(box_anchor(), &first).expect_err("refused"), OPTION);
+    let as_second = combined(second(plot));
+    assert_package(call(box_anchor(), &as_second).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn an_of_pie_split_out_of_its_range_is_refused() {
+    for split in [
+        OfPieSplit::Position(0),
+        OfPieSplit::Value(-1.0),
+        OfPieSplit::Value(-0.5),
+        OfPieSplit::Value(f64::NAN),
+        OfPieSplit::Value(f64::INFINITY),
+        OfPieSplit::Percent(100.5),
+        OfPieSplit::Percent(-1.0),
+        OfPieSplit::Percent(f64::NAN),
+        OfPieSplit::Percent(f64::INFINITY),
+    ] {
+        let plot = NewPlot::OfPie {
+            kind: OfPieKind::Bar,
+            split: Some(split),
+        };
+        let chart = titled(plot, &ONE_NAMED, (None, None));
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), RANGE);
+        // After the first plot's kind rules: two series give the option
+        // message.
+        let two = titled(plot, &TWO_NAMED, (None, None));
+        assert_package(call(box_anchor(), &two).expect_err("refused"), OPTION);
+        // Before the combined plot's rules and the texts.
+        let first = NewChart {
+            combined: Some(second(NewPlot::Line {
+                grouping: Grouping::Standard,
+            })),
+            ..chart
+        };
+        assert_package(call(box_anchor(), &first).expect_err("refused"), RANGE);
+        let empty_title = NewChart {
+            title: Some(""),
+            ..chart
+        };
+        assert_package(
+            call(box_anchor(), &empty_title).expect_err("refused"),
+            RANGE,
+        );
+    }
 }

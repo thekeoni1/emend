@@ -9192,8 +9192,9 @@ fn chart_kinds_read_back(
 
 /// The chart `specs/0035-charts-write-first-set.md`, "The call", says
 /// `Package::charts` reads back for `chart`, of any kind, the second set's
-/// included (`specs/0036-charts-write-second-set.md`), its combined plot
-/// apart.
+/// included (`specs/0036-charts-write-second-set.md`) and the surface and
+/// of-pie plots (`specs/0039-chart-kinds-and-formatting.md`), its combined
+/// plot apart.
 fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart {
     use emend::package::{
         AxisKind, AxisPosition, BarDirection, Chart, ChartAxis, ChartKind, Data, NewPlot,
@@ -9243,10 +9244,13 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
         NewPlot::Line3D { grouping } => (ChartKind::Line3D, None, Some(grouping), None),
         NewPlot::Pie3D => (ChartKind::Pie3D, None, None, None),
         NewPlot::Area3D { grouping } => (ChartKind::Area3D, None, Some(grouping), None),
+        NewPlot::Surface { .. } => (ChartKind::Surface, None, None, None),
+        NewPlot::Surface3D { .. } => (ChartKind::Surface3D, None, None, None),
+        NewPlot::OfPie { .. } => (ChartKind::OfPie, None, None, None),
     };
     let round = matches!(
         kind,
-        ChartKind::Pie | ChartKind::Pie3D | ChartKind::Doughnut
+        ChartKind::Pie | ChartKind::Pie3D | ChartKind::Doughnut | ChartKind::OfPie
     );
     let axis = |id, kind, position, crosses, title: Option<&str>, gridlines| ChartAxis {
         id,
@@ -9281,12 +9285,15 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
             ],
         )
     };
-    // A line 3D plot whatever its grouping and a standard bar or area 3D
-    // plot write the series axis (`specs/0036-charts-write-second-set.md`,
-    // P2 ruling F).
-    let depth = kind == ChartKind::Line3D
-        || matches!(kind, ChartKind::Bar3D | ChartKind::Area3D)
-            && grouping == Some(emend::package::Grouping::Standard);
+    // A line 3D plot whatever its grouping, a standard bar or area 3D plot
+    // (`specs/0036-charts-write-second-set.md`, P2 ruling F) and both
+    // surfaces (`specs/0039-chart-kinds-and-formatting.md`) write the series
+    // axis.
+    let depth = matches!(
+        kind,
+        ChartKind::Line3D | ChartKind::Surface | ChartKind::Surface3D
+    ) || matches!(kind, ChartKind::Bar3D | ChartKind::Area3D)
+        && grouping == Some(emend::package::Grouping::Standard);
     if depth {
         axis_ids.push(30);
         axes.push(ChartAxis {

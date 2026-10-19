@@ -904,6 +904,16 @@
 //!   drawing holds a chart frame, or two added in one write (decision 2 A,
 //!   P1 ruling A; `chartsheet::a_second_chart_on_a_chartsheet_is_refused`).
 //!
+//! The surface and of-pie plots add one, the Cargo feature `charts`'s too
+//! (`specs/0039-chart-kinds-and-formatting.md`, "Errors"), raised by
+//! `Package::add_chart` and `Package::add_chartsheet` at the call, after
+//! the first plot's kind rules and before the combined plot's:
+//!
+//! - "a chart value is out of its range", for an of-pie's split position
+//!   below 1, a split value that is not finite or is negative, or a split
+//!   percent above 100
+//!   (`chart_write::an_of_pie_split_out_of_its_range_is_refused`).
+//!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
 //! formats and those the same write adds, every recorded style checked, one
@@ -2285,7 +2295,8 @@ pub use chart::{
 };
 #[cfg(feature = "charts")]
 pub use chart_write::{
-    LabelPosition, NewChart, NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, RadarStyle,
+    LabelPosition, NewChart, NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, OfPieKind,
+    OfPieSplit, RadarStyle,
 };
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};

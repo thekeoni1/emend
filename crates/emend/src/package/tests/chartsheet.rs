@@ -1,5 +1,6 @@
 //! Chartsheets on byte-built packages (`specs/0038-chartsheets.md`, "P1:
-//! the reader and the writer", decisions 1 to 3 A, P1 rulings A to C):
+//! the reader and the writer", decisions 1 to 3 A, P1 rulings A to C;
+//! `specs/0039-chart-kinds-and-formatting.md`, "P1", a surface's):
 //! each test builds the smallest package, adds a chartsheet with
 //! `add_chartsheet` or holds one built by hand, writes, compares the parts
 //! the design names byte for byte, and reads every chartsheet written back
@@ -894,5 +895,63 @@ fn a_chartsheet_is_renamed_moved_and_removed() {
                 "xl/charts/chart1.xml",
             ],
         ),
+    );
+}
+
+#[test]
+fn a_chartsheet_of_a_surface_reads_back_as_on_a_worksheet() {
+    const OVER_B_AND_C: [NewSeries<'static>; 2] = [
+        NewSeries {
+            name: Some(NewSeriesName::Reference("Sheet1!$B$1")),
+            categories: Some("Sheet1!$A$2:$A$4"),
+            values: "Sheet1!$B$2:$B$4",
+            sizes: None,
+            color: None,
+            labels: None,
+        },
+        NewSeries {
+            name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
+            categories: Some("Sheet1!$A$2:$A$4"),
+            values: "Sheet1!$C$2:$C$4",
+            sizes: None,
+            color: None,
+            labels: None,
+        },
+    ];
+    let chart = NewChart {
+        plot: NewPlot::Surface3D { wireframe: true },
+        series: &OVER_B_AND_C,
+        ..column_chart()
+    };
+    let (_, mut package) = opened(smallest());
+    let part = package.add_chartsheet("Surface", &chart).expect("added");
+    assert_eq!(part, CHARTSHEET);
+    let out = written(package);
+    let chart_part = assert_one_chart(&charts_of(&out, CHARTSHEET), &chart);
+    assert_eq!(chart_part, CHART1);
+    let written_part = text_of(&out, CHART1);
+    let series: String = ["B", "C"]
+        .iter()
+        .enumerate()
+        .map(|(k, column)| {
+            format!(
+                "<c:ser><c:idx val=\"{k}\"/><c:order val=\"{k}\"/><c:tx><c:strRef><c:f>\
+                 Sheet1!${column}$1</c:f></c:strRef></c:tx><c:cat><c:strRef><c:f>\
+                 Sheet1!$A$2:$A$4</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>\
+                 Sheet1!${column}$2:${column}$4</c:f></c:numRef></c:val></c:ser>"
+            )
+        })
+        .collect();
+    // The plot whole, then the series axis after the value axis.
+    assert!(
+        written_part.contains(&format!(
+            "<c:plotArea><c:layout/><c:surface3DChart><c:wireframe val=\"1\"/>{series}<c:axId \
+             val=\"10\"/><c:axId val=\"20\"/><c:axId val=\"30\"/></c:surface3DChart><c:catAx>"
+        )),
+        "{written_part}"
+    );
+    assert!(
+        written_part.contains("</c:valAx><c:serAx><c:axId val=\"30\"/>"),
+        "{written_part}"
     );
 }
