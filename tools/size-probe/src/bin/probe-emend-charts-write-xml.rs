@@ -21,6 +21,12 @@
 //! where the kind takes it; written into memory and reopened, then `charts`.
 //! The index keeps every plot arm live.
 //!
+//! The chartsheet (`specs/0038-chartsheets.md`, "Size and packaging"): on
+//! the same package, `add_chartsheet` of the first set's column chart at
+//! the chartsheet sample's size, written into memory and reopened, then
+//! `charts` of the new part: one more line, `chartsheet_charts`, its chart
+//! count (1).
+//!
 //! Every name, part, reference, code, formula text, font name, index and
 //! area of the format probe's work comes from the command line, so the
 //! compiler cannot prove an edit or a read path dead and drop it; the
@@ -173,7 +179,7 @@ fn main() -> ExitCode {
                  number_style {}\ntext_style {}\nfull_calc {}\nchain {}\nformula_read_back {}\n\
                  sheets {}\nfirst_name {}\nfirst_part {}\nnew_bytes {}\n\
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
-                 full_border {}\nmerges {}\ncharts {}\nchart_series {}",
+                 full_border {}\nmerges {}\ncharts {}\nchart_series {}\nchartsheet_charts {}",
                 counts.sheets,
                 counts.elements,
                 counts.items,
@@ -204,6 +210,7 @@ fn main() -> ExitCode {
                 written.merges,
                 written.charts,
                 written.chart_series,
+                written.chartsheet_charts,
             );
             ExitCode::SUCCESS
         }
@@ -268,6 +275,7 @@ struct Written {
     merges: u64,
     charts: u64,
     chart_series: u64,
+    chartsheet_charts: u64,
 }
 
 /// A cell's `style` as printed: the index, or `none`.
@@ -405,7 +413,7 @@ fn edit(
         .part(sheet)
         .ok_or("the output has no such sheet part")?;
     let merges = count_named(&mut written, index, b"mergeCell")?;
-    let (charts, chart_series) = read_first_sheet_charts(second, edits.kind)?;
+    let (charts, chart_series, chartsheet_charts) = read_first_sheet_charts(second, edits.kind)?;
     Ok(Written {
         cells: count,
         xfs_before,
@@ -427,6 +435,7 @@ fn edit(
         merges,
         charts,
         chart_series,
+        chartsheet_charts,
     })
 }
 
@@ -436,8 +445,13 @@ fn edit(
 /// into memory and reopened; then (specs/0036 "The probe") `remove_chart` of
 /// it, written and reopened, and `add_chart` of `kind`'s chart, written and
 /// reopened; then `charts` of that sheet: the chart count and the series
-/// count over every plot of every chart.
-fn read_first_sheet_charts(second: &std::ffi::OsStr, kind: NewPlot) -> Result<(u64, u64), String> {
+/// count over every plot of every chart; then (specs/0038 "Size and
+/// packaging") `add_chartsheet` of the column chart at 960 by 640, written
+/// and reopened, and `charts` of the new part: its chart count.
+fn read_first_sheet_charts(
+    second: &std::ffi::OsStr,
+    kind: NewPlot,
+) -> Result<(u64, u64, u64), String> {
     let file = File::open(second).map_err(|e| e.kind().to_string())?;
     let mut package = Package::open(BufReader::new(file)).map_err(|e| e.to_string())?;
     let first = package
@@ -494,7 +508,21 @@ fn read_first_sheet_charts(second: &std::ffi::OsStr, kind: NewPlot) -> Result<(u
         .flat_map(|entry| &entry.chart.plots)
         .map(|plot| plot.series.len() as u64)
         .sum();
-    Ok((charts.len() as u64, series))
+    let chartsheet = package
+        .add_chartsheet(
+            "probe chartsheet",
+            &NewChart {
+                size: Some((960, 640)),
+                ..chart
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let mut package = reopened(package)?;
+    let chartsheet_charts = package
+        .charts(&chartsheet)
+        .map_err(|e| e.to_string())?
+        .len() as u64;
+    Ok((charts.len() as u64, series, chartsheet_charts))
 }
 
 /// A package written into memory and opened again.
