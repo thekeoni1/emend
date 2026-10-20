@@ -876,7 +876,7 @@
 //!   `specs/0040-analytic-chart-elements.md`, "Harness runs": on W, with
 //!   M, M' and its quoted name as `--chart-kinds-sample` has them and L as
 //!   the surface sample's (`specs/0039-chart-kinds-and-formatting.md`
-//!   ruling C), three charts placed as the more kinds sample's, the k-th
+//!   ruling C), three charts placed as the format sample's, the k-th
 //!   (k from 0) titled `emend trend k` with the legend at the right and no
 //!   axis titles, each series over the categories A2:A(L): a standard line
 //!   chart of two series, over B named by B1 with a linear trendline
@@ -898,6 +898,29 @@
 //!   `charts_after` and `chart_parts_after` three more than before,
 //!   `series` 4 and `read_back` 3; a failure is exit 2 with the message and
 //!   no output, and so is a refusal by the layer.
+//! - `--chart-axis-sample`: the axis sample of
+//!   `specs/0040-analytic-chart-elements.md`, "Harness runs": on W, with M,
+//!   M', its quoted name and L as the trend sample has them, three charts
+//!   placed as the format sample's, the k-th (k from 0) titled `emend axis
+//!   k` with the legend at the right and no axis titles, each of one series
+//!   over B named by B1 against A2:A(L): a standard line chart with drop
+//!   lines, high-low lines and up-down bars, its value axis bounded 0 to
+//!   100 with a major unit of 25 and a minor unit of 5, its category axis
+//!   skipping every second label and tick mark; a scatter of style
+//!   `marker` with a value axis of logarithm base 10 and a reversed x axis
+//!   from 1; and a clustered column chart with a date category axis of
+//!   base unit days and a major unit of one month, and a reversed value
+//!   axis. The output is reopened. One line: the word `chartaxis` then
+//!   `charts_before` and `charts_after`, `series` (the series of the last
+//!   three entries of the output's charts of W), `rows` (L - 1),
+//!   `date_axes` (their axes read as date axes), `bounded_axes` (their axes
+//!   read with a minimum or a maximum), `read_back` (how many of the three
+//!   read as their calls gave them, every field compared, the axes' kinds
+//!   and bounds among them) and `chart_parts_after`. COUNTS ONLY, as the
+//!   add-chart sample's. Asserted: `charts_after` and `chart_parts_after`
+//!   three more than before, `series` 3, `date_axes` 1, `bounded_axes` 2
+//!   and `read_back` 3; a failure is exit 2 with the message and no output,
+//!   and so is a refusal by the layer.
 //! - `--chart-labels-sample`: the labels sample of
 //!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
 //!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
@@ -1075,7 +1098,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
 | --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample \
-| --chart-surface-sample | --chart-format-sample | --chart-trend-sample]";
+| --chart-surface-sample | --chart-format-sample | --chart-trend-sample | --chart-axis-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1213,6 +1236,9 @@ enum Operation {
     /// A line, a scatter and a column chart with trendlines and error bars
     /// past the last row of W, and the counts.
     ChartTrendSample,
+    /// A line, a scatter and a column chart with plot lines and axis
+    /// options past the last row of W, and the counts.
+    ChartAxisSample,
     /// A column chart and a pie with colours, labels and axis formats past
     /// the last row of W, and the counts.
     ChartLabelsSample,
@@ -1290,6 +1316,7 @@ enum Error {
     ChartSurfaceSample(&'static str),
     ChartFormatSample(&'static str),
     ChartTrendSample(&'static str),
+    ChartAxisSample(&'static str),
     ChartLabelsSample(&'static str),
     RemoveChartSample(&'static str),
     ChartsheetSample(&'static str),
@@ -1427,6 +1454,7 @@ impl fmt::Display for Error {
             | Error::ChartSurfaceSample(what)
             | Error::ChartFormatSample(what)
             | Error::ChartTrendSample(what)
+            | Error::ChartAxisSample(what)
             | Error::ChartLabelsSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
@@ -1671,6 +1699,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ChartTrendSample,
         ),
+        [input, output, flag] if flag == "--chart-axis-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartAxisSample,
+        ),
         [input, output, flag] if flag == "--chart-labels-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1879,6 +1912,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ChartTrendSample) {
         return chart_trend_sample(input, output);
     }
+    if matches!(operation, Operation::ChartAxisSample) {
+        return chart_axis_sample(input, output);
+    }
     if matches!(operation, Operation::ChartLabelsSample) {
         return chart_labels_sample(input, output);
     }
@@ -1975,6 +2011,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ChartSurfaceSample => unreachable!("the surface sample has its own path"),
         Operation::ChartFormatSample => unreachable!("the format sample has its own path"),
         Operation::ChartTrendSample => unreachable!("the trend sample has its own path"),
+        Operation::ChartAxisSample => unreachable!("the axis sample has its own path"),
         Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
         Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
         Operation::ChartsheetSample => unreachable!("the chartsheet sample has its own path"),
@@ -9465,6 +9502,233 @@ fn chart_trend_read_back(
     Ok((after, count, read_back))
 }
 
+/// The axis sample's charts' axes read with a minimum or a maximum
+/// (`specs/0040-analytic-chart-elements.md`, "Harness runs").
+const AXIS_SAMPLE_BOUNDED: u64 = 2;
+
+/// The axis sample (`specs/0040-analytic-chart-elements.md`, "Harness
+/// runs", `--chart-axis-sample`): a line chart with its plot lines, its
+/// value axis bounded and divided and its category axis skipping; a
+/// scatter with a logarithmic value axis and a reversed x axis from 1; and
+/// a column chart with a date category axis and a reversed value axis; each
+/// of one series, on W past its last row, the output written and read back.
+/// A failure after the output is in place removes it; a refusal by the
+/// layer is exit 2 with no output.
+fn chart_axis_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, Grouping, LegendPosition, NewAxis, NewChart, NewDateAxis, NewPlot, NewSeries,
+        NewSeriesName, ScatterStyle, TimeUnit,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    let last = bounded_last_row(sampled.max_row);
+    let rows = u64::from(last - 1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let b_name = format!("{sheet}!$B$1");
+    let (a, b) = (column('A'), column('B'));
+    let series = [NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+        color: None,
+        labels: None,
+        marker: None,
+        line: None,
+        points: &[],
+        trendline: None,
+        error_bars: &[],
+    }];
+    let axis = NewAxis {
+        min: None,
+        max: None,
+        log_base: None,
+        reversed: false,
+        major_unit: None,
+        minor_unit: None,
+        tick_label_skip: None,
+        tick_mark_skip: None,
+        date: None,
+    };
+    let chart = |plot: NewPlot| NewChart {
+        plot,
+        title: None,
+        series: &series,
+        category_axis_title: None,
+        value_axis_title: None,
+        category_axis_format: None,
+        value_axis_format: None,
+        legend: Some(LegendPosition::Right),
+        size: Some((480, 288)),
+        combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
+    };
+    let line = NewChart {
+        drop_lines: true,
+        high_low_lines: true,
+        up_down_bars: true,
+        category_axis: Some(NewAxis {
+            tick_label_skip: Some(2),
+            tick_mark_skip: Some(2),
+            ..axis
+        }),
+        value_axis: Some(NewAxis {
+            min: Some(0.0),
+            max: Some(100.0),
+            major_unit: Some(25.0),
+            minor_unit: Some(5.0),
+            ..axis
+        }),
+        ..chart(NewPlot::Line {
+            grouping: Grouping::Standard,
+        })
+    };
+    let scatter = NewChart {
+        category_axis: Some(NewAxis {
+            min: Some(1.0),
+            reversed: true,
+            ..axis
+        }),
+        value_axis: Some(NewAxis {
+            log_base: Some(10.0),
+            ..axis
+        }),
+        ..chart(NewPlot::Scatter {
+            style: ScatterStyle::Marker,
+        })
+    };
+    let column_chart = NewChart {
+        category_axis: Some(NewAxis {
+            date: Some(NewDateAxis {
+                base_unit: TimeUnit::Days,
+                major: Some((1, TimeUnit::Months)),
+                minor: None,
+            }),
+            ..axis
+        }),
+        value_axis: Some(NewAxis {
+            reversed: true,
+            ..axis
+        }),
+        ..chart(NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        })
+    };
+    let titles: Vec<String> = (0..3).map(|k| format!("emend axis {k}")).collect();
+    let mut calls = Vec::with_capacity(3);
+    for ((chart, title), k) in [line, scatter, column_chart]
+        .into_iter()
+        .zip(&titles)
+        .zip(0u32..)
+    {
+        let chart = NewChart {
+            title: Some(title),
+            ..chart
+        };
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, &chart)?;
+        calls.push(chart);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_axis_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, counts) = checked?;
+    edit_line_named(
+        "chartaxis",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("series", counts[0]),
+            ("rows", rows),
+            ("date_axes", counts[1]),
+            ("bounded_axes", counts[2]),
+            ("read_back", counts[3]),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// Reopens the axis sample's output and asserts three more charts and
+/// chart parts, the last three charts of W three series in all, one date
+/// axis and two bounded ones, each chart read back as its call gave it (the
+/// reader walks past the plot lines and the other axis options); gives the
+/// counts after, and the series, the date axes, the bounded axes and how
+/// many read back.
+fn chart_axis_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, [u64; 4]), Error> {
+    use emend::package::AxisKind;
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartAxisSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartAxisSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let series = last
+        .iter()
+        .flat_map(|entry| &entry.chart.plots)
+        .flat_map(|plot| &plot.series)
+        .count() as u64;
+    if series != 3 {
+        return Err(Error::ChartAxisSample("series count"));
+    }
+    let axes = || last.iter().flat_map(|entry| &entry.chart.axes);
+    let dates = axes().filter(|axis| axis.kind == AxisKind::Date).count() as u64;
+    if dates != 1 {
+        return Err(Error::ChartAxisSample("date axis count"));
+    }
+    let bounded = axes()
+        .filter(|axis| axis.min.is_some() || axis.max.is_some())
+        .count() as u64;
+    if bounded != AXIS_SAMPLE_BOUNDED {
+        return Err(Error::ChartAxisSample("bounded axis count"));
+    }
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| entry.chart == chart_as_read(chart))
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartAxisSample("read-back chart"));
+    }
+    Ok((after, [series, dates, bounded, read_back]))
+}
+
 /// The labels sample (`specs/0036-charts-write-second-set.md`, "Harness
 /// runs", `--chart-labels-sample`): a clustered column chart of two
 /// coloured, labelled series with both axis formats and a pie of one
@@ -10133,6 +10397,17 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
             ],
         )
     };
+    // The axes' bounds and a date form, as the reader reads them
+    // (`specs/0040-analytic-chart-elements.md`, decision 4 A).
+    for (read, options) in axes.iter_mut().zip([chart.category_axis, chart.value_axis]) {
+        if let Some(options) = options {
+            read.min = options.min;
+            read.max = options.max;
+            if options.date.is_some() {
+                read.kind = AxisKind::Date;
+            }
+        }
+    }
     // A line 3D plot whatever its grouping, a standard bar or area 3D plot
     // (`specs/0036-charts-write-second-set.md`, P2 ruling F) and both
     // surfaces (`specs/0039-chart-kinds-and-formatting.md`) write the series

@@ -7773,3 +7773,202 @@ fn the_chart_trend_sample_references_at_most_a_thousand_rows() {
         "{drawing}"
     );
 }
+
+#[test]
+fn the_chart_axis_sample_adds_a_line_a_scatter_and_a_column_and_reads_them_back() {
+    // `specs/0040-analytic-chart-elements.md`, "Harness runs" and ruling M:
+    // a line with its plot lines and two axes' options, a scatter with a
+    // logarithmic value axis and a reversed x axis from 1, a column with a
+    // date category axis and a reversed value axis, one series each, on
+    // one-cell anchors at rows 3, 19 and 35, M being 1.
+    let line = "chartaxis\tcharts_before=0\tcharts_after=3\tseries=3\trows=1\tdate_axes=1\
+                \tbounded_axes=2\tread_back=3\tchart_parts_after=3\n";
+    for (label, drawing, after) in [
+        ("chart-axis-sample-created", false, ""),
+        (
+            "chart-axis-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-axis-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for n in 1..=3 {
+            entry_named(&entries, format!("xl/charts/chart{n}.xml").as_bytes());
+        }
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(text.matches("<xdr:oneCellAnchor>").count(), 3, "{text}");
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chart_axis_sample_writes_each_plot_line_and_axis_form() {
+    // M is 1, so every reference runs from row 2 to row 2, quoted.
+    use emend::package::{AxisKind, ChartKind};
+    let specs = image_specs(A_CELL, "", false);
+    let dir = TempDir::new("chart-axis-sample-forms");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-axis-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let charts = package
+        .charts(b"xl/worksheets/sheet1.xml")
+        .expect("the charts");
+    // Each axis's kind, minimum and maximum, as read.
+    type Axes = Vec<(AxisKind, Option<f64>, Option<f64>)>;
+    let read: Vec<(ChartKind, Axes)> = charts
+        .iter()
+        .map(|entry| {
+            (
+                entry.chart.plots[0].kind,
+                entry
+                    .chart
+                    .axes
+                    .iter()
+                    .map(|axis| (axis.kind, axis.min, axis.max))
+                    .collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        read,
+        [
+            (
+                ChartKind::Line,
+                vec![
+                    (AxisKind::Category, None, None),
+                    (AxisKind::Value, Some(0.0), Some(100.0)),
+                ]
+            ),
+            (
+                ChartKind::Scatter,
+                vec![
+                    (AxisKind::Value, Some(1.0), None),
+                    (AxisKind::Value, None, None),
+                ]
+            ),
+            (
+                ChartKind::Bar,
+                vec![(AxisKind::Date, None, None), (AxisKind::Value, None, None)]
+            ),
+        ]
+    );
+    for (name, forms) in [
+        (
+            b"xl/charts/chart1.xml".as_slice(),
+            vec![
+                "</c:ser><c:dropLines/><c:hiLowLines/><c:upDownBars><c:gapWidth val=\"150\"/>\
+                 </c:upDownBars><c:marker val=\"1\"/><c:axId val=\"10\"/>",
+                "<c:lblOffset val=\"100\"/><c:tickLblSkip val=\"2\"/><c:tickMarkSkip \
+                 val=\"2\"/><c:noMultiLvlLbl val=\"0\"/>",
+                "<c:scaling><c:orientation val=\"minMax\"/><c:max val=\"100\"/><c:min \
+                 val=\"0\"/></c:scaling>",
+                "<c:crossBetween val=\"between\"/><c:majorUnit val=\"25\"/><c:minorUnit \
+                 val=\"5\"/></c:valAx>",
+            ],
+        ),
+        (
+            b"xl/charts/chart2.xml",
+            vec![
+                "<c:scatterStyle val=\"marker\"/>",
+                "<c:valAx><c:axId val=\"10\"/><c:scaling><c:orientation val=\"maxMin\"/><c:min \
+                 val=\"1\"/></c:scaling>",
+                "<c:valAx><c:axId val=\"20\"/><c:scaling><c:logBase val=\"10\"/><c:orientation \
+                 val=\"minMax\"/></c:scaling>",
+            ],
+        ),
+        (
+            b"xl/charts/chart3.xml",
+            vec![
+                "<c:dateAx><c:axId val=\"10\"/>",
+                "<c:auto val=\"1\"/><c:lblOffset val=\"100\"/><c:baseTimeUnit val=\"days\"/>\
+                 <c:majorUnit val=\"1\"/><c:majorTimeUnit val=\"months\"/></c:dateAx>",
+                "<c:valAx><c:axId val=\"20\"/><c:scaling><c:orientation val=\"maxMin\"/>\
+                 </c:scaling>",
+                "<c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>",
+            ],
+        ),
+    ] {
+        let index = package.part(name).expect("the chart part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        for form in forms {
+            assert!(text.contains(form), "{form} in {text}");
+        }
+        assert!(!text.contains("<c:catAx>") || name != b"xl/charts/chart3.xml");
+    }
+}
+
+#[test]
+fn the_chart_axis_sample_references_at_most_a_thousand_rows() {
+    // `specs/0039-chart-kinds-and-formatting.md`, ruling C, as `specs/0040`
+    // carries it: M is 1500, so every reference stops at row 1001, and the
+    // first chart still sits at row 1502.
+    let cell = "<sheetData><row r=\"1500\"><c r=\"A1500\"><v>1</v></c></row></sheetData>";
+    let specs = image_specs(cell, "", false);
+    let dir = TempDir::new("chart-axis-sample-bound");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-axis-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "chartaxis\tcharts_before=0\tcharts_after=3\tseries=3\trows=1000\tdate_axes=1\
+         \tbounded_axes=2\tread_back=3\tchart_parts_after=3\n",
+        "the line"
+    );
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let mut text_of = |name: &str| {
+        let index = package.part(name.as_bytes()).expect("the part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        text
+    };
+    for n in 1..=3 {
+        let text = text_of(&format!("xl/charts/chart{n}.xml"));
+        assert!(
+            text.contains("<c:f>'Sheet1'!$B$2:$B$1001</c:f>"),
+            "chart{n}: {text}"
+        );
+        assert!(!text.contains("$1002<"), "chart{n}: {text}");
+    }
+    let drawing = text_of("xl/drawings/drawing1.xml");
+    assert!(
+        drawing.contains(
+            "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1501</xdr:row>"
+        ),
+        "{drawing}"
+    );
+}
