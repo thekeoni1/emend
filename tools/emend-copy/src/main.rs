@@ -835,20 +835,43 @@
 //!   `emend surface k`: a contour surface (`wireframe` false) and a 3D
 //!   surface (`wireframe` true), each of three series named by B1, C1 and
 //!   D1 of W over the categories A2:A(L) and the values of B, C and D, rows
-//!   2 to L, L being the smaller of M' + 1 and 1001 (ruling A), with the axis titles `emend x` and `emend y` and no
-//!   legend; a pie of pie with no split and a bar of pie split at position
-//!   2, each of the kinds sample's one series with the legend at the right.
-//!   The output is reopened. One line: the word `chartsurface` then
-//!   `charts_before` and `charts_after` (`Package::charts` of W),
-//!   `surface`, `surface_3d` and `of_pie` (the plots of each kind among the
-//!   last four entries of the output's charts of W), `series` (their
-//!   series), `rows` (L - 1, the data rows referenced), `read_back` (how many of them read as their calls gave them,
-//!   every field compared) and `chart_parts_after` (entries under
-//!   `xl/charts/`). COUNTS ONLY, as the add-chart sample's. Asserted:
-//!   `charts_after` and `chart_parts_after` four more than before,
-//!   `surface` 1, `surface_3d` 1, `of_pie` 2, `series` 8 and `read_back` 4;
-//!   a failure is exit 2 with the message and no output, and so is a
-//!   refusal by the layer.
+//!   2 to L, L being the smaller of M' + 1 and 1001 (ruling A), with the
+//!   axis titles `emend x` and `emend y` and no legend; a pie of pie with
+//!   no split and a bar of pie split at position 2, each of the kinds
+//!   sample's one series with the legend at the right. The output is
+//!   reopened. One line: the word `chartsurface` then `charts_before` and
+//!   `charts_after` (`Package::charts` of W), `surface`, `surface_3d` and
+//!   `of_pie` (the plots of each kind among the last four entries of the
+//!   output's charts of W), `series` (their series), `rows` (L - 1, the
+//!   data rows referenced), `read_back` (how many of them read as their
+//!   calls gave them, every field compared) and `chart_parts_after`
+//!   (entries under `xl/charts/`). COUNTS ONLY, as the add-chart sample's.
+//!   Asserted: `charts_after` and `chart_parts_after` four more than
+//!   before, `surface` 1, `surface_3d` 1, `of_pie` 2, `series` 8 and
+//!   `read_back` 4; a failure is exit 2 with the message and no output, and
+//!   so is a refusal by the layer.
+//! - `--chart-format-sample`: the format sample of
+//!   `specs/0039-chart-kinds-and-formatting.md`, "Harness runs": on W, with
+//!   M, M' and its quoted name as `--chart-kinds-sample` has them and L as
+//!   the surface sample's (ruling C), three charts placed as the more kinds
+//!   sample's, the k-th (k from 0) titled `emend format k` with the legend
+//!   at the right and no axis titles, each series over the categories
+//!   A2:A(L): a standard line chart of two series, over B named by B1 with
+//!   a circle marker of size 7 coloured `0x1F77B4`, a line of 28575 EMU
+//!   dashed `dash` and one point (index 1, coloured `0xD62728`, a square
+//!   marker), and over C named by C1 with the marker `none` and a `sysDot`
+//!   line; a pie of the series over B with two points (index 0 exploded 10,
+//!   index 1 coloured `0x2CA02C`); and a scatter of style `lineMarker` of
+//!   the series over B with a diamond marker of size 5 and a `lgDash` line
+//!   of 12700 EMU. The output is reopened. One line: the word `chartformat`
+//!   then `charts_before` and `charts_after`, `series` (the series of the
+//!   last three entries of the output's charts of W), `markers` (those read
+//!   with `marker` true), `rows` (L - 1), `read_back` (how many of the three
+//!   read as their calls gave them, every field compared) and
+//!   `chart_parts_after`. COUNTS ONLY, as the add-chart sample's. Asserted:
+//!   `charts_after` and `chart_parts_after` three more than before,
+//!   `series` 4, `markers` 3 and `read_back` 3; a failure is exit 2 with the
+//!   message and no output, and so is a refusal by the layer.
 //! - `--chart-labels-sample`: the labels sample of
 //!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
 //!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
@@ -1026,7 +1049,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
 | --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample \
-| --chart-surface-sample]";
+| --chart-surface-sample | --chart-format-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1158,6 +1181,9 @@ enum Operation {
     /// Two surface charts and two of-pie charts past the last row of W, and
     /// the counts.
     ChartSurfaceSample,
+    /// A line, a pie and a scatter chart with markers, lines and points past
+    /// the last row of W, and the counts.
+    ChartFormatSample,
     /// A column chart and a pie with colours, labels and axis formats past
     /// the last row of W, and the counts.
     ChartLabelsSample,
@@ -1233,6 +1259,7 @@ enum Error {
     ChartMoreSample(&'static str),
     Chart3dSample(&'static str),
     ChartSurfaceSample(&'static str),
+    ChartFormatSample(&'static str),
     ChartLabelsSample(&'static str),
     RemoveChartSample(&'static str),
     ChartsheetSample(&'static str),
@@ -1368,6 +1395,7 @@ impl fmt::Display for Error {
             | Error::ChartMoreSample(what)
             | Error::Chart3dSample(what)
             | Error::ChartSurfaceSample(what)
+            | Error::ChartFormatSample(what)
             | Error::ChartLabelsSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
@@ -1602,6 +1630,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ChartSurfaceSample,
         ),
+        [input, output, flag] if flag == "--chart-format-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartFormatSample,
+        ),
         [input, output, flag] if flag == "--chart-labels-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1804,6 +1837,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ChartSurfaceSample) {
         return chart_surface_sample(input, output);
     }
+    if matches!(operation, Operation::ChartFormatSample) {
+        return chart_format_sample(input, output);
+    }
     if matches!(operation, Operation::ChartLabelsSample) {
         return chart_labels_sample(input, output);
     }
@@ -1898,6 +1934,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ChartMoreSample => unreachable!("the more kinds sample has its own path"),
         Operation::Chart3dSample => unreachable!("the 3D sample has its own path"),
         Operation::ChartSurfaceSample => unreachable!("the surface sample has its own path"),
+        Operation::ChartFormatSample => unreachable!("the format sample has its own path"),
         Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
         Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
         Operation::ChartsheetSample => unreachable!("the chartsheet sample has its own path"),
@@ -8704,8 +8741,16 @@ fn chart_3d_read_back(
 
 /// The last row the surface sample references (`specs/0039`, "Planning
 /// rulings during P1", ruling A): at most 1000 data rows, rows 2 to 1001,
-/// so that LibreOffice opens the output inside the harness's budget.
+/// so that LibreOffice opens the output inside the harness's budget. The
+/// format sample takes the same bound (ruling C).
 const SAMPLE_LAST_ROW: u32 = 1001;
+
+/// The last row the surface and format samples reference for a sheet whose
+/// last row is `max_row`: row 2 at least, an empty sheet's included, and
+/// row SAMPLE_LAST_ROW at most (specs/0039, rulings A and C).
+fn bounded_last_row(max_row: u32) -> u32 {
+    max_row.max(1).saturating_add(1).min(SAMPLE_LAST_ROW)
+}
 
 /// The surface sample (`specs/0039-chart-kinds-and-formatting.md`, "Harness
 /// runs", `--chart-surface-sample`): a contour and a 3D surface of three
@@ -8729,13 +8774,7 @@ fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let sampled = sample(&mut package, &part)?;
     let before = chart_kinds_counts(&mut package, &part)?.0;
     let sheet = format!("'{}'", name.replace('\'', "''"));
-    // The references take row 2 at least, an empty sheet's included, and
-    // row SAMPLE_LAST_ROW at most (specs/0039, ruling A).
-    let last = sampled
-        .max_row
-        .max(1)
-        .saturating_add(1)
-        .min(SAMPLE_LAST_ROW);
+    let last = bounded_last_row(sampled.max_row);
     let rows = u64::from(last - 1);
     let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
     let named = |letter: char| format!("{sheet}!${letter}$1");
@@ -8879,6 +8918,225 @@ fn chart_surface_read_back(
         return Err(Error::ChartSurfaceSample("read-back chart"));
     }
     Ok((after, kinds, series, read_back))
+}
+
+/// The format sample (`specs/0039-chart-kinds-and-formatting.md`, "Harness
+/// runs", `--chart-format-sample`): a line chart of two series with
+/// markers, lines and a point, a pie of one series with two points and a
+/// scatter of one series with a marker and a line on W past its last row,
+/// the output written and read back. A failure after the output is in place
+/// removes it; a refusal by the layer is exit 2 with no output.
+fn chart_format_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        DashStyle, Grouping, LegendPosition, MarkerSymbol, NewChart, NewLine, NewMarker, NewPlot,
+        NewPoint, NewSeries, NewSeriesName, ScatterStyle,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    let last = bounded_last_row(sampled.max_row);
+    let rows = u64::from(last - 1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let (b_name, c_name) = (format!("{sheet}!$B$1"), format!("{sheet}!$C$1"));
+    let (a, b, c) = (column('A'), column('B'), column('C'));
+    let over_b = NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+        color: None,
+        labels: None,
+        marker: None,
+        line: None,
+        points: &[],
+    };
+    let line_point = [NewPoint {
+        index: 1,
+        color: Some(0xD6_2728),
+        explosion: None,
+        marker: Some(NewMarker {
+            symbol: MarkerSymbol::Square,
+            size: None,
+            color: None,
+        }),
+    }];
+    let line_series = [
+        NewSeries {
+            marker: Some(NewMarker {
+                symbol: MarkerSymbol::Circle,
+                size: Some(7),
+                color: Some(0x1F_77B4),
+            }),
+            line: Some(NewLine {
+                width: Some(28575),
+                dash: Some(DashStyle::Dash),
+            }),
+            points: &line_point,
+            ..over_b
+        },
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&c_name)),
+            values: &c,
+            marker: Some(NewMarker {
+                symbol: MarkerSymbol::None,
+                size: None,
+                color: None,
+            }),
+            line: Some(NewLine {
+                width: None,
+                dash: Some(DashStyle::SystemDot),
+            }),
+            ..over_b
+        },
+    ];
+    let pie_points = [
+        NewPoint {
+            index: 0,
+            color: None,
+            explosion: Some(10),
+            marker: None,
+        },
+        NewPoint {
+            index: 1,
+            color: Some(0x2C_A02C),
+            explosion: None,
+            marker: None,
+        },
+    ];
+    let pie_series = [NewSeries {
+        points: &pie_points,
+        ..over_b
+    }];
+    let scatter_series = [NewSeries {
+        marker: Some(NewMarker {
+            symbol: MarkerSymbol::Diamond,
+            size: Some(5),
+            color: None,
+        }),
+        line: Some(NewLine {
+            width: Some(12700),
+            dash: Some(DashStyle::LargeDash),
+        }),
+        ..over_b
+    }];
+    let plots: [(NewPlot, &[NewSeries<'_>]); 3] = [
+        (
+            NewPlot::Line {
+                grouping: Grouping::Standard,
+            },
+            &line_series,
+        ),
+        (NewPlot::Pie, &pie_series),
+        (
+            NewPlot::Scatter {
+                style: ScatterStyle::LineMarker,
+            },
+            &scatter_series,
+        ),
+    ];
+    let titles: Vec<String> = (0..plots.len())
+        .map(|k| format!("emend format {k}"))
+        .collect();
+    let mut calls = Vec::with_capacity(plots.len());
+    for (((plot, series), title), k) in plots.into_iter().zip(&titles).zip(0u32..) {
+        let chart = NewChart {
+            plot,
+            title: Some(title),
+            series,
+            category_axis_title: None,
+            value_axis_title: None,
+            category_axis_format: None,
+            value_axis_format: None,
+            legend: Some(LegendPosition::Right),
+            size: Some((480, 288)),
+            combined: None,
+        };
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, &chart)?;
+        calls.push(chart);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_format_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, series, markers, read_back) = checked?;
+    edit_line_named(
+        "chartformat",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("series", series),
+            ("markers", markers),
+            ("rows", rows),
+            ("read_back", read_back),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// Reopens the format sample's output and asserts three more charts and
+/// chart parts, the last three charts of W four series in all, three of
+/// them read with `marker` true, each chart read back as its call gave it;
+/// gives the counts after, the series, the markers and how many read back.
+fn chart_format_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartFormatSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartFormatSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let series = || {
+        last.iter()
+            .flat_map(|entry| &entry.chart.plots)
+            .flat_map(|plot| &plot.series)
+    };
+    let count = series().count() as u64;
+    let markers = series().filter(|one| one.marker).count() as u64;
+    if count != 4 {
+        return Err(Error::ChartFormatSample("series count"));
+    }
+    if markers != 3 {
+        return Err(Error::ChartFormatSample("marker count"));
+    }
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| entry.chart == chart_as_read(chart))
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartFormatSample("read-back chart"));
+    }
+    Ok((after, count, markers, read_back))
 }
 
 /// The labels sample (`specs/0036-charts-write-second-set.md`, "Harness
@@ -9468,7 +9726,7 @@ fn chart_as_read(chart: &emend::package::NewChart<'_>) -> emend::package::Chart 
             sizes: one.sizes.map(data),
             fill: None,
             smooth: false,
-            marker: chart.plot == NewPlot::Stock,
+            marker: chart.plot == NewPlot::Stock || one.marker.is_some(),
             labels: false,
         })
         .collect();

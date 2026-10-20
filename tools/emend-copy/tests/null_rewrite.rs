@@ -6382,6 +6382,183 @@ fn the_chart_surface_sample_references_at_most_a_thousand_rows() {
 }
 
 #[test]
+fn the_chart_format_sample_adds_a_line_a_pie_and_a_scatter_and_reads_them_back() {
+    // `specs/0039-chart-kinds-and-formatting.md`, "Harness runs": a line of
+    // two series with markers, lines and a point, a pie of one series with
+    // two points and a scatter of one with a marker and a line, on one-cell
+    // anchors at rows 3, 19 and 35 of column A, M being 1.
+    let line = "chartformat\tcharts_before=0\tcharts_after=3\tseries=4\tmarkers=3\trows=1\
+                \tread_back=3\tchart_parts_after=3\n";
+    for (label, drawing, after) in [
+        ("chart-format-sample-created", false, ""),
+        (
+            "chart-format-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-format-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for n in 1..=3 {
+            entry_named(&entries, format!("xl/charts/chart{n}.xml").as_bytes());
+        }
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(text.matches("<xdr:oneCellAnchor>").count(), 3, "{text}");
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chart_format_sample_writes_each_series_form() {
+    // M is 1, so every reference runs from row 2 to row 2, quoted.
+    use emend::package::ChartKind;
+    let specs = image_specs(A_CELL, "", false);
+    let dir = TempDir::new("chart-format-sample-forms");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-format-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let charts = package
+        .charts(b"xl/worksheets/sheet1.xml")
+        .expect("the charts");
+    let kinds: Vec<Vec<(ChartKind, Vec<bool>)>> = charts
+        .iter()
+        .map(|entry| {
+            entry
+                .chart
+                .plots
+                .iter()
+                .map(|plot| {
+                    (
+                        plot.kind,
+                        plot.series.iter().map(|one| one.marker).collect(),
+                    )
+                })
+                .collect()
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            vec![(ChartKind::Line, vec![true, true])],
+            vec![(ChartKind::Pie, vec![false])],
+            vec![(ChartKind::Scatter, vec![true])],
+        ]
+    );
+    for (name, forms) in [
+        (
+            b"xl/charts/chart1.xml".as_slice(),
+            [
+                "<c:spPr><a:ln w=\"28575\"><a:prstDash val=\"dash\"/></a:ln></c:spPr><c:marker>\
+                 <c:symbol val=\"circle\"/><c:size val=\"7\"/><c:spPr><a:solidFill><a:srgbClr \
+                 val=\"1F77B4\"/></a:solidFill></c:spPr></c:marker><c:dPt><c:idx val=\"1\"/>\
+                 <c:marker><c:symbol val=\"square\"/></c:marker><c:spPr><a:solidFill><a:srgbClr \
+                 val=\"D62728\"/></a:solidFill></c:spPr></c:dPt><c:cat>",
+                "<c:spPr><a:ln><a:prstDash val=\"sysDot\"/></a:ln></c:spPr><c:marker><c:symbol \
+                 val=\"none\"/></c:marker><c:cat>",
+            ],
+        ),
+        (
+            b"xl/charts/chart2.xml",
+            [
+                "<c:dPt><c:idx val=\"0\"/><c:explosion val=\"10\"/></c:dPt><c:dPt><c:idx \
+                 val=\"1\"/><c:spPr><a:solidFill><a:srgbClr val=\"2CA02C\"/></a:solidFill>\
+                 </c:spPr></c:dPt><c:cat>",
+                "<c:val><c:numRef><c:f>'Sheet1'!$B$2:$B$2</c:f></c:numRef></c:val>",
+            ],
+        ),
+        (
+            b"xl/charts/chart3.xml",
+            [
+                "<c:scatterStyle val=\"lineMarker\"/>",
+                "<c:spPr><a:ln w=\"12700\"><a:prstDash val=\"lgDash\"/></a:ln></c:spPr>\
+                 <c:marker><c:symbol val=\"diamond\"/><c:size val=\"5\"/></c:marker><c:xVal>",
+            ],
+        ),
+    ] {
+        let index = package.part(name).expect("the chart part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        for form in forms {
+            assert!(text.contains(form), "{form} in {text}");
+        }
+    }
+}
+
+#[test]
+fn the_chart_format_sample_references_at_most_a_thousand_rows() {
+    // `specs/0039-chart-kinds-and-formatting.md`, "Planning rulings during
+    // P1", ruling C: M is 1500, so every reference stops at row 1001 and the
+    // first chart still sits at row 1502, the first past the data plus one.
+    let cell = "<sheetData><row r=\"1500\"><c r=\"A1500\"><v>1</v></c></row></sheetData>";
+    let specs = image_specs(cell, "", false);
+    let dir = TempDir::new("chart-format-sample-bound");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-format-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "chartformat\tcharts_before=0\tcharts_after=3\tseries=4\tmarkers=3\trows=1000\
+         \tread_back=3\tchart_parts_after=3\n",
+        "the line"
+    );
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let mut text_of = |name: &str| {
+        let index = package.part(name.as_bytes()).expect("the part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        text
+    };
+    for n in 1..=3 {
+        let text = text_of(&format!("xl/charts/chart{n}.xml"));
+        assert!(
+            text.contains("<c:f>'Sheet1'!$B$2:$B$1001</c:f>"),
+            "chart{n}: {text}"
+        );
+        assert!(!text.contains("$1002<"), "chart{n}: {text}");
+    }
+    let drawing = text_of("xl/drawings/drawing1.xml");
+    assert!(
+        drawing.contains(
+            "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1501</xdr:row>"
+        ),
+        "{drawing}"
+    );
+}
+
+#[test]
 fn the_chart_labels_sample_adds_a_coloured_labelled_bar_and_pie_and_reads_them_back() {
     // `specs/0036-charts-write-second-set.md`, "Harness runs": a clustered
     // column chart of two coloured series labelled outside their ends with
