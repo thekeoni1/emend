@@ -725,6 +725,132 @@ P2 is DONE at 32e4b70 with its record bf16a46, five commits local on
 d638334. P3 proceeds as "P3" says, with rulings E (b), J and K. Its doc
 commit carries this verification.
 
+## Planning verification of P3 (2026-10-20)
+
+Verified from primaries, never the report alone: the chain on bf16a46
+is the doc commit 09e5f94 (the spec at 681e4799..., ROADMAP.md at
+dc44a868..., planning's hashes, nothing else), the test commit
+905085e (one test file), the probe commit 8b2320a (the probe alone,
+103 and 16 lines), the changelog commit 50a3989 (one bullet under
+"Added" citing this spec, the phase commit) and the record commit
+959785e (the eight log files, the API, size, two sample and open
+records, nothing else); every message ASCII, the Co-Authored-By line
+alone, the count rule's sentence on each commit that states numbers.
+The five logs end "checks all as expected: yes" at the README's hashes
+(gate e500a082..., test 00dbbb95..., negative 49889bcb..., size
+e81283b0..., run 86a24c2a...), the scan d938e05d... ends RESULT: PASS
+with the pre-check alone superseded; no logged attempt refused.
+Planning's own privacy scan over bf16a46..959785e: 5 commits, 2076
+blobs, 0 findings, PASS; no home path, no address, no U+2014 in the
+range's files or messages (the three logs' regex and control lines
+excepted, as in every phase). Read in the source: the bubble case
+asserts the dPt before the first series' xVal and the second's yVal
+once each, the second series of BUBBLES having no categories; the
+probe's PLOTS holds the three kinds after Area3D in the enum's order,
+the refusal "0 to 15", the marker on line, scatter and radar, the line
+on line, 3D line, scatter, radar and stock, one point on every kind
+but the surfaces, exploded on the four round kinds and marked where
+the series takes a marker, the surface series bare, the of-pie one
+series as a pie. The size record: the charts probe 1097236, +5716
+over part 1's 1091520, the cost 125060 over 119344, "below the
+estimate of 15500 to 25500; a FINDING: no"; the core 0 (accepted to
+2000), images and comments moved 0; the budget 438960, 19792 under
+458752, a move of 0. The API listing: 776 rows, 1 gone and 20 new
+(the re-export's key and the seven types' rows), NewChart, NewCombined
+and NewPlot "keep; Eq dropped (ruling E (b))". The run log: both
+samples byte-identical to P2's on both targets, 27 of 27 each, 4 of
+4; the fresh openpyxl fixture P2's 4 lines and 9 fields; P2's kept
+fixture 4 of 4 by sha256. The open record: 1748 pairs, 1736 and 1737
+ok, no output refused on an accepted input, no error. The check's
+answer is in the report verbatim, three yes answers, no blocking
+item; every hash the report cites is in a primary.
+
+### Ruling N: the rebuilt chain
+
+The test commit's first form, 85971db, was rebuilt by the fixup
+e3408a5 for clippy's type_complexity before any dry run, the probe
+and changelog commits rebuilt onto it with their patch-ids unchanged
+(the check matched them). Accepted: a rewrite of local, unreported
+commits before the report (`specs/0001`); the README states it.
+
+### Ruling O: ruling K's reading is confirmed
+
+Ruling K's "assert it on both series" was written as if both bubble
+series wrote an xVal; the second series of BUBBLES has no categories,
+so emend writes none, and its first reference after the points is its
+yVal. The reading taken, the dPt before each series' first reference,
+once each, is the ruling's intent and the only workable one. The
+assertion message naming the plot and printing the part is enough:
+the two patterns fail apart. Done.
+
+### Ruling P: the charts cost, below the estimate
+
+The part's cost is 5716 section bytes, under the estimate's floor of
+15500; the spec made only a cost above 30000 a finding, so none. The
+check's note (a), that the probe exercises one arm of each option enum
+(Circle, Dash, Bar, Position) and the optimiser may drop the rest, is
+the likely cause and is accepted unmeasured: the spec prescribed those
+constants, and "so every arm is live" in "The probe" overstates what a
+single value per enum can show. The lesson is carried into part 3's
+spec: an estimate prices the arms the probe reaches, and a probe that
+means to keep every arm live takes its values from its command line.
+The check's note (b), the combined line's series taking no marker,
+line or point, is accepted; the Line arm is live through kind 1.
+
+### Ruling Q: the stale clause in the size record and the probe
+
+records/size-m6p2-2026-10-20-50a3989.md line 85, the size log's
+charts probe row, keeps the second set's clause "index 0 to 12 over
+the thirteen `NewPlot` variants" before "the kind index runs 0 to
+15"; the probe's header comment keeps the same paragraph. Each
+description is layered, the later clause governing, as every size
+record's probe rows have been written since the probe's first change;
+left as it stands, since a fix means a new phase commit and the five
+logs rerun for a comment. The next part that changes the charts probe
+rewrites its row and its header as one description with one index
+range; `specs/0040` carries this.
+
+### Ruling R: change QF, the heuristic dates, the open .txt
+
+The size log's change QF, accepting P1's and P2's core commits as
+touching the format probe's sources in comment and use-list lines
+alone, with controls, is accepted; the core's growth is 0. The three
+API rows dated by the listing's heuristic (NewMarker.color and
+NewPoint.color at 784e3c0, NewMarker.size at 4c36f05, their spec
+column by that commit's part) are accepted as the record prints them,
+the cause left open there; the report's sentence that the record
+"says so" is the check's wording point, noted, nothing to change: the
+form is part 7's and the dating is a stated heuristic. The open
+record's .txt being P2's byte for byte is accepted: the phase adds no
+keep pair.
+
+### Ruling S: P3 is DONE; the close-out
+
+P3 DONE 2026-10-20. Part 2's close-out as this spec's "Close-out push
+(after P3)" with the hashes filled in: the doc commit commits this
+verification and rulings N to S and the ROADMAP's P3 row, subject
+"M6 part 2 close-out: commit planning docs (the P3 verification and
+rulings)"; the base is 5b8b25a, found by its subject "M6 part 1
+close-out: commit planning docs (the P3 verification and rulings)";
+`PREV_RECORD_PATTERN` `^M6 part 1 close-out record` matches 6cecae7,
+the range's first commit, once; the generator transforms part 1's
+close-out scripts with its numbered changes from 49, correcting
+`specs/0038` ruling R's two leftovers (the scan's comment above change
+45's checks, the push script's change-list line 48's carried tail);
+`CARGO_TARGET_DIR` `<home>/.cache/emend-build/m6p2-close/target`; no
+Excel-record check; the denylist form whole-word; the no-archive check
+of change 48; the three logs push, ci-run and scan under
+records/logs/m6p2-close/, the record commit "M6 part 2 close-out
+record: the push, the CI run and the scan" holding them only; pre mode
+on a clean tree, one independent check before the pre report, then
+planning's word, then the maintainer's authorisation typed in the
+implementing session, the push, the CI run, the post scan, the record
+commit. The range is 6cecae7 and the part's fifteen commits, sixteen,
+seventeen with the doc commit. Ruling J's six older branches
+(backup-p3-cfb83cc, p1-before-fix, p1-before-g, p3-before-reword,
+p4-before-cite, p4-before-reword) are listed in the close-out report
+and deleted after the push on planning's ruling.
+
 ## Decisions for the maintainer
 
 1. The unit of a line's `width`: A (recommended), EMU as the file's `w`
