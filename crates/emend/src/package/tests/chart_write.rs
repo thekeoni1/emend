@@ -4713,7 +4713,8 @@ fn points_are_written_in_the_order_given_on_each_kind_that_takes_them() {
     }
     // A scatter's point after its `spPr`; a stock's after its fixed marker,
     // the point coloured where the series' colour is refused; a bubble's
-    // before its references.
+    // before its references on each series, the first's `xVal`, the
+    // second's `yVal` (it has no categories).
     let one_red = [point(1, red, None, None)];
     let point_written = format!("<c:dPt><c:idx val=\"1\"/>{red_fill}</c:dPt>");
     let scatter = [NewSeries {
@@ -4734,36 +4735,46 @@ fn points_are_written_in_the_order_given_on_each_kind_that_takes_them() {
         fill_of("0000FF"),
         fill_of("0000FF")
     );
-    let cases: [(NewPlot, &[NewSeries<'_>], String, usize); 3] = [
+    // Each case's patterns, with the count each is written.
+    type Expected = Vec<(String, usize)>;
+    let cases: [(NewPlot, &[NewSeries<'_>], Expected); 3] = [
         (
             NewPlot::Scatter {
                 style: ScatterStyle::Marker,
             },
             &scatter,
-            format!("{ONE_NAMED_TX}{blue_line}{point_written}<c:xVal>"),
-            1,
+            vec![(
+                format!("{ONE_NAMED_TX}{blue_line}{point_written}<c:xVal>"),
+                1,
+            )],
         ),
         (
             NewPlot::Stock,
             &stock,
-            format!("<c:marker><c:symbol val=\"none\"/></c:marker>{point_written}<c:cat>"),
-            3,
+            vec![(
+                format!("<c:marker><c:symbol val=\"none\"/></c:marker>{point_written}<c:cat>"),
+                3,
+            )],
         ),
         (
             NewPlot::Bubble,
             &bubbles,
-            format!("{point_written}<c:yVal>"),
-            1,
+            vec![
+                (format!("{point_written}<c:xVal>"), 1),
+                (format!("{point_written}<c:yVal>"), 1),
+            ],
         ),
     ];
-    for (plot, series, written, count) in cases {
+    for (plot, series, expected) in cases {
         let chart = NewChart {
             series,
             ..bare(plot)
         };
         let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
         let part = text_of(&output, CHART1);
-        assert_eq!(part.matches(&written).count(), count, "{plot:?}: {part}");
+        for (written, count) in &expected {
+            assert_eq!(part.matches(written).count(), *count, "{plot:?}: {part}");
+        }
         let read = &charts_of(&output)[0].chart.plots[0];
         assert_eq!(read.series.len(), series.len(), "{plot:?}");
     }
