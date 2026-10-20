@@ -499,6 +499,131 @@ close-out record commit and this part's commits, on planning's word
 and the maintainer's authorisation typed in the implementing session.
 The hashes are filled in at the briefing.
 
+## Planning verification of P1 (2026-10-20)
+
+Verified from primaries: the chain 2933e3a, 07cc871 (doc), 12f1314
+(core), a22f6d7 (tool, the phase commit), 74b63de (record), all local,
+the tree clean, origin/main still bcc53a5; the doc commit's three
+blobs at f1919878, 472e81b3 and b1a7df3c, the hashes planning left;
+the seven files of records/logs/m6p3-p1 at the hashes the report
+gives, the four logs ending "checks all as expected: yes" and the scan
+"RESULT: PASS" with "structural checks failed: 0"; every commit
+message ASCII with the Co-Authored-By line alone, the three counting
+messages carrying the diff-alone sentence; planning's own privacy scan
+over 2933e3a..74b63de, 4 commits, 2096 blobs, 0 findings, PASS; the
+record commit's files holding no home path, name or address (the two
+"/home/" hits are the run log's and the scan's own path patterns);
+ANTHROPIC_API_KEY unset in planning's shell and "unset" in every log.
+The code: NewTrendline, TrendlineKind, NewErrorBars, ErrorDirection,
+ErrorBarKind and ErrorValue as "The call" gives them, re-exported;
+NewSeries gaining the two fields and losing Eq; takes_analysis the
+five 2D kinds; trendline_options and error_bars_options the
+"Applicability" rules with the two messages; series_bytes writing the
+trendline after dLbls then each errBars before cat or xVal;
+trendline_bytes the name element, trendlineType, order or period,
+forward, backward, intercept, dispRSqr, dispEq; error_bars_bytes
+errDir where given, errBarType, errValType, noEndCap, plus then minus
+as numRef, else val, none for stdErr; the reader untouched. The tool:
+chart_trend_sample's three charts as "Harness runs" gives them, the
+references through bounded_last_row, the read-back every field. The
+logs: the prune of m6p2-p1, p2, p3 and close with du -sb then rm -r;
+base tests 247, none gone, the two edited by their field lines; ten
+new tests, seven and three, by name; messages 154 at both ends;
+check.sh nine PASS; the probe 1103064 (5828 over 1097236, told, not
+judged); tests 1376 on both targets, the six sets 515, 659, 701, 704,
+762, 1141; N1 to N12 refused through the binary, N12 the trend sample
+on a non-wsDr drawing, the rule messages named unreachable with their
+covering tests; the corpus run 27 of 27 ok on each target, lo and
+lo_in ok 27, every output the same on both targets, rows 6 to 1000
+with two workbooks at the bound, entries identical 798, changed 72,
+added 124 (81 chart parts), dropped 0; the Excel-form fixture
+04de5598008c, 3702 bytes, its seven own-form checks, --charts-sample
+reading it on both targets with the input written back unedited and
+--chart-trend-sample adding three (count 4, rows 6, read_back 3), the
+twelve form checks, the same output on both targets; the keep 1896
+pairs, 148 new and exactly this phase's by name, 0 gone, 0 changed;
+the open record 1896 pairs, every new pair ok on both sides, no
+verdict or class of the 1748 moved; the independent check's answer
+verbatim in the record and the report, the report's edits after it
+wording alone.
+
+### Ruling A: P1 is DONE
+
+The ten new tests, the forms, the rules, the sample and the fixture
+are as the spec gives them; nothing reopens P1. The probe's 5828 is
+the part's running figure, judged by P3's size log against the
+estimate of 16500 to 26000 and the 31000 line ("Size and packaging").
+
+### Ruling B: the fixture's Date axis and bounds (check item (a))
+
+Accepted as read. The fixture holds one dateAx and no serAx, so the
+charts line's axis_other 1 can only be the date axis read as Date,
+and axis_bounds 1 the one value axis holding a bound; the run log's
+two controls (series 2, axis_other 0) refuse the line otherwise, and
+the reader's own tests of specs/0034 read min, max and Date apart. No
+tool change: the charts line's fields are part 1's. P2's
+--chart-axis-sample prints the Date and bound counts the spec names,
+and the openpyxl fixture, holding one DateAxis, is read by the same
+rule.
+
+### Ruling C: the doc comment's "more kinds sample's" (check item (b))
+
+A wording error in tools/emend-copy/src/main.rs: the trend sample's
+charts are placed as the format sample's, as the spec and the tool
+commit say. P2's tool commit corrects that one line and names this
+ruling; no code moves.
+
+### Ruling D: the overlong doc line (check item (c))
+
+The rewrapped line in add_chart's Errors doc is rewrapped to its
+neighbours' width in P2's core commit, which extends that doc for the
+plot lines and the axes; the commit message names this ruling.
+
+### Ruling E: the set count before each set's fields (check item (d))
+
+Accepted as the order: "in field order" is each set's fields; the
+number of sets and whether the kind takes any are checked first, as
+the doc comment states and the check-order test pins. P2's rules
+follow the same shape: the kind, then the count where one applies,
+then each field.
+
+### Ruling F: run.log's no-text property (check item (e))
+
+As every phase since specs/0028: the scan is the instrument that
+covers the logs' text, and its final run is committed with the logs.
+No log asserts it of itself.
+
+### Ruling G: the session's statements (report items 1 to 5, 7, 8)
+
+Accepted, with one reminder. Generators written by forked subagents
+and reviewed by the session are the session's; the logs are the
+primaries either way. The negative script's two superseded
+development dry runs and the keep's first failed run are development,
+not logged runs; none of the logged runs was refused or repeated. The
+run log's release binaries are its template's form. The branches'
+deletion rests on ruling U and on git branch listing main alone
+(planning checked). The reminder: the negative fork's rm -rf on its
+own scratch directory was outside a logged script and touched nothing
+else, so it stands; from P2 every fork follows the scripts' rule, rm
+-r without -f on a directory the same fork made, written with
+"${var:?}", and the README says so if one does otherwise.
+
+### Ruling H: the report's edits after the check (report item 10)
+
+Accepted: the check's five Question 3 disagreements were wording (the
+prefix check, the dry run's and the statements' sourcing, item 8's
+scope) and the edits mark them as the session's statements; no number
+moved, and planning's figures above are the logs', not the report's.
+
+### Ruling I: P2's doc commit and carry
+
+P2's doc commit carries this spec with this section and ROADMAP.md
+with P1's row DONE, on 74b63de; its subject "M6 part 3 P2: commit
+planning docs (the P1 verification)". The generators carry P1's with
+the numbered changes continuing; the gate prunes nothing (the m6p3-p1
+root stays for P3's rerun); the size figure is told at any value
+again. NewSeries losing Eq is P3's API listing's, as item 6 says.
+
 ## Decisions for the maintainer
 
 1. Which kinds take a trendline and error bars: A (recommended), the

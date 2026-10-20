@@ -1167,7 +1167,7 @@ message. Estimate 16500 to 26000 under `charts`, a finding above
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | `NewTrendline` and `NewErrorBars` on `NewSeries`, their rules and forms; `--chart-trend-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | PLANNED |
+| P1 | `NewTrendline` and `NewErrorBars` on `NewSeries`, their rules and forms; `--chart-trend-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | DONE 2026-10-20 (phase commit a22f6d7, record 74b63de, local; 27 of 27 both targets, tests 1376, probe 1103064 told; the Excel-form fixture read; open record 1896 pairs, 148 new, no finding; rulings A to I) |
 | P2 | the plot lines and `NewAxis` with `NewDateAxis` on `NewChart`; `--chart-axis-sample`; the `chart-analytic` op of `scripts/openpyxl-ops.py` with its test; the limits; the openpyxl fixture; P1's corpus run rerun byte-identical | PLANNED |
 | P3 | the probe's options and its one-piece description; the size record (`charts` against part 2's 125060, `images`, `comments` and the core each judged by ruling N's form); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | PLANNED |
 | Close | close-out push after P3, carrying 2933e3a, base bcc53a5 by its subject, `PREV` `^M6 part 2 close-out record`, no Excel-record check | PLANNED |
