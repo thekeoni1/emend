@@ -851,6 +851,61 @@ seventeen with the doc commit. Ruling J's six older branches
 p4-before-cite, p4-before-reword) are listed in the close-out report
 and deleted after the push on planning's ruling.
 
+## Planning verification of the close-out (2026-10-20)
+
+Pre mode, verified from primaries before planning's word: the doc
+commit bcc53a5 on 959785e holds the two planning files at planning's
+hashes (e6813c4b..., af81b3f8...) and nothing else, its message in
+part 1's form with the Co-Authored-By line alone; the range
+5b8b25a..bcc53a5 is 17 commits, 6cecae7 first and once, every message
+ASCII, no session link; the base 5b8b25a resolves by its subject; the
+range's diff (56 files) holds no home path, no U+2014, no address and
+adds no archive; planning's own privacy scan over the range (17
+commits, 2104 blobs, 0 findings, PASS); the pre push.log (1472 lines,
+ae3268d2...) ends "pre checks all as expected: yes" with the identity
+17 of 17, the hook's scan 17 commits 2104 blobs 0 findings, the nine
+PASS lines, the tree clean after the gate; scan-pre.log (4d37ed53...)
+ends RESULT: PASS, 56 of 56 files and 17 of 17 messages, archives 0,
+"the range holds no archive (change 48): yes", 0 hits, structural 0;
+the generated scripts at the report's hashes (push 732920ad..., ci
+1bdca952..., scan 471ff01a...), their change lists 49 to 51, change 51
+correcting `specs/0038` ruling R's two leftovers; the independent
+check (f92a4aab...) verbatim in the pre report (725b60f7...), three
+YES, blocking 0, its four observations needing no change.
+
+T. Planning's word for the push of 5b8b25a..bcc53a5, given 2026-10-20
+   after the pre verification above, written in scratch while the tree
+   was clean and moved here after the push; the maintainer's
+   authorisation was typed in the implementing session the same day
+   ("push", recorded verbatim in push.log with its date).
+
+Push mode, the CI run and the post scan, verified from git, `gh` and
+the three committed logs: origin/main and `ls-remote` are bcc53a5; the
+hook's scan 17 commits, 2104 blobs, 0 findings; git reported
+"5b8b25a..bcc53a5  main -> main"; the repository PRIVATE; CI run
+39449541516 on bcc53a5 completed with conclusion success (`gh run
+view` agrees); the post scan RESULT: PASS, 56 of 56 files, 17 of 17
+messages, 0 hits, structural 0; the committed push.log's first 1472
+lines are the pre log byte for byte (ae3268d2...), then push mode
+appended, ending "push checks all as expected: yes"; the three logs at
+the report's hashes (push 01bff8f5..., ci-run b92908e1..., scan
+d955571e...), no home path but the scripts' own regex and control
+lines, no address, no U+2014; the record commit 2933e3a holds the
+three logs only, its message ASCII with the Co-Authored-By line alone;
+planning's own privacy scan of it (1 commit, 2076 blobs, 0 findings,
+PASS); the final report at ded3a04f....
+
+U. The close-out is DONE: Milestone 6 part 2 DONE and PUSHED
+   2026-10-20. The record commit 2933e3a stays local and goes with
+   part 3's push, as 6cecae7 went with this one; part 3's close-out
+   names `PREV` `^M6 part 2 close-out record`, base bcc53a5 by its
+   subject, generator changes from 52. Ruling J's six older branches
+   (backup-p3-cfb83cc, p1-before-fix, p1-before-g, p3-before-reword,
+   p4-before-cite, p4-before-reword) are deleted now by the
+   implementing session with `git branch -D`, each named in its
+   report; every commit they held is either in the pushed range or a
+   superseded form the records describe.
+
 ## Decisions for the maintainer
 
 1. The unit of a line's `width`: A (recommended), EMU as the file's `w`

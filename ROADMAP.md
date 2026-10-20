@@ -1128,7 +1128,7 @@ no `pageMargins` written (openpyxl's form, confirmed on the image).
 | P3 | the probe's `add_chartsheet`; the size record (`charts` against part 5's 105424, `images`, `comments` and the core each judged); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | DONE 2026-10-19 (doc 8910350, probe 3a5ea11, changelog 4cc4f2e, record 20d00be, local; verified by planning from primaries, its own privacy scan, the two diffs read whole; `charts` costs 119344, this part's cost 15396 over part 6's record, above the 15000 line, a finding recorded and not fixed, ruling O; `images` and `comments` costs moved -116 and -64, inside 1500, the record's two FINDING lines a generator fault, ruling N; core 1968, accepted; budget 438960, 19792 under; API one row new, `Package::add_chartsheet`; corpus rerun 27 of 27 byte-identical on both targets; open record 1474 pairs unchanged; rulings N to Q, `specs/0038` "Planning verification of P3") |
 | Close | close-out push after P3, carrying 67c9144, base c970940 by its subject, `PREV` `^M5 part 6 close-out record`, no Excel-record check | DONE 2026-10-19 (doc 5b8b25a pushed, origin/main c970940..5b8b25a, 15 commits, 2051 blobs, 0 findings; CI run 39285297969 success; the post-push scan PASS; record 6cecae7 local, goes with Milestone 6 part 2's push; the maintainer's authorisation typed 2026-10-19 in the implementing session after planning's word the same day; one independent check at the pre stage, blocking 0; change 48, the scan's no-archive check, ruling R; verified by planning from git, `gh`, the three logs and its own blob scans; `specs/0038` "Planning verification of the close-out", R to T) |
 
-### Part 2: chart kinds and visual formatting (`specs/0039-chart-kinds-and-formatting.md`, APPROVED 2026-10-19, decisions 1 to 4 A; IN PROGRESS from 2026-10-19)
+### Part 2: chart kinds and visual formatting (`specs/0039-chart-kinds-and-formatting.md`, APPROVED 2026-10-19, decisions 1 to 4 A; DONE and PUSHED 2026-10-20)
 
 Surface and of-pie written kinds (`NewPlot::Surface`, `Surface3D`,
 `OfPie` with its type and split); a series' marker (symbol, size,
@@ -1146,13 +1146,31 @@ Estimate 15500 to 25500 under `charts`, a finding above 30000.
 | P1 | the surface and of-pie kinds, their rules and forms, the surface axes, the new range message; `--chart-surface-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | DONE 2026-10-19 (doc 90ad3a1, core 3affd4a, tool 0a55f0b, fix 01a3059, record d638334, local; dry run 2 a finding, LibreOffice timing out at 600 s on the two large workbooks' 130001-point surfaces and of-pies, fixed by ruling A bounding the sample's references to 1000 rows, the timeout kept by ruling B; verified by planning from primaries, its own privacy scan, the forms read in the source; corpus 27 of 27 with lo and lo_in ok on both targets; the Excel-form fixture's plots in schema order, ofPieType first; open record 1565 pairs, no finding; the check's items carried by ruling E, the fixture's kinds ruling F; rulings A to H, `specs/0039` "Planning rulings during P1" and "Planning verification of P1") |
 | P2 | markers, lines and points on `NewSeries`; `--chart-format-sample`; the `chart-format` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | DONE 2026-10-20 (doc c7b9421, core 1637495, tool 121e7f2, op 32e4b70, record bf16a46, local; two generator faults in the dry runs, ruling I; verified by planning from primaries, its own privacy scan, the rules and forms read in the source; corpus 27 of 27 with lo and lo_in ok on both targets, the two large workbooks at 1000 rows by ruling C; P1's run rerun byte-identical 27 of 27; the openpyxl fixture's nine fields the same; open record 1748 pairs, no finding; probe sections 1096868, 5348 over part 1's record, judged in P3; rulings I to M, `specs/0039` "Planning verification of P2") |
 | P3 | the probe's three kinds and series options; the size record (`charts` against part 1's 119344, `images`, `comments` and the core each judged by ruling N's form); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | DONE 2026-10-20 (doc 09e5f94, test 905085e, probe 8b2320a, changelog 50a3989, record 959785e, local; the test commit rebuilt by a fixup before any dry run, ruling N; verified by planning from primaries, its own privacy scan, the test and the probe read in the source; charts probe 1097236, +5716 over part 1's record, the cost 125060, below the estimate's floor and not a finding, ruling P; core 0, images and comments 0, budget 438960, 19792 under the ceiling; API 776 rows, 1 gone, 20 new, three rows marked Eq dropped; P2's runs rerun byte-identical 27 of 27 on both targets, the fixtures 4 of 4; open record 1748 pairs, no finding; the size record's stale index clause carried to `specs/0040`, ruling Q; rulings N to S, `specs/0039` "Planning verification of P3") |
-| Close | close-out push after P3, carrying 6cecae7, base 5b8b25a by its subject, `PREV` `^M6 part 1 close-out record`, no Excel-record check | PLANNED (briefed 2026-10-20 by ruling S: generator changes from 49, the doc commit "M6 part 2 close-out: commit planning docs (the P3 verification and rulings)", seventeen commits in the range) |
+| Close | close-out push after P3, carrying 6cecae7, base 5b8b25a by its subject, `PREV` `^M6 part 1 close-out record`, no Excel-record check | DONE 2026-10-20 (doc bcc53a5 pushed, origin/main 5b8b25a..bcc53a5, 17 commits, 2104 blobs, 0 findings; CI run 39449541516 success; the post-push scan PASS; record 2933e3a local, goes with Milestone 6 part 3's push; the maintainer's authorisation typed 2026-10-20 in the implementing session after planning's word the same day; one independent check at the pre stage, blocking 0; changes 49 to 51, the two leftovers of `specs/0038` ruling R corrected; the six older local branches of ruling J deleted by ruling U; verified by planning from git, `gh`, the three logs and its own blob scans; `specs/0039` "Planning verification of the close-out", T and U) |
 
-### Part 3: analytic chart elements (PLANNED)
+### Part 3: analytic chart elements (`specs/0040-analytic-chart-elements.md`, APPROVED 2026-10-20, decisions 1 to 4 A; IN PROGRESS from 2026-10-20)
 
-Trendlines, error bars, drop lines and up-down bars; axis scaling
-(`min`, `max`, `logBase`), tick skips and date axes. The analytic
-half of the list.
+Trendlines (`NewTrendline`: six kinds, forecast, intercept, equation
+and R-squared, a name) and error bars (`NewErrorBars`: direction,
+kind, fixed, percentage, standard deviation, standard error or custom
+references) on a written series; drop lines, high-low lines and
+up-down bars on a line, area or stock plot; axis options (`NewAxis`:
+`min`, `max`, a logarithmic base, a reversed orientation, major and
+minor units, tick label and tick mark skips) and a date category axis
+(`NewDateAxis`). The analytic half of `specs/0036`'s list. openpyxl's
+`Trendline`, `ErrorBars`, `ChartLines`, `UpDownBars`, `Scaling` and
+`DateAxis`. The reader is unchanged. Decisions 1 to 4 A: the five 2D
+kinds take trendlines and error bars; the plot lines are booleans on
+`NewChart`; the date axis is in; the reader is unchanged. No new
+message. Estimate 16500 to 26000 under `charts`, a finding above
+31000.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `NewTrendline` and `NewErrorBars` on `NewSeries`, their rules and forms; `--chart-trend-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | PLANNED |
+| P2 | the plot lines and `NewAxis` with `NewDateAxis` on `NewChart`; `--chart-axis-sample`; the `chart-analytic` op of `scripts/openpyxl-ops.py` with its test; the limits; the openpyxl fixture; P1's corpus run rerun byte-identical | PLANNED |
+| P3 | the probe's options and its one-piece description; the size record (`charts` against part 2's 125060, `images`, `comments` and the core each judged by ruling N's form); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | PLANNED |
+| Close | close-out push after P3, carrying 2933e3a, base bcc53a5 by its subject, `PREV` `^M6 part 2 close-out record`, no Excel-record check | PLANNED |
 
 ### Part 4: chart text and in-place edits (PLANNED)
 
