@@ -656,6 +656,75 @@ P1 is DONE at 01a3059 with its record d638334, five commits local on
 6cecae7. P2 proceeds as "P2" says, with rulings C, E and G. Its doc
 commit carries this verification.
 
+## Planning verification of P2 (2026-10-20)
+
+Verified from primaries: the chain d638334, c7b9421 (doc), 1637495
+(core), 121e7f2 (tool), 32e4b70 (op, the phase commit), bf16a46
+(record), all local, the tree clean; the doc commit carrying this spec
+at 621573a3 and ROADMAP.md at 2350890c, planning's hashes; the seven
+files of records/logs/m6p2-p2 at the report's hashes, the four logs
+ending "checks all as expected: yes" and the scan "RESULT: PASS";
+planning's own privacy scan over d638334..bf16a46, 5 commits, 2068
+blobs, 0 findings, PASS; in chart_write.rs the five types as "The call"
+gives them, series_options taking a marker on Line, Scatter and Radar
+Standard or Marker only, a line on Line, Line3D, Scatter, Radar and
+Stock, an explosion on the four round kinds, the size 2 to 72 and the
+width limit under the range message; the forms, a:ln with w then the
+fill then prstDash, the marker after spPr with the stock's fixed none,
+dPt as idx, marker, explosion, spPr before dLbls; the shared
+bounded_last_row (ruling C); the chart-format op's DataPoint, marker and
+line; the corpus run 27 of 27 with lo and lo_in ok 27 on each target,
+the two large workbooks at rows 1000; P1's surface run rerun
+byte-identical 27 of 27 on each target; the openpyxl fixture, rootless,
+the image id the record's, the nine-field comparison yes with its
+control; the open record, 1748 pairs, findings 0; the check's answer
+verbatim in the record.
+
+### Ruling I: the two generator faults and the rebuilt chain
+
+Report findings 1 to 3. Dry gate 1 (change A72 b, the commit-class
+control) and dry run 2 (change NXW b, the field comparison's pattern)
+are generator faults, recorded under <phase>/superseded and named by the
+final scan's RERUN_FILES; accepted. The core commit's amendment and the
+cherry-picks before any dry run are a rewrite of local, unreported
+commits, allowed by specs/0001; the chain reported is the one verified.
+
+### Ruling J: the local branches
+
+The local branch p2-before-reorder, which holds the first chain, is
+deleted by the implementing session now (git branch -D; it was never
+pushed, and the report records its three hashes). The other local
+branches of earlier parts (backup-p3-cfb83cc, p1-before-fix,
+p1-before-g, p3-before-reword, p4-before-cite, p4-before-reword) are
+listed in the close-out report and deleted after the push on planning's
+ruling there.
+
+### Ruling K: the check's items
+
+Report findings 7 and 9 and the check's (a) and (b). The axes_bytes doc
+rewrap (87 columns, outside E (e), undisclosed by the commit message) is
+accepted as cosmetic, now stated in the README. The probe's nine forced
+lines are accepted; P3 does the probe's work. The bubble case of
+points_are_written_in_the_order_given_on_each_kind_that_takes_them,
+which never asserts the dPt before xVal on the first bubble series, is
+tightened in P3's test commit to assert it on both series, named in the
+message.
+
+### Ruling L: the probe's growth, a note for P3
+
+The charts probe's sections read 1096868 at the phase commit, 5348 over
+part 1's size record's 1091520 and 2968 over P1's gate; printed, judged
+nowhere yet. P3's size log judges the charts cost against part 1's
+119344 by the spec's bands (15500 to 25500 expected, a finding above
+30000), the images and comments costs and the core by ruling N's form.
+Nothing to rule.
+
+### Ruling M: P2 is DONE
+
+P2 is DONE at 32e4b70 with its record bf16a46, five commits local on
+d638334. P3 proceeds as "P3" says, with rulings E (b), J and K. Its doc
+commit carries this verification.
+
 ## Decisions for the maintainer
 
 1. The unit of a line's `width`: A (recommended), EMU as the file's `w`
