@@ -534,6 +534,52 @@ part 1's close-out record commit and this part's commits, on planning's
 word and the maintainer's authorisation typed in the implementing
 session. The hashes are filled in at the briefing.
 
+## Planning rulings during P1 (2026-10-19)
+
+The implementing session stopped at dry run 2
+(`<phase>/superseded/dry-run-2/d2`): gate, test and negative passed; the
+run log failed, host and i686 alike, with `--chart-surface-sample` lo ok
+25 of 27. The two large workbooks, 9132ce5303d8 and ab0e6a529465, time
+out in LibreOffice after 600 s. Their references are `$2:$130002`, so
+each surface carries three series of 130001 points and each of-pie
+130001 slices. The session's isolation on one host output showed the
+of-pies alone take about 505 s and the surfaces alone exceed 600 s; the
+input converts in about 7 s, and `--chart-kinds-sample`'s same ranges
+opened lo ok on both workbooks in M5 part 6 P3. Planning read the
+finding file and the timing output; the reading above is the session's,
+confirmed against them, not re-measured.
+
+### Ruling A: the sample bounds its references
+
+Option (a). `--chart-surface-sample` references at most 1000 data rows:
+the last referenced row is the smaller of the row the kinds sample would
+use (`max_row.max(1) + 1`) and 1001. The chart's position, the first row
+past the data, is unchanged. The tool's line gains the referenced row
+count (`rows N`), so the record shows where the bound applied (the two
+large workbooks, rows 1000) and where it did not. The sample's purpose
+is to prove the forms open; it is not a claim about chart size, and the
+library writes whatever references it is given. "As
+`--chart-kinds-sample` does" in "Harness runs" now reads with this
+bound; the expectation `lo` and `lo_in` `ok` for every workbook stands.
+The fix is its own commit on top of 0a55f0b, subject "M6 part 2 P1:
+bound the surface sample's references (ruling A)"; the kinds sample and
+every earlier sample are untouched.
+
+### Ruling B: the harness budget stands
+
+`--lo-timeout` stays at its standing 600 s in every logged script. Dry
+run 2's run log is kept under `<phase>/superseded` as the finding; the
+P1 record's findings paragraph cites it by its sha256, the two rows, the
+cause and the fix commit, with no diagnosis file committed. Rule F
+applies: `RERUN_FILES` names the superseded run script.
+
+### Ruling C: P2's sample carries the same bound
+
+`--chart-format-sample` references at most 1000 data rows by the same
+rule, from its first run, and prints the same `rows N`; a shared helper
+is the session's choice. Markers on every point of a 130001-point series
+are the same risk, and P2 does not repeat this finding to learn it.
+
 ## Decisions for the maintainer
 
 1. The unit of a line's `width`: A (recommended), EMU as the file's `w`
