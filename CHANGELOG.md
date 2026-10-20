@@ -77,6 +77,10 @@
   worksheet's; a chartsheet added holding one chart; its chart removed and
   another added; and a chartsheet renamed, moved and removed with the sheet
   calls (`specs/0038-chartsheets.md`).
+- Chart kinds and formatting, with the feature `charts`: the surface, 3D
+  surface and of-pie charts, and on a chart's series a marker, a line's width
+  and dash, and formatted data points, each where the kind takes it
+  (`specs/0039-chart-kinds-and-formatting.md`).
 
 ### Changed
 
