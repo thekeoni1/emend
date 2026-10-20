@@ -381,8 +381,9 @@ committed, their values printable:
   `surface3DChart` of two series and an `ofPieChart` (`bar`, split `pos`
   2) in schema order (the generator's text printed in the log).
   `--charts-sample` on it on both targets reads both charts (count 2,
-  series 3, the kinds `Surface3D` and `OfPie`); `--chart-surface-sample`
-  adds four beside them (count 6); the run log's own check with
+  series 3, `kind_other` 2, the line's fixed keys; ruling F);
+  `--chart-surface-sample` adds four beside them (count 6); the run
+  log's own check with
   `ElementTree` confirms each written plot's children in schema order,
   `ofPieType` first, the surface's three `axId`s and `serAx`, the
   contour's `view3D`.
@@ -579,6 +580,81 @@ applies: `RERUN_FILES` names the superseded run script.
 rule, from its first run, and prints the same `rows N`; a shared helper
 is the session's choice. Markers on every point of a 130001-point series
 are the same risk, and P2 does not repeat this finding to learn it.
+
+## Planning verification of P1 (2026-10-19)
+
+Verified from primaries: the chain 6cecae7, 90ad3a1 (doc), 3affd4a
+(core), 0a55f0b (tool), 01a3059 (ruling A's fix, the phase commit),
+d638334 (record), all local, the tree clean; the seven files of
+records/logs/m6p2-p1 at the hashes the report gives, the four logs
+ending "checks all as expected: yes" and the scan "RESULT: PASS"; the
+record commit carrying this spec at 7dff6b25, the hash the gate, test
+and run logs print as PLANNING_SPEC; planning's own privacy scan over
+6cecae7..d638334, 5 commits, 2055 blobs, 0 findings, PASS; the of-pie
+form in chart_write.rs writing ofPieType first, varyColors, the series,
+gapWidth 150, splitType (auto when no split), splitPos, secondPieSize 75
+and serLines; the surfaces writing wireframe, no varyColors, three axIds
+with serAx at 30; the view3D arms; the fix commit's SAMPLE_LAST_ROW 1001
+and the rows field; the corpus run 27 of 27 ok with lo and lo_in ok 27
+on each target, the two large workbooks at rows=1000; the Excel-form
+fixture's checks, each plot's children in schema order, ofPieType first,
+the four added charts; the open record, 1565 pairs, findings 0; the
+independent check's answer verbatim in the record.
+
+### Ruling D: "the P1 record" is the README and the run log
+
+Report finding 1. Rulings A and B's "record" is met by the committed
+README's Findings paragraph (ruling B's citation of dry run 2's run log
+by sha256, the two rows, the cause and the fix commit) and by run.log,
+which carries every tool line with its rows field and the two
+rows-at-bound checks. The run records written by
+scripts/passthrough-record.py are fixed in form and carry no tool line;
+they are not changed. Change I71, the gate's carried chart-write count
+raised from 67 to 74, is accepted here, so the README's "planning
+accepted I71" now has a primary.
+
+### Ruling E: the check's items (a) to (f)
+
+Report finding 5. None reopens P1. (a) The refusal of a marker, a line
+or a point on a surface series is P2's: the fields arrive there, and
+P2's tests cover it under "a point on a surface" and the kind tables;
+the P1 bullet listed it a phase early, planning's error. (b) NewPlot,
+NewChart and NewCombined deriving PartialEq without Eq is accepted;
+OfPieSplit's f64 forces it; P3's API listing marks the three rows
+changed. (c) The three tests short of the read-back rule (the coloured
+of-pie, the one-series surface with axis formats, the chartsheet
+surface) are extended in P2's core commit to read the written chart back
+and compare the plot whole, named in that commit's message. (d) The
+catalogue entry for the new message in P1 is accepted; P2's catalogue
+work adds no second entry for it. (e) The doc lines past 100 columns are
+rewrapped in P2 where its commits touch those files (add_chart's Errors
+paragraph; the surface sample's header), named in the message; not a P1
+rewrite. (f) The core commit's 25 lines in main.rs, the match arms the
+build needs, are accepted and disclosed.
+
+### Ruling F: the fixture's kinds are read; the spec's line was wrong
+
+Report finding 6. The reader names the kinds: chart.rs maps ofPieChart,
+surfaceChart and surface3DChart to OfPie, Surface and Surface3D, and the
+surface sample's read_back counts (surface 1, surface_3d 1, of_pie 2 on
+every workbook and on the fixture) come from charts read back through
+Package::charts. What prints kind_other is --charts-sample's line, whose
+keys are a fixed set (bar, line, pie, doughnut, scatter and "every other
+kind"). "Harness runs" should have read "count 2, series 3, kind_other
+2"; it reads so now. No gap, no work for P2 or P3.
+
+### Ruling G: the gen1 generator in the live directory
+
+Report finding 7. <phase>/gen/gate.py.gen1, hashed by the gate log among
+the generator directory's files, is moved under <phase>/superseded
+before P2's generators are written, so the live directory holds live
+generators only. No log is rerun for it.
+
+### Ruling H: P1 is DONE
+
+P1 is DONE at 01a3059 with its record d638334, five commits local on
+6cecae7. P2 proceeds as "P2" says, with rulings C, E and G. Its doc
+commit carries this verification.
 
 ## Decisions for the maintainer
 
