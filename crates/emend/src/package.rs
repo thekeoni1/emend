@@ -2320,8 +2320,9 @@ pub use chart::{
 };
 #[cfg(feature = "charts")]
 pub use chart_write::{
-    DashStyle, LabelPosition, MarkerSymbol, NewChart, NewCombined, NewLabels, NewLine, NewMarker,
-    NewPlot, NewPoint, NewSeries, NewSeriesName, OfPieKind, OfPieSplit, RadarStyle,
+    DashStyle, ErrorBarKind, ErrorDirection, ErrorValue, LabelPosition, MarkerSymbol, NewChart,
+    NewCombined, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint, NewSeries,
+    NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, RadarStyle, TrendlineKind,
 };
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};

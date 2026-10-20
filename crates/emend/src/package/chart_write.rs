@@ -10,6 +10,9 @@
 //! contour form and the 3D one, and the of-pie plot with its split; and a
 //! series' marker, its line's width and dash, and its formatted points.
 //!
+//! `specs/0040-analytic-chart-elements.md` adds a series' trendline and
+//! error bars.
+//!
 //! [`Package::add_chart`] checks the call and records the chart as an image
 //! is recorded: the write adds the chart part, created whole from the
 //! caller's strings, and an anchor holding a `graphicFrame` that names it,
@@ -262,7 +265,7 @@ pub enum RadarStyle {
 
 /// A new chart's series: its name and its references, each written as the
 /// file's `f` text, as given (decision 2). The Cargo feature `charts`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NewSeries<'a> {
     /// The series' name, `tx`.
     pub name: Option<NewSeriesName<'a>>,
@@ -288,6 +291,13 @@ pub struct NewSeries<'a> {
     /// The series' formatted points, `dPt`, in order; a surface's series
     /// take none.
     pub points: &'a [NewPoint],
+    /// The series' trendline: a bar's, a line's, a scatter's, an area's or
+    /// a bubble's (`specs/0040-analytic-chart-elements.md`,
+    /// "Applicability").
+    pub trendline: Option<NewTrendline<'a>>,
+    /// The series' error bars, as the trendline: none, one set, or on a
+    /// scatter or a bubble two of different directions.
+    pub error_bars: &'a [NewErrorBars<'a>],
 }
 
 /// A series' or a point's marker, `marker`: its symbol, its size and its
@@ -389,6 +399,108 @@ pub struct NewPoint {
     pub marker: Option<NewMarker>,
 }
 
+/// A series' trendline, `trendline` (`specs/0040-analytic-chart-
+/// elements.md`, "The call"): its kind, its forecasts, its intercept, what
+/// it shows and its name. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NewTrendline<'a> {
+    /// The trendline's kind, `trendlineType`, with a polynomial's order or a
+    /// moving average's period.
+    pub kind: TrendlineKind,
+    /// The forecast forward, `forward`: finite and not negative; a moving
+    /// average takes none.
+    pub forward: Option<f64>,
+    /// The forecast backward, `backward`: finite and not negative; a moving
+    /// average takes none.
+    pub backward: Option<f64>,
+    /// The intercept, `intercept`: finite; a linear, exponential or
+    /// polynomial trendline's alone.
+    pub intercept: Option<f64>,
+    /// Whether the chart shows the equation, `dispEq`; a moving average
+    /// shows none.
+    pub show_equation: bool,
+    /// Whether the chart shows the R-squared value, `dispRSqr`; a moving
+    /// average shows none.
+    pub show_r_squared: bool,
+    /// The trendline's name, the `name` element, escaped as a title is.
+    pub name: Option<&'a str>,
+}
+
+/// A trendline's kind, `trendlineType`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrendlineKind {
+    /// `linear`.
+    Linear,
+    /// `exp`.
+    Exponential,
+    /// `log`.
+    Logarithmic,
+    /// `power`.
+    Power,
+    /// `poly`, of the order given, 2 to 6, `order`.
+    Polynomial(u8),
+    /// `movingAvg`, over the period given, 2 or more, `period`.
+    MovingAverage(u16),
+}
+
+/// A series' error bars, `errBars` (`specs/0040-analytic-chart-
+/// elements.md`, "The call"): their direction, kind, value and end caps.
+/// The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NewErrorBars<'a> {
+    /// The bars' direction, `errDir`: required on a scatter's or a bubble's
+    /// series, refused on every other kind's.
+    pub direction: Option<ErrorDirection>,
+    /// Which way the bars run, `errBarType`.
+    pub kind: ErrorBarKind,
+    /// How long the bars are, `errValType` with its value or references.
+    pub value: ErrorValue<'a>,
+    /// Whether the bars end in a cap; `noEndCap` is its negation.
+    pub end_cap: bool,
+}
+
+/// Error bars' direction, `errDir`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ErrorDirection {
+    /// `x`.
+    X,
+    /// `y`.
+    Y,
+}
+
+/// Which way error bars run, `errBarType`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ErrorBarKind {
+    /// `both`.
+    Both,
+    /// `plus`.
+    Plus,
+    /// `minus`.
+    Minus,
+}
+
+/// How long error bars are, `errValType` with its `val` or its `plus` and
+/// `minus` references. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ErrorValue<'a> {
+    /// `fixedVal`: a finite positive length.
+    Fixed(f64),
+    /// `percentage`: a finite positive percentage of each value.
+    Percentage(f64),
+    /// `stdDev`: a finite positive number of standard deviations.
+    StandardDeviation(f64),
+    /// `stdErr`: the standard error, no value.
+    StandardError,
+    /// `cust`: the plus and minus lengths from two references, each the
+    /// file's `f` text, written `plus` then `minus`.
+    Custom {
+        /// The plus lengths' reference.
+        plus: &'a str,
+        /// The minus lengths' reference.
+        minus: &'a str,
+    },
+}
+
 /// A new series' data labels, `dLbls`: what each label shows, its position
 /// and its number format code. The Cargo feature `charts`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -455,6 +567,40 @@ struct SeriesWork {
     marker: Option<NewMarker>,
     line: Option<NewLine>,
     points: Vec<NewPoint>,
+    trendline: Option<TrendlineWork>,
+    error_bars: Vec<ErrorBarsWork>,
+}
+
+/// A series' trendline as the call checked it, its name escaped.
+#[derive(Clone)]
+struct TrendlineWork {
+    kind: TrendlineKind,
+    forward: Option<f64>,
+    backward: Option<f64>,
+    intercept: Option<f64>,
+    show_equation: bool,
+    show_r_squared: bool,
+    name: Option<String>,
+}
+
+/// A series' error bars as the call checked them, a custom value's
+/// references escaped.
+#[derive(Clone)]
+struct ErrorBarsWork {
+    direction: Option<ErrorDirection>,
+    kind: ErrorBarKind,
+    value: ErrorValueWork,
+    end_cap: bool,
+}
+
+/// Error bars' value as the call checked it.
+#[derive(Clone)]
+enum ErrorValueWork {
+    Fixed(f64),
+    Percentage(f64),
+    StandardDeviation(f64),
+    StandardError,
+    Custom { plus: String, minus: String },
 }
 
 /// A series' labels as the call checked them.
@@ -553,8 +699,20 @@ impl<R: Read + Seek> Package<R> {
     /// of-pie, a point's marker where the series takes none, and a marker's
     /// or a point's colour above `0xFFFFFF`, and "a chart value is out of
     /// its range" for a marker size outside 2 to 72 or a line width above
-    /// 20116800; then "a chart option does not apply to its kind" for a
-    /// combined plot a first plot other than a bar, line or area, a second
+    /// 20116800; then each series' trendline and error bars in field order
+    /// (`specs/0040-analytic-chart-elements.md`, "Applicability"), "a chart
+    /// option does not apply to its kind" for either on a plot other than a
+    /// bar, a line, a scatter, an area or a bubble, a moving average's
+    /// forecast, intercept, equation or R-squared, a logarithmic or power
+    /// trendline's intercept, more than one set of error bars on a plot
+    /// other than a scatter or a bubble, two sets of one direction or more
+    /// than two, and a set's direction missing on a scatter or a bubble or
+    /// given on another plot, and "a chart value is out of its range" for a
+    /// polynomial's order outside 2 to 6, a moving average's period below
+    /// 2, a forecast that is not finite or is negative, an intercept that is
+    /// not finite, and a fixed, percentage or standard deviation length
+    /// that is not finite or is not positive; then "a chart option does not
+    /// apply to its kind" for a combined plot a first plot other than a bar, line or area, a second
     /// other than a bar, line, area or scatter or of the first's
     /// variant, a second with no series or that breaks its own kind's rules,
     /// a scatter second or a secondary title or format without
@@ -563,7 +721,8 @@ impl<R: Read + Seek> Package<R> {
     /// series' marker, line and points by its kind as the first plot's; "a
     /// chart text is empty or holds a control character" for a title, axis
     /// title, axis format, secondary axis title, secondary axis format,
-    /// name, reference (values, then sizes) or label format, in that order,
+    /// name, reference (values, then sizes), label format, trendline name or
+    /// custom error reference (plus, then minus), in that order,
     /// series by series, the first plot's then the second's, that is empty,
     /// holds a character below U+0020, U+FFFE or U+FFFF, or is longer than
     /// 32767 bytes (a reference, 8192). The write refuses what
@@ -982,6 +1141,105 @@ fn series_options(plot: NewPlot, series: &[NewSeries<'_>]) -> Result<(), Error> 
                 marker_options(marker)?;
             }
         }
+        if let Some(trendline) = one.trendline {
+            trendline_options(plot, trendline)?;
+        }
+        error_bars_options(plot, one.error_bars)?;
+    }
+    Ok(())
+}
+
+/// Whether `plot`'s series take a trendline and error bars: a bar's, a
+/// line's, a scatter's, an area's and a bubble's, no 3D kind's
+/// (`specs/0040-analytic-chart-elements.md`, decision 1 A).
+fn takes_analysis(plot: NewPlot) -> bool {
+    matches!(
+        plot,
+        NewPlot::Bar { .. }
+            | NewPlot::Line { .. }
+            | NewPlot::Scatter { .. }
+            | NewPlot::Area { .. }
+            | NewPlot::Bubble
+    )
+}
+
+/// A series' trendline on `plot`, in field order
+/// (`specs/0040-analytic-chart-elements.md`, "Applicability"): the kind
+/// with its order or period, the forecasts, the intercept, then what it
+/// shows. A moving average takes no forecast, intercept, equation or
+/// R-squared; a logarithmic or power trendline no intercept.
+fn trendline_options(plot: NewPlot, trendline: NewTrendline<'_>) -> Result<(), Error> {
+    if !takes_analysis(plot) {
+        return Err(CHART_OPTION_KIND);
+    }
+    let average = matches!(trendline.kind, TrendlineKind::MovingAverage(_));
+    let in_range = match trendline.kind {
+        TrendlineKind::Polynomial(order) => (2..=6).contains(&order),
+        TrendlineKind::MovingAverage(period) => period >= 2,
+        _ => true,
+    };
+    if !in_range {
+        return Err(CHART_VALUE_RANGE);
+    }
+    for forecast in [trendline.forward, trendline.backward]
+        .into_iter()
+        .flatten()
+    {
+        if average {
+            return Err(CHART_OPTION_KIND);
+        }
+        if !forecast.is_finite() || forecast < 0.0 {
+            return Err(CHART_VALUE_RANGE);
+        }
+    }
+    if let Some(intercept) = trendline.intercept {
+        if !matches!(
+            trendline.kind,
+            TrendlineKind::Linear | TrendlineKind::Exponential | TrendlineKind::Polynomial(_)
+        ) {
+            return Err(CHART_OPTION_KIND);
+        }
+        if !intercept.is_finite() {
+            return Err(CHART_VALUE_RANGE);
+        }
+    }
+    if average && (trendline.show_equation || trendline.show_r_squared) {
+        return Err(CHART_OPTION_KIND);
+    }
+    Ok(())
+}
+
+/// A series' error bars on `plot` (`specs/0040-analytic-chart-
+/// elements.md`, "Applicability"): the kind, the number of sets (two on a
+/// scatter or a bubble alone, of different directions), then set by set
+/// the direction, required on a scatter or a bubble and refused elsewhere,
+/// and the value, a finite positive number where it takes one.
+fn error_bars_options(plot: NewPlot, error_bars: &[NewErrorBars<'_>]) -> Result<(), Error> {
+    if error_bars.is_empty() {
+        return Ok(());
+    }
+    let xy = matches!(plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
+    let sets = match error_bars {
+        [_] => true,
+        [first, second] => xy && first.direction != second.direction,
+        _ => false,
+    };
+    if !takes_analysis(plot) || !sets {
+        return Err(CHART_OPTION_KIND);
+    }
+    for set in error_bars {
+        if set.direction.is_some() != xy {
+            return Err(CHART_OPTION_KIND);
+        }
+        let length = match set.value {
+            ErrorValue::Fixed(length)
+            | ErrorValue::Percentage(length)
+            | ErrorValue::StandardDeviation(length) => Some(length),
+            ErrorValue::StandardError | ErrorValue::Custom { .. } => None,
+        };
+        if length.is_some_and(|length| !length.is_finite() || length <= 0.0) {
+            return Err(CHART_VALUE_RANGE);
+        }
     }
     Ok(())
 }
@@ -1021,6 +1279,41 @@ fn series_work(series: &[NewSeries<'_>]) -> Result<Vec<SeriesWork>, Error> {
             marker: one.marker,
             line: one.line,
             points: one.points.to_vec(),
+            trendline: match one.trendline {
+                None => None,
+                Some(trendline) => Some(TrendlineWork {
+                    kind: trendline.kind,
+                    forward: trendline.forward,
+                    backward: trendline.backward,
+                    intercept: trendline.intercept,
+                    show_equation: trendline.show_equation,
+                    show_r_squared: trendline.show_r_squared,
+                    name: trendline.name.map(text).transpose()?,
+                }),
+            },
+            error_bars: one
+                .error_bars
+                .iter()
+                .map(|set| {
+                    Ok(ErrorBarsWork {
+                        direction: set.direction,
+                        kind: set.kind,
+                        value: match set.value {
+                            ErrorValue::Fixed(length) => ErrorValueWork::Fixed(length),
+                            ErrorValue::Percentage(length) => ErrorValueWork::Percentage(length),
+                            ErrorValue::StandardDeviation(length) => {
+                                ErrorValueWork::StandardDeviation(length)
+                            }
+                            ErrorValue::StandardError => ErrorValueWork::StandardError,
+                            ErrorValue::Custom { plus, minus } => ErrorValueWork::Custom {
+                                plus: reference(plus)?,
+                                minus: reference(minus)?,
+                            },
+                        },
+                        end_cap: set.end_cap,
+                    })
+                })
+                .collect::<Result<_, Error>>()?,
         });
     }
     Ok(work)
@@ -1554,6 +1847,12 @@ fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: 
         if let Some(labels) = &series.labels {
             labels_bytes(out, labels);
         }
+        if let Some(trendline) = &series.trendline {
+            trendline_bytes(out, trendline);
+        }
+        for set in &series.error_bars {
+            error_bars_bytes(out, set);
+        }
         if let Some(categories) = &series.categories {
             element_bytes(out, x, x_form, categories);
         }
@@ -1621,6 +1920,95 @@ fn marker_bytes(out: &mut Vec<u8>, marker: NewMarker) {
         out.extend_from_slice(b"</c:spPr>");
     }
     out.extend_from_slice(b"</c:marker>");
+}
+
+/// A series' `trendline` (`specs/0040-analytic-chart-elements.md`, "The
+/// chart part"): the name, the type, a polynomial's `order` or a moving
+/// average's `period`, the forecasts and the intercept where given, then
+/// `dispRSqr` and `dispEq`, a moving average's both 0.
+fn trendline_bytes(out: &mut Vec<u8>, trendline: &TrendlineWork) {
+    out.extend_from_slice(b"<c:trendline>");
+    if let Some(name) = &trendline.name {
+        out.extend_from_slice(b"<c:name>");
+        out.extend_from_slice(name.as_bytes());
+        out.extend_from_slice(b"</c:name>");
+    }
+    let (kind, count): (&[u8], Option<(&[u8], String)>) = match trendline.kind {
+        TrendlineKind::Linear => (b"linear", None),
+        TrendlineKind::Exponential => (b"exp", None),
+        TrendlineKind::Logarithmic => (b"log", None),
+        TrendlineKind::Power => (b"power", None),
+        TrendlineKind::Polynomial(order) => (b"poly", Some((b"order", order.to_string()))),
+        TrendlineKind::MovingAverage(period) => {
+            (b"movingAvg", Some((b"period", period.to_string())))
+        }
+    };
+    value_element(out, b"trendlineType", kind);
+    if let Some((name, count)) = count {
+        value_element(out, name, count.as_bytes());
+    }
+    let numbers: [(&[u8], Option<f64>); 3] = [
+        (b"forward", trendline.forward),
+        (b"backward", trendline.backward),
+        (b"intercept", trendline.intercept),
+    ];
+    for (name, number) in numbers {
+        if let Some(number) = number {
+            value_element(out, name, number.to_string().as_bytes());
+        }
+    }
+    value_element(out, b"dispRSqr", flag(trendline.show_r_squared));
+    value_element(out, b"dispEq", flag(trendline.show_equation));
+    out.extend_from_slice(b"</c:trendline>");
+}
+
+/// A series' `errBars` (the same spec, "The chart part"): the direction
+/// where given, the kind, the value's type, `noEndCap`, then a custom
+/// value's `plus` and `minus` references or another's `val`, none for the
+/// standard error.
+fn error_bars_bytes(out: &mut Vec<u8>, set: &ErrorBarsWork) {
+    out.extend_from_slice(b"<c:errBars>");
+    if let Some(direction) = set.direction {
+        value_element(
+            out,
+            b"errDir",
+            match direction {
+                ErrorDirection::X => b"x",
+                ErrorDirection::Y => b"y",
+            },
+        );
+    }
+    value_element(
+        out,
+        b"errBarType",
+        match set.kind {
+            ErrorBarKind::Both => b"both".as_slice(),
+            ErrorBarKind::Plus => b"plus",
+            ErrorBarKind::Minus => b"minus",
+        },
+    );
+    let (kind, length): (&[u8], Option<f64>) = match &set.value {
+        ErrorValueWork::Fixed(length) => (b"fixedVal", Some(*length)),
+        ErrorValueWork::Percentage(length) => (b"percentage", Some(*length)),
+        ErrorValueWork::StandardDeviation(length) => (b"stdDev", Some(*length)),
+        ErrorValueWork::StandardError => (b"stdErr", None),
+        ErrorValueWork::Custom { .. } => (b"cust", None),
+    };
+    value_element(out, b"errValType", kind);
+    value_element(out, b"noEndCap", flag(!set.end_cap));
+    if let ErrorValueWork::Custom { plus, minus } = &set.value {
+        element_bytes(out, b"plus", b"numRef", plus);
+        element_bytes(out, b"minus", b"numRef", minus);
+    }
+    if let Some(length) = length {
+        value_element(out, b"val", length.to_string().as_bytes());
+    }
+    out.extend_from_slice(b"</c:errBars>");
+}
+
+/// A boolean's `val`, `1` or `0`.
+fn flag(value: bool) -> &'static [u8] {
+    if value { b"1" } else { b"0" }
 }
 
 /// A series' `dLbls`: the format, the position, then what a label shows.

@@ -53,6 +53,8 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -64,6 +66,8 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
 ];
 
@@ -918,6 +922,8 @@ fn a_chartsheet_of_a_surface_reads_back_as_on_a_worksheet() {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
         NewSeries {
             name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -929,6 +935,8 @@ fn a_chartsheet_of_a_surface_reads_back_as_on_a_worksheet() {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
     ];
     let chart = NewChart {

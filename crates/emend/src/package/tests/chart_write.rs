@@ -6,7 +6,8 @@
 //! to J, and "P3: labels, colours, number formats; `remove_chart`; the
 //! catalogue", P3 rulings L and O; `specs/0039-chart-kinds-and-
 //! formatting.md`, "P1: the surface and of-pie kinds" and "P2: markers,
-//! lines and points"):
+//! lines and points"; `specs/0040-analytic-chart-elements.md`, "P1:
+//! trendlines and error bars"):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -16,10 +17,10 @@
 use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
-    ChartKind, DashStyle, Data, EditAs, Grouping, ImageAnchor, LabelPosition, LegendPosition,
-    MarkerSymbol, NewChart, NewCombined, NewLabels, NewLine, NewMarker, NewPlot, NewPoint,
-    NewSeries, NewSeriesName, OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle, Series,
-    SeriesName,
+    ChartKind, DashStyle, Data, EditAs, ErrorBarKind, ErrorDirection, ErrorValue, Grouping,
+    ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewChart, NewCombined, NewErrorBars,
+    NewLabels, NewLine, NewMarker, NewPlot, NewPoint, NewSeries, NewSeriesName, NewTrendline,
+    OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle, Series, SeriesName, TrendlineKind,
 };
 
 /// The drawing and chart parts' content types.
@@ -176,6 +177,8 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -187,6 +190,8 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
 ];
 
@@ -222,6 +227,8 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     }];
     NewChart {
         plot,
@@ -993,6 +1000,8 @@ fn texts_are_escaped_and_references_written_as_given() {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     }];
     let chart = NewChart {
         title: Some("Tom's <plan> & more"),
@@ -1280,6 +1289,8 @@ const ONE_NAMED: [NewSeries<'static>; 1] = [NewSeries {
     marker: None,
     line: None,
     points: &[],
+    trendline: None,
+    error_bars: &[],
 }];
 
 /// `ONE_NAMED` as `charts` reads it.
@@ -1518,6 +1529,8 @@ const TWO_NAMED: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -1529,6 +1542,8 @@ const TWO_NAMED: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
 ];
 
@@ -1680,6 +1695,8 @@ const BUBBLES: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: None,
@@ -1691,6 +1708,8 @@ const BUBBLES: [NewSeries<'static>; 2] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
 ];
 
@@ -1801,6 +1820,8 @@ const STOCK: [NewSeries<'static>; 5] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("high")),
@@ -1812,6 +1833,8 @@ const STOCK: [NewSeries<'static>; 5] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("low")),
@@ -1823,6 +1846,8 @@ const STOCK: [NewSeries<'static>; 5] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("close")),
@@ -1834,6 +1859,8 @@ const STOCK: [NewSeries<'static>; 5] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("extra")),
@@ -1845,6 +1872,8 @@ const STOCK: [NewSeries<'static>; 5] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
 ];
 
@@ -2195,6 +2224,8 @@ const OVER_C: [NewSeries<'static>; 1] = [NewSeries {
     marker: None,
     line: None,
     points: &[],
+    trendline: None,
+    error_bars: &[],
 }];
 
 /// A second plot `plot` over `OVER_C`, on the primary axes.
@@ -3742,6 +3773,8 @@ const THREE_NAMED: [NewSeries<'static>; 3] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -3753,6 +3786,8 @@ const THREE_NAMED: [NewSeries<'static>; 3] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$D$1")),
@@ -3764,6 +3799,8 @@ const THREE_NAMED: [NewSeries<'static>; 3] = [
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     },
 ];
 
@@ -5109,4 +5146,781 @@ fn the_series_options_follow_the_check_order() {
         call(box_anchor(), &line_second).expect_err("refused"),
         RANGE,
     );
+}
+
+/// A trendline of `kind` with nothing else given.
+fn trend(kind: TrendlineKind) -> NewTrendline<'static> {
+    NewTrendline {
+        kind,
+        forward: None,
+        backward: None,
+        intercept: None,
+        show_equation: false,
+        show_r_squared: false,
+        name: None,
+    }
+}
+
+/// A set of error bars: `direction`, `kind`, `value`, with end caps.
+fn bars(
+    direction: Option<ErrorDirection>,
+    kind: ErrorBarKind,
+    value: ErrorValue<'static>,
+) -> NewErrorBars<'static> {
+    NewErrorBars {
+        direction,
+        kind,
+        value,
+        end_cap: true,
+    }
+}
+
+/// A trendline's form (`specs/0040-analytic-chart-elements.md`, "The chart
+/// part"): `inner` between the type and `dispRSqr`, the two flags.
+fn trend_written(name: &str, kind: &str, inner: &str, flags: [u8; 2]) -> String {
+    let name = if name.is_empty() {
+        String::new()
+    } else {
+        format!("<c:name>{name}</c:name>")
+    };
+    format!(
+        "<c:trendline>{name}<c:trendlineType val=\"{kind}\"/>{inner}<c:dispRSqr val=\"{}\"/>\
+         <c:dispEq val=\"{}\"/></c:trendline>",
+        flags[0], flags[1]
+    )
+}
+
+/// An error bars' form: the direction when not empty, the kind, the
+/// value's type, `noEndCap`, then `tail` (the references or the `val`).
+fn bars_written(direction: &str, kind: &str, value: &str, no_end_cap: u8, tail: &str) -> String {
+    let direction = if direction.is_empty() {
+        String::new()
+    } else {
+        format!("<c:errDir val=\"{direction}\"/>")
+    };
+    format!(
+        "<c:errBars>{direction}<c:errBarType val=\"{kind}\"/><c:errValType val=\"{value}\"/>\
+         <c:noEndCap val=\"{no_end_cap}\"/>{tail}</c:errBars>"
+    )
+}
+
+/// The linear trendline and the fixed bars of 1 every kind that takes them
+/// is given, as written, on a scatter or a bubble with the `y` direction.
+fn analysis_written(xy: bool) -> String {
+    format!(
+        "{}{}",
+        trend_written("", "linear", "", [0, 0]),
+        bars_written(
+            if xy { "y" } else { "" },
+            "both",
+            "fixedVal",
+            0,
+            "<c:val val=\"1\"/>"
+        )
+    )
+}
+
+/// `ONE_NAMED`'s series on a scatter as written with `options` between the
+/// name and the references.
+fn one_named_xy_with(options: &str) -> String {
+    format!(
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/>{ONE_NAMED_TX}{options}<c:xVal>{}</c:xVal>\
+         <c:yVal>{}</c:yVal></c:ser>",
+        reference("numRef", "Sheet1!$A$2:$A$4"),
+        reference("numRef", "Sheet1!$B$2:$B$4"),
+    )
+}
+
+/// The marker scatter plot.
+const SCATTER: NewPlot = NewPlot::Scatter {
+    style: ScatterStyle::LineMarker,
+};
+
+#[test]
+fn a_trendline_and_error_bars_are_taken_by_the_kinds_that_take_them_and_refused_by_the_others() {
+    for (plot, series, _) in every_kind() {
+        let xy = matches!(plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
+        let takes = xy
+            || matches!(
+                plot,
+                NewPlot::Bar { .. } | NewPlot::Line { .. } | NewPlot::Area { .. }
+            );
+        let fixed = [bars(
+            xy.then_some(ErrorDirection::Y),
+            ErrorBarKind::Both,
+            ErrorValue::Fixed(1.0),
+        )];
+        let analysed = each_with(series, |one| NewSeries {
+            trendline: Some(trend(TrendlineKind::Linear)),
+            error_bars: &fixed,
+            ..one
+        });
+        let chart = NewChart {
+            series: &analysed,
+            ..bare(plot)
+        };
+        if takes {
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            let part = text_of(&output, CHART1);
+            // Each series' trendline then its bars, after the name and
+            // before the first reference.
+            let (x, y) = if xy { ("xVal", "yVal") } else { ("cat", "val") };
+            let written = analysis_written(xy);
+            assert_eq!(
+                part.matches(&written).count(),
+                series.len(),
+                "{plot:?}: {part}"
+            );
+            for first in [x, y] {
+                assert_eq!(
+                    part.matches(&format!("{written}<c:{first}>")).count(),
+                    series
+                        .iter()
+                        .filter(|one| one.categories.is_some() == (first == x))
+                        .count(),
+                    "{plot:?}, the bars before {first}: {part}"
+                );
+            }
+            let read = &charts_of(&output)[0].chart;
+            assert_eq!(read.plots[0].series.len(), series.len(), "{plot:?}");
+        } else {
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+            let trended = each_with(series, |one| NewSeries {
+                trendline: Some(trend(TrendlineKind::Linear)),
+                ..one
+            });
+            let chart = NewChart {
+                series: &trended,
+                ..bare(plot)
+            };
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+            let barred = each_with(series, |one| NewSeries {
+                error_bars: &fixed,
+                ..one
+            });
+            let chart = NewChart {
+                series: &barred,
+                ..bare(plot)
+            };
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+    }
+}
+
+#[test]
+fn each_trendline_kind_writes_its_type_its_order_or_period_and_its_fields() {
+    let all_fields = NewTrendline {
+        forward: Some(2.0),
+        backward: Some(0.5),
+        intercept: Some(-1.25),
+        show_equation: true,
+        show_r_squared: true,
+        name: Some("Fit & <trend>"),
+        ..trend(TrendlineKind::Linear)
+    };
+    let cases = [
+        (
+            trend(TrendlineKind::Linear),
+            trend_written("", "linear", "", [0, 0]),
+        ),
+        (
+            all_fields,
+            trend_written(
+                "Fit &amp; &lt;trend&gt;",
+                "linear",
+                "<c:forward val=\"2\"/><c:backward val=\"0.5\"/><c:intercept val=\"-1.25\"/>",
+                [1, 1],
+            ),
+        ),
+        (
+            NewTrendline {
+                intercept: Some(0.0),
+                show_r_squared: true,
+                ..trend(TrendlineKind::Exponential)
+            },
+            trend_written("", "exp", "<c:intercept val=\"0\"/>", [1, 0]),
+        ),
+        (
+            NewTrendline {
+                forward: Some(0.0),
+                ..trend(TrendlineKind::Logarithmic)
+            },
+            trend_written("", "log", "<c:forward val=\"0\"/>", [0, 0]),
+        ),
+        (
+            NewTrendline {
+                backward: Some(3.0),
+                show_equation: true,
+                ..trend(TrendlineKind::Power)
+            },
+            trend_written("", "power", "<c:backward val=\"3\"/>", [0, 1]),
+        ),
+        (
+            trend(TrendlineKind::Polynomial(2)),
+            trend_written("", "poly", "<c:order val=\"2\"/>", [0, 0]),
+        ),
+        (
+            NewTrendline {
+                forward: Some(2.0),
+                intercept: Some(1.5),
+                name: Some("Cubic"),
+                ..trend(TrendlineKind::Polynomial(6))
+            },
+            trend_written(
+                "Cubic",
+                "poly",
+                "<c:order val=\"6\"/><c:forward val=\"2\"/><c:intercept val=\"1.5\"/>",
+                [0, 0],
+            ),
+        ),
+        (
+            trend(TrendlineKind::MovingAverage(2)),
+            trend_written("", "movingAvg", "<c:period val=\"2\"/>", [0, 0]),
+        ),
+        (
+            NewTrendline {
+                name: Some("Average"),
+                ..trend(TrendlineKind::MovingAverage(u16::MAX))
+            },
+            trend_written("Average", "movingAvg", "<c:period val=\"65535\"/>", [0, 0]),
+        ),
+    ];
+    for (trendline, written) in cases {
+        let trended = [NewSeries {
+            trendline: Some(trendline),
+            ..ONE_NAMED[0]
+        }];
+        let chart = NewChart {
+            series: &trended,
+            ..bare(LINE)
+        };
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(
+            part.contains(&one_named_with(&written)),
+            "{trendline:?}: {part}"
+        );
+        // The reader walks past the trendline.
+        assert_eq!(
+            charts_of(&output)[0].chart.plots[0].series[0],
+            one_named_read()
+        );
+    }
+}
+
+#[test]
+fn each_error_value_writes_its_type_and_its_length_or_its_references() {
+    let custom = ErrorValue::Custom {
+        plus: "Sheet1!$C$2:$C$4",
+        minus: "'A&B'!$D$2:$D$4",
+    };
+    let values = [
+        (
+            ErrorValue::Fixed(1.5),
+            "fixedVal",
+            "<c:val val=\"1.5\"/>".to_owned(),
+        ),
+        (
+            ErrorValue::Percentage(5.0),
+            "percentage",
+            "<c:val val=\"5\"/>".to_owned(),
+        ),
+        (
+            ErrorValue::StandardDeviation(0.25),
+            "stdDev",
+            "<c:val val=\"0.25\"/>".to_owned(),
+        ),
+        (ErrorValue::StandardError, "stdErr", String::new()),
+        (
+            custom,
+            "cust",
+            format!(
+                "<c:plus>{}</c:plus><c:minus>{}</c:minus>",
+                reference("numRef", "Sheet1!$C$2:$C$4"),
+                reference("numRef", "'A&amp;B'!$D$2:$D$4"),
+            ),
+        ),
+    ];
+    let kinds = [
+        (ErrorBarKind::Both, "both"),
+        (ErrorBarKind::Plus, "plus"),
+        (ErrorBarKind::Minus, "minus"),
+    ];
+    for (value, value_type, tail) in &values {
+        for (kind, kind_value) in kinds {
+            for end_cap in [true, false] {
+                let set = [NewErrorBars {
+                    end_cap,
+                    ..bars(None, kind, *value)
+                }];
+                let barred = [NewSeries {
+                    error_bars: &set,
+                    ..ONE_NAMED[0]
+                }];
+                let chart = NewChart {
+                    series: &barred,
+                    ..bare(COLUMN)
+                };
+                let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+                let part = text_of(&output, CHART1);
+                let written = bars_written("", kind_value, value_type, u8::from(!end_cap), tail);
+                assert!(
+                    part.contains(&one_named_with(&written)),
+                    "{value:?}: {part}"
+                );
+                assert_eq!(
+                    charts_of(&output)[0].chart.plots[0].series[0],
+                    one_named_read()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_scatter_and_a_bubble_take_two_sets_of_error_bars_in_the_order_given() {
+    let two = [
+        bars(
+            Some(ErrorDirection::Y),
+            ErrorBarKind::Both,
+            ErrorValue::StandardDeviation(1.0),
+        ),
+        bars(
+            Some(ErrorDirection::X),
+            ErrorBarKind::Plus,
+            ErrorValue::Custom {
+                plus: "Sheet1!$C$2:$C$4",
+                minus: "Sheet1!$D$2:$D$4",
+            },
+        ),
+    ];
+    let written = format!(
+        "{}{}{}",
+        trend_written("", "exp", "", [0, 0]),
+        bars_written("y", "both", "stdDev", 0, "<c:val val=\"1\"/>"),
+        bars_written(
+            "x",
+            "plus",
+            "cust",
+            0,
+            &format!(
+                "<c:plus>{}</c:plus><c:minus>{}</c:minus>",
+                reference("numRef", "Sheet1!$C$2:$C$4"),
+                reference("numRef", "Sheet1!$D$2:$D$4"),
+            )
+        ),
+    );
+    let scattered = [NewSeries {
+        trendline: Some(trend(TrendlineKind::Exponential)),
+        error_bars: &two,
+        ..ONE_NAMED[0]
+    }];
+    let chart = NewChart {
+        series: &scattered,
+        ..bare(SCATTER)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(part.contains(&one_named_xy_with(&written)), "{part}");
+    assert_eq!(
+        charts_of(&output)[0].chart.plots[0].series[0],
+        one_named_read()
+    );
+    // The x set first on a bubble's two series: the sets before each
+    // series' first reference, the sizes last.
+    let reversed = [two[1], two[0]];
+    let bubbles = each_with(&BUBBLES, |one| NewSeries {
+        error_bars: &reversed,
+        ..one
+    });
+    let chart = NewChart {
+        series: &bubbles,
+        ..bare(NewPlot::Bubble)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    let sets = format!(
+        "{}{}",
+        bars_written(
+            "x",
+            "plus",
+            "cust",
+            0,
+            &format!(
+                "<c:plus>{}</c:plus><c:minus>{}</c:minus>",
+                reference("numRef", "Sheet1!$C$2:$C$4"),
+                reference("numRef", "Sheet1!$D$2:$D$4"),
+            )
+        ),
+        bars_written("y", "both", "stdDev", 0, "<c:val val=\"1\"/>"),
+    );
+    assert_eq!(
+        part.matches(&format!("{sets}<c:xVal>")).count(),
+        1,
+        "{part}"
+    );
+    assert_eq!(
+        part.matches(&format!("{sets}<c:yVal>")).count(),
+        1,
+        "{part}"
+    );
+    assert_eq!(charts_of(&output)[0].chart.plots[0].series.len(), 2);
+}
+
+#[test]
+fn the_trendline_and_error_bar_field_rules_are_refused() {
+    let refused = |plot: NewPlot, series: NewSeries<'_>, message: &str| {
+        let one = [series];
+        let chart = NewChart {
+            series: &one,
+            ..bare(plot)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), message);
+    };
+    let trended = |trendline: NewTrendline<'static>| NewSeries {
+        trendline: Some(trendline),
+        ..ONE_NAMED[0]
+    };
+    let average = trend(TrendlineKind::MovingAverage(3));
+    // A moving average takes no forecast, intercept, equation or R-squared.
+    for trendline in [
+        NewTrendline {
+            forward: Some(1.0),
+            ..average
+        },
+        NewTrendline {
+            backward: Some(1.0),
+            ..average
+        },
+        NewTrendline {
+            intercept: Some(1.0),
+            ..average
+        },
+        NewTrendline {
+            show_equation: true,
+            ..average
+        },
+        NewTrendline {
+            show_r_squared: true,
+            ..average
+        },
+    ] {
+        refused(LINE, trended(trendline), OPTION);
+    }
+    // An intercept on a logarithmic or power trendline.
+    for kind in [TrendlineKind::Logarithmic, TrendlineKind::Power] {
+        let trendline = NewTrendline {
+            intercept: Some(0.0),
+            ..trend(kind)
+        };
+        refused(LINE, trended(trendline), OPTION);
+    }
+    // The ranges: the order, the period, the forecasts, the intercept.
+    for kind in [
+        TrendlineKind::Polynomial(0),
+        TrendlineKind::Polynomial(1),
+        TrendlineKind::Polynomial(7),
+        TrendlineKind::Polynomial(u8::MAX),
+        TrendlineKind::MovingAverage(0),
+        TrendlineKind::MovingAverage(1),
+    ] {
+        refused(LINE, trended(trend(kind)), RANGE);
+    }
+    for number in [-0.5, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let linear = trend(TrendlineKind::Linear);
+        refused(
+            LINE,
+            trended(NewTrendline {
+                forward: Some(number),
+                ..linear
+            }),
+            RANGE,
+        );
+        refused(
+            LINE,
+            trended(NewTrendline {
+                backward: Some(number),
+                ..linear
+            }),
+            RANGE,
+        );
+    }
+    for number in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let trendline = NewTrendline {
+            intercept: Some(number),
+            ..trend(TrendlineKind::Linear)
+        };
+        refused(LINE, trended(trendline), RANGE);
+    }
+    // A length that is not finite or not positive.
+    for number in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        for value in [
+            ErrorValue::Fixed(number),
+            ErrorValue::Percentage(number),
+            ErrorValue::StandardDeviation(number),
+        ] {
+            let set = [bars(None, ErrorBarKind::Both, value)];
+            refused(
+                LINE,
+                NewSeries {
+                    error_bars: &set,
+                    ..ONE_NAMED[0]
+                },
+                RANGE,
+            );
+        }
+    }
+    // The direction: required on a scatter, refused on a line.
+    let fixed = ErrorValue::Fixed(1.0);
+    let no_direction = [bars(None, ErrorBarKind::Both, fixed)];
+    refused(
+        SCATTER,
+        NewSeries {
+            error_bars: &no_direction,
+            ..ONE_NAMED[0]
+        },
+        OPTION,
+    );
+    let y = [bars(Some(ErrorDirection::Y), ErrorBarKind::Both, fixed)];
+    refused(
+        LINE,
+        NewSeries {
+            error_bars: &y,
+            ..ONE_NAMED[0]
+        },
+        OPTION,
+    );
+    // Two sets on a line; two of one direction or three on a scatter.
+    let two_lines = [no_direction[0], no_direction[0]];
+    refused(
+        LINE,
+        NewSeries {
+            error_bars: &two_lines,
+            ..ONE_NAMED[0]
+        },
+        OPTION,
+    );
+    let two_y = [y[0], y[0]];
+    refused(
+        SCATTER,
+        NewSeries {
+            error_bars: &two_y,
+            ..ONE_NAMED[0]
+        },
+        OPTION,
+    );
+    let x = bars(Some(ErrorDirection::X), ErrorBarKind::Both, fixed);
+    let three = [y[0], x, y[0]];
+    refused(
+        SCATTER,
+        NewSeries {
+            error_bars: &three,
+            ..ONE_NAMED[0]
+        },
+        OPTION,
+    );
+    // The texts: a trendline's name and a custom reference.
+    for name in ["", "a\u{1}b"] {
+        let trendline = NewTrendline {
+            name: Some(name),
+            ..trend(TrendlineKind::Linear)
+        };
+        refused(LINE, trended(trendline), TEXT);
+    }
+    for (plus, minus) in [("", "Sheet1!$C$2:$C$4"), ("Sheet1!$C$2:$C$4", "a\nb")] {
+        let set = [bars(
+            None,
+            ErrorBarKind::Both,
+            ErrorValue::Custom { plus, minus },
+        )];
+        refused(
+            LINE,
+            NewSeries {
+                error_bars: &set,
+                ..ONE_NAMED[0]
+            },
+            TEXT,
+        );
+    }
+}
+
+#[test]
+fn the_trendline_and_error_bars_follow_the_check_order() {
+    let refused = |plot: NewPlot, series: &[NewSeries<'_>], message: &str| {
+        let chart = NewChart {
+            series,
+            ..bare(plot)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), message);
+    };
+    let bad_order = Some(trend(TrendlineKind::Polynomial(9)));
+    let fixed = ErrorValue::Fixed(1.0);
+    let negative = [bars(None, ErrorBarKind::Both, ErrorValue::Fixed(-1.0))];
+    let two = [bars(None, ErrorBarKind::Both, fixed); 2];
+    // After the marker, the line and the points.
+    let small = marker(MarkerSymbol::Circle, Some(1), None);
+    let marker_first = [NewSeries {
+        marker: Some(small),
+        trendline: Some(NewTrendline {
+            show_equation: true,
+            ..trend(TrendlineKind::MovingAverage(2))
+        }),
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &marker_first, RANGE);
+    let bare_point = [point(0, None, None, None)];
+    let points_first = [NewSeries {
+        points: &bare_point,
+        trendline: bad_order,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &points_first, OPTION);
+    // The trendline before the error bars.
+    let trend_first = [NewSeries {
+        trendline: bad_order,
+        error_bars: &two,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &trend_first, RANGE);
+    let average_first = [NewSeries {
+        trendline: Some(NewTrendline {
+            forward: Some(1.0),
+            ..trend(TrendlineKind::MovingAverage(2))
+        }),
+        error_bars: &negative,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &average_first, OPTION);
+    // The order or period before the forecasts; the forecast before the
+    // intercept; the intercept before the flags.
+    let order_first = [NewSeries {
+        trendline: Some(NewTrendline {
+            forward: Some(1.0),
+            ..trend(TrendlineKind::MovingAverage(1))
+        }),
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &order_first, RANGE);
+    let forecast_first = [NewSeries {
+        trendline: Some(NewTrendline {
+            forward: Some(-1.0),
+            intercept: Some(1.0),
+            ..trend(TrendlineKind::Power)
+        }),
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &forecast_first, RANGE);
+    // The number of sets before a set's value.
+    let two_negative = [negative[0], negative[0]];
+    let count_first = [NewSeries {
+        error_bars: &two_negative,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &count_first, OPTION);
+    // Series by series.
+    let first_then_second = [
+        NewSeries {
+            error_bars: &negative,
+            ..TWO_NAMED[0]
+        },
+        NewSeries {
+            error_bars: &two,
+            ..TWO_NAMED[1]
+        },
+    ];
+    refused(LINE, &first_then_second, RANGE);
+    // Before the combined plot's rules and the texts.
+    let ranged = [NewSeries {
+        trendline: bad_order,
+        ..ONE_NAMED[0]
+    }];
+    let same_variant = NewChart {
+        series: &ranged,
+        combined: Some(second(LINE)),
+        ..bare(LINE)
+    };
+    assert_package(
+        call(box_anchor(), &same_variant).expect_err("refused"),
+        RANGE,
+    );
+    let empty_title = NewChart {
+        series: &ranged,
+        title: Some(""),
+        ..bare(LINE)
+    };
+    assert_package(
+        call(box_anchor(), &empty_title).expect_err("refused"),
+        RANGE,
+    );
+}
+
+#[test]
+fn a_combined_second_plot_s_series_take_a_trendline_and_error_bars_by_its_own_kind() {
+    let fixed = [bars(None, ErrorBarKind::Plus, ErrorValue::Percentage(10.0))];
+    let analysed = [NewSeries {
+        trendline: Some(trend(TrendlineKind::Linear)),
+        error_bars: &fixed,
+        ..OVER_C[0]
+    }];
+    let written = format!(
+        "{}{}",
+        trend_written("", "linear", "", [0, 0]),
+        bars_written("", "plus", "percentage", 0, "<c:val val=\"10\"/>")
+    );
+    // A line second over a column first takes them, written on the second
+    // plot's series before its categories.
+    let chart = combined(NewCombined {
+        series: &analysed,
+        ..second(LINE)
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!("<c:tx><c:v>Share</c:v></c:tx>{written}<c:cat>")),
+        "{part}"
+    );
+    assert_eq!(charts_of(&output)[0].chart.plots.len(), 2);
+    // A scatter second on the secondary axes needs the direction.
+    let chart = combined(NewCombined {
+        series: &analysed,
+        secondary_axis: true,
+        ..second(SCATTER)
+    });
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    let y = [bars(
+        Some(ErrorDirection::Y),
+        ErrorBarKind::Plus,
+        ErrorValue::Percentage(10.0),
+    )];
+    let directed = [NewSeries {
+        error_bars: &y,
+        ..analysed[0]
+    }];
+    let chart = combined(NewCombined {
+        series: &directed,
+        secondary_axis: true,
+        ..second(SCATTER)
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    let written = format!(
+        "{}{}",
+        trend_written("", "linear", "", [0, 0]),
+        bars_written("y", "plus", "percentage", 0, "<c:val val=\"10\"/>")
+    );
+    assert!(
+        part.contains(&format!("<c:tx><c:v>Share</c:v></c:tx>{written}<c:xVal>")),
+        "{part}"
+    );
+    // A 3D column first refuses a combined plot; its own series refuse a
+    // trendline.
+    let column_3d = NewPlot::Bar3D {
+        direction: BarDirection::Column,
+        grouping: Grouping::Clustered,
+    };
+    let chart = NewChart {
+        series: &analysed,
+        ..bare(column_3d)
+    };
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
 }

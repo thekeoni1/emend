@@ -480,6 +480,8 @@ fn read_first_sheet_charts(
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     }];
     let chart = NewChart {
         plot: NewPlot::Bar {
@@ -707,6 +709,8 @@ const fn probe_series(values: &'static str, color: u32, kind: NewPlot) -> NewSer
         } else {
             &PLAIN_POINT
         },
+        trendline: None,
+        error_bars: &[],
     }
 }
 
@@ -721,6 +725,8 @@ const COMBINED_SERIES: [NewSeries<'static>; 1] = [NewSeries {
     marker: None,
     line: None,
     points: &[],
+    trendline: None,
+    error_bars: &[],
 }];
 
 /// The three series the second set's chart takes its own from.

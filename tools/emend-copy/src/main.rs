@@ -7924,6 +7924,8 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
         NewSeries {
             name: Some(NewSeriesName::Reference(&second_name)),
@@ -7935,6 +7937,8 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
     ];
     let chart = NewChart {
@@ -8173,6 +8177,8 @@ fn chartsheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
         NewSeries {
             name: Some(NewSeriesName::Reference(&second_name)),
@@ -8184,6 +8190,8 @@ fn chartsheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
     ];
     let chart = NewChart {
@@ -8325,6 +8333,8 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     }];
     let plots = [
         NewPlot::Bar {
@@ -8430,6 +8440,8 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     }];
     let bubble = [NewSeries {
         sizes: Some(&c),
@@ -8445,6 +8457,8 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     });
     let plots: [(NewPlot, &[NewSeries<'_>]); 4] = [
         (NewPlot::Doughnut { hole_size: 50 }, &one),
@@ -8593,6 +8607,8 @@ fn chart_3d_sample(input: &Path, output: &Path) -> Result<(), Error> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     }];
     let over_c = [NewSeries {
         name: Some(NewSeriesName::Reference(&c_name)),
@@ -8790,6 +8806,8 @@ fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     };
     let three = [
         over_b,
@@ -8959,6 +8977,8 @@ fn chart_format_sample(input: &Path, output: &Path) -> Result<(), Error> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     };
     let line_point = [NewPoint {
         index: 1,
@@ -9186,6 +9206,8 @@ fn chart_labels_sample(input: &Path, output: &Path) -> Result<(), Error> {
         marker: None,
         line: None,
         points: &[],
+        trendline: None,
+        error_bars: &[],
     };
     let bar_series = [
         NewSeries {
@@ -9427,6 +9449,8 @@ fn remove_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
         NewSeries {
             name: Some(NewSeriesName::Reference(&second_name)),
@@ -9438,6 +9462,8 @@ fn remove_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
             marker: None,
             line: None,
             points: &[],
+            trendline: None,
+            error_bars: &[],
         },
     ];
     let chart = NewChart {
