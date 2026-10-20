@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The test of scripts/openpyxl-ops.py (specs/0037-measurement-and-close.md P1,
 # and "Planning rulings during P1", ruling F; the chartsheet op,
-# specs/0038-chartsheets.md P2).
+# specs/0038-chartsheets.md P2; the chart-format op,
+# specs/0039-chart-kinds-and-formatting.md P2).
 #
 # usage: scripts/openpyxl-ops-test.sh <image>
 #
@@ -32,7 +33,7 @@ IMAGE=$1
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || exit 2
 FIXTURE=$ROOT/tests/fixtures/openpyxl-ops.xlsx
 readonly FIXTURE_SHA=12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd
-readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet"
+readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format"
 
 failed=0
 check() {
@@ -151,6 +152,20 @@ checks.append(("chartsheet: 3 sheets, the chartsheet part, its drawing one absol
                and "/relationships/chartsheet" in p.get("xl/_rels/workbook.xml.rels", "")
                and drawing.count("<absoluteAnchor>") == 1 and '<pos x="0" y="0"/>' in drawing and '<ext cx="0" cy="0"/>' in drawing
                and len(charts) == 1 and "barChart" in charts[0] and "$B$2:$B$101" in charts[0] and "$A$2:$A$101" in charts[0]))
+p, names = parts("chart-format")
+charts = sorted((n, v) for n, v in p.items() if re.match(r"xl/charts/chart\d+\.xml$", n))
+line = charts[0][1] if len(charts) == 2 else ""
+pie = charts[1][1] if len(charts) == 2 else ""
+# openpyxl writes the chart namespace as the default one, its DrawingML
+# elements prefixed a: and each declaring it.
+C = r"<(?:c:)?"
+A = r'<a:(?:%s)(?: xmlns:a="[^"]*")?'
+checks.append(("chart-format: two chart parts, a line chart over B2:B101 with a circle marker of size 7 filled 1F77B4, a line of 28575 EMU dashed dash and a point at index 1 filled D62728, and a pie with the slice at index 0 exploded 10",
+               len(charts) == 2 and "lineChart" in line and "$B$2:$B$101" in line
+               and re.search(C + r'marker>' + C + r'symbol val="circle"/>' + C + r'size val="7"/>' + C + r'spPr>' + A % "solidFill" + r'>' + A % "srgbClr" + r' val="1F77B4"/>', line) is not None
+               and re.search(A % "ln" + r' w="28575">' + A % "prstDash" + r' val="dash"/>', line) is not None
+               and re.search(C + r'dPt>' + C + r'idx val="1"/>' + C + r'spPr>' + A % "solidFill" + r'>' + A % "srgbClr" + r' val="D62728"/>', line) is not None
+               and "pieChart" in pie and re.search(C + r'dPt>' + C + r'idx val="0"/>' + C + r'explosion val="10"/>', pie) is not None))
 for what, ok in checks:
     print("%s\t%s" % ("yes" if ok else "no", what))
 PY
@@ -159,7 +174,7 @@ check "$(yn [ "$py_rc" -eq 0 ])" "the parts reader exits 0"
 while IFS=$'\t' read -r verdict what; do
   check "$verdict" "$what"
 done <"$WORK/parts.txt"
-check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 13 ])" "the parts reader made its 13 checks"
+check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 14 ])" "the parts reader made its 14 checks"
 
 # An op the script does not know.
 podman run --rm --network=none --userns=keep-id -v "$ROOT/scripts/openpyxl-ops.py":/ops.py:ro "$IMAGE" \

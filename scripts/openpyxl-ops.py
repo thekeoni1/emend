@@ -40,6 +40,16 @@ The ops and every constant they write:
                which openpyxl anchors in an absoluteAnchor of ext 0 by 0
                (specs/0038-chartsheets.md, "Harness runs": the openpyxl
                fixture of --charts-sample and --chartsheet-sample).
+  chart-format a LineChart, one series over B2:B(M+1), categories A2:A(M+1),
+               its marker FORMAT_SYMBOL "circle" of size FORMAT_MARKER_SIZE 7
+               filled FORMAT_MARKER_FILL "1F77B4", its line FORMAT_LINE_WIDTH
+               28575 EMU dashed FORMAT_DASH "dash", one DataPoint at
+               FORMAT_POINT 1 filled FORMAT_POINT_FILL "D62728", added at
+               (M+2, A); and a PieChart over the same, one DataPoint at
+               FORMAT_SLICE 0 exploded FORMAT_EXPLOSION 10, added at (M+18, A)
+               (specs/0039-chart-kinds-and-formatting.md, "Harness runs":
+               the openpyxl fixture of --charts-sample and
+               --chart-format-sample).
 
 What it prints, on standard output: for read, the line "cells=<n>"; for an
 exception, one line holding the exception's class name only, never its
@@ -62,7 +72,7 @@ import resource
 import sys
 
 OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
-       "comment", "image", "add-chart", "copy", "chartsheet")
+       "comment", "image", "add-chart", "copy", "chartsheet", "chart-format")
 
 EDIT_NUMBER = 42.5
 EDIT_TEXT = "emend compare"
@@ -77,6 +87,15 @@ TABLE_ROW = ("first", 1)
 TABLE_NAME = "EmendCompare"
 COMMENT_TEXT = "emend compare"
 COMMENT_AUTHOR = "emend"
+FORMAT_SYMBOL = "circle"
+FORMAT_MARKER_SIZE = 7
+FORMAT_MARKER_FILL = "1F77B4"
+FORMAT_LINE_WIDTH = 28575
+FORMAT_DASH = "dash"
+FORMAT_POINT = 1
+FORMAT_POINT_FILL = "D62728"
+FORMAT_SLICE = 0
+FORMAT_EXPLOSION = 10
 # A 2 by 2 RGB PNG, 73 bytes: red and blue on each row.
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000002000000020802000000fdd49a73"
@@ -88,7 +107,10 @@ PNG = bytes.fromhex(
 def run(op, source, target):
     import io
     import openpyxl
-    from openpyxl.chart import BarChart, Reference
+    from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+    from openpyxl.chart.marker import DataPoint, Marker
+    from openpyxl.chart.shapes import GraphicalProperties
+    from openpyxl.drawing.line import LineProperties
     from openpyxl.comments import Comment
     from openpyxl.drawing.image import Image
     from openpyxl.utils import quote_sheetname
@@ -137,6 +159,26 @@ def run(op, source, target):
         chart.add_data(Reference(ws, min_col=2, min_row=2, max_row=m + 1), titles_from_data=False)
         chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=m + 1))
         wb.create_chartsheet().add_chart(chart)
+    elif op == "chart-format":
+        values = Reference(ws, min_col=2, min_row=2, max_row=m + 1)
+        categories = Reference(ws, min_col=1, min_row=2, max_row=m + 1)
+        line = LineChart()
+        line.add_data(values, titles_from_data=False)
+        line.set_categories(categories)
+        series = line.series[0]
+        series.marker = Marker(symbol=FORMAT_SYMBOL, size=FORMAT_MARKER_SIZE)
+        series.marker.graphicalProperties = GraphicalProperties(solidFill=FORMAT_MARKER_FILL)
+        series.graphicalProperties = GraphicalProperties(
+            ln=LineProperties(w=FORMAT_LINE_WIDTH, prstDash=FORMAT_DASH))
+        point = DataPoint(idx=FORMAT_POINT)
+        point.graphicalProperties = GraphicalProperties(solidFill=FORMAT_POINT_FILL)
+        series.dPt.append(point)
+        ws.add_chart(line, "A%d" % (m + 2))
+        pie = PieChart()
+        pie.add_data(values, titles_from_data=False)
+        pie.set_categories(categories)
+        pie.series[0].dPt.append(DataPoint(idx=FORMAT_SLICE, explosion=FORMAT_EXPLOSION))
+        ws.add_chart(pie, "A%d" % (m + 18))
     wb.save(target)
     return openpyxl.__version__
 
