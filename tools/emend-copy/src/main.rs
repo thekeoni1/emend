@@ -872,6 +872,32 @@
 //!   `charts_after` and `chart_parts_after` three more than before,
 //!   `series` 4, `markers` 3 and `read_back` 3; a failure is exit 2 with the
 //!   message and no output, and so is a refusal by the layer.
+//! - `--chart-trend-sample`: the trend sample of
+//!   `specs/0040-analytic-chart-elements.md`, "Harness runs": on W, with
+//!   M, M' and its quoted name as `--chart-kinds-sample` has them and L as
+//!   the surface sample's (`specs/0039-chart-kinds-and-formatting.md`
+//!   ruling C), three charts placed as the more kinds sample's, the k-th
+//!   (k from 0) titled `emend trend k` with the legend at the right and no
+//!   axis titles, each series over the categories A2:A(L): a standard line
+//!   chart of two series, over B named by B1 with a linear trendline
+//!   showing the equation and R-squared and fixed error bars of 1.5 both
+//!   ways with end caps, and over C named by C1 with a polynomial
+//!   trendline of order 3 named `emend fit` forecast forward 2 and
+//!   percentage error bars of 5 minus only with end caps; a scatter of
+//!   style `lineMarker` of the series over B with an exponential trendline
+//!   and two sets of error bars, `y` of one standard deviation both ways
+//!   and `x` custom, its plus over C and its minus over D, rows 2 to L,
+//!   both ways, each with end caps; and a clustered column chart of the
+//!   series over B with a moving average trendline of period 2 and
+//!   standard error bars both ways without end caps. The output is
+//!   reopened. One line: the word `charttrend` then `charts_before` and
+//!   `charts_after`, `series` (the series of the last three entries of the
+//!   output's charts of W), `rows` (L - 1), `read_back` (how many of the
+//!   three read as their calls gave them, every field compared) and
+//!   `chart_parts_after`. COUNTS ONLY, as the add-chart sample's. Asserted:
+//!   `charts_after` and `chart_parts_after` three more than before,
+//!   `series` 4 and `read_back` 3; a failure is exit 2 with the message and
+//!   no output, and so is a refusal by the layer.
 //! - `--chart-labels-sample`: the labels sample of
 //!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
 //!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
@@ -1049,7 +1075,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
 | --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample \
-| --chart-surface-sample | --chart-format-sample]";
+| --chart-surface-sample | --chart-format-sample | --chart-trend-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1184,6 +1210,9 @@ enum Operation {
     /// A line, a pie and a scatter chart with markers, lines and points past
     /// the last row of W, and the counts.
     ChartFormatSample,
+    /// A line, a scatter and a column chart with trendlines and error bars
+    /// past the last row of W, and the counts.
+    ChartTrendSample,
     /// A column chart and a pie with colours, labels and axis formats past
     /// the last row of W, and the counts.
     ChartLabelsSample,
@@ -1260,6 +1289,7 @@ enum Error {
     Chart3dSample(&'static str),
     ChartSurfaceSample(&'static str),
     ChartFormatSample(&'static str),
+    ChartTrendSample(&'static str),
     ChartLabelsSample(&'static str),
     RemoveChartSample(&'static str),
     ChartsheetSample(&'static str),
@@ -1396,6 +1426,7 @@ impl fmt::Display for Error {
             | Error::Chart3dSample(what)
             | Error::ChartSurfaceSample(what)
             | Error::ChartFormatSample(what)
+            | Error::ChartTrendSample(what)
             | Error::ChartLabelsSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
@@ -1635,6 +1666,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ChartFormatSample,
         ),
+        [input, output, flag] if flag == "--chart-trend-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartTrendSample,
+        ),
         [input, output, flag] if flag == "--chart-labels-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1840,6 +1876,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ChartFormatSample) {
         return chart_format_sample(input, output);
     }
+    if matches!(operation, Operation::ChartTrendSample) {
+        return chart_trend_sample(input, output);
+    }
     if matches!(operation, Operation::ChartLabelsSample) {
         return chart_labels_sample(input, output);
     }
@@ -1935,6 +1974,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::Chart3dSample => unreachable!("the 3D sample has its own path"),
         Operation::ChartSurfaceSample => unreachable!("the surface sample has its own path"),
         Operation::ChartFormatSample => unreachable!("the format sample has its own path"),
+        Operation::ChartTrendSample => unreachable!("the trend sample has its own path"),
         Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
         Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
         Operation::ChartsheetSample => unreachable!("the chartsheet sample has its own path"),
@@ -9157,6 +9197,232 @@ fn chart_format_read_back(
         return Err(Error::ChartFormatSample("read-back chart"));
     }
     Ok((after, count, markers, read_back))
+}
+
+/// The trend sample (`specs/0040-analytic-chart-elements.md`, "Harness
+/// runs", `--chart-trend-sample`): a line chart of two series, a scatter of
+/// one and a column chart of one, each series with a trendline and error
+/// bars, on W past its last row, the output written and read back. A
+/// failure after the output is in place removes it; a refusal by the layer
+/// is exit 2 with no output.
+fn chart_trend_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, ErrorBarKind, ErrorDirection, ErrorValue, Grouping, LegendPosition, NewChart,
+        NewErrorBars, NewPlot, NewSeries, NewSeriesName, NewTrendline, ScatterStyle, TrendlineKind,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    let last = bounded_last_row(sampled.max_row);
+    let rows = u64::from(last - 1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let (b_name, c_name) = (format!("{sheet}!$B$1"), format!("{sheet}!$C$1"));
+    let (a, b, c, d) = (column('A'), column('B'), column('C'), column('D'));
+    let over_b = NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+        color: None,
+        labels: None,
+        marker: None,
+        line: None,
+        points: &[],
+        trendline: None,
+        error_bars: &[],
+    };
+    let trend = |kind: TrendlineKind| NewTrendline {
+        kind,
+        forward: None,
+        backward: None,
+        intercept: None,
+        show_equation: false,
+        show_r_squared: false,
+        name: None,
+    };
+    fn bars<'a>(
+        direction: Option<ErrorDirection>,
+        kind: ErrorBarKind,
+        value: ErrorValue<'a>,
+    ) -> NewErrorBars<'a> {
+        NewErrorBars {
+            direction,
+            kind,
+            value,
+            end_cap: true,
+        }
+    }
+    let fixed = [bars(None, ErrorBarKind::Both, ErrorValue::Fixed(1.5))];
+    let percentage = [bars(None, ErrorBarKind::Minus, ErrorValue::Percentage(5.0))];
+    let line_series = [
+        NewSeries {
+            trendline: Some(NewTrendline {
+                show_equation: true,
+                show_r_squared: true,
+                ..trend(TrendlineKind::Linear)
+            }),
+            error_bars: &fixed,
+            ..over_b
+        },
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&c_name)),
+            values: &c,
+            trendline: Some(NewTrendline {
+                forward: Some(2.0),
+                name: Some("emend fit"),
+                ..trend(TrendlineKind::Polynomial(3))
+            }),
+            error_bars: &percentage,
+            ..over_b
+        },
+    ];
+    let two_sets = [
+        bars(
+            Some(ErrorDirection::Y),
+            ErrorBarKind::Both,
+            ErrorValue::StandardDeviation(1.0),
+        ),
+        bars(
+            Some(ErrorDirection::X),
+            ErrorBarKind::Both,
+            ErrorValue::Custom {
+                plus: &c,
+                minus: &d,
+            },
+        ),
+    ];
+    let scatter_series = [NewSeries {
+        trendline: Some(trend(TrendlineKind::Exponential)),
+        error_bars: &two_sets,
+        ..over_b
+    }];
+    let standard_error = [NewErrorBars {
+        end_cap: false,
+        ..bars(None, ErrorBarKind::Both, ErrorValue::StandardError)
+    }];
+    let bar_series = [NewSeries {
+        trendline: Some(trend(TrendlineKind::MovingAverage(2))),
+        error_bars: &standard_error,
+        ..over_b
+    }];
+    let plots: [(NewPlot, &[NewSeries<'_>]); 3] = [
+        (
+            NewPlot::Line {
+                grouping: Grouping::Standard,
+            },
+            &line_series,
+        ),
+        (
+            NewPlot::Scatter {
+                style: ScatterStyle::LineMarker,
+            },
+            &scatter_series,
+        ),
+        (
+            NewPlot::Bar {
+                direction: BarDirection::Column,
+                grouping: Grouping::Clustered,
+            },
+            &bar_series,
+        ),
+    ];
+    let titles: Vec<String> = (0..plots.len())
+        .map(|k| format!("emend trend {k}"))
+        .collect();
+    let mut calls = Vec::with_capacity(plots.len());
+    for (((plot, series), title), k) in plots.into_iter().zip(&titles).zip(0u32..) {
+        let chart = NewChart {
+            plot,
+            title: Some(title),
+            series,
+            category_axis_title: None,
+            value_axis_title: None,
+            category_axis_format: None,
+            value_axis_format: None,
+            legend: Some(LegendPosition::Right),
+            size: Some((480, 288)),
+            combined: None,
+        };
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, &chart)?;
+        calls.push(chart);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_trend_read_back(output, &part, &before, &calls);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, series, read_back) = checked?;
+    edit_line_named(
+        "charttrend",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("series", series),
+            ("rows", rows),
+            ("read_back", read_back),
+            ("chart_parts_after", after.chart_parts),
+        ],
+    )
+}
+
+/// Reopens the trend sample's output and asserts three more charts and
+/// chart parts, the last three charts of W four series in all, each chart
+/// read back as its call gave it (the reader walks past a trendline and
+/// error bars); gives the counts after, the series and how many read back.
+fn chart_trend_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartTrendSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartTrendSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let count = last
+        .iter()
+        .flat_map(|entry| &entry.chart.plots)
+        .flat_map(|plot| &plot.series)
+        .count() as u64;
+    if count != 4 {
+        return Err(Error::ChartTrendSample("series count"));
+    }
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| entry.chart == chart_as_read(chart))
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartTrendSample("read-back chart"));
+    }
+    Ok((after, count, read_back))
 }
 
 /// The labels sample (`specs/0036-charts-write-second-set.md`, "Harness

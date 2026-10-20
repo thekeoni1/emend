@@ -7583,3 +7583,193 @@ fn the_chartsheet_sample_refuses_a_chartsheet_relationship_with_no_part_and_leav
     assert_eq!(ran.stdout, "", "a line was printed");
     assert_eq!(dir.names(), vec!["in.xlsx".to_string()], "a file was left");
 }
+
+#[test]
+fn the_chart_trend_sample_adds_a_line_a_scatter_and_a_column_and_reads_them_back() {
+    // `specs/0040-analytic-chart-elements.md`, "Harness runs": a line of two
+    // series, a scatter of one with two sets of error bars and a column of
+    // one, each series with a trendline and error bars, on one-cell anchors
+    // at rows 3, 19 and 35, M being 1.
+    let line = "charttrend\tcharts_before=0\tcharts_after=3\tseries=4\trows=1\tread_back=3\
+                \tchart_parts_after=3\n";
+    for (label, drawing, after) in [
+        ("chart-trend-sample-created", false, ""),
+        (
+            "chart-trend-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-trend-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(ran.stdout, line, "the line");
+        let entries = parse_independently(&fs::read(&output).expect("read the output"));
+        for n in 1..=3 {
+            entry_named(&entries, format!("xl/charts/chart{n}.xml").as_bytes());
+        }
+        if drawing {
+            let text = String::from_utf8(
+                entry_named(&entries, b"xl/drawings/drawing1.xml")
+                    .compressed
+                    .clone(),
+            )
+            .expect("UTF-8");
+            assert_eq!(text.matches("<xdr:oneCellAnchor>").count(), 3, "{text}");
+            untouched_but(
+                &entries,
+                &specs,
+                &[
+                    b"xl/drawings/drawing1.xml",
+                    b"xl/drawings/_rels/drawing1.xml.rels",
+                    b"[Content_Types].xml",
+                ],
+            );
+        }
+    }
+}
+
+#[test]
+fn the_chart_trend_sample_writes_each_trendline_and_error_bar_form() {
+    // M is 1, so every reference runs from row 2 to row 2, quoted.
+    use emend::package::ChartKind;
+    let specs = image_specs(A_CELL, "", false);
+    let dir = TempDir::new("chart-trend-sample-forms");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-trend-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let charts = package
+        .charts(b"xl/worksheets/sheet1.xml")
+        .expect("the charts");
+    let kinds: Vec<Vec<(ChartKind, usize)>> = charts
+        .iter()
+        .map(|entry| {
+            entry
+                .chart
+                .plots
+                .iter()
+                .map(|plot| (plot.kind, plot.series.len()))
+                .collect()
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            vec![(ChartKind::Line, 2)],
+            vec![(ChartKind::Scatter, 1)],
+            vec![(ChartKind::Bar, 1)],
+        ]
+    );
+    let custom = "<c:plus><c:numRef><c:f>'Sheet1'!$C$2:$C$2</c:f></c:numRef></c:plus><c:minus>\
+                  <c:numRef><c:f>'Sheet1'!$D$2:$D$2</c:f></c:numRef></c:minus>";
+    for (name, forms) in [
+        (
+            b"xl/charts/chart1.xml".as_slice(),
+            [
+                "<c:trendline><c:trendlineType val=\"linear\"/><c:dispRSqr val=\"1\"/><c:dispEq \
+                 val=\"1\"/></c:trendline><c:errBars><c:errBarType val=\"both\"/><c:errValType \
+                 val=\"fixedVal\"/><c:noEndCap val=\"0\"/><c:val val=\"1.5\"/></c:errBars><c:cat>"
+                    .to_owned(),
+                "<c:trendline><c:name>emend fit</c:name><c:trendlineType val=\"poly\"/><c:order \
+                 val=\"3\"/><c:forward val=\"2\"/><c:dispRSqr val=\"0\"/><c:dispEq val=\"0\"/>\
+                 </c:trendline><c:errBars><c:errBarType val=\"minus\"/><c:errValType \
+                 val=\"percentage\"/><c:noEndCap val=\"0\"/><c:val val=\"5\"/></c:errBars><c:cat>"
+                    .to_owned(),
+            ],
+        ),
+        (
+            b"xl/charts/chart2.xml",
+            [
+                "<c:trendline><c:trendlineType val=\"exp\"/><c:dispRSqr val=\"0\"/><c:dispEq \
+                 val=\"0\"/></c:trendline><c:errBars><c:errDir val=\"y\"/><c:errBarType \
+                 val=\"both\"/><c:errValType val=\"stdDev\"/><c:noEndCap val=\"0\"/><c:val \
+                 val=\"1\"/></c:errBars>"
+                    .to_owned(),
+                format!(
+                    "<c:errBars><c:errDir val=\"x\"/><c:errBarType val=\"both\"/><c:errValType \
+                     val=\"cust\"/><c:noEndCap val=\"0\"/>{custom}</c:errBars><c:xVal>"
+                ),
+            ],
+        ),
+        (
+            b"xl/charts/chart3.xml",
+            [
+                "<c:trendline><c:trendlineType val=\"movingAvg\"/><c:period val=\"2\"/>\
+                 <c:dispRSqr val=\"0\"/><c:dispEq val=\"0\"/></c:trendline><c:errBars>\
+                 <c:errBarType val=\"both\"/><c:errValType val=\"stdErr\"/><c:noEndCap \
+                 val=\"1\"/></c:errBars><c:cat>"
+                    .to_owned(),
+                "<c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>".to_owned(),
+            ],
+        ),
+    ] {
+        let index = package.part(name).expect("the chart part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        for form in forms {
+            assert!(text.contains(&form), "{form} in {text}");
+        }
+    }
+}
+
+#[test]
+fn the_chart_trend_sample_references_at_most_a_thousand_rows() {
+    // `specs/0039-chart-kinds-and-formatting.md`, "Planning rulings during
+    // P1", ruling C, as `specs/0040` carries it: M is 1500, so every
+    // reference stops at row 1001, the custom error references included,
+    // and the first chart still sits at row 1502.
+    let cell = "<sheetData><row r=\"1500\"><c r=\"A1500\"><v>1</v></c></row></sheetData>";
+    let specs = image_specs(cell, "", false);
+    let dir = TempDir::new("chart-trend-sample-bound");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-trend-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "charttrend\tcharts_before=0\tcharts_after=3\tseries=4\trows=1000\tread_back=3\
+         \tchart_parts_after=3\n",
+        "the line"
+    );
+    let file = fs::File::open(&output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let mut text_of = |name: &str| {
+        let index = package.part(name.as_bytes()).expect("the part");
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+            .expect("read");
+        text
+    };
+    for n in 1..=3 {
+        let text = text_of(&format!("xl/charts/chart{n}.xml"));
+        assert!(
+            text.contains("<c:f>'Sheet1'!$B$2:$B$1001</c:f>"),
+            "chart{n}: {text}"
+        );
+        assert!(!text.contains("$1002<"), "chart{n}: {text}");
+    }
+    let scatter = text_of("xl/charts/chart2.xml");
+    assert!(
+        scatter.contains("<c:f>'Sheet1'!$D$2:$D$1001</c:f>"),
+        "{scatter}"
+    );
+    let drawing = text_of("xl/drawings/drawing1.xml");
+    assert!(
+        drawing.contains(
+            "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1501</xdr:row>"
+        ),
+        "{drawing}"
+    );
+}
