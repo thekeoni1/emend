@@ -7,7 +7,8 @@
 //! axes' number formats, and [`Package::remove_chart`].
 //!
 //! `specs/0039-chart-kinds-and-formatting.md` adds the surface plots, the
-//! contour form and the 3D one, and the of-pie plot with its split.
+//! contour form and the 3D one, and the of-pie plot with its split; and a
+//! series' marker, its line's width and dash, and its formatted points.
 //!
 //! [`Package::add_chart`] checks the call and records the chart as an image
 //! is recorded: the write adds the chart part, created whole from the
@@ -77,6 +78,9 @@ pub(crate) const CHART_CONTENT_TYPE: &[u8] =
 const TEXT_LIMIT: usize = 32_767;
 /// The longest reference, in bytes.
 const REFERENCE_LIMIT: usize = 8_192;
+/// The widest line, in EMU (`specs/0039-chart-kinds-and-formatting.md`,
+/// "Applicability").
+const LINE_WIDTH_LIMIT: u32 = 20_116_800;
 
 /// A chart as a caller gives it to [`Package::add_chart`]
 /// (`specs/0035-charts-write-first-set.md`, "The call"). The Cargo feature
@@ -274,6 +278,115 @@ pub struct NewSeries<'a> {
     pub color: Option<u32>,
     /// The series' data labels.
     pub labels: Option<NewLabels<'a>>,
+    /// The series' marker: a line's, a scatter's, or a radar's of the
+    /// standard or marker style (`specs/0039-chart-kinds-and-formatting.md`,
+    /// "Applicability").
+    pub marker: Option<NewMarker>,
+    /// The series' line, its width and dash: a line's, a 3D line's, a
+    /// scatter's, a radar's or a stock plot's.
+    pub line: Option<NewLine>,
+    /// The series' formatted points, `dPt`, in order; a surface's series
+    /// take none.
+    pub points: &'a [NewPoint],
+}
+
+/// A series' or a point's marker, `marker`: its symbol, its size and its
+/// solid fill (`specs/0039-chart-kinds-and-formatting.md`, "The call"). The
+/// Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NewMarker {
+    /// The marker's `symbol`.
+    pub symbol: MarkerSymbol,
+    /// The marker's `size`, 2 to 72; `MarkerSymbol::None` takes none.
+    pub size: Option<u8>,
+    /// The marker's solid colour as `0xRRGGBB`, at most `0xFFFFFF`;
+    /// `MarkerSymbol::None` takes none.
+    pub color: Option<u32>,
+}
+
+/// A marker's `symbol`; `picture` is not one (it needs a `blip`). The Cargo
+/// feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MarkerSymbol {
+    /// `none`: no marker drawn.
+    None,
+    /// `auto`.
+    Auto,
+    /// `circle`.
+    Circle,
+    /// `dash`.
+    Dash,
+    /// `diamond`.
+    Diamond,
+    /// `dot`.
+    Dot,
+    /// `plus`.
+    Plus,
+    /// `square`.
+    Square,
+    /// `star`.
+    Star,
+    /// `triangle`.
+    Triangle,
+    /// `x`.
+    X,
+}
+
+/// A series' line, the series `spPr`'s `a:ln`: its width and its dash, one
+/// of them at least (`specs/0039-chart-kinds-and-formatting.md`, "The
+/// call"). The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NewLine {
+    /// The line's width `w` in EMU (12700 per point; decision 1 A), at most
+    /// 20116800.
+    pub width: Option<u32>,
+    /// The line's dash, `prstDash`.
+    pub dash: Option<DashStyle>,
+}
+
+/// A line's preset dash, `prstDash`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DashStyle {
+    /// `solid`.
+    Solid,
+    /// `dot`.
+    Dot,
+    /// `dash`.
+    Dash,
+    /// `lgDash`.
+    LargeDash,
+    /// `dashDot`.
+    DashDot,
+    /// `lgDashDot`.
+    LargeDashDot,
+    /// `lgDashDotDot`.
+    LargeDashDotDot,
+    /// `sysDash`.
+    SystemDash,
+    /// `sysDot`.
+    SystemDot,
+    /// `sysDashDot`.
+    SystemDashDot,
+    /// `sysDashDotDot`.
+    SystemDashDotDot,
+}
+
+/// One formatted point of a series, `dPt`: its index and one or more of a
+/// colour, an explosion and a marker (`specs/0039-chart-kinds-and-
+/// formatting.md`, "The call", decision 4 A). The index is not checked
+/// against the values. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NewPoint {
+    /// The point's index, `idx`, counted from 0; two points of one series
+    /// take two indexes.
+    pub index: u32,
+    /// The point's solid colour as `0xRRGGBB`, at most `0xFFFFFF`.
+    pub color: Option<u32>,
+    /// The point's `explosion` in percent: a pie's, a 3D pie's, a
+    /// doughnut's or an of-pie's alone.
+    pub explosion: Option<u32>,
+    /// The point's marker, where the series takes one.
+    pub marker: Option<NewMarker>,
 }
 
 /// A new series' data labels, `dLbls`: what each label shows, its position
@@ -339,6 +452,9 @@ struct SeriesWork {
     sizes: Option<String>,
     color: Option<u32>,
     labels: Option<LabelsWork>,
+    marker: Option<NewMarker>,
+    line: Option<NewLine>,
+    points: Vec<NewPoint>,
 }
 
 /// A series' labels as the call checked them.
@@ -425,22 +541,36 @@ impl<R: Read + Seek> Package<R> {
     /// with more than one series or an axis title or format; "a chart value
     /// is out of its range" for an of-pie's split position below 1, a split
     /// value that is not finite or is negative, or a percent above 100
-    /// (`specs/0039-chart-kinds-and-formatting.md`, "Applicability"); "a
-    /// chart option does not apply to its kind", then, for a combined plot a first plot other than a bar, line or area,
-    /// a second other than a bar, line, area or scatter or of the first's
+    /// (`specs/0039-chart-kinds-and-formatting.md`, "Applicability"); then
+    /// each series' marker, line and points in field order, "a chart option
+    /// does not apply to its kind" for a marker on a plot other than a
+    /// line, a scatter or a radar of the standard or marker style, a
+    /// `MarkerSymbol::None` with a size or a colour, a line on a plot other
+    /// than a line, a 3D line, a scatter, a radar or a stock plot or with
+    /// neither field, a point on a surface's series, with no field but its
+    /// index or of an index another point of the series takes, a point's
+    /// explosion on a plot other than a pie, a 3D pie, a doughnut or an
+    /// of-pie, a point's marker where the series takes none, and a marker's
+    /// or a point's colour above `0xFFFFFF`, and "a chart value is out of
+    /// its range" for a marker size outside 2 to 72 or a line width above
+    /// 20116800; then "a chart option does not apply to its kind" for a
+    /// combined plot a first plot other than a bar, line or area, a second
+    /// other than a bar, line, area or scatter or of the first's
     /// variant, a second with no series or that breaks its own kind's rules,
     /// a scatter second or a secondary title or format without
     /// `secondary_axis` (`specs/0036-charts-write-second-set.md`,
-    /// "Applicability", P2 rulings G, H and J, P3 ruling L); "a chart text
-    /// is empty or holds a control character" for a title, axis title, axis
-    /// format, secondary axis title, secondary axis format, name, reference
-    /// (values, then sizes) or label format, in that order,
+    /// "Applicability", P2 rulings G, H and J, P3 ruling L), then its
+    /// series' marker, line and points by its kind as the first plot's; "a
+    /// chart text is empty or holds a control character" for a title, axis
+    /// title, axis format, secondary axis title, secondary axis format,
+    /// name, reference (values, then sizes) or label format, in that order,
     /// series by series, the first plot's then the second's, that is empty,
     /// holds a character below U+0020, U+FFFE or U+FFFF, or is longer than
-    /// 32767 bytes (a reference, 8192). The write refuses what [`Package::add_image`](super::Package)
-    /// says it refuses of the part, a part this write also removes an image
-    /// from, "no image at that position" (P1 ruling B), and one it removes a
-    /// chart from, "no chart at that position".
+    /// 32767 bytes (a reference, 8192). The write refuses what
+    /// [`Package::add_image`](super::Package) says it refuses of the part, a
+    /// part this write also removes an image from, "no image at that
+    /// position" (P1 ruling B), and one it removes a chart from, "no chart at
+    /// that position".
     ///
     /// `part` may be a chartsheet's (`specs/0038-chartsheets.md`, "`add_chart`
     /// and `remove_chart` on a chartsheet"): the write then refuses an anchor
@@ -625,6 +755,7 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
                 return Err(CHART_VALUE_RANGE);
             }
         }
+        series_options(chart.plot, chart.series)?;
         if let Some(combined) = &chart.combined {
             // The first plot a bar, line or area (no 3D plot combines: P2
             // ruling G; a scatter's x axis cannot share a category axis: P2
@@ -653,6 +784,7 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
             if !applies {
                 return Err(CHART_OPTION_KIND);
             }
+            series_options(combined.plot, combined.series)?;
         }
         let title = chart.title.map(text).transpose()?;
         let category_axis_title = chart.category_axis_title.map(text).transpose()?;
@@ -779,6 +911,81 @@ fn takes_position(plot: NewPlot, position: LabelPosition) -> bool {
     }
 }
 
+/// Each series' marker, line and points, by `plot`'s kind, series by series
+/// in field order (`specs/0039-chart-kinds-and-formatting.md`,
+/// "Applicability"): the marker's symbol, size and colour; the line's
+/// fields; then point by point the index, the colour, the explosion and the
+/// marker. A marker on a line, a scatter, or a radar of the standard or
+/// marker style; a line on a line, a 3D line, a scatter, a radar or a stock
+/// plot; points on every kind but the surfaces, an explosion on the round
+/// kinds alone.
+fn series_options(plot: NewPlot, series: &[NewSeries<'_>]) -> Result<(), Error> {
+    let takes_marker = matches!(
+        plot,
+        NewPlot::Line { .. }
+            | NewPlot::Scatter { .. }
+            | NewPlot::Radar {
+                style: RadarStyle::Standard | RadarStyle::Marker,
+            }
+    );
+    let takes_line = matches!(
+        plot,
+        NewPlot::Line { .. }
+            | NewPlot::Line3D { .. }
+            | NewPlot::Scatter { .. }
+            | NewPlot::Radar { .. }
+            | NewPlot::Stock
+    );
+    let round = matches!(
+        plot,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
+    );
+    let surface = matches!(plot, NewPlot::Surface { .. } | NewPlot::Surface3D { .. });
+    let marker_options = |marker: NewMarker| {
+        if !takes_marker
+            || marker.symbol == MarkerSymbol::None
+                && (marker.size.is_some() || marker.color.is_some())
+        {
+            return Err(CHART_OPTION_KIND);
+        }
+        if marker.size.is_some_and(|size| !(2..=72).contains(&size)) {
+            return Err(CHART_VALUE_RANGE);
+        }
+        if marker.color.is_some_and(|color| color > 0xFF_FFFF) {
+            return Err(CHART_OPTION_KIND);
+        }
+        Ok(())
+    };
+    for one in series {
+        if let Some(marker) = one.marker {
+            marker_options(marker)?;
+        }
+        if let Some(line) = one.line {
+            if !takes_line || line.width.is_none() && line.dash.is_none() {
+                return Err(CHART_OPTION_KIND);
+            }
+            if line.width.is_some_and(|width| width > LINE_WIDTH_LIMIT) {
+                return Err(CHART_VALUE_RANGE);
+            }
+        }
+        for (k, point) in one.points.iter().enumerate() {
+            let bare = point.color.is_none() && point.explosion.is_none() && point.marker.is_none();
+            if surface || bare || one.points[..k].iter().any(|seen| seen.index == point.index) {
+                return Err(CHART_OPTION_KIND);
+            }
+            if point.color.is_some_and(|color| color > 0xFF_FFFF)
+                || point.explosion.is_some() && !round
+            {
+                return Err(CHART_OPTION_KIND);
+            }
+            if let Some(marker) = point.marker {
+                marker_options(marker)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The series' texts and references checked in field order, series by
 /// series: the name, the categories, the values, the sizes, the label
 /// format.
@@ -811,6 +1018,9 @@ fn series_work(series: &[NewSeries<'_>]) -> Result<Vec<SeriesWork>, Error> {
                     format: labels.number_format.map(text).transpose()?,
                 }),
             },
+            marker: one.marker,
+            line: one.line,
+            points: one.points.to_vec(),
         });
     }
     Ok(work)
@@ -948,8 +1158,8 @@ impl ChartWork {
     /// The first plot's axes: the category axis then the value axis; a bar
     /// plot with direction `Bar` has its category axis at `l` and its value
     /// axis at `b`; a scatter's or a bubble's x axis is a value axis with no
-    /// gridlines; a pie, a doughnut and an of-pie have none; then the series axis when
-    /// the plot writes it, and a combined plot's secondary pair.
+    /// gridlines; a pie, a doughnut and an of-pie have none; then the series
+    /// axis when the plot writes it, and a combined plot's secondary pair.
     fn axes_bytes(&self, out: &mut Vec<u8>) {
         let x = &self.category_axis_title;
         let y = &self.value_axis_title;
@@ -1261,9 +1471,10 @@ fn plot_bytes(
 }
 
 /// Each series in order, `idx` and `order` its position counted from
-/// `first`; its colour after `tx`, with the line's colour on a line, 3D
-/// line, scatter, radar or stock plot; a stock series' marker `none`; its
-/// labels before the references; a scatter's and a bubble's references as
+/// `first`; its colour after `tx`, with the line's colour, width and dash
+/// on a line, 3D line, scatter, radar or stock plot; a stock series' marker
+/// `none`, or the series' marker; its points; its labels before the
+/// references; a scatter's and a bubble's references as
 /// `xVal` and `yVal`, both `numRef`, a bubble's sizes after them.
 fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: usize) {
     let scatter = matches!(plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
@@ -1288,10 +1499,11 @@ fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: 
                 out.extend_from_slice(b"</c:v></c:tx>");
             }
         }
-        if let Some(color) = series.color {
-            let fill = format!("<a:solidFill><a:srgbClr val=\"{color:06X}\"/></a:solidFill>");
+        if series.color.is_some() || series.line.is_some() {
             out.extend_from_slice(b"<c:spPr>");
-            out.extend_from_slice(fill.as_bytes());
+            if let Some(color) = series.color {
+                solid_fill(out, color);
+            }
             if matches!(
                 plot,
                 NewPlot::Line { .. }
@@ -1300,14 +1512,44 @@ fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: 
                     | NewPlot::Radar { .. }
                     | NewPlot::Stock
             ) {
-                out.extend_from_slice(b"<a:ln>");
-                out.extend_from_slice(fill.as_bytes());
+                // The line's width and dash with the series' colour
+                // (`specs/0039-chart-kinds-and-formatting.md`, "The chart
+                // part").
+                out.extend_from_slice(b"<a:ln");
+                if let Some(width) = series.line.and_then(|line| line.width) {
+                    out.extend_from_slice(format!(" w=\"{width}\"").as_bytes());
+                }
+                out.extend_from_slice(b">");
+                if let Some(color) = series.color {
+                    solid_fill(out, color);
+                }
+                if let Some(dash) = series.line.and_then(|line| line.dash) {
+                    dash_bytes(out, dash);
+                }
                 out.extend_from_slice(b"</a:ln>");
             }
             out.extend_from_slice(b"</c:spPr>");
         }
         if plot == NewPlot::Stock {
             out.extend_from_slice(b"<c:marker><c:symbol val=\"none\"/></c:marker>");
+        } else if let Some(marker) = series.marker {
+            marker_bytes(out, marker);
+        }
+        for point in &series.points {
+            out.extend_from_slice(b"<c:dPt>");
+            value_element(out, b"idx", point.index.to_string().as_bytes());
+            if let Some(marker) = point.marker {
+                marker_bytes(out, marker);
+            }
+            if let Some(explosion) = point.explosion {
+                value_element(out, b"explosion", explosion.to_string().as_bytes());
+            }
+            if let Some(color) = point.color {
+                out.extend_from_slice(b"<c:spPr>");
+                solid_fill(out, color);
+                out.extend_from_slice(b"</c:spPr>");
+            }
+            out.extend_from_slice(b"</c:dPt>");
         }
         if let Some(labels) = &series.labels {
             labels_bytes(out, labels);
@@ -1321,6 +1563,64 @@ fn series_bytes(out: &mut Vec<u8>, plot: NewPlot, series: &[SeriesWork], first: 
         }
         out.extend_from_slice(b"</c:ser>");
     }
+}
+
+/// An `a:solidFill` of the colour `color`, six upper-case hex digits.
+fn solid_fill(out: &mut Vec<u8>, color: u32) {
+    out.extend_from_slice(
+        format!("<a:solidFill><a:srgbClr val=\"{color:06X}\"/></a:solidFill>").as_bytes(),
+    );
+}
+
+/// A line's `a:prstDash`.
+fn dash_bytes(out: &mut Vec<u8>, dash: DashStyle) {
+    let value: &[u8] = match dash {
+        DashStyle::Solid => b"solid",
+        DashStyle::Dot => b"dot",
+        DashStyle::Dash => b"dash",
+        DashStyle::LargeDash => b"lgDash",
+        DashStyle::DashDot => b"dashDot",
+        DashStyle::LargeDashDot => b"lgDashDot",
+        DashStyle::LargeDashDotDot => b"lgDashDotDot",
+        DashStyle::SystemDash => b"sysDash",
+        DashStyle::SystemDot => b"sysDot",
+        DashStyle::SystemDashDot => b"sysDashDot",
+        DashStyle::SystemDashDotDot => b"sysDashDotDot",
+    };
+    for piece in [b"<a:prstDash val=\"".as_slice(), value, b"\"/>"] {
+        out.extend_from_slice(piece);
+    }
+}
+
+/// A series' or a point's `marker`: the symbol, the size, then the fill.
+fn marker_bytes(out: &mut Vec<u8>, marker: NewMarker) {
+    out.extend_from_slice(b"<c:marker>");
+    value_element(
+        out,
+        b"symbol",
+        match marker.symbol {
+            MarkerSymbol::None => b"none",
+            MarkerSymbol::Auto => b"auto",
+            MarkerSymbol::Circle => b"circle",
+            MarkerSymbol::Dash => b"dash",
+            MarkerSymbol::Diamond => b"diamond",
+            MarkerSymbol::Dot => b"dot",
+            MarkerSymbol::Plus => b"plus",
+            MarkerSymbol::Square => b"square",
+            MarkerSymbol::Star => b"star",
+            MarkerSymbol::Triangle => b"triangle",
+            MarkerSymbol::X => b"x",
+        },
+    );
+    if let Some(size) = marker.size {
+        value_element(out, b"size", size.to_string().as_bytes());
+    }
+    if let Some(color) = marker.color {
+        out.extend_from_slice(b"<c:spPr>");
+        solid_fill(out, color);
+        out.extend_from_slice(b"</c:spPr>");
+    }
+    out.extend_from_slice(b"</c:marker>");
 }
 
 /// A series' `dLbls`: the format, the position, then what a label shows.

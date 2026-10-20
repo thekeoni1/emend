@@ -904,15 +904,22 @@
 //!   drawing holds a chart frame, or two added in one write (decision 2 A,
 //!   P1 ruling A; `chartsheet::a_second_chart_on_a_chartsheet_is_refused`).
 //!
-//! The surface and of-pie plots add one, the Cargo feature `charts`'s too
+//! The surface and of-pie plots and the series' markers, lines and points
+//! add one, the Cargo feature `charts`'s too
 //! (`specs/0039-chart-kinds-and-formatting.md`, "Errors"), raised by
 //! `Package::add_chart` and `Package::add_chartsheet` at the call, after
-//! the first plot's kind rules and before the combined plot's:
+//! the first plot's kind rules and before the combined plot's, the
+//! series' markers, lines and points in field order:
 //!
 //! - "a chart value is out of its range", for an of-pie's split position
 //!   below 1, a split value that is not finite or is negative, or a split
 //!   percent above 100
-//!   (`chart_write::an_of_pie_split_out_of_its_range_is_refused`).
+//!   (`chart_write::an_of_pie_split_out_of_its_range_is_refused`); a
+//!   marker's size outside 2 to 72, on a series or a point
+//!   (`chart_write::a_none_marker_with_a_size_or_a_colour_and_a_size_off_2_to_72_are_refused`);
+//!   and a line's width above 20116800 EMU
+//!   (`chart_write::a_line_takes_a_width_a_dash_or_both_with_and_without_the_series_colour`;
+//!   the order, `chart_write::the_series_options_follow_the_check_order`).
 //!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
@@ -2135,9 +2142,27 @@
 //!   order, each with an optional solid colour and data labels (what they
 //!   show, a position the plot takes, a number format); an optional title,
 //!   axis titles, axis number formats and legend position. Nothing else:
-//!   no line widths, markers or per-point formatting, no trendlines or
-//!   error bars, no axis scaling, no text properties, no chart style part
-//!   (`specs/0036-charts-write-second-set.md`, "Out of scope").
+//!   no trendlines or error bars, no axis scaling, no text properties, no
+//!   chart style part (`specs/0036-charts-write-second-set.md`, "Out of
+//!   scope"; `specs/0039-chart-kinds-and-formatting.md`, "Out of scope").
+//! - The surface and of-pie plots (`specs/0039-chart-kinds-and-
+//!   formatting.md`): a contour or 3D surface, its `wireframe` either way,
+//!   with the series axis and no colour, labels, marker, line or points on
+//!   its series; an of-pie, pie or bar of pie, with a pie's rules and a
+//!   split by position, value or percent, the custom split not written
+//!   (decision 2 A). Neither combines with a second plot.
+//! - Markers, lines and points (the same spec): a marker, its symbol (not
+//!   `picture`), size and solid fill, on a line's, a scatter's and a
+//!   standard or marker radar's series, not a 3D line's (decision 3 A) and
+//!   not a stock's, which keep their fixed `none`; a line's width in EMU
+//!   (decision 1 A) and preset dash on the kinds whose `spPr` draws a
+//!   line; points (`dPt`) on every kind but the surfaces, each an index
+//!   with a colour, an explosion on the round kinds or a marker where the
+//!   series takes one (decision 4 A), written in the order given and never
+//!   checked against the values. A marker's line, a line's cap, compound
+//!   and custom dash, gradient and pattern fills are not written. The
+//!   reader reads a series' `marker` as present and walks past its points;
+//!   a symbol, size, width, dash or point is not read back.
 //! - What it touches: one chart part per chart, `xl/charts/chart<N>.xml`
 //!   with N free as a media entry's, with its `Override` and no rels part
 //!   of its own; the sheet's drawing part, appended to or created, its
@@ -2295,8 +2320,8 @@ pub use chart::{
 };
 #[cfg(feature = "charts")]
 pub use chart_write::{
-    LabelPosition, NewChart, NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, OfPieKind,
-    OfPieSplit, RadarStyle,
+    DashStyle, LabelPosition, MarkerSymbol, NewChart, NewCombined, NewLabels, NewLine, NewMarker,
+    NewPlot, NewPoint, NewSeries, NewSeriesName, OfPieKind, OfPieSplit, RadarStyle,
 };
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};

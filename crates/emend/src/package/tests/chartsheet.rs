@@ -10,8 +10,9 @@
 
 use super::*;
 use crate::package::{
-    Anchor, BarDirection, ChartAnchor, ChartEntry, EditAs, Grouping, ImageAnchor, LegendPosition,
-    NewChart, NewPlot, NewSeries, NewSeriesName, SheetKind,
+    Anchor, BarDirection, ChartAnchor, ChartEntry, ChartKind, Data, EditAs, Grouping, ImageAnchor,
+    LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName, Plot, Series, SeriesName,
+    SheetKind,
 };
 
 /// The content types and relationship types the chartsheet parts take.
@@ -49,6 +50,9 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -57,6 +61,9 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
 ];
 
@@ -908,6 +915,9 @@ fn a_chartsheet_of_a_surface_reads_back_as_on_a_worksheet() {
             sizes: None,
             color: None,
             labels: None,
+            marker: None,
+            line: None,
+            points: &[],
         },
         NewSeries {
             name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -916,6 +926,9 @@ fn a_chartsheet_of_a_surface_reads_back_as_on_a_worksheet() {
             sizes: None,
             color: None,
             labels: None,
+            marker: None,
+            line: None,
+            points: &[],
         },
     ];
     let chart = NewChart {
@@ -927,8 +940,43 @@ fn a_chartsheet_of_a_surface_reads_back_as_on_a_worksheet() {
     let part = package.add_chartsheet("Surface", &chart).expect("added");
     assert_eq!(part, CHARTSHEET);
     let out = written(package);
-    let chart_part = assert_one_chart(&charts_of(&out, CHARTSHEET), &chart);
+    let entries = charts_of(&out, CHARTSHEET);
+    let chart_part = assert_one_chart(&entries, &chart);
     assert_eq!(chart_part, CHART1);
+    // The plot read back whole (P1 verification ruling E (c)): the kind, no
+    // varied colours, the two series as given, the three axis ids.
+    let data = |formula: String| Data::Reference {
+        formula,
+        cached: None,
+    };
+    let read_series = ["B", "C"]
+        .iter()
+        .zip(0..)
+        .map(|(column, k)| Series {
+            index: k,
+            order: k,
+            name: Some(SeriesName::Reference(format!("Sheet1!${column}$1"))),
+            categories: Some(data("Sheet1!$A$2:$A$4".to_owned())),
+            values: Some(data(format!("Sheet1!${column}$2:${column}$4"))),
+            sizes: None,
+            fill: None,
+            smooth: false,
+            marker: false,
+            labels: false,
+        })
+        .collect();
+    assert_eq!(
+        entries[0].chart.plots,
+        vec![Plot {
+            kind: ChartKind::Surface3D,
+            bar_direction: None,
+            grouping: None,
+            scatter_style: None,
+            vary_colors: false,
+            series: read_series,
+            axis_ids: vec![10, 20, 30],
+        }]
+    );
     let written_part = text_of(&out, CHART1);
     let series: String = ["B", "C"]
         .iter()

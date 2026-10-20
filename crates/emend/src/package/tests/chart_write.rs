@@ -5,7 +5,8 @@
 //! stock charts", "P2: the 3D kinds and combined charts", P2 rulings F
 //! to J, and "P3: labels, colours, number formats; `remove_chart`; the
 //! catalogue", P3 rulings L and O; `specs/0039-chart-kinds-and-
-//! formatting.md`, "P1: the surface and of-pie kinds"):
+//! formatting.md`, "P1: the surface and of-pie kinds" and "P2: markers,
+//! lines and points"):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -15,9 +16,10 @@
 use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
-    ChartKind, Data, EditAs, Grouping, ImageAnchor, LabelPosition, LegendPosition, NewChart,
-    NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, OfPieKind, OfPieSplit, Plot,
-    RadarStyle, ScatterStyle, Series, SeriesName,
+    ChartKind, DashStyle, Data, EditAs, Grouping, ImageAnchor, LabelPosition, LegendPosition,
+    MarkerSymbol, NewChart, NewCombined, NewLabels, NewLine, NewMarker, NewPlot, NewPoint,
+    NewSeries, NewSeriesName, OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle, Series,
+    SeriesName,
 };
 
 /// The drawing and chart parts' content types.
@@ -171,6 +173,9 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -179,6 +184,9 @@ const TWO_SERIES: [NewSeries<'static>; 2] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
 ];
 
@@ -211,6 +219,9 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     }];
     NewChart {
         plot,
@@ -979,6 +990,9 @@ fn texts_are_escaped_and_references_written_as_given() {
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     }];
     let chart = NewChart {
         title: Some("Tom's <plan> & more"),
@@ -1263,6 +1277,9 @@ const ONE_NAMED: [NewSeries<'static>; 1] = [NewSeries {
     sizes: None,
     color: None,
     labels: None,
+    marker: None,
+    line: None,
+    points: &[],
 }];
 
 /// `ONE_NAMED` as `charts` reads it.
@@ -1498,6 +1515,9 @@ const TWO_NAMED: [NewSeries<'static>; 2] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -1506,6 +1526,9 @@ const TWO_NAMED: [NewSeries<'static>; 2] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
 ];
 
@@ -1654,6 +1677,9 @@ const BUBBLES: [NewSeries<'static>; 2] = [
         sizes: Some("Sheet1!$C$2:$C$4"),
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: None,
@@ -1662,6 +1688,9 @@ const BUBBLES: [NewSeries<'static>; 2] = [
         sizes: Some("Sheet1!$E$2:$E$4"),
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
 ];
 
@@ -1769,6 +1798,9 @@ const STOCK: [NewSeries<'static>; 5] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("high")),
@@ -1777,6 +1809,9 @@ const STOCK: [NewSeries<'static>; 5] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("low")),
@@ -1785,6 +1820,9 @@ const STOCK: [NewSeries<'static>; 5] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("close")),
@@ -1793,6 +1831,9 @@ const STOCK: [NewSeries<'static>; 5] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Text("extra")),
@@ -1801,6 +1842,9 @@ const STOCK: [NewSeries<'static>; 5] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
 ];
 
@@ -2148,6 +2192,9 @@ const OVER_C: [NewSeries<'static>; 1] = [NewSeries {
     sizes: None,
     color: None,
     labels: None,
+    marker: None,
+    line: None,
+    points: &[],
 }];
 
 /// A second plot `plot` over `OVER_C`, on the primary axes.
@@ -3692,6 +3739,9 @@ const THREE_NAMED: [NewSeries<'static>; 3] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
@@ -3700,6 +3750,9 @@ const THREE_NAMED: [NewSeries<'static>; 3] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
     NewSeries {
         name: Some(NewSeriesName::Reference("Sheet1!$D$1")),
@@ -3708,6 +3761,9 @@ const THREE_NAMED: [NewSeries<'static>; 3] = [
         sizes: None,
         color: None,
         labels: None,
+        marker: None,
+        line: None,
+        points: &[],
     },
 ];
 
@@ -3794,13 +3850,56 @@ fn a_contour_and_a_3d_surface_of_three_series_take_each_wireframe_and_three_axes
             read.axes,
             read_axes_3d(AxisPosition::Bottom, AxisPosition::Left, true)
         );
-        // A surface takes one series too, and the axis formats.
+    }
+    // A surface takes one series too, and the axis formats, written and read
+    // back with the plot whole (P1 verification ruling E (c)), after the
+    // four above so that their outputs keep their order.
+    for (three_d, wireframe) in [(false, false), (false, true), (true, false), (true, true)] {
+        let (plot, element, kind) = if three_d {
+            (
+                NewPlot::Surface3D { wireframe },
+                "surface3DChart",
+                ChartKind::Surface3D,
+            )
+        } else {
+            (
+                NewPlot::Surface { wireframe },
+                "surfaceChart",
+                ChartKind::Surface,
+            )
+        };
+        let wire = u8::from(wireframe);
         let one = NewChart {
             category_axis_format: Some("0"),
             value_axis_format: Some("0.0"),
             ..titled(plot, &ONE_NAMED, (None, None))
         };
-        call(box_anchor(), &one).expect("taken");
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &one));
+        let part = text_of(&output, CHART1);
+        assert!(
+            part.contains(&format!(
+                "<c:plotArea><c:layout/><c:{element}><c:wireframe val=\"{wire}\"/>{}<c:axId \
+                 val=\"10\"/><c:axId val=\"20\"/><c:axId val=\"30\"/></c:{element}><c:catAx>",
+                one_named_written(),
+            )),
+            "{part}"
+        );
+        let read = &charts_of(&output)[0].chart;
+        assert_eq!(
+            read.plots,
+            vec![plot_read(
+                kind,
+                false,
+                vec![one_named_read()],
+                vec![10, 20, 30]
+            )]
+        );
+        let formats: Vec<_> = read
+            .axes
+            .iter()
+            .map(|axis| axis.number_format.as_deref())
+            .collect();
+        assert_eq!(formats, [Some("0"), Some("0.0"), None]);
     }
 }
 
@@ -3967,6 +4066,21 @@ fn an_of_pie_takes_a_colour_the_percent_and_a_pie_s_positions() {
         )),
         "{part}"
     );
+    // Read back, the plot whole (P1 verification ruling E (c)): the series'
+    // colour its fill.
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        read.plots,
+        vec![plot_read(
+            ChartKind::OfPie,
+            true,
+            vec![Series {
+                fill: Some(0x12_34AB),
+                ..one_named_read()
+            }],
+            Vec::new()
+        )]
+    );
     use LabelPosition::{
         Above, Below, BestFit, Center, InsideBase, InsideEnd, Left, OutsideEnd, Right,
     };
@@ -4062,4 +4176,926 @@ fn an_of_pie_split_out_of_its_range_is_refused() {
             RANGE,
         );
     }
+}
+
+/// A marker of `symbol` with `size` and `color`.
+fn marker(symbol: MarkerSymbol, size: Option<u8>, color: Option<u32>) -> NewMarker {
+    NewMarker {
+        symbol,
+        size,
+        color,
+    }
+}
+
+/// A point at `index` with `color`, `explosion` and `marker`.
+fn point(
+    index: u32,
+    color: Option<u32>,
+    explosion: Option<u32>,
+    marker: Option<NewMarker>,
+) -> NewPoint {
+    NewPoint {
+        index,
+        color,
+        explosion,
+        marker,
+    }
+}
+
+/// The `solidFill` of `rgb`, six hex digits.
+fn fill_of(rgb: &str) -> String {
+    format!("<a:solidFill><a:srgbClr val=\"{rgb}\"/></a:solidFill>")
+}
+
+/// A marker's form: the symbol `symbol`, the size and the fill of `rgb`
+/// when given (`specs/0039-chart-kinds-and-formatting.md`, "The chart
+/// part").
+fn marker_written(symbol: &str, size: Option<u8>, rgb: Option<&str>) -> String {
+    let size = size.map_or(String::new(), |size| format!("<c:size val=\"{size}\"/>"));
+    let fill = rgb.map_or(String::new(), |rgb| {
+        format!("<c:spPr>{}</c:spPr>", fill_of(rgb))
+    });
+    format!("<c:marker><c:symbol val=\"{symbol}\"/>{size}{fill}</c:marker>")
+}
+
+/// `ONE_NAMED`'s series as written with `options` (its `spPr`, marker and
+/// points) between the name and the categories.
+fn one_named_with(options: &str) -> String {
+    format!(
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/>{ONE_NAMED_TX}{options}<c:cat>{}</c:cat>\
+         <c:val>{}</c:val></c:ser>",
+        reference("strRef", "Sheet1!$A$2:$A$4"),
+        reference("numRef", "Sheet1!$B$2:$B$4"),
+    )
+}
+
+/// The standard line plot.
+const LINE: NewPlot = NewPlot::Line {
+    grouping: Grouping::Standard,
+};
+
+/// `series` with `option` applied to each.
+fn each_with<'a>(
+    series: &[NewSeries<'a>],
+    option: impl Fn(NewSeries<'a>) -> NewSeries<'a>,
+) -> Vec<NewSeries<'a>> {
+    series.iter().copied().map(option).collect()
+}
+
+/// Every kind with series it takes, and whether its series take a marker,
+/// a line and an explosion (`specs/0039-chart-kinds-and-formatting.md`,
+/// "Applicability").
+fn every_kind() -> Vec<(NewPlot, &'static [NewSeries<'static>], [bool; 3])> {
+    vec![
+        (COLUMN, &ONE_NAMED, [false, false, false]),
+        (LINE, &ONE_NAMED, [true, true, false]),
+        (NewPlot::Pie, &ONE_NAMED, [false, false, true]),
+        (
+            NewPlot::Scatter {
+                style: ScatterStyle::LineMarker,
+            },
+            &ONE_NAMED,
+            [true, true, false],
+        ),
+        (
+            NewPlot::Area {
+                grouping: Grouping::Standard,
+            },
+            &ONE_NAMED,
+            [false, false, false],
+        ),
+        (
+            NewPlot::Doughnut { hole_size: 50 },
+            &ONE_NAMED,
+            [false, false, true],
+        ),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Standard,
+            },
+            &ONE_NAMED,
+            [true, true, false],
+        ),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Marker,
+            },
+            &ONE_NAMED,
+            [true, true, false],
+        ),
+        (
+            NewPlot::Radar {
+                style: RadarStyle::Filled,
+            },
+            &ONE_NAMED,
+            [false, true, false],
+        ),
+        (NewPlot::Bubble, &BUBBLES, [false, false, false]),
+        (NewPlot::Stock, &STOCK[..3], [false, true, false]),
+        (
+            NewPlot::Bar3D {
+                direction: BarDirection::Column,
+                grouping: Grouping::Clustered,
+            },
+            &ONE_NAMED,
+            [false, false, false],
+        ),
+        (
+            NewPlot::Line3D {
+                grouping: Grouping::Standard,
+            },
+            &ONE_NAMED,
+            [false, true, false],
+        ),
+        (NewPlot::Pie3D, &ONE_NAMED, [false, false, true]),
+        (
+            NewPlot::Area3D {
+                grouping: Grouping::Standard,
+            },
+            &ONE_NAMED,
+            [false, false, false],
+        ),
+        (
+            NewPlot::Surface { wireframe: false },
+            &ONE_NAMED,
+            [false, false, false],
+        ),
+        (
+            NewPlot::Surface3D { wireframe: true },
+            &ONE_NAMED,
+            [false, false, false],
+        ),
+        (
+            NewPlot::OfPie {
+                kind: OfPieKind::Pie,
+                split: None,
+            },
+            &ONE_NAMED,
+            [false, false, true],
+        ),
+    ]
+}
+
+/// The eleven symbols and their values.
+const SYMBOLS: [(MarkerSymbol, &str); 11] = [
+    (MarkerSymbol::None, "none"),
+    (MarkerSymbol::Auto, "auto"),
+    (MarkerSymbol::Circle, "circle"),
+    (MarkerSymbol::Dash, "dash"),
+    (MarkerSymbol::Diamond, "diamond"),
+    (MarkerSymbol::Dot, "dot"),
+    (MarkerSymbol::Plus, "plus"),
+    (MarkerSymbol::Square, "square"),
+    (MarkerSymbol::Star, "star"),
+    (MarkerSymbol::Triangle, "triangle"),
+    (MarkerSymbol::X, "x"),
+];
+
+#[test]
+fn a_line_series_takes_each_marker_symbol_with_and_without_a_size_and_a_colour() {
+    for (symbol, value) in SYMBOLS {
+        for (size, color, rgb) in [
+            (None, None, None),
+            (Some(7), None, None),
+            (None, Some(0xC0_FFEE), Some("C0FFEE")),
+            (Some(72), Some(0x01_0203), Some("010203")),
+        ] {
+            if symbol == MarkerSymbol::None && (size.is_some() || color.is_some()) {
+                continue;
+            }
+            let marked = [NewSeries {
+                marker: Some(marker(symbol, size, color)),
+                ..ONE_NAMED[0]
+            }];
+            let chart = NewChart {
+                series: &marked,
+                ..bare(LINE)
+            };
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            // The plot whole: the marker after the name, the plot's own
+            // `marker` after the series.
+            let part = text_of(&output, CHART1);
+            assert!(
+                part.contains(&format!(
+                    "<c:lineChart><c:grouping val=\"standard\"/><c:varyColors val=\"0\"/>{}\
+                     <c:marker val=\"1\"/><c:axId val=\"10\"/><c:axId val=\"20\"/></c:lineChart>",
+                    one_named_with(&marker_written(value, size, rgb)),
+                )),
+                "{part}"
+            );
+            let read = &charts_of(&output)[0].chart;
+            assert_eq!(
+                read.plots,
+                vec![Plot {
+                    grouping: Some(Grouping::Standard),
+                    ..plot_read(
+                        ChartKind::Line,
+                        false,
+                        vec![Series {
+                            marker: true,
+                            ..one_named_read()
+                        }],
+                        vec![10, 20]
+                    )
+                }]
+            );
+        }
+    }
+}
+
+#[test]
+fn a_none_marker_with_a_size_or_a_colour_and_a_size_off_2_to_72_are_refused() {
+    let refused = |marker: NewMarker, message: &str| {
+        let marked = [NewSeries {
+            marker: Some(marker),
+            ..ONE_NAMED[0]
+        }];
+        let chart = NewChart {
+            series: &marked,
+            ..bare(LINE)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), message);
+        // The same marker on a point.
+        let points = [point(0, None, None, Some(marker))];
+        let pointed = [NewSeries {
+            points: &points,
+            ..ONE_NAMED[0]
+        }];
+        let chart = NewChart {
+            series: &pointed,
+            ..bare(LINE)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), message);
+    };
+    refused(marker(MarkerSymbol::None, Some(7), None), OPTION);
+    refused(marker(MarkerSymbol::None, None, Some(0)), OPTION);
+    for size in [0, 1, 73, 255] {
+        refused(marker(MarkerSymbol::Circle, Some(size), None), RANGE);
+    }
+    refused(marker(MarkerSymbol::Square, None, Some(0x100_0000)), OPTION);
+    for size in [2, 72] {
+        let marked = [NewSeries {
+            marker: Some(marker(MarkerSymbol::Circle, Some(size), Some(0xFF_FFFF))),
+            ..ONE_NAMED[0]
+        }];
+        let chart = NewChart {
+            series: &marked,
+            ..bare(LINE)
+        };
+        call(box_anchor(), &chart).expect("taken");
+    }
+}
+
+#[test]
+fn a_line_takes_a_width_a_dash_or_both_with_and_without_the_series_colour() {
+    let dashes = [
+        (DashStyle::Solid, "solid"),
+        (DashStyle::Dot, "dot"),
+        (DashStyle::Dash, "dash"),
+        (DashStyle::LargeDash, "lgDash"),
+        (DashStyle::DashDot, "dashDot"),
+        (DashStyle::LargeDashDot, "lgDashDot"),
+        (DashStyle::LargeDashDotDot, "lgDashDotDot"),
+        (DashStyle::SystemDash, "sysDash"),
+        (DashStyle::SystemDot, "sysDot"),
+        (DashStyle::SystemDashDot, "sysDashDot"),
+        (DashStyle::SystemDashDotDot, "sysDashDotDot"),
+    ];
+    let mut lines: Vec<(NewLine, String, String)> = vec![
+        (
+            NewLine {
+                width: Some(28575),
+                dash: None,
+            },
+            " w=\"28575\"".to_owned(),
+            String::new(),
+        ),
+        (
+            NewLine {
+                width: Some(0),
+                dash: None,
+            },
+            " w=\"0\"".to_owned(),
+            String::new(),
+        ),
+        (
+            NewLine {
+                width: Some(20_116_800),
+                dash: Some(DashStyle::LargeDash),
+            },
+            " w=\"20116800\"".to_owned(),
+            "<a:prstDash val=\"lgDash\"/>".to_owned(),
+        ),
+    ];
+    for (dash, value) in dashes {
+        lines.push((
+            NewLine {
+                width: None,
+                dash: Some(dash),
+            },
+            String::new(),
+            format!("<a:prstDash val=\"{value}\"/>"),
+        ));
+    }
+    for (line, width, dash) in &lines {
+        for color in [None, Some(0x33_6699)] {
+            let lined = [NewSeries {
+                color,
+                line: Some(*line),
+                ..ONE_NAMED[0]
+            }];
+            let chart = NewChart {
+                series: &lined,
+                ..bare(LINE)
+            };
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            // The fill, then the line: its width, the fill again, its dash.
+            let fill = color.map_or(String::new(), |_| fill_of("336699"));
+            let part = text_of(&output, CHART1);
+            assert!(
+                part.contains(&one_named_with(&format!(
+                    "<c:spPr>{fill}<a:ln{width}>{fill}{dash}</a:ln></c:spPr>"
+                ))),
+                "{part}"
+            );
+            assert_eq!(
+                charts_of(&output)[0].chart.plots[0].series[0],
+                Series {
+                    fill: color,
+                    ..one_named_read()
+                }
+            );
+        }
+    }
+    for (line, message) in [
+        (
+            NewLine {
+                width: None,
+                dash: None,
+            },
+            OPTION,
+        ),
+        (
+            NewLine {
+                width: Some(20_116_801),
+                dash: None,
+            },
+            RANGE,
+        ),
+        (
+            NewLine {
+                width: Some(u32::MAX),
+                dash: Some(DashStyle::Dot),
+            },
+            RANGE,
+        ),
+    ] {
+        let lined = [NewSeries {
+            line: Some(line),
+            ..ONE_NAMED[0]
+        }];
+        let chart = NewChart {
+            series: &lined,
+            ..bare(LINE)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), message);
+    }
+}
+
+#[test]
+fn a_marker_and_a_line_are_taken_by_the_kinds_that_take_them_and_refused_by_the_others() {
+    let circle = marker(MarkerSymbol::Circle, Some(7), None);
+    let dashed = NewLine {
+        width: Some(28575),
+        dash: Some(DashStyle::Dash),
+    };
+    for (plot, series, [takes_marker, takes_line, _]) in every_kind() {
+        let marked = each_with(series, |one| NewSeries {
+            marker: Some(circle),
+            ..one
+        });
+        let chart = NewChart {
+            series: &marked,
+            ..bare(plot)
+        };
+        if takes_marker {
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            let part = text_of(&output, CHART1);
+            assert!(
+                part.contains(&format!(
+                    "{ONE_NAMED_TX}{}<c:",
+                    marker_written("circle", Some(7), None)
+                )),
+                "{plot:?}: {part}"
+            );
+            let read = &charts_of(&output)[0].chart;
+            assert!(
+                read.plots[0].series.iter().all(|one| one.marker),
+                "{plot:?}"
+            );
+        } else {
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+        let lined = each_with(series, |one| NewSeries {
+            line: Some(dashed),
+            ..one
+        });
+        let chart = NewChart {
+            series: &lined,
+            ..bare(plot)
+        };
+        if takes_line {
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            let part = text_of(&output, CHART1);
+            assert!(
+                part.contains(
+                    "<c:spPr><a:ln w=\"28575\"><a:prstDash val=\"dash\"/></a:ln></c:spPr>"
+                ),
+                "{plot:?}: {part}"
+            );
+            let read = &charts_of(&output)[0].chart;
+            assert_eq!(read.plots[0].series.len(), series.len(), "{plot:?}");
+        } else {
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+    }
+    // The stock plot keeps its fixed marker with a line, after the `spPr`.
+    let lined = each_with(&STOCK[..3], |one| NewSeries {
+        line: Some(dashed),
+        ..one
+    });
+    let chart = NewChart {
+        series: &lined,
+        ..bare(NewPlot::Stock)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert_eq!(
+        part.matches(
+            "<c:spPr><a:ln w=\"28575\"><a:prstDash val=\"dash\"/></a:ln></c:spPr><c:marker>\
+             <c:symbol val=\"none\"/></c:marker>"
+        )
+        .count(),
+        3,
+        "{part}"
+    );
+}
+
+#[test]
+fn points_are_written_in_the_order_given_on_each_kind_that_takes_them() {
+    let red = Some(0xFF_0000);
+    let blue = Some(0x00_00FF);
+    let square = marker(MarkerSymbol::Square, None, blue);
+    // A bar's points, the later index first.
+    let bar_points = [point(2, red, None, None), point(0, blue, None, None)];
+    // A line's: a point's marker beside the series' own.
+    let line_points = [point(1, red, None, Some(square))];
+    // A pie's: an exploded slice and a coloured one.
+    let pie_points = [point(0, None, Some(10), None), point(1, red, None, None)];
+    let red_fill = format!("<c:spPr>{}</c:spPr>", fill_of("FF0000"));
+    let blue_fill = format!("<c:spPr>{}</c:spPr>", fill_of("0000FF"));
+    let cases: [(NewPlot, NewSeries<'_>, String); 3] = [
+        (
+            COLUMN,
+            NewSeries {
+                points: &bar_points,
+                ..ONE_NAMED[0]
+            },
+            format!(
+                "<c:dPt><c:idx val=\"2\"/>{red_fill}</c:dPt><c:dPt><c:idx val=\"0\"/>{blue_fill}\
+                 </c:dPt>"
+            ),
+        ),
+        (
+            LINE,
+            NewSeries {
+                marker: Some(marker(MarkerSymbol::Circle, Some(5), None)),
+                points: &line_points,
+                ..ONE_NAMED[0]
+            },
+            format!(
+                "{}<c:dPt><c:idx val=\"1\"/>{}{red_fill}</c:dPt>",
+                marker_written("circle", Some(5), None),
+                marker_written("square", None, Some("0000FF")),
+            ),
+        ),
+        (
+            NewPlot::Pie,
+            NewSeries {
+                points: &pie_points,
+                ..ONE_NAMED[0]
+            },
+            format!(
+                "<c:dPt><c:idx val=\"0\"/><c:explosion val=\"10\"/></c:dPt><c:dPt><c:idx \
+                 val=\"1\"/>{red_fill}</c:dPt>"
+            ),
+        ),
+    ];
+    for (plot, series, written) in cases {
+        let one = [series];
+        let chart = NewChart {
+            series: &one,
+            ..bare(plot)
+        };
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(part.contains(&one_named_with(&written)), "{plot:?}: {part}");
+        // The reader walks past the points: the series reads as without
+        // them, its marker the series' own.
+        assert_eq!(
+            charts_of(&output)[0].chart.plots[0].series,
+            vec![Series {
+                marker: series.marker.is_some(),
+                ..one_named_read()
+            }],
+            "{plot:?}"
+        );
+    }
+    // A scatter's point after its `spPr`; a stock's after its fixed marker,
+    // the point coloured where the series' colour is refused; a bubble's
+    // before its references.
+    let one_red = [point(1, red, None, None)];
+    let point_written = format!("<c:dPt><c:idx val=\"1\"/>{red_fill}</c:dPt>");
+    let scatter = [NewSeries {
+        color: blue,
+        points: &one_red,
+        ..ONE_NAMED[0]
+    }];
+    let stock = each_with(&STOCK[..3], |one| NewSeries {
+        points: &one_red,
+        ..one
+    });
+    let bubbles = each_with(&BUBBLES, |one| NewSeries {
+        points: &one_red,
+        ..one
+    });
+    let blue_line = format!(
+        "<c:spPr>{}<a:ln>{}</a:ln></c:spPr>",
+        fill_of("0000FF"),
+        fill_of("0000FF")
+    );
+    let cases: [(NewPlot, &[NewSeries<'_>], String, usize); 3] = [
+        (
+            NewPlot::Scatter {
+                style: ScatterStyle::Marker,
+            },
+            &scatter,
+            format!("{ONE_NAMED_TX}{blue_line}{point_written}<c:xVal>"),
+            1,
+        ),
+        (
+            NewPlot::Stock,
+            &stock,
+            format!("<c:marker><c:symbol val=\"none\"/></c:marker>{point_written}<c:cat>"),
+            3,
+        ),
+        (
+            NewPlot::Bubble,
+            &bubbles,
+            format!("{point_written}<c:yVal>"),
+            1,
+        ),
+    ];
+    for (plot, series, written, count) in cases {
+        let chart = NewChart {
+            series,
+            ..bare(plot)
+        };
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert_eq!(part.matches(&written).count(), count, "{plot:?}: {part}");
+        let read = &charts_of(&output)[0].chart.plots[0];
+        assert_eq!(read.series.len(), series.len(), "{plot:?}");
+    }
+    // An explosion on each round kind, a colour on every kind that takes
+    // points.
+    let exploded = [point(0, None, Some(25), None)];
+    let coloured = [point(0, red, None, None)];
+    for (plot, series, [_, _, round]) in every_kind() {
+        let surface = matches!(plot, NewPlot::Surface { .. } | NewPlot::Surface3D { .. });
+        if surface {
+            continue;
+        }
+        let with_colour = each_with(series, |one| NewSeries {
+            points: &coloured,
+            ..one
+        });
+        let chart = NewChart {
+            series: &with_colour,
+            ..bare(plot)
+        };
+        call(box_anchor(), &chart).expect("taken");
+        let with_explosion = each_with(series, |one| NewSeries {
+            points: &exploded,
+            ..one
+        });
+        let chart = NewChart {
+            series: &with_explosion,
+            ..bare(plot)
+        };
+        if round {
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            let part = text_of(&output, CHART1);
+            assert!(
+                part.contains("<c:dPt><c:idx val=\"0\"/><c:explosion val=\"25\"/></c:dPt>"),
+                "{plot:?}: {part}"
+            );
+        } else {
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+    }
+}
+
+#[test]
+fn a_bare_point_a_repeated_index_and_a_point_option_off_its_kind_are_refused() {
+    let red = Some(0xFF_0000);
+    let square = marker(MarkerSymbol::Square, None, None);
+    let cases: [(NewPlot, &[NewPoint]); 7] = [
+        (LINE, &[point(0, None, None, None)]),
+        (
+            LINE,
+            &[
+                point(1, red, None, None),
+                point(1, None, None, Some(square)),
+            ],
+        ),
+        (COLUMN, &[point(0, red, Some(10), None)]),
+        (COLUMN, &[point(0, None, None, Some(square))]),
+        (
+            NewPlot::OfPie {
+                kind: OfPieKind::Bar,
+                split: None,
+            },
+            &[point(0, None, None, Some(square))],
+        ),
+        (COLUMN, &[point(0, Some(0x100_0000), None, None)]),
+        (
+            NewPlot::Surface { wireframe: false },
+            &[point(0, red, None, None)],
+        ),
+    ];
+    for (plot, points) in cases {
+        let pointed = [NewSeries {
+            points,
+            ..ONE_NAMED[0]
+        }];
+        let chart = NewChart {
+            series: &pointed,
+            ..bare(plot)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+    }
+    // Two indexes, each a field, are taken.
+    let two = [
+        point(0, red, None, None),
+        point(1, None, None, Some(square)),
+    ];
+    let pointed = [NewSeries {
+        points: &two,
+        ..ONE_NAMED[0]
+    }];
+    let chart = NewChart {
+        series: &pointed,
+        ..bare(LINE)
+    };
+    call(box_anchor(), &chart).expect("taken");
+}
+
+#[test]
+fn a_surface_series_with_a_marker_a_line_or_a_point_is_refused() {
+    // P1 verification ruling E (a): the fields arrive in P2.
+    let points = [point(0, Some(0xFF_0000), None, None)];
+    for plot in [
+        NewPlot::Surface { wireframe: true },
+        NewPlot::Surface3D { wireframe: false },
+    ] {
+        for series in [
+            NewSeries {
+                marker: Some(marker(MarkerSymbol::Circle, None, None)),
+                ..THREE_NAMED[1]
+            },
+            NewSeries {
+                line: Some(NewLine {
+                    width: Some(12700),
+                    dash: None,
+                }),
+                ..THREE_NAMED[1]
+            },
+            NewSeries {
+                points: &points,
+                ..THREE_NAMED[1]
+            },
+        ] {
+            let three = [THREE_NAMED[0], series, THREE_NAMED[2]];
+            let chart = titled(plot, &three, (None, None));
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        }
+    }
+}
+
+#[test]
+fn a_combined_second_plot_s_series_take_markers_lines_and_points_by_its_own_kind() {
+    let points = [point(2, Some(0x00_8000), None, None)];
+    let formatted = [NewSeries {
+        marker: Some(marker(MarkerSymbol::Diamond, Some(9), None)),
+        line: Some(NewLine {
+            width: None,
+            dash: Some(DashStyle::SystemDot),
+        }),
+        points: &points,
+        ..OVER_C[0]
+    }];
+    let chart = combined(NewCombined {
+        series: &formatted,
+        ..second(LINE)
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:tx><c:v>Share</c:v></c:tx><c:spPr><a:ln><a:prstDash val=\"sysDot\"/></a:ln>\
+             </c:spPr>{}<c:dPt><c:idx val=\"2\"/><c:spPr>{}</c:spPr></c:dPt><c:cat>",
+            marker_written("diamond", Some(9), None),
+            fill_of("008000"),
+        )),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert!(read.plots[1].series[0].marker);
+    assert!(!read.plots[0].series[0].marker);
+    // A scatter second on the secondary axes takes a marker; an area second
+    // takes none, and the bar first none.
+    let marked = [NewSeries {
+        marker: Some(marker(MarkerSymbol::X, None, None)),
+        ..OVER_C[0]
+    }];
+    let scatter = combined(NewCombined {
+        series: &marked,
+        secondary_axis: true,
+        ..second(NewPlot::Scatter {
+            style: ScatterStyle::Marker,
+        })
+    });
+    call(box_anchor(), &scatter).expect("taken");
+    let area = combined(NewCombined {
+        series: &marked,
+        ..second(NewPlot::Area {
+            grouping: Grouping::Standard,
+        })
+    });
+    assert_package(call(box_anchor(), &area).expect_err("refused"), OPTION);
+    let marked_first = each_with(&TWO_SERIES, |one| NewSeries {
+        marker: Some(marker(MarkerSymbol::X, None, None)),
+        ..one
+    });
+    let bar_first = NewChart {
+        series: &marked_first,
+        ..combined(second(LINE))
+    };
+    assert_package(call(box_anchor(), &bar_first).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn the_series_options_follow_the_check_order() {
+    let small = marker(MarkerSymbol::Circle, Some(1), None);
+    let neither = NewLine {
+        width: None,
+        dash: None,
+    };
+    let refused = |plot: NewPlot, series: &[NewSeries<'_>], message: &str| {
+        let chart = NewChart {
+            series,
+            ..bare(plot)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), message);
+    };
+    // The kind rules first: a pie of two series with a bad marker size.
+    let two_small = each_with(&TWO_NAMED, |one| NewSeries {
+        marker: Some(small),
+        ..one
+    });
+    refused(NewPlot::Pie, &two_small, OPTION);
+    // The marker before the line, the line before the points.
+    let marker_then_line = [NewSeries {
+        marker: Some(small),
+        line: Some(neither),
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &marker_then_line, RANGE);
+    let bare_point = [point(0, None, None, None)];
+    let line_then_points = [NewSeries {
+        line: Some(NewLine {
+            width: Some(20_116_801),
+            dash: None,
+        }),
+        points: &bare_point,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &line_then_points, RANGE);
+    // The marker's symbol, then its size, then its colour.
+    let none_sized = [NewSeries {
+        marker: Some(marker(MarkerSymbol::None, Some(100), None)),
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &none_sized, OPTION);
+    let small_bright = [NewSeries {
+        marker: Some(marker(MarkerSymbol::Circle, Some(1), Some(0x100_0000))),
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &small_bright, RANGE);
+    // Series by series, and point by point.
+    let first_neither = [
+        NewSeries {
+            line: Some(neither),
+            ..TWO_NAMED[0]
+        },
+        NewSeries {
+            marker: Some(small),
+            ..TWO_NAMED[1]
+        },
+    ];
+    refused(LINE, &first_neither, OPTION);
+    let points = [
+        point(0, None, None, None),
+        point(1, None, None, Some(small)),
+    ];
+    let bare_first = [NewSeries {
+        points: &points,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &bare_first, OPTION);
+    let points = [
+        point(0, None, None, Some(small)),
+        point(0, None, None, None),
+    ];
+    let small_first = [NewSeries {
+        points: &points,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &small_first, RANGE);
+    // A point's explosion before its marker.
+    let points = [point(0, None, Some(5), Some(small))];
+    let exploded = [NewSeries {
+        points: &points,
+        ..ONE_NAMED[0]
+    }];
+    refused(LINE, &exploded, OPTION);
+    // After an of-pie's split; before the combined plot's rules and the
+    // texts.
+    let pie_point = [NewSeries {
+        points: &bare_point,
+        ..ONE_NAMED[0]
+    }];
+    refused(
+        NewPlot::OfPie {
+            kind: OfPieKind::Pie,
+            split: Some(OfPieSplit::Position(0)),
+        },
+        &pie_point,
+        RANGE,
+    );
+    let small_line = [NewSeries {
+        marker: Some(small),
+        ..ONE_NAMED[0]
+    }];
+    let same_variant = NewChart {
+        series: &small_line,
+        combined: Some(second(LINE)),
+        ..bare(LINE)
+    };
+    assert_package(
+        call(box_anchor(), &same_variant).expect_err("refused"),
+        RANGE,
+    );
+    let empty_title = NewChart {
+        series: &small_line,
+        title: Some(""),
+        ..bare(LINE)
+    };
+    assert_package(
+        call(box_anchor(), &empty_title).expect_err("refused"),
+        RANGE,
+    );
+    // The second plot's series options after its own kind rules: a second
+    // of the first's variant with a bad marker gives the rule's message.
+    let small_c = [NewSeries {
+        marker: Some(small),
+        ..OVER_C[0]
+    }];
+    let column_second = combined(NewCombined {
+        series: &small_c,
+        ..second(COLUMN)
+    });
+    assert_package(
+        call(box_anchor(), &column_second).expect_err("refused"),
+        OPTION,
+    );
+    let line_second = combined(NewCombined {
+        series: &small_c,
+        ..second(LINE)
+    });
+    assert_package(
+        call(box_anchor(), &line_second).expect_err("refused"),
+        RANGE,
+    );
 }
