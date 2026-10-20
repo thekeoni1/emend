@@ -2,7 +2,8 @@
 # The test of scripts/openpyxl-ops.py (specs/0037-measurement-and-close.md P1,
 # and "Planning rulings during P1", ruling F; the chartsheet op,
 # specs/0038-chartsheets.md P2; the chart-format op,
-# specs/0039-chart-kinds-and-formatting.md P2).
+# specs/0039-chart-kinds-and-formatting.md P2; the chart-analytic op,
+# specs/0040-analytic-chart-elements.md P2).
 #
 # usage: scripts/openpyxl-ops-test.sh <image>
 #
@@ -33,7 +34,7 @@ IMAGE=$1
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || exit 2
 FIXTURE=$ROOT/tests/fixtures/openpyxl-ops.xlsx
 readonly FIXTURE_SHA=12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd
-readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format"
+readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format chart-analytic"
 
 failed=0
 check() {
@@ -166,6 +167,21 @@ checks.append(("chart-format: two chart parts, a line chart over B2:B101 with a 
                and re.search(A % "ln" + r' w="28575">' + A % "prstDash" + r' val="dash"/>', line) is not None
                and re.search(C + r'dPt>' + C + r'idx val="1"/>' + C + r'spPr>' + A % "solidFill" + r'>' + A % "srgbClr" + r' val="D62728"/>', line) is not None
                and "pieChart" in pie and re.search(C + r'dPt>' + C + r'idx val="0"/>' + C + r'explosion val="10"/>', pie) is not None))
+p, names = parts("chart-analytic")
+charts = sorted((n, v) for n, v in p.items() if re.match(r"xl/charts/chart\d+\.xml$", n))
+line = charts[0][1] if len(charts) == 2 else ""
+dated = charts[1][1] if len(charts) == 2 else ""
+checks.append(("chart-analytic: two chart parts, a line chart over B2:B101 with a linear trendline showing its equation, fixed error bars of 1.5, drop lines, its value axis 0 to 50 by 10 and its category axis skipping 2 labels, and a line chart with a date axis of base unit days and major unit 2 days and a value axis of log base 10",
+               len(charts) == 2 and "lineChart" in line and "$B$2:$B$101" in line
+               and re.search(C + r'trendline>' + C + r'trendlineType val="linear"/>' + C + r'dispEq val="1"/>', line) is not None
+               and re.search(C + r'errBars>' + C + r'errBarType val="both"/>' + C + r'errValType val="fixedVal"/>' + C + r'val val="1.5"/>', line) is not None
+               and re.search(C + r'dropLines/>', line) is not None
+               and re.search(C + r'max val="50"/>' + C + r'min val="0"/>', line) is not None
+               and re.search(C + r'majorUnit val="10"/>', line) is not None
+               and re.search(C + r'tickLblSkip val="2"/>', line) is not None
+               and "lineChart" in dated and "dateAx" in dated
+               and re.search(C + r'baseTimeUnit val="days"/>' + C + r'majorUnit val="2"/>' + C + r'majorTimeUnit val="days"/>', dated) is not None
+               and re.search(C + r'logBase val="10"/>', dated) is not None))
 for what, ok in checks:
     print("%s\t%s" % ("yes" if ok else "no", what))
 PY
@@ -174,7 +190,7 @@ check "$(yn [ "$py_rc" -eq 0 ])" "the parts reader exits 0"
 while IFS=$'\t' read -r verdict what; do
   check "$verdict" "$what"
 done <"$WORK/parts.txt"
-check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 14 ])" "the parts reader made its 14 checks"
+check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 15 ])" "the parts reader made its 15 checks"
 
 # An op the script does not know.
 podman run --rm --network=none --userns=keep-id -v "$ROOT/scripts/openpyxl-ops.py":/ops.py:ro "$IMAGE" \

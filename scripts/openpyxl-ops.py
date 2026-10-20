@@ -50,6 +50,20 @@ The ops and every constant they write:
                (specs/0039-chart-kinds-and-formatting.md, "Harness runs":
                the openpyxl fixture of --charts-sample and
                --chart-format-sample).
+  chart-analytic
+               a LineChart, one series over B2:B(M+1), categories A2:A(M+1),
+               its series with a Trendline of type ANALYTIC_TREND "linear"
+               showing its equation and ErrorBars of ANALYTIC_ERROR_TYPE
+               "fixedVal" ANALYTIC_ERROR_VALUE 1.5, the chart's dropLines,
+               its y axis from ANALYTIC_MIN 0 to ANALYTIC_MAX 50 with
+               majorUnit ANALYTIC_MAJOR 10, its x axis's tickLblSkip
+               ANALYTIC_SKIP 2, added at (M+2, A); and a LineChart over the
+               same with a DateAxis as its x axis, its baseTimeUnit
+               ANALYTIC_TIME_UNIT "days" and its majorUnit ANALYTIC_DATE_MAJOR
+               2 of majorTimeUnit ANALYTIC_TIME_UNIT, its y axis of logBase
+               ANALYTIC_LOG_BASE 10, added at (M+18, A)
+               (specs/0040-analytic-chart-elements.md, "Harness runs": the
+               openpyxl fixture of --charts-sample and --chart-axis-sample).
 
 What it prints, on standard output: for read, the line "cells=<n>"; for an
 exception, one line holding the exception's class name only, never its
@@ -72,7 +86,8 @@ import resource
 import sys
 
 OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
-       "comment", "image", "add-chart", "copy", "chartsheet", "chart-format")
+       "comment", "image", "add-chart", "copy", "chartsheet", "chart-format",
+       "chart-analytic")
 
 EDIT_NUMBER = 42.5
 EDIT_TEXT = "emend compare"
@@ -96,6 +111,16 @@ FORMAT_POINT = 1
 FORMAT_POINT_FILL = "D62728"
 FORMAT_SLICE = 0
 FORMAT_EXPLOSION = 10
+ANALYTIC_TREND = "linear"
+ANALYTIC_ERROR_TYPE = "fixedVal"
+ANALYTIC_ERROR_VALUE = 1.5
+ANALYTIC_MIN = 0
+ANALYTIC_MAX = 50
+ANALYTIC_MAJOR = 10
+ANALYTIC_SKIP = 2
+ANALYTIC_TIME_UNIT = "days"
+ANALYTIC_DATE_MAJOR = 2
+ANALYTIC_LOG_BASE = 10
 # A 2 by 2 RGB PNG, 73 bytes: red and blue on each row.
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000002000000020802000000fdd49a73"
@@ -108,6 +133,9 @@ def run(op, source, target):
     import io
     import openpyxl
     from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+    from openpyxl.chart.axis import ChartLines, DateAxis
+    from openpyxl.chart.error_bar import ErrorBars
+    from openpyxl.chart.trendline import Trendline
     from openpyxl.chart.marker import DataPoint, Marker
     from openpyxl.chart.shapes import GraphicalProperties
     from openpyxl.drawing.line import LineProperties
@@ -179,6 +207,31 @@ def run(op, source, target):
         pie.set_categories(categories)
         pie.series[0].dPt.append(DataPoint(idx=FORMAT_SLICE, explosion=FORMAT_EXPLOSION))
         ws.add_chart(pie, "A%d" % (m + 18))
+    elif op == "chart-analytic":
+        values = Reference(ws, min_col=2, min_row=2, max_row=m + 1)
+        categories = Reference(ws, min_col=1, min_row=2, max_row=m + 1)
+        line = LineChart()
+        line.add_data(values, titles_from_data=False)
+        line.set_categories(categories)
+        series = line.series[0]
+        series.trendline = Trendline(trendlineType=ANALYTIC_TREND, dispEq=True)
+        series.errBars = ErrorBars(errValType=ANALYTIC_ERROR_TYPE, val=ANALYTIC_ERROR_VALUE)
+        line.dropLines = ChartLines()
+        line.y_axis.scaling.min = ANALYTIC_MIN
+        line.y_axis.scaling.max = ANALYTIC_MAX
+        line.y_axis.majorUnit = ANALYTIC_MAJOR
+        line.x_axis.tickLblSkip = ANALYTIC_SKIP
+        ws.add_chart(line, "A%d" % (m + 2))
+        dated = LineChart()
+        dated.add_data(values, titles_from_data=False)
+        dated.set_categories(categories)
+        dated.y_axis.crossAx = 500
+        dated.x_axis = DateAxis(crossAx=100)
+        dated.x_axis.baseTimeUnit = ANALYTIC_TIME_UNIT
+        dated.x_axis.majorUnit = ANALYTIC_DATE_MAJOR
+        dated.x_axis.majorTimeUnit = ANALYTIC_TIME_UNIT
+        dated.y_axis.scaling.logBase = ANALYTIC_LOG_BASE
+        ws.add_chart(dated, "A%d" % (m + 18))
     wb.save(target)
     return openpyxl.__version__
 
