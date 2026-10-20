@@ -21,6 +21,14 @@
 //! where the kind takes it; written into memory and reopened, then `charts`.
 //! The index keeps every plot arm live.
 //!
+//! The third set (`specs/0039-chart-kinds-and-formatting.md`, "The
+//! probe"): the index runs 0 to 15, the surface, the 3D surface and the
+//! bar of pie after the 3D area; each series takes its kind's rules (no
+//! colour, labels, marker, line or points on a surface's; one series on an
+//! of-pie, as a pie's), and on every kind that takes them a marker, a line
+//! and one formatted point, an explosion on the round kinds, a marker on
+//! the point where the series takes one, so every arm is live.
+//!
 //! The chartsheet (`specs/0038-chartsheets.md`, "Size and packaging"): on
 //! the same package, `add_chartsheet` of the first set's column chart at
 //! the chartsheet sample's size, written into memory and reopened, then
@@ -40,9 +48,10 @@ use std::process::ExitCode;
 
 use emend::cells::{Area, CellRef, FormulaKind, Value};
 use emend::package::{
-    BarDirection, CALC_CHAIN, EditAs, Grouping, ImageAnchor, LabelPosition, LegendPosition,
-    NewChart, NewCombined, NewLabels, NewPlot, NewSeries, NewSeriesName, Package, RadarStyle,
-    ScatterStyle, THEME,
+    BarDirection, CALC_CHAIN, DashStyle, EditAs, Grouping, ImageAnchor, LabelPosition,
+    LegendPosition, MarkerSymbol, NewChart, NewCombined, NewLabels, NewLine, NewMarker, NewPlot,
+    NewPoint, NewSeries, NewSeriesName, OfPieKind, OfPieSplit, Package, RadarStyle, ScatterStyle,
+    THEME,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -142,7 +151,7 @@ fn main() -> ExitCode {
         .and_then(|k| k.parse::<usize>().ok())
         .and_then(|k| PLOTS.get(k).copied())
     else {
-        let _ = writeln!(io::stderr(), "error: the chart kind is not 0 to 12");
+        let _ = writeln!(io::stderr(), "error: the chart kind is not 0 to 15");
         return ExitCode::from(2);
     };
     let (Some(added), Some(renamed)) = (added.to_str(), renamed.to_str()) else {
@@ -538,10 +547,11 @@ fn reopened<R: io::Read + io::Seek>(
     Package::open(out).map_err(|e| e.to_string())
 }
 
-/// The thirteen `NewPlot` variants in their declared order, the index the
+/// The sixteen `NewPlot` variants in their declared order, the index the
 /// command line names (`specs/0036-charts-write-second-set.md`, "The
+/// probe"; the last three `specs/0039-chart-kinds-and-formatting.md`, "The
 /// probe").
-const PLOTS: [NewPlot; 13] = [
+const PLOTS: [NewPlot; 16] = [
     NewPlot::Bar {
         direction: BarDirection::Column,
         grouping: Grouping::Clustered,
@@ -573,6 +583,12 @@ const PLOTS: [NewPlot; 13] = [
     NewPlot::Area3D {
         grouping: Grouping::Standard,
     },
+    NewPlot::Surface { wireframe: true },
+    NewPlot::Surface3D { wireframe: false },
+    NewPlot::OfPie {
+        kind: OfPieKind::Bar,
+        split: Some(OfPieSplit::Position(1)),
+    },
 ];
 
 /// The labels each series takes: the value, in a format, outside the end
@@ -592,9 +608,56 @@ const fn labels(outside: bool) -> NewLabels<'static> {
     }
 }
 
+/// The point's colour and the marker a point takes where its series takes
+/// one (`specs/0039-chart-kinds-and-formatting.md`, "The probe").
+const POINT_COLOR: u32 = 0xD6_2728;
+const POINT_MARKER: NewMarker = NewMarker {
+    symbol: MarkerSymbol::Circle,
+    size: Some(7),
+    color: Some(POINT_COLOR),
+};
+
+/// The one point each series takes: index 0, a colour; an explosion of 10
+/// on a round kind; a marker where the series takes one.
+const PLAIN_POINT: [NewPoint; 1] = [NewPoint {
+    index: 0,
+    color: Some(POINT_COLOR),
+    explosion: None,
+    marker: None,
+}];
+const ROUND_POINT: [NewPoint; 1] = [NewPoint {
+    explosion: Some(10),
+    ..PLAIN_POINT[0]
+}];
+const MARKED_POINT: [NewPoint; 1] = [NewPoint {
+    marker: Some(POINT_MARKER),
+    ..PLAIN_POINT[0]
+}];
+
 /// One series of the second chart: its values' column, its colour (none on
-/// a stock plot), its labels, and sizes on a bubble's.
+/// a stock plot or a surface), its labels (none on a surface), sizes on a
+/// bubble's; a marker (`Circle`, size 7, the series' colour) on a line, a
+/// scatter or a marker radar, a line (28575 EMU, `Dash`) on a line, a 3D
+/// line, a scatter, a radar or a stock plot, and one point on every kind but
+/// the surfaces (`specs/0039-chart-kinds-and-formatting.md`, "The probe").
 const fn probe_series(values: &'static str, color: u32, kind: NewPlot) -> NewSeries<'static> {
+    let surface = matches!(kind, NewPlot::Surface { .. } | NewPlot::Surface3D { .. });
+    let round = matches!(
+        kind,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
+    );
+    let marked = matches!(
+        kind,
+        NewPlot::Line { .. } | NewPlot::Scatter { .. } | NewPlot::Radar { .. }
+    );
+    let lined = matches!(
+        kind,
+        NewPlot::Line { .. }
+            | NewPlot::Line3D { .. }
+            | NewPlot::Scatter { .. }
+            | NewPlot::Radar { .. }
+            | NewPlot::Stock
+    );
     let outside = matches!(
         kind,
         NewPlot::Bar {
@@ -612,15 +675,38 @@ const fn probe_series(values: &'static str, color: u32, kind: NewPlot) -> NewSer
         } else {
             None
         },
-        color: if matches!(kind, NewPlot::Stock) {
+        color: if matches!(kind, NewPlot::Stock) || surface {
             None
         } else {
             Some(color)
         },
-        labels: Some(labels(outside)),
-        marker: None,
-        line: None,
-        points: &[],
+        labels: if surface { None } else { Some(labels(outside)) },
+        marker: if marked {
+            Some(NewMarker {
+                symbol: MarkerSymbol::Circle,
+                size: Some(7),
+                color: Some(color),
+            })
+        } else {
+            None
+        },
+        line: if lined {
+            Some(NewLine {
+                width: Some(28575),
+                dash: Some(DashStyle::Dash),
+            })
+        } else {
+            None
+        },
+        points: if surface {
+            &[]
+        } else if round {
+            &ROUND_POINT
+        } else if marked {
+            &MARKED_POINT
+        } else {
+            &PLAIN_POINT
+        },
     }
 }
 
@@ -647,18 +733,19 @@ fn second_set_series(kind: NewPlot) -> [NewSeries<'static>; 3] {
 }
 
 /// The second set's chart for `kind` (`specs/0036-charts-write-second-
-/// set.md`, "The probe", P4 ruling R): two series (one on a pie or a 3D
-/// pie, three on a stock plot), each coloured and labelled; the axis titles
+/// set.md`, "The probe", P4 ruling R): two series (one on a pie, a 3D pie
+/// or an of-pie, three on a stock plot), each coloured and labelled where
+/// the kind takes it, with its marker, line and point; the axis titles
 /// and formats where the kind takes them; on a bar or an area a combined
 /// line on a secondary axis with its title and format.
 fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<'a> {
     let round = matches!(
         kind,
-        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. }
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
     );
     let xy = matches!(kind, NewPlot::Scatter { .. } | NewPlot::Bubble);
     let count = match kind {
-        NewPlot::Pie | NewPlot::Pie3D => 1,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::OfPie { .. } => 1,
         NewPlot::Stock => 3,
         _ => 2,
     };
