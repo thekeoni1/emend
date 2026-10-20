@@ -88,6 +88,11 @@ fn column_chart() -> NewChart<'static> {
         legend: Some(LegendPosition::Bottom),
         size: Some((960, 640)),
         combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     }
 }
 

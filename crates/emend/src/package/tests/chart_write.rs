@@ -7,7 +7,8 @@
 //! catalogue", P3 rulings L and O; `specs/0039-chart-kinds-and-
 //! formatting.md`, "P1: the surface and of-pie kinds" and "P2: markers,
 //! lines and points"; `specs/0040-analytic-chart-elements.md`, "P1:
-//! trendlines and error bars"):
+//! trendlines and error bars" and "P2: plot lines, axis options, the
+//! openpyxl fixture, the catalogue"):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -18,9 +19,10 @@ use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
     ChartKind, DashStyle, Data, EditAs, ErrorBarKind, ErrorDirection, ErrorValue, Grouping,
-    ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewChart, NewCombined, NewErrorBars,
-    NewLabels, NewLine, NewMarker, NewPlot, NewPoint, NewSeries, NewSeriesName, NewTrendline,
-    OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle, Series, SeriesName, TrendlineKind,
+    ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewAxis, NewChart, NewCombined,
+    NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint, NewSeries,
+    NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle, Series,
+    SeriesName, TimeUnit, TrendlineKind,
 };
 
 /// The drawing and chart parts' content types.
@@ -212,6 +214,11 @@ fn column_chart() -> NewChart<'static> {
         legend: Some(LegendPosition::Bottom),
         size: None,
         combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     }
 }
 
@@ -241,6 +248,11 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         legend: None,
         size: None,
         combined: None,
+        drop_lines: false,
+        high_low_lines: plot == NewPlot::Stock,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     }
 }
 
@@ -1275,6 +1287,11 @@ fn titled<'a>(
         legend: Some(LegendPosition::Right),
         size: None,
         combined: None,
+        drop_lines: false,
+        high_low_lines: plot == NewPlot::Stock,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     }
 }
 
@@ -5923,4 +5940,700 @@ fn a_combined_second_plot_s_series_take_a_trendline_and_error_bars_by_its_own_ki
         ..bare(column_3d)
     };
     assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+/// An axis with no option given.
+const NO_AXIS: NewAxis = NewAxis {
+    min: None,
+    max: None,
+    log_base: None,
+    reversed: false,
+    major_unit: None,
+    minor_unit: None,
+    tick_label_skip: None,
+    tick_mark_skip: None,
+    date: None,
+};
+
+/// A date form of base unit days, its major unit one month.
+const DAYS: NewDateAxis = NewDateAxis {
+    base_unit: TimeUnit::Days,
+    major: Some((1, TimeUnit::Months)),
+    minor: None,
+};
+
+/// The up-down bars' form.
+const UP_DOWN: &str = "<c:upDownBars><c:gapWidth val=\"150\"/></c:upDownBars>";
+
+/// `bare(plot)` with `series` and the two axes' options.
+fn axes_chart<'a>(
+    plot: NewPlot,
+    series: &'a [NewSeries<'a>],
+    category_axis: Option<NewAxis>,
+    value_axis: Option<NewAxis>,
+) -> NewChart<'a> {
+    NewChart {
+        series,
+        category_axis,
+        value_axis,
+        ..bare(plot)
+    }
+}
+
+/// Whether `plot` writes no axis: a pie, a 3D pie, a doughnut, an of-pie.
+fn round_kind(plot: NewPlot) -> bool {
+    matches!(
+        plot,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
+    )
+}
+
+#[test]
+fn the_plot_lines_are_taken_by_the_kinds_that_take_them_and_refused_by_the_others() {
+    for (plot, series, _) in every_kind() {
+        let stock = plot == NewPlot::Stock;
+        let line = matches!(plot, NewPlot::Line { .. });
+        let area = matches!(plot, NewPlot::Area { .. });
+        for (k, element) in ["<c:dropLines/>", "<c:hiLowLines/>", UP_DOWN]
+            .into_iter()
+            .enumerate()
+        {
+            let chart = NewChart {
+                series,
+                drop_lines: k == 0,
+                high_low_lines: k == 1 || stock,
+                up_down_bars: k == 2,
+                ..bare(plot)
+            };
+            if line || stock || area && k == 0 {
+                let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+                let part = text_of(&output, CHART1);
+                assert_eq!(
+                    part.matches(element).count(),
+                    1,
+                    "{plot:?}, {element}: {part}"
+                );
+                let read = &charts_of(&output)[0].chart;
+                assert_eq!(read.plots[0].series.len(), series.len(), "{plot:?}");
+            } else {
+                assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+            }
+        }
+    }
+    // A stock plot draws its high-low lines always: false is refused.
+    let chart = NewChart {
+        series: &STOCK[..3],
+        high_low_lines: false,
+        ..bare(NewPlot::Stock)
+    };
+    assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+}
+
+#[test]
+fn the_plot_lines_are_written_after_the_series_and_before_the_marker_and_the_axis_ids() {
+    let all = |plot: NewPlot, series: &'static [NewSeries<'static>], area: bool| NewChart {
+        series,
+        drop_lines: true,
+        high_low_lines: !area,
+        up_down_bars: !area,
+        ..bare(plot)
+    };
+    let area = NewPlot::Area {
+        grouping: Grouping::Standard,
+    };
+    let cases = [
+        (
+            all(LINE, &ONE_NAMED, false),
+            format!(
+                "</c:ser><c:dropLines/><c:hiLowLines/>{UP_DOWN}<c:marker val=\"1\"/><c:axId \
+                 val=\"10\"/><c:axId val=\"20\"/></c:lineChart>"
+            ),
+        ),
+        (
+            all(area, &ONE_NAMED, true),
+            "</c:ser><c:dropLines/><c:axId val=\"10\"/><c:axId val=\"20\"/></c:areaChart>"
+                .to_owned(),
+        ),
+        (
+            all(NewPlot::Stock, &STOCK[..3], false),
+            format!(
+                "</c:ser><c:dropLines/><c:hiLowLines/>{UP_DOWN}<c:axId val=\"10\"/><c:axId \
+                 val=\"20\"/></c:stockChart>"
+            ),
+        ),
+        // Without the options a stock plot writes its high-low lines alone,
+        // as before, and a line plot none.
+        (
+            NewChart {
+                series: &STOCK[..3],
+                ..bare(NewPlot::Stock)
+            },
+            "</c:ser><c:hiLowLines/><c:axId val=\"10\"/>".to_owned(),
+        ),
+        (
+            NewChart {
+                series: &ONE_NAMED,
+                ..bare(LINE)
+            },
+            "</c:ser><c:marker val=\"1\"/><c:axId val=\"10\"/>".to_owned(),
+        ),
+    ];
+    for (chart, written) in cases {
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(part.contains(&written), "{:?}: {part}", chart.plot);
+        assert_eq!(
+            part.matches("<c:hiLowLines/>").count(),
+            usize::from(chart.high_low_lines)
+        );
+        assert_eq!(charts_of(&output)[0].chart.plots.len(), 1);
+    }
+}
+
+#[test]
+fn the_axis_options_are_taken_by_each_kind_s_axes_by_their_form_and_refused_by_the_round_kinds() {
+    let reversed = Some(NewAxis {
+        reversed: true,
+        ..NO_AXIS
+    });
+    let valued = Some(NewAxis {
+        min: Some(1.0),
+        max: Some(9.0),
+        log_base: Some(10.0),
+        major_unit: Some(2.0),
+        minor_unit: Some(0.5),
+        ..NO_AXIS
+    });
+    let skipped = Some(NewAxis {
+        tick_label_skip: Some(2),
+        tick_mark_skip: Some(3),
+        ..NO_AXIS
+    });
+    let dated = Some(NewAxis {
+        date: Some(DAYS),
+        ..NO_AXIS
+    });
+    for (plot, series, _) in every_kind() {
+        let refused = |category, value| {
+            let chart = axes_chart(plot, series, category, value);
+            assert_package(call(box_anchor(), &chart).expect_err("refused"), OPTION);
+        };
+        let written = |category, value| {
+            let chart = axes_chart(plot, series, category, value);
+            let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+            (
+                text_of(&output, CHART1),
+                charts_of(&output)[0].chart.clone(),
+            )
+        };
+        if round_kind(plot) {
+            refused(reversed, None);
+            refused(None, reversed);
+            continue;
+        }
+        let xy = matches!(plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
+        let takes_date = matches!(
+            plot,
+            NewPlot::Bar { .. } | NewPlot::Line { .. } | NewPlot::Area { .. } | NewPlot::Stock
+        );
+        // Either axis reversed; a series axis keeps its orientation.
+        let (part, _) = written(reversed, reversed);
+        assert_eq!(
+            part.matches("<c:orientation val=\"maxMin\"/>").count(),
+            2,
+            "{plot:?}"
+        );
+        // The value fields on the value axis, and on a scatter's or a
+        // bubble's x axis alone; read back as min and max.
+        let (part, read) = written(None, valued);
+        assert!(part.contains("<c:logBase val=\"10\"/>"), "{plot:?}: {part}");
+        assert_eq!((read.axes[1].min, read.axes[1].max), (Some(1.0), Some(9.0)));
+        if xy {
+            let (_, read) = written(valued, None);
+            assert_eq!((read.axes[0].min, read.axes[0].max), (Some(1.0), Some(9.0)));
+            refused(skipped, None);
+            refused(dated, None);
+        } else {
+            refused(valued, None);
+            let (part, read) = written(skipped, None);
+            assert!(part.contains("<c:tickLblSkip val=\"2\"/><c:tickMarkSkip val=\"3\"/>"));
+            assert_eq!(read.axes[0].kind, AxisKind::Category, "{plot:?}");
+            if takes_date {
+                let (part, read) = written(dated, None);
+                assert_eq!(part.matches("<c:dateAx>").count(), 1, "{plot:?}");
+                assert_eq!(part.matches("<c:catAx>").count(), 0, "{plot:?}");
+                assert_eq!(read.axes[0].kind, AxisKind::Date, "{plot:?}");
+            } else {
+                refused(dated, None);
+            }
+        }
+        // The value axis takes no skip and no date form.
+        refused(None, skipped);
+        refused(None, dated);
+    }
+}
+
+#[test]
+fn the_scaling_is_written_in_the_schema_s_order_and_the_units_and_skips_in_their_places() {
+    let value_axis = NewAxis {
+        min: Some(0.5),
+        max: Some(100.0),
+        log_base: Some(10.0),
+        reversed: true,
+        major_unit: Some(25.0),
+        minor_unit: Some(2.5),
+        ..NO_AXIS
+    };
+    let category_axis = NewAxis {
+        tick_label_skip: Some(2),
+        tick_mark_skip: Some(3),
+        ..NO_AXIS
+    };
+    let chart = axes_chart(COLUMN, &ONE_NAMED, Some(category_axis), Some(value_axis));
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(
+            "<c:catAx><c:axId val=\"10\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling>\
+             <c:delete val=\"0\"/><c:axPos val=\"b\"/><c:numFmt formatCode=\"General\" \
+             sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/>\
+             <c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"20\"/><c:crosses val=\"autoZero\"/>\
+             <c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:tickLblSkip \
+             val=\"2\"/><c:tickMarkSkip val=\"3\"/><c:noMultiLvlLbl val=\"0\"/></c:catAx>\
+             <c:valAx><c:axId val=\"20\"/><c:scaling><c:logBase val=\"10\"/><c:orientation \
+             val=\"maxMin\"/><c:max val=\"100\"/><c:min val=\"0.5\"/></c:scaling><c:delete \
+             val=\"0\"/><c:axPos val=\"l\"/><c:majorGridlines/><c:numFmt formatCode=\"General\" \
+             sourceLinked=\"1\"/><c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/>\
+             <c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"10\"/><c:crosses val=\"autoZero\"/>\
+             <c:crossBetween val=\"between\"/><c:majorUnit val=\"25\"/><c:minorUnit \
+             val=\"2.5\"/></c:valAx>"
+        ),
+        "{part}"
+    );
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(
+        (read.axes[1].min, read.axes[1].max),
+        (Some(0.5), Some(100.0))
+    );
+    assert_eq!((read.axes[0].min, read.axes[0].max), (None, None));
+    // One field alone writes alone: a skip, a unit, a bound.
+    let cases = [
+        (
+            NewAxis {
+                tick_mark_skip: Some(4),
+                ..NO_AXIS
+            },
+            true,
+            "<c:lblOffset val=\"100\"/><c:tickMarkSkip val=\"4\"/><c:noMultiLvlLbl val=\"0\"/>",
+        ),
+        (
+            NewAxis {
+                minor_unit: Some(0.25),
+                ..NO_AXIS
+            },
+            false,
+            "<c:crossBetween val=\"between\"/><c:minorUnit val=\"0.25\"/></c:valAx>",
+        ),
+        (
+            NewAxis {
+                min: Some(-3.0),
+                ..NO_AXIS
+            },
+            false,
+            "<c:scaling><c:orientation val=\"minMax\"/><c:min val=\"-3\"/></c:scaling>",
+        ),
+    ];
+    for (axis, category, written) in cases {
+        let chart = if category {
+            axes_chart(COLUMN, &ONE_NAMED, Some(axis), None)
+        } else {
+            axes_chart(COLUMN, &ONE_NAMED, None, Some(axis))
+        };
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(part.contains(written), "{written}: {part}");
+    }
+    // A scatter's x axis, a value axis, takes the value fields.
+    let x_axis = NewAxis {
+        min: Some(1.0),
+        reversed: true,
+        ..NO_AXIS
+    };
+    let chart = axes_chart(SCATTER, &ONE_NAMED, Some(x_axis), None);
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(
+            "<c:valAx><c:axId val=\"10\"/><c:scaling><c:orientation val=\"maxMin\"/><c:min \
+             val=\"1\"/></c:scaling>"
+        ),
+        "{part}"
+    );
+    assert_eq!(charts_of(&output)[0].chart.axes[0].min, Some(1.0));
+}
+
+#[test]
+fn a_date_axis_takes_the_category_axis_s_place_with_its_units() {
+    let category_axis = NewAxis {
+        min: Some(45000.0),
+        max: Some(45100.0),
+        reversed: true,
+        date: Some(NewDateAxis {
+            minor: Some((7, TimeUnit::Days)),
+            ..DAYS
+        }),
+        ..NO_AXIS
+    };
+    let chart = NewChart {
+        category_axis_title: Some("Day"),
+        category_axis_format: Some("d mmm"),
+        ..axes_chart(LINE, &ONE_NAMED, Some(category_axis), None)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    let date = format!(
+        "<c:dateAx><c:axId val=\"10\"/><c:scaling><c:orientation val=\"maxMin\"/><c:max \
+         val=\"45100\"/><c:min val=\"45000\"/></c:scaling><c:delete val=\"0\"/><c:axPos \
+         val=\"b\"/>{}<c:numFmt formatCode=\"d mmm\" sourceLinked=\"0\"/><c:majorTickMark \
+         val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx \
+         val=\"20\"/><c:crosses val=\"autoZero\"/><c:auto val=\"1\"/><c:lblOffset val=\"100\"/>\
+         <c:baseTimeUnit val=\"days\"/><c:majorUnit val=\"1\"/><c:majorTimeUnit \
+         val=\"months\"/><c:minorUnit val=\"7\"/><c:minorTimeUnit val=\"days\"/></c:dateAx>\
+         <c:valAx><c:axId val=\"20\"/>",
+        title("Day")
+    );
+    assert!(part.contains(&date), "{part}");
+    // The plot's axis ids are unchanged.
+    assert!(part.contains("<c:axId val=\"10\"/><c:axId val=\"20\"/></c:lineChart>"));
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(read.axes[0].kind, AxisKind::Date);
+    assert_eq!(
+        (read.axes[0].min, read.axes[0].max),
+        (Some(45000.0), Some(45100.0))
+    );
+    assert_eq!(read.axes[0].title.as_deref(), Some("Day"));
+    assert_eq!(read.axes[0].number_format.as_deref(), Some("d mmm"));
+    // Each unit, the base alone; a bar of direction bar puts it at the left.
+    for (unit, value) in [
+        (TimeUnit::Days, "days"),
+        (TimeUnit::Months, "months"),
+        (TimeUnit::Years, "years"),
+    ] {
+        let base_only = NewAxis {
+            date: Some(NewDateAxis {
+                base_unit: unit,
+                major: None,
+                minor: None,
+            }),
+            ..NO_AXIS
+        };
+        let bars = NewPlot::Bar {
+            direction: BarDirection::Bar,
+            grouping: Grouping::Clustered,
+        };
+        let chart = axes_chart(bars, &ONE_NAMED, Some(base_only), None);
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert!(part.contains("<c:dateAx><c:axId val=\"10\"/>"), "{part}");
+        assert!(part.contains("<c:axPos val=\"l\"/>"), "{part}");
+        assert!(
+            part.contains(&format!(
+                "<c:lblOffset val=\"100\"/><c:baseTimeUnit val=\"{value}\"/></c:dateAx>"
+            )),
+            "{part}"
+        );
+        assert_eq!(charts_of(&output)[0].chart.axes[0].kind, AxisKind::Date);
+    }
+}
+
+#[test]
+fn the_axis_field_rules_are_refused() {
+    let refused = |category: Option<NewAxis>, value: Option<NewAxis>, message: &str| {
+        let chart = axes_chart(LINE, &ONE_NAMED, category, value);
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), message);
+    };
+    let taken = |category: Option<NewAxis>, value: Option<NewAxis>| {
+        let chart = axes_chart(LINE, &ONE_NAMED, category, value);
+        call(box_anchor(), &chart).expect("taken");
+    };
+    let value = |axis: NewAxis| (None, Some(axis));
+    let category = |axis: NewAxis| (Some(axis), None);
+    // The bounds: finite, the minimum below the maximum.
+    for (min, max) in [
+        (Some(f64::NAN), None),
+        (None, Some(f64::INFINITY)),
+        (Some(f64::NEG_INFINITY), Some(1.0)),
+        (Some(5.0), Some(5.0)),
+        (Some(6.0), Some(5.0)),
+    ] {
+        let (c, v) = value(NewAxis {
+            min,
+            max,
+            ..NO_AXIS
+        });
+        refused(c, v, RANGE);
+    }
+    let (c, v) = value(NewAxis {
+        min: Some(-5.0),
+        max: Some(5.0),
+        ..NO_AXIS
+    });
+    taken(c, v);
+    // The logarithm's base, 2 to 1000.
+    for base in [1.9, 1000.5, f64::NAN, -2.0] {
+        let (c, v) = value(NewAxis {
+            log_base: Some(base),
+            ..NO_AXIS
+        });
+        refused(c, v, RANGE);
+    }
+    for base in [2.0, 1000.0] {
+        let (c, v) = value(NewAxis {
+            log_base: Some(base),
+            ..NO_AXIS
+        });
+        taken(c, v);
+    }
+    // The units, finite and positive.
+    for unit in [0.0, -1.0, f64::INFINITY, f64::NAN] {
+        for axis in [
+            NewAxis {
+                major_unit: Some(unit),
+                ..NO_AXIS
+            },
+            NewAxis {
+                minor_unit: Some(unit),
+                ..NO_AXIS
+            },
+        ] {
+            let (c, v) = value(axis);
+            refused(c, v, RANGE);
+        }
+    }
+    // The skips, 1 or more.
+    for axis in [
+        NewAxis {
+            tick_label_skip: Some(0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            tick_mark_skip: Some(0),
+            ..NO_AXIS
+        },
+    ] {
+        let (c, v) = category(axis);
+        refused(c, v, RANGE);
+    }
+    let (c, v) = category(NewAxis {
+        tick_label_skip: Some(1),
+        tick_mark_skip: Some(1),
+        ..NO_AXIS
+    });
+    taken(c, v);
+    // A date unit's count, 1 or more.
+    for date in [
+        NewDateAxis {
+            major: Some((0, TimeUnit::Days)),
+            ..DAYS
+        },
+        NewDateAxis {
+            minor: Some((0, TimeUnit::Years)),
+            ..DAYS
+        },
+    ] {
+        let (c, v) = category(NewAxis {
+            date: Some(date),
+            ..NO_AXIS
+        });
+        refused(c, v, RANGE);
+    }
+    // A date axis takes the bounds and the orientation, and no logarithm,
+    // unit of the value axis's or skip (ruling J).
+    let (c, v) = category(NewAxis {
+        min: Some(1.0),
+        max: Some(2.0),
+        reversed: true,
+        date: Some(DAYS),
+        ..NO_AXIS
+    });
+    taken(c, v);
+    for axis in [
+        NewAxis {
+            log_base: Some(10.0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            major_unit: Some(1.0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            minor_unit: Some(1.0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            tick_label_skip: Some(1),
+            ..NO_AXIS
+        },
+        NewAxis {
+            tick_mark_skip: Some(1),
+            ..NO_AXIS
+        },
+    ] {
+        let (c, v) = category(NewAxis {
+            date: Some(DAYS),
+            ..axis
+        });
+        refused(c, v, OPTION);
+    }
+    // A category axis takes no bound, logarithm or unit; a value axis no
+    // skip and no date form.
+    for axis in [
+        NewAxis {
+            min: Some(1.0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            max: Some(1.0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            log_base: Some(10.0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            major_unit: Some(1.0),
+            ..NO_AXIS
+        },
+        NewAxis {
+            minor_unit: Some(1.0),
+            ..NO_AXIS
+        },
+    ] {
+        let (c, v) = category(axis);
+        refused(c, v, OPTION);
+    }
+    for axis in [
+        NewAxis {
+            tick_label_skip: Some(1),
+            ..NO_AXIS
+        },
+        NewAxis {
+            date: Some(DAYS),
+            ..NO_AXIS
+        },
+    ] {
+        let (c, v) = value(axis);
+        refused(c, v, OPTION);
+    }
+}
+
+#[test]
+fn the_plot_lines_and_the_axes_follow_the_check_order() {
+    let refused = |chart: &NewChart<'_>, message: &str| {
+        assert_package(call(box_anchor(), chart).expect_err("refused"), message);
+    };
+    let bad_skip = Some(NewAxis {
+        tick_label_skip: Some(0),
+        ..NO_AXIS
+    });
+    let bad_base = Some(NewAxis {
+        log_base: Some(1.0),
+        ..NO_AXIS
+    });
+    let skip_on_value = Some(NewAxis {
+        tick_label_skip: Some(1),
+        ..NO_AXIS
+    });
+    // The series' options before the plot lines.
+    let bad_order = [NewSeries {
+        trendline: Some(trend(TrendlineKind::Polynomial(9))),
+        ..ONE_NAMED[0]
+    }];
+    let chart = NewChart {
+        series: &bad_order,
+        drop_lines: true,
+        ..bare(COLUMN)
+    };
+    refused(&chart, RANGE);
+    // The plot lines before the category axis.
+    let chart = NewChart {
+        drop_lines: true,
+        ..axes_chart(COLUMN, &ONE_NAMED, bad_skip, None)
+    };
+    refused(&chart, OPTION);
+    // The category axis before the value axis, either way round.
+    refused(
+        &axes_chart(LINE, &ONE_NAMED, bad_skip, skip_on_value),
+        RANGE,
+    );
+    let min_on_category = Some(NewAxis {
+        min: Some(1.0),
+        ..NO_AXIS
+    });
+    refused(
+        &axes_chart(LINE, &ONE_NAMED, min_on_category, bad_base),
+        OPTION,
+    );
+    // The axes before the combined plot's rules and before the texts.
+    let chart = NewChart {
+        value_axis: bad_base,
+        ..combined(second(COLUMN))
+    };
+    refused(&chart, RANGE);
+    let chart = NewChart {
+        title: Some(""),
+        ..axes_chart(LINE, &ONE_NAMED, None, bad_base)
+    };
+    refused(&chart, RANGE);
+    // Whether the chart writes the axis, then its form, before its fields.
+    let nan_min = Some(NewAxis {
+        min: Some(f64::NAN),
+        ..NO_AXIS
+    });
+    refused(&axes_chart(NewPlot::Pie, &ONE_NAMED, nan_min, None), OPTION);
+    let dated_value = Some(NewAxis {
+        min: Some(f64::NAN),
+        date: Some(DAYS),
+        ..NO_AXIS
+    });
+    refused(&axes_chart(LINE, &ONE_NAMED, None, dated_value), OPTION);
+    // The fields in declaration order, each by the form before its range.
+    let min_then_skip = Some(NewAxis {
+        min: Some(1.0),
+        tick_label_skip: Some(0),
+        ..NO_AXIS
+    });
+    refused(&axes_chart(LINE, &ONE_NAMED, min_then_skip, None), OPTION);
+    let nan_then_skip = Some(NewAxis {
+        min: Some(f64::NAN),
+        tick_label_skip: Some(1),
+        ..NO_AXIS
+    });
+    refused(&axes_chart(LINE, &ONE_NAMED, None, nan_then_skip), RANGE);
+    let base_on_category = Some(NewAxis {
+        log_base: Some(0.5),
+        ..NO_AXIS
+    });
+    refused(
+        &axes_chart(LINE, &ONE_NAMED, base_on_category, None),
+        OPTION,
+    );
+    // The minimum below the maximum, judged at the maximum.
+    let crossed = Some(NewAxis {
+        min: Some(5.0),
+        max: Some(1.0),
+        tick_label_skip: Some(1),
+        ..NO_AXIS
+    });
+    refused(&axes_chart(LINE, &ONE_NAMED, None, crossed), RANGE);
+    // The date's counts last.
+    let count_last = Some(NewAxis {
+        tick_label_skip: Some(1),
+        date: Some(NewDateAxis {
+            major: Some((0, TimeUnit::Days)),
+            ..DAYS
+        }),
+        ..NO_AXIS
+    });
+    refused(&axes_chart(LINE, &ONE_NAMED, count_last, None), OPTION);
 }

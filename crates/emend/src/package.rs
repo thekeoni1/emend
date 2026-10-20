@@ -2142,9 +2142,10 @@
 //!   order, each with an optional solid colour and data labels (what they
 //!   show, a position the plot takes, a number format); an optional title,
 //!   axis titles, axis number formats and legend position. Nothing else:
-//!   no trendlines or error bars, no axis scaling, no text properties, no
-//!   chart style part (`specs/0036-charts-write-second-set.md`, "Out of
-//!   scope"; `specs/0039-chart-kinds-and-formatting.md`, "Out of scope").
+//!   no text properties, no chart style part (`specs/0036-charts-write-
+//!   second-set.md`, "Out of scope"; `specs/0039-chart-kinds-and-
+//!   formatting.md`, "Out of scope"; `specs/0040-analytic-chart-
+//!   elements.md`, "Out of scope").
 //! - The surface and of-pie plots (`specs/0039-chart-kinds-and-
 //!   formatting.md`): a contour or 3D surface, its `wireframe` either way,
 //!   with the series axis and no colour, labels, marker, line or points on
@@ -2163,6 +2164,27 @@
 //!   and custom dash, gradient and pattern fills are not written. The
 //!   reader reads a series' `marker` as present and walks past its points;
 //!   a symbol, size, width, dash or point is not read back.
+//! - Trendlines, error bars, plot lines and axes (`specs/0040-analytic-
+//!   chart-elements.md`): a trendline (linear, exponential, logarithmic,
+//!   power, a polynomial of order 2 to 6, a moving average of period 2 or
+//!   more; forecasts finite and not negative, an intercept finite, its
+//!   name an element) and error bars (both, plus or minus; a fixed,
+//!   percentage or standard deviation length finite and positive, the
+//!   standard error, or custom plus and minus references) on a bar's, a
+//!   line's, a scatter's, an area's and a bubble's series, two sets of
+//!   different directions on a scatter's or a bubble's; drop lines on a
+//!   line, an area or a stock plot, high-low lines and up-down bars on a
+//!   line or a stock plot, a stock plot's high-low lines always; an axis's
+//!   bounds (finite, the minimum below the maximum) and orientation, a
+//!   value axis's logarithm base (2 to 1000) and major and minor units
+//!   (finite and positive), a category axis's label and tick mark skips
+//!   (1 or more), and the date form of a bar's, a line's, an area's or a
+//!   stock plot's category axis, its base unit and major and minor units
+//!   of days, months or years (counts 1 or more), a combined chart's
+//!   secondary axis taking none. Trendline labels and formatting, error
+//!   bar and up-down bar formatting, inline error values, display units,
+//!   `crossesAt` and minor gridlines are not written; the reader reads an
+//!   axis's `min`, `max` and date kind back and walks past the rest.
 //! - What it touches: one chart part per chart, `xl/charts/chart<N>.xml`
 //!   with N free as a media entry's, with its `Override` and no rels part
 //!   of its own; the sheet's drawing part, appended to or created, its
@@ -2320,9 +2342,10 @@ pub use chart::{
 };
 #[cfg(feature = "charts")]
 pub use chart_write::{
-    DashStyle, ErrorBarKind, ErrorDirection, ErrorValue, LabelPosition, MarkerSymbol, NewChart,
-    NewCombined, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint, NewSeries,
-    NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, RadarStyle, TrendlineKind,
+    DashStyle, ErrorBarKind, ErrorDirection, ErrorValue, LabelPosition, MarkerSymbol, NewAxis,
+    NewChart, NewCombined, NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot,
+    NewPoint, NewSeries, NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, RadarStyle, TimeUnit,
+    TrendlineKind,
 };
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};

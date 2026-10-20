@@ -11,7 +11,9 @@
 //! series' marker, its line's width and dash, and its formatted points.
 //!
 //! `specs/0040-analytic-chart-elements.md` adds a series' trendline and
-//! error bars.
+//! error bars, a line, area or stock plot's drop lines, high-low lines and
+//! up-down bars, and the axes' options: scaling, units, skips and the date
+//! axis.
 //!
 //! [`Package::add_chart`] checks the call and records the chart as an image
 //! is recorded: the write adds the chart part, created whole from the
@@ -114,6 +116,74 @@ pub struct NewChart<'a> {
     pub size: Option<(u32, u32)>,
     /// A second plot on the same plot area, after the first.
     pub combined: Option<NewCombined<'a>>,
+    /// Whether the plot draws drop lines, `dropLines`: a line, an area or a
+    /// stock plot's (`specs/0040-analytic-chart-elements.md`, decision 2 A).
+    pub drop_lines: bool,
+    /// Whether the plot draws high-low lines, `hiLowLines`: a line or a
+    /// stock plot's; a stock plot always draws them and refuses `false`.
+    pub high_low_lines: bool,
+    /// Whether the plot draws up-down bars, `upDownBars`: a line or a stock
+    /// plot's.
+    pub up_down_bars: bool,
+    /// The category axis's options, or a scatter's or a bubble's x axis's;
+    /// a pie, a 3D pie, a doughnut and an of-pie take none.
+    pub category_axis: Option<NewAxis>,
+    /// The value axis's options, or a scatter's or a bubble's y axis's; a
+    /// pie, a 3D pie, a doughnut and an of-pie take none.
+    pub value_axis: Option<NewAxis>,
+}
+
+/// An axis's options (`specs/0040-analytic-chart-elements.md`, "The
+/// call"): its scaling, its units, its skips and the date form. Which apply
+/// depends on the axis's form, a category, value or date axis
+/// ("Applicability"). The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NewAxis {
+    /// The axis's minimum, `min`, on a value or date axis: finite, below
+    /// `max` when both are given.
+    pub min: Option<f64>,
+    /// The axis's maximum, `max`, on a value or date axis: finite.
+    pub max: Option<f64>,
+    /// The logarithm's base, `logBase`, on a value axis: 2 to 1000.
+    pub log_base: Option<f64>,
+    /// Whether the axis runs from its maximum, `orientation` `maxMin`.
+    pub reversed: bool,
+    /// The major unit, `majorUnit`, on a value axis: finite and positive.
+    pub major_unit: Option<f64>,
+    /// The minor unit, `minorUnit`, on a value axis: finite and positive.
+    pub minor_unit: Option<f64>,
+    /// The labels' skip, `tickLblSkip`, on a category axis: 1 or more.
+    pub tick_label_skip: Option<u32>,
+    /// The tick marks' skip, `tickMarkSkip`, on a category axis: 1 or more.
+    pub tick_mark_skip: Option<u32>,
+    /// The date form, `dateAx` in the category axis's place: a bar's, a
+    /// line's, an area's or a stock plot's category axis alone.
+    pub date: Option<NewDateAxis>,
+}
+
+/// A date axis's units (`specs/0040-analytic-chart-elements.md`, decision
+/// 3 A): its base unit and optional major and minor units, each a count of
+/// 1 or more and its unit. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NewDateAxis {
+    /// The base unit, `baseTimeUnit`.
+    pub base_unit: TimeUnit,
+    /// The major unit, `majorUnit` and `majorTimeUnit`.
+    pub major: Option<(u32, TimeUnit)>,
+    /// The minor unit, `minorUnit` and `minorTimeUnit`.
+    pub minor: Option<(u32, TimeUnit)>,
+}
+
+/// A date axis's unit, `baseTimeUnit`, `majorTimeUnit` or `minorTimeUnit`.
+/// The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TimeUnit {
+    /// `days`.
+    Days,
+    /// `months`.
+    Months,
+    /// `years`.
+    Years,
 }
 
 /// A second plot combined with a chart's first (`specs/0036-charts-write-
@@ -631,8 +701,20 @@ pub(super) struct ChartWork {
     value_axis_format: Option<String>,
     legend: Option<LegendPosition>,
     combined: Option<CombinedWork>,
+    lines: PlotLines,
+    category_axis: Option<NewAxis>,
+    value_axis: Option<NewAxis>,
     pub(super) cx: u64,
     pub(super) cy: u64,
+}
+
+/// Which plot lines a chart's first plot draws: drop lines, high-low lines
+/// and up-down bars.
+#[derive(Clone, Copy, Default)]
+struct PlotLines {
+    drop: bool,
+    high_low: bool,
+    up_down: bool,
 }
 
 /// A combined second plot as the call checked it.
@@ -711,12 +793,28 @@ impl<R: Read + Seek> Package<R> {
     /// polynomial's order outside 2 to 6, a moving average's period below
     /// 2, a forecast that is not finite or is negative, an intercept that is
     /// not finite, and a fixed, percentage or standard deviation length
-    /// that is not finite or is not positive; then "a chart option does not
-    /// apply to its kind" for a combined plot a first plot other than a bar, line or area, a second
-    /// other than a bar, line, area or scatter or of the first's
-    /// variant, a second with no series or that breaks its own kind's rules,
-    /// a scatter second or a secondary title or format without
-    /// `secondary_axis` (`specs/0036-charts-write-second-set.md`,
+    /// that is not finite or is not positive; then the plot lines, "a chart
+    /// option does not apply to its kind" for drop lines on a plot other
+    /// than a line, an area or a stock plot, high-low lines or up-down bars
+    /// on a plot other than a line or a stock plot, and a stock plot without
+    /// its high-low lines; then the category axis's options and the value
+    /// axis's (`specs/0040-analytic-chart-elements.md`, rulings J and K), "a
+    /// chart option does not apply to its kind" for either on a pie, a 3D
+    /// pie, a doughnut or an of-pie, a date form on a value axis or on the
+    /// category axis of a plot other than a bar, a line, an area or a stock
+    /// plot, and field by field in declaration order a bound on a category
+    /// axis, a logarithm's base or a unit on other than a value axis (a
+    /// scatter's or a bubble's x axis among them) and a skip on other than a
+    /// category axis, each before its range, "a chart value is out of its
+    /// range" for a bound that is not finite, a minimum not below the
+    /// maximum, a base outside 2 to 1000, a unit that is not finite or not
+    /// positive, a skip of 0, and last a date unit's count of 0; then "a
+    /// chart option does not apply to its kind" for a combined plot a first
+    /// plot other than a bar, line or area, a second other than a bar,
+    /// line, area or scatter or of the first's variant, a second with no
+    /// series or that breaks its own kind's rules, a scatter second or a
+    /// secondary title or format without `secondary_axis` (`specs/0036-
+    /// charts-write-second-set.md`,
     /// "Applicability", P2 rulings G, H and J, P3 ruling L), then its
     /// series' marker, line and points by its kind as the first plot's; "a
     /// chart text is empty or holds a control character" for a title, axis
@@ -915,6 +1013,11 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
             }
         }
         series_options(chart.plot, chart.series)?;
+        // The plot lines, then the category axis's options and the value
+        // axis's (`specs/0040-analytic-chart-elements.md`, ruling K).
+        let lines = plot_lines(chart)?;
+        axis_options(chart.plot, chart.category_axis, true)?;
+        axis_options(chart.plot, chart.value_axis, false)?;
         if let Some(combined) = &chart.combined {
             // The first plot a bar, line or area (no 3D plot combines: P2
             // ruling G; a scatter's x axis cannot share a category axis: P2
@@ -978,6 +1081,9 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
             value_axis_format,
             legend: chart.legend,
             combined,
+            lines,
+            category_axis: chart.category_axis,
+            value_axis: chart.value_axis,
             cx,
             cy,
         })
@@ -1145,6 +1251,122 @@ fn series_options(plot: NewPlot, series: &[NewSeries<'_>]) -> Result<(), Error> 
             trendline_options(plot, trendline)?;
         }
         error_bars_options(plot, one.error_bars)?;
+    }
+    Ok(())
+}
+
+/// The first plot's drop lines, high-low lines and up-down bars
+/// (`specs/0040-analytic-chart-elements.md`, "Applicability"): drop lines
+/// on a line, an area or a stock plot, the other two on a line or a stock
+/// plot; a stock plot draws its high-low lines always and refuses `false`.
+fn plot_lines(chart: &NewChart<'_>) -> Result<PlotLines, Error> {
+    let (drop, high_low, up_down) = match chart.plot {
+        NewPlot::Line { .. } | NewPlot::Stock => (true, true, true),
+        NewPlot::Area { .. } => (true, false, false),
+        _ => (false, false, false),
+    };
+    if chart.drop_lines && !drop
+        || chart.high_low_lines && !high_low
+        || chart.up_down_bars && !up_down
+        || chart.plot == NewPlot::Stock && !chart.high_low_lines
+    {
+        return Err(CHART_OPTION_KIND);
+    }
+    Ok(PlotLines {
+        drop: chart.drop_lines,
+        high_low: chart.high_low_lines,
+        up_down: chart.up_down_bars,
+    })
+}
+
+/// An axis's form, by which its options are judged: a category axis, a
+/// value axis (a scatter's or a bubble's x axis among them) or a date axis.
+#[derive(Clone, Copy, PartialEq)]
+enum AxisForm {
+    Category,
+    Value,
+    Date,
+}
+
+/// The options of `plot`'s category axis (`category`) or value axis
+/// (`specs/0040-analytic-chart-elements.md`, "Applicability", rulings J and
+/// K): whether the plot writes the axis, a pie's, a 3D pie's, a doughnut's
+/// and an of-pie's none; its form, a date axis where `date` is given on a
+/// bar's, a line's, an area's or a stock plot's category axis and refused
+/// elsewhere; then each field in declaration order, by the form before its
+/// range: `min` and `max` on a value or date axis, finite, `min` below
+/// `max`; `log_base` on a value axis, 2 to 1000; `reversed` on any;
+/// `major_unit` and `minor_unit` on a value axis, finite and positive; the
+/// skips on a category axis, 1 or more; then the date's counts, 1 or more.
+fn axis_options(plot: NewPlot, axis: Option<NewAxis>, category: bool) -> Result<(), Error> {
+    let Some(axis) = axis else {
+        return Ok(());
+    };
+    if matches!(
+        plot,
+        NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
+    ) {
+        return Err(CHART_OPTION_KIND);
+    }
+    let x_value = matches!(plot, NewPlot::Scatter { .. } | NewPlot::Bubble);
+    let dated = matches!(
+        plot,
+        NewPlot::Bar { .. } | NewPlot::Line { .. } | NewPlot::Area { .. } | NewPlot::Stock
+    );
+    let form = match (category && !x_value, axis.date) {
+        (true, Some(_)) if dated => AxisForm::Date,
+        (_, Some(_)) => return Err(CHART_OPTION_KIND),
+        (true, None) => AxisForm::Category,
+        (false, None) => AxisForm::Value,
+    };
+    if let Some(min) = axis.min {
+        if form == AxisForm::Category {
+            return Err(CHART_OPTION_KIND);
+        }
+        if !min.is_finite() {
+            return Err(CHART_VALUE_RANGE);
+        }
+    }
+    if let Some(max) = axis.max {
+        if form == AxisForm::Category {
+            return Err(CHART_OPTION_KIND);
+        }
+        if !max.is_finite() || axis.min.is_some_and(|min| min >= max) {
+            return Err(CHART_VALUE_RANGE);
+        }
+    }
+    if let Some(base) = axis.log_base {
+        if form != AxisForm::Value {
+            return Err(CHART_OPTION_KIND);
+        }
+        if !(2.0..=1000.0).contains(&base) {
+            return Err(CHART_VALUE_RANGE);
+        }
+    }
+    for unit in [axis.major_unit, axis.minor_unit].into_iter().flatten() {
+        if form != AxisForm::Value {
+            return Err(CHART_OPTION_KIND);
+        }
+        if !unit.is_finite() || unit <= 0.0 {
+            return Err(CHART_VALUE_RANGE);
+        }
+    }
+    for skip in [axis.tick_label_skip, axis.tick_mark_skip]
+        .into_iter()
+        .flatten()
+    {
+        if form != AxisForm::Category {
+            return Err(CHART_OPTION_KIND);
+        }
+        if skip == 0 {
+            return Err(CHART_VALUE_RANGE);
+        }
+    }
+    let counts = axis
+        .date
+        .map_or([None, None], |date| [date.major, date.minor]);
+    if counts.into_iter().flatten().any(|(count, _)| count == 0) {
+        return Err(CHART_VALUE_RANGE);
     }
     Ok(())
 }
@@ -1410,7 +1632,14 @@ impl ChartWork {
             out.extend_from_slice(b"</c:view3D>");
         }
         out.extend_from_slice(b"<c:plotArea><c:layout/>");
-        plot_bytes(&mut out, self.plot, &self.series, 0, [b"10", b"20"]);
+        plot_bytes(
+            &mut out,
+            self.plot,
+            &self.series,
+            0,
+            [b"10", b"20"],
+            self.lines,
+        );
         if let Some(combined) = &self.combined {
             let ids: [&[u8]; 2] = if combined.secondary_axis {
                 [b"30", b"40"]
@@ -1423,6 +1652,7 @@ impl ChartWork {
                 &combined.series,
                 self.series.len(),
                 ids,
+                PlotLines::default(),
             );
         }
         self.axes_bytes(&mut out);
@@ -1463,17 +1693,20 @@ impl ChartWork {
             format: None,
             deleted: false,
             crosses: b"autoZero",
+            options: None,
         };
         match self.plot {
             NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. } => {}
             NewPlot::Scatter { .. } | NewPlot::Bubble => {
                 let x_axis = Axis {
                     title: x,
+                    options: self.category_axis,
                     ..primary
                 };
                 let y_axis = Axis {
                     title: y,
                     format: y_format,
+                    options: self.value_axis,
                     ..primary
                 };
                 axis_bytes(
@@ -1511,14 +1744,22 @@ impl ChartWork {
                 let x_axis = Axis {
                     title: x,
                     format: x_format,
+                    options: self.category_axis,
                     ..primary
                 };
                 let y_axis = Axis {
                     title: y,
                     format: y_format,
+                    options: self.value_axis,
                     ..primary
                 };
-                axis_bytes(out, b"10", category, false, &x_axis, b"20", Form::Category);
+                // A date axis in the category axis's place (`specs/0040-
+                // analytic-chart-elements.md`, "The chart part").
+                let x_form = match self.category_axis.and_then(|axis| axis.date) {
+                    Some(date) => Form::Date(date),
+                    None => Form::Category,
+                };
+                axis_bytes(out, b"10", category, false, &x_axis, b"20", x_form);
                 axis_bytes(
                     out,
                     b"20",
@@ -1546,6 +1787,7 @@ impl ChartWork {
                 format: combined.format.as_deref(),
                 deleted: false,
                 crosses: b"max",
+                options: None,
             };
             let (x_form, between): (Form<'_>, &[u8]) =
                 if matches!(combined.plot, NewPlot::Scatter { .. }) {
@@ -1620,15 +1862,16 @@ impl ChartWork {
 }
 
 /// A plot element with its series: the options before the series,
-/// `varyColors`, the series (`idx` and `order` from `first`), the options
-/// after them, the axis ids `ids` and the series axis's when the plot writes
-/// it.
+/// `varyColors`, the series (`idx` and `order` from `first`), the plot lines
+/// `lines`, the options after them, the axis ids `ids` and the series axis's
+/// when the plot writes it.
 fn plot_bytes(
     out: &mut Vec<u8>,
     plot: NewPlot,
     series: &[SeriesWork],
     first: usize,
     ids: [&[u8]; 2],
+    lines: PlotLines,
 ) {
     let element: &[u8] = match plot {
         NewPlot::Bar { .. } => b"barChart",
@@ -1713,6 +1956,18 @@ fn plot_bytes(
         value_element(out, b"varyColors", if round { b"1" } else { b"0" });
     }
     series_bytes(out, plot, series, first);
+    // The plot lines after the series, before a line plot's `marker` and
+    // the `axId`s (`specs/0040-analytic-chart-elements.md`, "The chart
+    // part"); a stock plot's high-low lines among them.
+    if lines.drop {
+        out.extend_from_slice(b"<c:dropLines/>");
+    }
+    if lines.high_low {
+        out.extend_from_slice(b"<c:hiLowLines/>");
+    }
+    if lines.up_down {
+        out.extend_from_slice(b"<c:upDownBars><c:gapWidth val=\"150\"/></c:upDownBars>");
+    }
     match plot {
         NewPlot::Bar { grouping, .. } => {
             value_element(out, b"gapWidth", b"150");
@@ -1735,7 +1990,6 @@ fn plot_bytes(
             value_element(out, b"bubbleScale", b"100");
             value_element(out, b"showNegBubbles", b"0");
         }
-        NewPlot::Stock => out.extend_from_slice(b"<c:hiLowLines/>"),
         NewPlot::OfPie { split, .. } => {
             value_element(out, b"gapWidth", b"150");
             let (split_type, position): (&[u8], Option<String>) = match split {
@@ -2080,23 +2334,26 @@ fn tag(out: &mut Vec<u8>, open: &[u8], name: &[u8]) {
     }
 }
 
-/// An axis's title, number format, deletion and crossing: an axis with no
-/// format writes `General`, source linked; the primary axes are shown and
-/// cross at `autoZero`.
+/// An axis's title, number format, deletion, crossing and options: an axis
+/// with no format writes `General`, source linked; the primary axes are
+/// shown and cross at `autoZero`.
 #[derive(Clone, Copy)]
 struct Axis<'a> {
     title: &'a Option<String>,
     format: Option<&'a str>,
     deleted: bool,
     crosses: &'a [u8],
+    options: Option<NewAxis>,
 }
 
-/// An axis's form: a `catAx`, a `valAx` with its `crossBetween`, or a
-/// `serAx`, which takes no number format and no tail after `crosses`.
+/// An axis's form: a `catAx`, a `valAx` with its `crossBetween`, a `dateAx`
+/// with its units, or a `serAx`, which takes no number format and no tail
+/// after `crosses`.
 #[derive(Clone, Copy)]
 enum Form<'a> {
     Category,
     Value(&'a [u8]),
+    Date(NewDateAxis),
     Series,
 }
 
@@ -2114,11 +2371,32 @@ fn axis_bytes(
     let element: &[u8] = match form {
         Form::Category => b"catAx",
         Form::Value(_) => b"valAx",
+        Form::Date(_) => b"dateAx",
         Form::Series => b"serAx",
     };
+    let options = axis.options;
+    let number = |value: f64| value.to_string();
     tag(out, b"<c:", element);
     value_element(out, b"axId", id);
-    out.extend_from_slice(b"<c:scaling><c:orientation val=\"minMax\"/></c:scaling>");
+    // The scaling in the schema's order: `logBase`, `orientation`, `max`,
+    // `min` (`specs/0040-analytic-chart-elements.md`, "The chart part").
+    out.extend_from_slice(b"<c:scaling>");
+    if let Some(base) = options.and_then(|options| options.log_base) {
+        value_element(out, b"logBase", number(base).as_bytes());
+    }
+    let reversed = options.is_some_and(|options| options.reversed);
+    value_element(
+        out,
+        b"orientation",
+        if reversed { b"maxMin" } else { b"minMax" },
+    );
+    if let Some(max) = options.and_then(|options| options.max) {
+        value_element(out, b"max", number(max).as_bytes());
+    }
+    if let Some(min) = options.and_then(|options| options.min) {
+        value_element(out, b"min", number(min).as_bytes());
+    }
+    out.extend_from_slice(b"</c:scaling>");
     value_element(out, b"delete", if axis.deleted { b"1" } else { b"0" });
     value_element(out, b"axPos", position);
     if gridlines {
@@ -2140,13 +2418,69 @@ fn axis_bytes(
     value_element(out, b"crossAx", cross);
     value_element(out, b"crosses", axis.crosses);
     match form {
-        Form::Value(between) => value_element(out, b"crossBetween", between),
-        Form::Category => out.extend_from_slice(
-            b"<c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl val=\"0\"/>",
-        ),
+        Form::Value(between) => {
+            value_element(out, b"crossBetween", between);
+            for (name, unit) in [
+                (
+                    b"majorUnit".as_slice(),
+                    options.and_then(|options| options.major_unit),
+                ),
+                (b"minorUnit", options.and_then(|options| options.minor_unit)),
+            ] {
+                if let Some(unit) = unit {
+                    value_element(out, name, number(unit).as_bytes());
+                }
+            }
+        }
+        Form::Category => {
+            out.extend_from_slice(
+                b"<c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/>",
+            );
+            for (name, skip) in [
+                (
+                    b"tickLblSkip".as_slice(),
+                    options.and_then(|options| options.tick_label_skip),
+                ),
+                (
+                    b"tickMarkSkip",
+                    options.and_then(|options| options.tick_mark_skip),
+                ),
+            ] {
+                if let Some(skip) = skip {
+                    value_element(out, name, skip.to_string().as_bytes());
+                }
+            }
+            out.extend_from_slice(b"<c:noMultiLvlLbl val=\"0\"/>");
+        }
+        Form::Date(date) => {
+            out.extend_from_slice(b"<c:auto val=\"1\"/><c:lblOffset val=\"100\"/>");
+            value_element(out, b"baseTimeUnit", time_unit(date.base_unit));
+            for (count_name, unit_name, unit) in [
+                (
+                    b"majorUnit".as_slice(),
+                    b"majorTimeUnit".as_slice(),
+                    date.major,
+                ),
+                (b"minorUnit", b"minorTimeUnit", date.minor),
+            ] {
+                if let Some((count, unit)) = unit {
+                    value_element(out, count_name, count.to_string().as_bytes());
+                    value_element(out, unit_name, time_unit(unit));
+                }
+            }
+        }
         Form::Series => {}
     }
     tag(out, b"</c:", element);
+}
+
+/// A date axis's unit value.
+fn time_unit(unit: TimeUnit) -> &'static [u8] {
+    match unit {
+        TimeUnit::Days => b"days",
+        TimeUnit::Months => b"months",
+        TimeUnit::Years => b"years",
+    }
 }
 
 /// A series' `tx`, `cat`, `val`, `xVal` or `yVal` element holding a

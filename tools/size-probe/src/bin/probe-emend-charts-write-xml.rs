@@ -497,6 +497,11 @@ fn read_first_sheet_charts(
         legend: Some(LegendPosition::Bottom),
         size: None,
         combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     };
     let anchor = ImageAnchor::TwoCell {
         from: CellRef { row: 3, col: 1 },
@@ -776,6 +781,11 @@ fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<
         legend: Some(LegendPosition::Right),
         size: None,
         combined,
+        drop_lines: false,
+        high_low_lines: kind == NewPlot::Stock,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     }
 }
 

@@ -7995,6 +7995,11 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
         legend: Some(LegendPosition::Bottom),
         size: None,
         combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     };
     let anchor = ImageAnchor::TwoCell {
         from: CellRef {
@@ -8248,6 +8253,11 @@ fn chartsheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
         legend: Some(LegendPosition::Bottom),
         size: Some((960, 640)),
         combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     };
     let added = package.add_chartsheet("emend chartsheet", &chart)?;
     write_into(package, output)?;
@@ -8413,6 +8423,11 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
             combined: None,
+            drop_lines: false,
+            high_low_lines: plot == NewPlot::Stock,
+            up_down_bars: false,
+            category_axis: None,
+            value_axis: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8528,6 +8543,11 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
             combined: None,
+            drop_lines: false,
+            high_low_lines: plot == NewPlot::Stock,
+            up_down_bars: false,
+            category_axis: None,
+            value_axis: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8705,6 +8725,11 @@ fn chart_3d_sample(input: &Path, output: &Path) -> Result<(), Error> {
             legend: Some(LegendPosition::Bottom),
             size: Some((480, 288)),
             combined,
+            drop_lines: false,
+            high_low_lines: plot == NewPlot::Stock,
+            up_down_bars: false,
+            category_axis: None,
+            value_axis: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8898,6 +8923,11 @@ fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
             legend: (!surface).then_some(LegendPosition::Right),
             size: Some((480, 288)),
             combined: None,
+            drop_lines: false,
+            high_low_lines: plot == NewPlot::Stock,
+            up_down_bars: false,
+            category_axis: None,
+            value_axis: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -9120,6 +9150,11 @@ fn chart_format_sample(input: &Path, output: &Path) -> Result<(), Error> {
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
             combined: None,
+            drop_lines: false,
+            high_low_lines: plot == NewPlot::Stock,
+            up_down_bars: false,
+            category_axis: None,
+            value_axis: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -9352,6 +9387,11 @@ fn chart_trend_sample(input: &Path, output: &Path) -> Result<(), Error> {
             legend: Some(LegendPosition::Right),
             size: Some((480, 288)),
             combined: None,
+            drop_lines: false,
+            high_low_lines: plot == NewPlot::Stock,
+            up_down_bars: false,
+            category_axis: None,
+            value_axis: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -9516,6 +9556,11 @@ fn chart_labels_sample(input: &Path, output: &Path) -> Result<(), Error> {
         legend: Some(LegendPosition::Right),
         size: Some((480, 288)),
         combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     };
     let pie = NewChart {
         plot: NewPlot::Pie,
@@ -9746,6 +9791,11 @@ fn remove_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
         legend: Some(LegendPosition::Bottom),
         size: None,
         combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
     };
     // Rows past the grid are the layer's to refuse, with its index message.
     let anchor = ImageAnchor::TwoCell {
