@@ -1,6 +1,7 @@
 //! Chartsheets on byte-built packages (`specs/0038-chartsheets.md`, "P1:
 //! the reader and the writer", decisions 1 to 3 A, P1 rulings A to C;
-//! `specs/0039-chart-kinds-and-formatting.md`, "P1", a surface's):
+//! `specs/0039-chart-kinds-and-formatting.md`, "P1", a surface's;
+//! `specs/0041-chart-text-and-edits.md`, ruling E, the edits refused):
 //! each test builds the smallest package, adds a chartsheet with
 //! `add_chartsheet` or holds one built by hand, writes, compares the parts
 //! the design names byte for byte, and reads every chartsheet written back
@@ -10,9 +11,9 @@
 
 use super::*;
 use crate::package::{
-    Anchor, BarDirection, ChartAnchor, ChartEntry, ChartKind, Data, EditAs, Grouping, ImageAnchor,
-    LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName, Plot, Series, SeriesName,
-    SheetKind,
+    Anchor, BarDirection, ChartAnchor, ChartEntry, ChartKind, ChartSeriesEdit, Data, EditAs,
+    Grouping, ImageAnchor, LegendPosition, NewChart, NewPlot, NewSeries, NewSeriesName, Plot,
+    Series, SeriesName, SheetKind,
 };
 
 /// The content types and relationship types the chartsheet parts take.
@@ -36,7 +37,6 @@ const ROOT: &str = "the sheet part's root is not worksheet or chartsheet";
 const ABSOLUTE: &str = "a chartsheet's chart takes an absolute anchor";
 const ONE: &str = "a chartsheet holds one chart";
 const SIZE: &str = "a chart size does not apply to its anchor";
-#[cfg(any(feature = "images", feature = "comments"))]
 const NOT_WORKSHEET: &str = "the worksheet part's root is not worksheet";
 const NO_CHART_AT: &str = "no chart at that position";
 
@@ -97,6 +97,7 @@ fn column_chart() -> NewChart<'static> {
         axis_title_text: None,
         axis_label_text: None,
         legend_text: None,
+        style: None,
     }
 }
 
@@ -1019,4 +1020,36 @@ fn a_chartsheet_of_a_surface_reads_back_as_on_a_worksheet() {
         written_part.contains("</c:valAx><c:serAx><c:axId val=\"30\"/>"),
         "{written_part}"
     );
+}
+
+#[test]
+fn the_edit_calls_on_a_chartsheet_are_refused_with_the_worksheet_message() {
+    // A chartsheet's chart is not edited in place (`specs/0041-chart-text-
+    // and-edits.md`, "Out of scope", ruling E, Q4), nor a dialogsheet's.
+    let output = with_chartsheet();
+    let error = refused_after(&output, |package| {
+        package
+            .set_chart_title(CHARTSHEET, 0, Some("T"))
+            .expect("recorded");
+    });
+    assert_package(error, NOT_WORKSHEET);
+    let error = refused_after(&output, |package| {
+        package
+            .set_chart_series(CHARTSHEET, 0, 0, &ChartSeriesEdit::default())
+            .expect("recorded");
+    });
+    assert_package(error, NOT_WORKSHEET);
+    let mut parts = smallest();
+    set(
+        &mut parts,
+        SHEET,
+        format!(
+            "{DECLARATION}\n<dialogsheet xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+             <drawing r:id=\"rId1\"/></dialogsheet>"
+        ),
+    );
+    let error = refused_with_parts(parts, |package| {
+        package.set_chart_title(SHEET, 0, None).expect("recorded");
+    });
+    assert_package(error, NOT_WORKSHEET);
 }

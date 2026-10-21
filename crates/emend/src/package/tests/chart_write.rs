@@ -9,21 +9,24 @@
 //! lines and points"; `specs/0040-analytic-chart-elements.md`, "P1:
 //! trendlines and error bars" and "P2: plot lines, axis options, the
 //! openpyxl fixture, the catalogue"; `specs/0041-chart-text-and-edits.md`,
-//! "P1: text properties", ruling A):
+//! "P1: text properties", ruling A, and "P2: the style value and the
+//! in-place edits", rulings E and F):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
-//! `charts`, field by field. Every content is fictional. The Cargo feature
+//! `charts`, field by field; the edit tests record `set_chart_title` and
+//! `set_chart_series` on a kept chart part and compare it whole. Every
+//! content is fictional. The Cargo feature
 //! `charts`; the tests that also add or remove an image, `images` too.
 
 use super::*;
 use crate::package::{
     Anchor, AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry,
-    ChartKind, DashStyle, Data, EditAs, ErrorBarKind, ErrorDirection, ErrorValue, Grouping,
-    ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewAxis, NewChart, NewCombined,
-    NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint, NewSeries,
-    NewSeriesName, NewText, NewTrendline, OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle,
-    Series, SeriesName, TimeUnit, TrendlineKind,
+    ChartKind, ChartSeriesEdit, DashStyle, Data, EditAs, ErrorBarKind, ErrorDirection, ErrorValue,
+    Grouping, ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewAxis, NewChart,
+    NewCombined, NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint,
+    NewSeries, NewSeriesName, NewText, NewTrendline, OfPieKind, OfPieSplit, Plot, RadarStyle,
+    ScatterStyle, Series, SeriesName, TimeUnit, TrendlineKind,
 };
 
 /// The drawing and chart parts' content types.
@@ -224,6 +227,7 @@ fn column_chart() -> NewChart<'static> {
         axis_title_text: None,
         axis_label_text: None,
         legend_text: None,
+        style: None,
     }
 }
 
@@ -262,6 +266,7 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         axis_title_text: None,
         axis_label_text: None,
         legend_text: None,
+        style: None,
     }
 }
 
@@ -1305,6 +1310,7 @@ fn titled<'a>(
         axis_title_text: None,
         axis_label_text: None,
         legend_text: None,
+        style: None,
     }
 }
 
@@ -7106,6 +7112,22 @@ fn the_texts_follow_the_check_order() {
         ..combined(second(COLUMN))
     };
     refused(&chart, RANGE);
+    // The style after the texts and before the combined plot's rules
+    // (`specs/0041-chart-text-and-edits.md`, ruling F).
+    refused(
+        &NewChart {
+            legend: Some(LegendPosition::Top),
+            legend_text: Some(bad_color),
+            style: Some(0),
+            ..bare(COLUMN)
+        },
+        OPTION,
+    );
+    let chart = NewChart {
+        style: Some(49),
+        ..combined(second(COLUMN))
+    };
+    refused(&chart, RANGE);
     let chart = NewChart {
         title: Some(""),
         title_text: bad_size,
@@ -7159,4 +7181,773 @@ fn the_texts_follow_the_check_order() {
         },
         RANGE,
     );
+}
+
+// `specs/0041-chart-text-and-edits.md`, "P2: the style value and the
+// in-place edits", rulings E and F: the style, and a kept chart's title and
+// series edited in place, the rest of the part kept byte for byte.
+
+/// A package whose drawing holds one chart frame naming
+/// `xl/charts/chart1.xml`, that part being `chart` whole.
+fn edited(chart: String) -> Parts {
+    let mut parts = charted(1, false);
+    set(&mut parts, CHART1, chart);
+    parts
+}
+
+/// The output of `edit` on `parts`.
+#[track_caller]
+fn edit_output(parts: Parts, edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)) -> Vec<u8> {
+    let (_, mut package) = opened(parts);
+    edit(&mut package);
+    written(package)
+}
+
+/// Records the title of the worksheet's chart at `index`.
+#[track_caller]
+fn retitle(package: &mut Package<Cursor<Vec<u8>>>, index: usize, title: Option<&str>) {
+    package
+        .set_chart_title(SHEET, index, title)
+        .expect("recorded");
+}
+
+/// Records the edit of series `series` of the worksheet's chart at `index`.
+#[track_caller]
+fn reseries(
+    package: &mut Package<Cursor<Vec<u8>>>,
+    index: usize,
+    series: usize,
+    edit: ChartSeriesEdit<'_>,
+) {
+    package
+        .set_chart_series(SHEET, index, series, &edit)
+        .expect("recorded");
+}
+
+/// The writer's `tx` of a title `text`.
+fn writer_tx(text: &str) -> String {
+    format!(
+        "<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>{text}</a:t></a:r></a:p>\
+         </c:rich></c:tx>"
+    )
+}
+
+/// A plot area holding nothing but its layout, after `autoTitleDeleted` 0.
+const EMPTY_PLOT: &str = "<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/></c:plotArea>";
+
+/// A kept rich title as Excel writes one: its properties in the first
+/// paragraph's `pPr` and its first run's `rPr`, a second run, a second
+/// paragraph, and `overlay`, `spPr` and `txPr` beside the `tx`.
+const RICH_TITLE: &str = "<c:title><c:tx><c:rich><a:bodyPr rot=\"0\"/><a:lstStyle/><a:p>\
+    <a:pPr><a:defRPr sz=\"1400\" b=\"1\"/></a:pPr><a:r><a:rPr lang=\"en-US\" sz=\"1400\" \
+    b=\"1\"/><a:t>Old</a:t></a:r><a:r><a:t> more</a:t></a:r><a:endParaRPr lang=\"en-US\"/>\
+    </a:p><a:p><a:r><a:t>Second</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/>\
+    <c:spPr><a:noFill/></c:spPr><c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr \
+    sz=\"1200\"/></a:pPr><a:endParaRPr lang=\"en-US\"/></a:p></c:txPr></c:title>";
+
+/// A kept bar series as Excel writes one: a name, categories and values,
+/// each with its cache, a fill between, an `extLst` last.
+const KEPT_SERIES: &str = "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:strRef>\
+    <c:f>Sheet1!$B$1</c:f><c:strCache><c:ptCount val=\"1\"/><c:pt idx=\"0\"><c:v>Kept</c:v>\
+    </c:pt></c:strCache></c:strRef></c:tx><c:spPr><a:noFill/></c:spPr><c:cat><c:numRef>\
+    <c:f>Sheet1!$A$2:$A$4</c:f><c:numCache><c:ptCount val=\"3\"/></c:numCache></c:numRef>\
+    </c:cat><c:val><c:numRef><c:f>Sheet1!$B$2:$B$4</c:f><c:numCache><c:ptCount val=\"3\"/>\
+    </c:numCache></c:numRef></c:val><c:extLst><c:ext uri=\"{emend}\"/></c:extLst></c:ser>";
+
+/// A plot area holding `plots` and the two axes their `axId`s name, after
+/// `autoTitleDeleted` 0.
+fn plot_area(plots: &str) -> String {
+    format!(
+        "<c:autoTitleDeleted val=\"0\"/><c:plotArea><c:layout/>{plots}<c:catAx><c:axId \
+         val=\"1\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete \
+         val=\"0\"/><c:axPos val=\"b\"/><c:crossAx val=\"2\"/></c:catAx><c:valAx><c:axId \
+         val=\"2\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete \
+         val=\"0\"/><c:axPos val=\"l\"/><c:crossAx val=\"1\"/></c:valAx></c:plotArea>"
+    )
+}
+
+/// A clustered column plot of `series`.
+fn bar_plot(series: &str) -> String {
+    format!(
+        "<c:barChart><c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>{series}\
+         <c:axId val=\"1\"/><c:axId val=\"2\"/></c:barChart>"
+    )
+}
+
+/// The edit of every reference.
+const EVERY_REFERENCE: ChartSeriesEdit<'static> = ChartSeriesEdit {
+    name: Some(NewSeriesName::Reference("Sheet1!$C$1")),
+    categories: Some("Sheet1!$A$2:$A$9"),
+    values: Some("Sheet1!$C$2:$C$9"),
+};
+
+/// Every entry of `output` but `except` is `parts`'s, byte for byte.
+#[track_caller]
+fn assert_others_kept(output: &[u8], parts: &Parts, except: &[u8]) {
+    for (name, bytes) in parts {
+        if name.as_slice() != except {
+            assert_eq!(
+                text_of(output, name).as_bytes(),
+                bytes.as_slice(),
+                "{}",
+                String::from_utf8_lossy(name)
+            );
+        }
+    }
+}
+
+#[test]
+fn a_style_is_written_after_the_rounded_corners_and_read_back() {
+    let (_, mut package) = opened(smallest());
+    add(
+        &mut package,
+        box_anchor(),
+        &NewChart {
+            style: Some(26),
+            ..bare(COLUMN)
+        },
+    );
+    let output = written(package);
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains("<c:roundedCorners val=\"0\"/><c:style val=\"26\"/><c:chart>"),
+        "{part}"
+    );
+    // No `mc:AlternateContent`, and no style or colour part (decision 2 A).
+    assert!(!part.contains("AlternateContent"), "{part}");
+    assert!(!has(&output, "xl/charts/_rels/chart1.xml.rels"));
+    assert_eq!(charts_of(&output)[0].chart.style, Some(26));
+}
+
+#[test]
+fn a_style_outside_1_to_48_is_refused() {
+    for style in [0, 49, 255] {
+        let chart = NewChart {
+            style: Some(style),
+            ..bare(COLUMN)
+        };
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), RANGE);
+    }
+    for style in [1, 48] {
+        let chart = NewChart {
+            style: Some(style),
+            ..bare(COLUMN)
+        };
+        call(box_anchor(), &chart).expect("taken");
+    }
+}
+
+#[test]
+fn a_title_edit_replaces_the_first_run_s_text_and_keeps_its_properties() {
+    let parts = edited(chart_part(&format!("{RICH_TITLE}{EMPTY_PLOT}")));
+    let output = edit_output(parts.clone(), |p| retitle(p, 0, Some("New & <b>")));
+    let want = RICH_TITLE
+        .replace(
+            "<a:t>Old</a:t></a:r><a:r><a:t> more</a:t></a:r>",
+            "<a:t>New &amp; &lt;b&gt;</a:t></a:r>",
+        )
+        .replace("<a:p><a:r><a:t>Second</a:t></a:r></a:p>", "");
+    assert_eq!(
+        text_of(&output, CHART1),
+        chart_part(&format!("{want}{EMPTY_PLOT}"))
+    );
+    assert_eq!(
+        charts_of(&output)[0].chart.title.as_deref(),
+        Some("New & <b>")
+    );
+    assert_others_kept(&output, &parts, CHART1);
+}
+
+#[test]
+fn a_title_with_a_reference_no_run_or_no_tx_takes_the_writer_s_rich_text() {
+    let cases = [
+        // A reference: the `tx` replaced, the title's other children kept.
+        (
+            "<c:title><c:tx><c:strRef><c:f>Sheet1!$A$1</c:f><c:strCache><c:ptCount val=\"1\"/>\
+             </c:strCache></c:strRef></c:tx><c:layout/><c:overlay val=\"1\"/></c:title>",
+            format!(
+                "<c:title>{}<c:layout/><c:overlay val=\"1\"/></c:title>",
+                writer_tx("New")
+            ),
+        ),
+        // Rich text with no run.
+        (
+            "<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:endParaRPr lang=\"en-US\"/></a:p>\
+             </c:rich></c:tx></c:title>",
+            format!("<c:title>{}</c:title>", writer_tx("New")),
+        ),
+        // No `tx`: one first, no `overlay` added.
+        (
+            "<c:title><c:layout/></c:title>",
+            format!("<c:title>{}<c:layout/></c:title>", writer_tx("New")),
+        ),
+        // An empty-element title.
+        (
+            "<c:title/>",
+            format!("<c:title>{}</c:title>", writer_tx("New")),
+        ),
+    ];
+    for (kept, want) in cases {
+        let parts = edited(chart_part(&format!("{kept}{EMPTY_PLOT}")));
+        let output = edit_output(parts, |p| retitle(p, 0, Some("New")));
+        assert_eq!(
+            text_of(&output, CHART1),
+            chart_part(&format!("{want}{EMPTY_PLOT}")),
+            "{kept}"
+        );
+        assert_eq!(charts_of(&output)[0].chart.title.as_deref(), Some("New"));
+    }
+}
+
+#[test]
+fn a_chart_with_no_title_takes_one_first_and_its_deleted_title_flag_becomes_0() {
+    let plot = "<c:plotArea><c:layout/></c:plotArea>";
+    let cases = [
+        (
+            "<c:autoTitleDeleted val=\"1\"/>",
+            "<c:autoTitleDeleted val=\"0\"/>",
+        ),
+        ("<c:autoTitleDeleted/>", "<c:autoTitleDeleted val=\"0\"/>"),
+        (
+            "<c:autoTitleDeleted val=\"0\"/>",
+            "<c:autoTitleDeleted val=\"0\"/>",
+        ),
+        ("", ""),
+    ];
+    for (kept, want) in cases {
+        let parts = edited(chart_part(&format!("{kept}{plot}")));
+        let output = edit_output(parts, |p| retitle(p, 0, Some("Added")));
+        assert_eq!(
+            text_of(&output, CHART1),
+            chart_part(&format!("{}{want}{plot}", title("Added"))),
+            "{kept}"
+        );
+        let chart = &charts_of(&output)[0].chart;
+        assert_eq!(chart.title.as_deref(), Some("Added"));
+        assert!(!chart.auto_title_deleted);
+    }
+}
+
+#[test]
+fn a_title_removed_sets_the_deleted_title_flag() {
+    let plot = "<c:plotArea><c:layout/></c:plotArea>";
+    let one = "<c:autoTitleDeleted val=\"1\"/>";
+    let cases = [
+        // The flag set to 1, or inserted where the title was.
+        (
+            format!("{RICH_TITLE}<c:autoTitleDeleted val=\"0\"/>"),
+            one.to_string(),
+        ),
+        (RICH_TITLE.to_string(), one.to_string()),
+        // No title: the flag inserted first, or kept when it is set.
+        (String::new(), one.to_string()),
+        (one.to_string(), one.to_string()),
+        (
+            "<c:autoTitleDeleted/>".to_string(),
+            "<c:autoTitleDeleted/>".to_string(),
+        ),
+    ];
+    for (kept, want) in cases {
+        let parts = edited(chart_part(&format!("{kept}{plot}")));
+        let output = edit_output(parts, |p| retitle(p, 0, None));
+        assert_eq!(
+            text_of(&output, CHART1),
+            chart_part(&format!("{want}{plot}")),
+            "{kept}"
+        );
+        let chart = &charts_of(&output)[0].chart;
+        assert_eq!(chart.title, None);
+        assert!(chart.auto_title_deleted);
+    }
+}
+
+#[test]
+fn a_series_edit_replaces_its_references_without_a_cache_in_the_form_found() {
+    let parts = edited(chart_part(&plot_area(&bar_plot(KEPT_SERIES))));
+    let output = edit_output(parts.clone(), |p| reseries(p, 0, 0, EVERY_REFERENCE));
+    let want = format!(
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx>{}</c:tx><c:spPr><a:noFill/>\
+         </c:spPr><c:cat>{}</c:cat><c:val>{}</c:val><c:extLst><c:ext uri=\"{{emend}}\"/>\
+         </c:extLst></c:ser>",
+        reference("strRef", "Sheet1!$C$1"),
+        reference("numRef", "Sheet1!$A$2:$A$9"),
+        reference("numRef", "Sheet1!$C$2:$C$9"),
+    );
+    assert_eq!(
+        text_of(&output, CHART1),
+        chart_part(&plot_area(&bar_plot(&want)))
+    );
+    let series = &charts_of(&output)[0].chart.plots[0].series[0];
+    assert_eq!(
+        series.name,
+        Some(SeriesName::Reference("Sheet1!$C$1".to_string()))
+    );
+    let data = |formula: &str| {
+        Some(Data::Reference {
+            formula: formula.to_string(),
+            cached: None,
+        })
+    };
+    assert_eq!(series.categories, data("Sheet1!$A$2:$A$9"));
+    assert_eq!(series.values, data("Sheet1!$C$2:$C$9"));
+    assert_others_kept(&output, &parts, CHART1);
+    // A `strRef` category kept a `strRef`; literals take the writer's forms.
+    let kept = "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:cat><c:strRef><c:f>A</c:f>\
+                </c:strRef></c:cat><c:val><c:numLit><c:ptCount val=\"1\"/></c:numLit></c:val>\
+                </c:ser>";
+    let output = edit_output(edited(chart_part(&plot_area(&bar_plot(kept)))), |p| {
+        reseries(
+            p,
+            0,
+            0,
+            ChartSeriesEdit {
+                categories: Some("B"),
+                values: Some("C"),
+                ..ChartSeriesEdit::default()
+            },
+        );
+    });
+    let want = format!(
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:cat>{}</c:cat><c:val>{}</c:val></c:ser>",
+        reference("strRef", "B"),
+        reference("numRef", "C"),
+    );
+    assert_eq!(
+        text_of(&output, CHART1),
+        chart_part(&plot_area(&bar_plot(&want)))
+    );
+    let kept = "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:cat><c:strLit><c:ptCount \
+                val=\"1\"/></c:strLit></c:cat><c:val><c:numRef><c:f>C</c:f></c:numRef></c:val>\
+                </c:ser>";
+    let output = edit_output(edited(chart_part(&plot_area(&bar_plot(kept)))), |p| {
+        reseries(
+            p,
+            0,
+            0,
+            ChartSeriesEdit {
+                categories: Some("B"),
+                ..ChartSeriesEdit::default()
+            },
+        );
+    });
+    let want = format!(
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:cat>{}</c:cat><c:val>{}</c:val></c:ser>",
+        reference("strRef", "B"),
+        reference("numRef", "C"),
+    );
+    assert_eq!(
+        text_of(&output, CHART1),
+        chart_part(&plot_area(&bar_plot(&want)))
+    );
+}
+
+#[test]
+fn a_series_edit_inserts_what_the_series_lacks_where_the_schema_places_it() {
+    let line = |series: &str| {
+        format!(
+            "<c:lineChart><c:grouping val=\"standard\"/>{series}<c:axId val=\"1\"/>\
+             <c:axId val=\"2\"/></c:lineChart>"
+        )
+    };
+    let scatter = |series: &str| {
+        format!(
+            "<c:scatterChart><c:scatterStyle val=\"marker\"/>{series}<c:axId val=\"1\"/>\
+             <c:axId val=\"2\"/></c:scatterChart>"
+        )
+    };
+    let head = "<c:idx val=\"0\"/><c:order val=\"0\"/>";
+    let values = format!("<c:val>{}</c:val>", reference("numRef", "Sheet1!$B$2:$B$4"));
+    let cases = [
+        // A text name after `order`; the categories before the values.
+        (
+            line(&format!(
+                "<c:ser>{head}{values}<c:smooth val=\"0\"/></c:ser>"
+            )),
+            ChartSeriesEdit {
+                name: Some(NewSeriesName::Text("A & B")),
+                categories: Some("Sheet1!$A$2:$A$4"),
+                values: None,
+            },
+            line(&format!(
+                "<c:ser>{head}<c:tx><c:v>A &amp; B</c:v></c:tx><c:cat>{}</c:cat>{values}\
+                 <c:smooth val=\"0\"/></c:ser>",
+                reference("strRef", "Sheet1!$A$2:$A$4")
+            )),
+        ),
+        // Neither reference: both before the trailing children, in order.
+        (
+            bar_plot(&format!("<c:ser>{head}<c:extLst/></c:ser>")),
+            ChartSeriesEdit {
+                categories: Some("X"),
+                values: Some("Y"),
+                ..ChartSeriesEdit::default()
+            },
+            bar_plot(&format!(
+                "<c:ser>{head}<c:cat>{}</c:cat><c:val>{}</c:val><c:extLst/></c:ser>",
+                reference("strRef", "X"),
+                reference("numRef", "Y")
+            )),
+        ),
+        // Nothing after: before the end tag.
+        (
+            bar_plot(&format!("<c:ser>{head}</c:ser>")),
+            ChartSeriesEdit {
+                values: Some("Y"),
+                ..ChartSeriesEdit::default()
+            },
+            bar_plot(&format!(
+                "<c:ser>{head}<c:val>{}</c:val></c:ser>",
+                reference("numRef", "Y")
+            )),
+        ),
+        // A scatter's x values, `xVal` as a `numRef`, before `yVal`.
+        (
+            scatter(&format!(
+                "<c:ser>{head}<c:yVal>{}</c:yVal><c:smooth val=\"0\"/></c:ser>",
+                reference("numRef", "Y")
+            )),
+            ChartSeriesEdit {
+                categories: Some("X"),
+                ..ChartSeriesEdit::default()
+            },
+            scatter(&format!(
+                "<c:ser>{head}<c:xVal>{}</c:xVal><c:yVal>{}</c:yVal><c:smooth val=\"0\"/></c:ser>",
+                reference("numRef", "X"),
+                reference("numRef", "Y")
+            )),
+        ),
+    ];
+    for (kept, edit, want) in cases {
+        let output = edit_output(edited(chart_part(&plot_area(&kept))), |p| {
+            reseries(p, 0, 0, edit);
+        });
+        assert_eq!(
+            text_of(&output, CHART1),
+            chart_part(&plot_area(&want)),
+            "{kept}"
+        );
+    }
+}
+
+#[test]
+fn the_series_are_counted_across_the_plots_in_document_order() {
+    let series = |k: u32| {
+        format!(
+            "<c:ser><c:idx val=\"{k}\"/><c:order val=\"{k}\"/><c:val>{}</c:val></c:ser>",
+            reference("numRef", &format!("V{k}"))
+        )
+    };
+    let line = format!(
+        "<c:lineChart><c:grouping val=\"standard\"/>{}<c:axId val=\"1\"/><c:axId val=\"2\"/>\
+         </c:lineChart>",
+        series(2)
+    );
+    let kept = format!("{}{line}", bar_plot(&format!("{}{}", series(0), series(1))));
+    let parts = edited(chart_part(&plot_area(&kept)));
+    let edit = ChartSeriesEdit {
+        values: Some("W"),
+        ..ChartSeriesEdit::default()
+    };
+    let output = edit_output(parts.clone(), |p| reseries(p, 0, 2, edit));
+    let want = kept.replace(&reference("numRef", "V2"), &reference("numRef", "W"));
+    assert_eq!(text_of(&output, CHART1), chart_part(&plot_area(&want)));
+    assert_package(
+        refused_with(parts, |p| reseries(p, 0, 3, edit)),
+        "no series at that position",
+    );
+    // A chart with no plot area has no series.
+    let bare_chart = edited(chart_part("<c:autoTitleDeleted val=\"0\"/>"));
+    assert_package(
+        refused_with(bare_chart, |p| reseries(p, 0, 0, edit)),
+        "no series at that position",
+    );
+}
+
+#[test]
+fn a_series_under_an_element_the_writer_does_not_know_cannot_be_read() {
+    let kept = format!(
+        "<c:fooChart><c:ser><c:idx val=\"0\"/><c:order val=\"0\"/></c:ser></c:fooChart>{}",
+        bar_plot("")
+    );
+    let parts = edited(chart_part(&plot_area(&kept)));
+    let edit = ChartSeriesEdit {
+        values: Some("W"),
+        ..ChartSeriesEdit::default()
+    };
+    assert_package(
+        refused_with(parts.clone(), |p| reseries(p, 0, 0, edit)),
+        CHART_PART,
+    );
+    // The series index first: one past the count refused before another
+    // edit's series is walked (ruling E, Q1).
+    assert_package(
+        refused_with(parts, |p| {
+            reseries(p, 0, 0, edit);
+            reseries(p, 0, 1, edit);
+        }),
+        "no series at that position",
+    );
+}
+
+#[test]
+fn the_edits_take_the_part_s_prefixes_and_declare_drawingml_where_the_root_does_not() {
+    let declaration = DECLARATION;
+    let cases = [
+        // The chart namespace the default one.
+        (
+            format!(
+                "{declaration}\n<chartSpace xmlns=\"{C_NS}\" xmlns:a=\"{A_NS}\"><chart>\
+                 <autoTitleDeleted val=\"1\"/><plotArea><layout/></plotArea></chart></chartSpace>"
+            ),
+            format!(
+                "{declaration}\n<chartSpace xmlns=\"{C_NS}\" xmlns:a=\"{A_NS}\"><chart><title>\
+                 <tx><rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>T</a:t></a:r></a:p></rich>\
+                 </tx><overlay val=\"0\"/></title><autoTitleDeleted val=\"0\"/><plotArea>\
+                 <layout/></plotArea></chart></chartSpace>"
+            ),
+        ),
+        // Another prefix, and no DrawingML binding on the root.
+        (
+            format!(
+                "{declaration}\n<x:chartSpace xmlns:x=\"{C_NS}\"><x:chart><x:plotArea>\
+                 <x:layout/></x:plotArea></x:chart></x:chartSpace>"
+            ),
+            format!(
+                "{declaration}\n<x:chartSpace xmlns:x=\"{C_NS}\"><x:chart><x:title><x:tx>\
+                 <x:rich xmlns:a=\"{A_NS}\"><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>T</a:t>\
+                 </a:r></a:p></x:rich></x:tx><x:overlay val=\"0\"/></x:title><x:plotArea>\
+                 <x:layout/></x:plotArea></x:chart></x:chartSpace>"
+            ),
+        ),
+        // The strict namespaces: the strict DrawingML declared.
+        (
+            format!(
+                "{declaration}\n<c:chartSpace xmlns:c=\"{C_STRICT}\"><c:chart><c:plotArea>\
+                 <c:layout/></c:plotArea></c:chart></c:chartSpace>"
+            ),
+            format!(
+                "{declaration}\n<c:chartSpace xmlns:c=\"{C_STRICT}\"><c:chart><c:title><c:tx>\
+                 <c:rich xmlns:a=\"{A_STRICT}\"><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>T</a:t>\
+                 </a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title><c:plotArea>\
+                 <c:layout/></c:plotArea></c:chart></c:chartSpace>"
+            ),
+        ),
+        // DrawingML bound to another prefix on the root.
+        (
+            format!(
+                "{declaration}\n<c:chartSpace xmlns:c=\"{C_NS}\" xmlns:d=\"{A_NS}\"><c:chart>\
+                 <c:plotArea><c:layout/></c:plotArea></c:chart></c:chartSpace>"
+            ),
+            format!(
+                "{declaration}\n<c:chartSpace xmlns:c=\"{C_NS}\" xmlns:d=\"{A_NS}\"><c:chart>\
+                 <c:title><c:tx><c:rich><d:bodyPr/><d:lstStyle/><d:p><d:r><d:t>T</d:t></d:r>\
+                 </d:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title><c:plotArea><c:layout/>\
+                 </c:plotArea></c:chart></c:chartSpace>"
+            ),
+        ),
+    ];
+    for (kept, want) in cases {
+        let output = edit_output(edited(kept.clone()), |p| retitle(p, 0, Some("T")));
+        assert_eq!(text_of(&output, CHART1), want, "{kept}");
+        assert_eq!(charts_of(&output)[0].chart.title.as_deref(), Some("T"));
+    }
+    // A series edit in another prefix.
+    let kept = format!(
+        "{declaration}\n<x:chartSpace xmlns:x=\"{C_NS}\"><x:chart><x:plotArea><x:barChart>\
+         <x:ser><x:idx val=\"0\"/><x:order val=\"0\"/></x:ser></x:barChart></x:plotArea>\
+         </x:chart></x:chartSpace>"
+    );
+    let output = edit_output(edited(kept.clone()), |p| reseries(p, 0, 0, EVERY_REFERENCE));
+    let want = kept.replace(
+        "<x:order val=\"0\"/></x:ser>",
+        "<x:order val=\"0\"/><x:tx><x:strRef><x:f>Sheet1!$C$1</x:f></x:strRef></x:tx><x:cat>\
+         <x:strRef><x:f>Sheet1!$A$2:$A$9</x:f></x:strRef></x:cat><x:val><x:numRef><x:f>\
+         Sheet1!$C$2:$C$9</x:f></x:numRef></x:val></x:ser>",
+    );
+    assert_eq!(text_of(&output, CHART1), want);
+}
+
+#[test]
+fn the_edit_calls_check_their_texts_and_references_and_record_nothing() {
+    let parts = edited(chart_part(&plot_area(&bar_plot(KEPT_SERIES))));
+    let (_, mut package) = opened(parts.clone());
+    let long_text = "x".repeat(32768);
+    for title in ["", "a\u{1}b", "\u{fffe}", long_text.as_str()] {
+        assert_package(
+            package
+                .set_chart_title(SHEET, 0, Some(title))
+                .expect_err("refused"),
+            TEXT,
+        );
+    }
+    let long_reference = "x".repeat(8193);
+    let edits = [
+        ChartSeriesEdit {
+            name: Some(NewSeriesName::Text("")),
+            ..ChartSeriesEdit::default()
+        },
+        ChartSeriesEdit {
+            name: Some(NewSeriesName::Reference(&long_reference)),
+            ..ChartSeriesEdit::default()
+        },
+        ChartSeriesEdit {
+            categories: Some("a\u{1f}"),
+            ..ChartSeriesEdit::default()
+        },
+        ChartSeriesEdit {
+            values: Some(""),
+            ..ChartSeriesEdit::default()
+        },
+    ];
+    for edit in edits {
+        assert_package(
+            package
+                .set_chart_series(SHEET, 0, 0, &edit)
+                .expect_err("refused"),
+            TEXT,
+        );
+    }
+    // Nothing recorded: the write gives the input back.
+    let output = written(package);
+    assert_others_kept(&output, &parts, b"");
+    // A reference at its limit and a long text name are taken.
+    let at_limit = "x".repeat(8192);
+    let long_name = "y".repeat(32767);
+    edit_output(parts, |p| {
+        reseries(
+            p,
+            0,
+            0,
+            ChartSeriesEdit {
+                name: Some(NewSeriesName::Text(&long_name)),
+                categories: Some(&at_limit),
+                values: Some(&at_limit),
+            },
+        );
+    });
+}
+
+#[test]
+fn an_edit_twice_of_a_removed_chart_or_beside_an_addition_is_refused() {
+    let two = edited(chart_part(&plot_area(&bar_plot(&format!(
+        "{KEPT_SERIES}{}",
+        KEPT_SERIES.replace("idx val=\"0\"", "idx val=\"1\"")
+    )))));
+    let value = ChartSeriesEdit {
+        values: Some("W"),
+        ..ChartSeriesEdit::default()
+    };
+    type Edit<'a> = Box<dyn Fn(&mut Package<Cursor<Vec<u8>>>) + 'a>;
+    let refusals: [Edit<'_>; 6] = [
+        Box::new(|p| {
+            retitle(p, 0, Some("A"));
+            retitle(p, 0, None);
+        }),
+        Box::new(|p| {
+            reseries(p, 0, 1, value);
+            reseries(p, 0, 1, value);
+        }),
+        Box::new(|p| {
+            retitle(p, 0, Some("A"));
+            remove(p, 0);
+        }),
+        Box::new(|p| {
+            remove(p, 0);
+            reseries(p, 0, 0, value);
+        }),
+        Box::new(|p| {
+            add(p, box_anchor(), &column_chart());
+            retitle(p, 0, Some("A"));
+        }),
+        Box::new(|p| {
+            retitle(p, 0, Some("A"));
+            add(p, box_anchor(), &column_chart());
+        }),
+    ];
+    for refusal in refusals {
+        assert_package(refused_with(two.clone(), refusal), NO_CHART);
+    }
+    // The title and two series of one chart in one write.
+    let output = edit_output(two, |p| {
+        retitle(p, 0, Some("Both"));
+        reseries(p, 0, 0, value);
+        reseries(p, 0, 1, value);
+    });
+    let chart = &charts_of(&output)[0].chart;
+    assert_eq!(chart.title.as_deref(), Some("Both"));
+    for series in &chart.plots[0].series {
+        assert_eq!(
+            series.values,
+            Some(Data::Reference {
+                formula: "W".to_string(),
+                cached: None
+            })
+        );
+    }
+    // An edit beside the removal of another chart.
+    let output = edit_output(charted(2, false), |p| {
+        retitle(p, 0, Some("Edited"));
+        remove(p, 1);
+    });
+    let entries = charts_of(&output);
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].chart.title.as_deref(), Some("Edited"));
+}
+
+#[test]
+fn an_edit_meets_what_a_removal_meets_of_the_part_and_the_chart() {
+    let title = |p: &mut Package<Cursor<Vec<u8>>>| retitle(p, 0, Some("T"));
+    // An index past the list, a sheet with no drawing, a picture alone.
+    assert_package(
+        refused_with(charted(1, false), |p| retitle(p, 1, Some("T"))),
+        NO_CHART,
+    );
+    assert_package(refused_with(smallest(), title), NO_CHART);
+    let picture_rel = relationship("rId1", &format!("{ATTR_NS}/image"), "../media/image1.png");
+    let pictured = with_drawing(
+        BODY,
+        drawing_xml(&kept_anchor(0, 0, &pic(1, "rId1"))),
+        Some(&picture_rel),
+        true,
+    );
+    assert_package(refused_with(pictured, title), NO_CHART);
+    // The chart part missing, its relationship missing, a root other than
+    // `chartSpace`, a part that is not well-formed, one with no `c:chart`.
+    let mut missing = charted(1, false);
+    missing.retain(|(name, _)| name.as_slice() != CHART1);
+    assert_package(refused_with(missing, title), CHART_PART);
+    let mut no_rel = charted(1, false);
+    set(&mut no_rel, DRAWING_RELS, rels(""));
+    assert_package(refused_with(no_rel, title), CHART_PART);
+    for part in [
+        format!("{DECLARATION}\n<c:chart xmlns:c=\"{C_NS}\"/>"),
+        format!("{DECLARATION}\n<c:chartSpace xmlns:c=\"{C_NS}\"><c:chart><c:plotArea>"),
+        format!(
+            "{DECLARATION}\n<c:chartSpace xmlns:c=\"{C_NS}\"><c:roundedCorners/></c:chartSpace>"
+        ),
+    ] {
+        assert_package(refused_with(edited(part), title), CHART_PART);
+    }
+    // A removed or replaced sheet, drawing or chart part.
+    let parts = charted(1, false);
+    let removed = "an edit to a removed part";
+    let replaced = "a cell edit to a part this write replaces";
+    for (name, message) in [(SHEET, removed), (DRAWING, removed), (CHART1, removed)] {
+        assert_package(
+            refused_with(parts.clone(), |p| {
+                p.remove_part(name);
+                title(p);
+            }),
+            message,
+        );
+    }
+    for name in [SHEET, DRAWING, CHART1] {
+        assert_package(
+            refused_with(parts.clone(), |p| {
+                p.replace_part(name, replacement_from_reader(Cursor::new(b"x".to_vec())));
+                title(p);
+            }),
+            replaced,
+        );
+    }
 }

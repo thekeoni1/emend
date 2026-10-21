@@ -54,6 +54,10 @@ pub(crate) const CHART_ANCHOR_OUT_OF_RANGE: Error =
 /// part this write also adds to is refused with
 /// (`specs/0036-charts-write-second-set.md`, "Errors").
 pub(crate) const NO_CHART_AT: Error = Error::Package("no chart at that position");
+/// What a series edit whose position the plot area's series do not reach
+/// is refused with at the write (`specs/0041-chart-text-and-edits.md`,
+/// "Errors").
+pub(crate) const NO_SERIES_AT: Error = Error::Package("no series at that position");
 /// What a chart removal whose frame names no chart part, or a part that is
 /// not a `chartSpace`, is refused with at the write.
 pub(crate) const CHART_PART_UNREADABLE: Error = Error::Package("a chart part cannot be read");
@@ -89,6 +93,11 @@ const LINE_WIDTH_LIMIT: u32 = 20_116_800;
 /// The longest typeface, in bytes (`specs/0041-chart-text-and-edits.md`,
 /// ruling A).
 const FONT_LIMIT: usize = 31;
+
+/// The lowest and highest chart style (`specs/0041-chart-text-and-
+/// edits.md`, "Applicability").
+const STYLE_LOW: u8 = 1;
+const STYLE_HIGH: u8 = 48;
 
 /// A chart as a caller gives it to [`Package::add_chart`]
 /// (`specs/0035-charts-write-first-set.md`, "The call"). The Cargo feature
@@ -135,7 +144,7 @@ pub struct NewChart<'a> {
     /// pie, a 3D pie, a doughnut and an of-pie take none.
     pub value_axis: Option<NewAxis>,
     /// The title's text properties (`specs/0041-chart-text-and-edits.md`,
-    /// "The call"); taken where `title` is given.
+    /// "Types"); taken where `title` is given.
     pub title_text: Option<NewText<'a>>,
     /// Both axis titles' text properties; taken where an axis title is
     /// given.
@@ -145,6 +154,10 @@ pub struct NewChart<'a> {
     pub axis_label_text: Option<NewText<'a>>,
     /// The legend's text properties; taken where `legend` is given.
     pub legend_text: Option<NewText<'a>>,
+    /// The chart's style, 1 to 48, written as `c:style` alone, no style or
+    /// colour part (`specs/0041-chart-text-and-edits.md`, "Types",
+    /// decision 2 A).
+    pub style: Option<u8>,
 }
 
 /// An axis's options (`specs/0040-analytic-chart-elements.md`, "The
@@ -754,6 +767,7 @@ pub(super) struct ChartWork {
     axis_title_text: Option<TextWork>,
     axis_label_text: Option<TextWork>,
     legend_text: Option<TextWork>,
+    style: Option<u8>,
     pub(super) cx: u64,
     pub(super) cy: u64,
 }
@@ -843,7 +857,10 @@ impl<R: Read + Seek> Package<R> {
     /// polynomial's order outside 2 to 6, a moving average's period below
     /// 2, a forecast that is not finite or is negative, an intercept that is
     /// not finite, and a fixed, percentage or standard deviation length
-    /// that is not finite or is not positive; then the plot lines, "a chart
+    /// that is not finite or is not positive; then each series' labels'
+    /// text properties, after its error bars and checked as the chart's
+    /// texts are below (`specs/0041-chart-text-and-edits.md`, ruling A);
+    /// then the plot lines, "a chart
     /// option does not apply to its kind" for drop lines on a plot other
     /// than a line, an area or a stock plot, high-low lines or up-down bars
     /// on a plot other than a line or a stock plot, and a stock plot without
@@ -869,8 +886,7 @@ impl<R: Read + Seek> Package<R> {
     /// chart option does not apply to its kind" for a colour above
     /// `0xFFFFFF` and "a chart value is out of its range" for a typeface
     /// that is empty, holds a character below U+0020, U+FFFE or U+FFFF, or
-    /// is longer than 31 bytes; each series' labels' text properties are
-    /// checked the same way after its error bars; then "a
+    /// is longer than 31 bytes; then "a
     /// chart option does not apply to its kind" for a combined plot a first
     /// plot other than a bar, line or area, a second other than a bar,
     /// line, area or scatter or of the first's variant, a second with no
@@ -1101,6 +1117,14 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
         )?;
         let axis_label_text = chart_text(chart.axis_label_text, !round)?;
         let legend_text = chart_text(chart.legend_text, chart.legend.is_some())?;
+        // The style after the texts, the chart's last field
+        // (`specs/0041-chart-text-and-edits.md`, "Applicability").
+        if chart
+            .style
+            .is_some_and(|style| !(STYLE_LOW..=STYLE_HIGH).contains(&style))
+        {
+            return Err(CHART_VALUE_RANGE);
+        }
         if let Some(combined) = &chart.combined {
             // The first plot a bar, line or area (no 3D plot combines: P2
             // ruling G; a scatter's x axis cannot share a category axis: P2
@@ -1171,6 +1195,7 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
             axis_title_text,
             axis_label_text,
             legend_text,
+            style: chart.style,
             cx,
             cy,
         })
@@ -1694,7 +1719,7 @@ fn valid(value: &str, limit: usize) -> bool {
 
 /// A title, axis title or text name, checked and escaped as a comment's
 /// text is (P1 ruling F).
-fn text(value: &str) -> Result<String, Error> {
+pub(super) fn text(value: &str) -> Result<String, Error> {
     if !valid(value, TEXT_LIMIT) {
         return Err(CHART_TEXT_INVALID);
     }
@@ -1703,7 +1728,7 @@ fn text(value: &str) -> Result<String, Error> {
 
 /// A reference, checked and escaped: `&`, `<` and `>` as entities, nothing
 /// parsed or quoted (P1 ruling F).
-fn reference(value: &str) -> Result<String, Error> {
+pub(super) fn reference(value: &str) -> Result<String, Error> {
     if !valid(value, REFERENCE_LIMIT) {
         return Err(CHART_TEXT_INVALID);
     }
@@ -1724,7 +1749,11 @@ impl ChartWork {
         out.extend_from_slice(CHART_NAMESPACE[s]);
         out.extend_from_slice(b"\" xmlns:a=\"");
         out.extend_from_slice(DRAWINGML[s]);
-        out.extend_from_slice(b"\"><c:roundedCorners val=\"0\"/><c:chart>");
+        out.extend_from_slice(b"\"><c:roundedCorners val=\"0\"/>");
+        if let Some(style) = self.style {
+            value_element(&mut out, b"style", style.to_string().as_bytes());
+        }
+        out.extend_from_slice(b"<c:chart>");
         if let Some(title) = &self.title {
             title_bytes(&mut out, title, self.title_text.as_ref());
         }

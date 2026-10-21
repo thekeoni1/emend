@@ -921,6 +921,30 @@
 //!   (`chart_write::a_line_takes_a_width_a_dash_or_both_with_and_without_the_series_colour`;
 //!   the order, `chart_write::the_series_options_follow_the_check_order`).
 //!
+//! The text properties, the style and the in-place edits add one, the
+//! Cargo feature `charts`'s too (`specs/0041-chart-text-and-edits.md`,
+//! "Errors"). "a chart value is out of its range" also covers a text's
+//! size outside 100 to 40000, a typeface that is empty, holds a character
+//! below U+0020, U+FFFE or U+FFFF, or is longer than 31 bytes, and a style
+//! outside 1 to 48, raised by `Package::add_chart` and
+//! `Package::add_chartsheet` at the call
+//! (`chart_write::the_text_field_rules_are_refused`,
+//! `chart_write::a_style_outside_1_to_48_is_refused`; the order,
+//! `chart_write::the_texts_follow_the_check_order`). `Package::set_chart_title`
+//! and `Package::set_chart_series` check their texts and references at the
+//! call as a chart's are, and the write meets what `Package::remove_chart`
+//! meets of the part, the chart and its frame, a chartsheet refused as the
+//! cell calls refuse it, and an edit twice, of a removed chart or beside an
+//! addition, with "no chart at that position"
+//! (`chart_write::an_edit_meets_what_a_removal_meets_of_the_part_and_the_chart`,
+//! `chart_write::an_edit_twice_of_a_removed_chart_or_beside_an_addition_is_refused`,
+//! `chartsheet::the_edit_calls_on_a_chartsheet_are_refused_with_the_worksheet_message`):
+//!
+//! - "no series at that position", for a series edit whose position the
+//!   plot area's series, counted across its plots in document order, do
+//!   not reach, raised by [`Package::write_to`] after `set_chart_series`
+//!   (`chart_write::the_series_are_counted_across_the_plots_in_document_order`).
+//!
 //! A row or column style meets `specs/0012-styles.md`'s "a style index is
 //! out of range" at the write for an index past the styles part's cell
 //! formats and those the same write adds, every recorded style checked, one
@@ -2326,6 +2350,8 @@
 #[cfg(feature = "charts")]
 mod chart;
 #[cfg(feature = "charts")]
+mod chart_edit;
+#[cfg(feature = "charts")]
 mod chart_write;
 #[cfg(feature = "read")]
 mod extlink;
@@ -2340,6 +2366,8 @@ pub use chart::{
     AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry, ChartKind,
     Data, Grouping, LegendPosition, Plot, ScatterStyle, Series, SeriesName,
 };
+#[cfg(feature = "charts")]
+pub use chart_edit::ChartSeriesEdit;
 #[cfg(feature = "charts")]
 pub use chart_write::{
     DashStyle, ErrorBarKind, ErrorDirection, ErrorValue, LabelPosition, MarkerSymbol, NewAxis,
@@ -3383,6 +3411,12 @@ struct Recorded {
     /// "The parts"), in record order.
     #[cfg(any(feature = "images", feature = "charts"))]
     drawing_removals: Vec<(Vec<u8>, Removal)>,
+    /// `(part, index, edit)`: a kept chart's title or series edited in
+    /// place, by its place in the list `Package::charts` gives
+    /// (`specs/0041-chart-text-and-edits.md`, "The chart part"), in record
+    /// order.
+    #[cfg(feature = "charts")]
+    chart_edits: Vec<(Vec<u8>, usize, chart_edit::ChartEdit)>,
     /// `(part, work)`: for each part whose `<drawing>` the write creates,
     /// what the worksheet pass does, filled by [`Package::write_to`] before
     /// it validates.
@@ -5273,6 +5307,10 @@ impl Recorded {
     /// features `images` and `charts`.
     #[cfg(any(feature = "images", feature = "charts"))]
     fn no_image_edits(&self) -> bool {
+        #[cfg(feature = "charts")]
+        if !self.chart_edits.is_empty() {
+            return false;
+        }
         self.drawing_edits.is_empty() && self.drawing_removals.is_empty()
     }
 
@@ -5510,6 +5548,11 @@ impl Recorded {
         let parts: Vec<Vec<u8>> = parts
             .into_iter()
             .chain(self.drawing_removals.iter().map(|(part, _)| part.clone()))
+            .collect();
+        #[cfg(feature = "charts")]
+        let parts: Vec<Vec<u8>> = parts
+            .into_iter()
+            .chain(self.chart_edits.iter().map(|(part, _, _)| part.clone()))
             .collect();
         parts
     }
@@ -11488,6 +11531,8 @@ impl<'a> Parts<'a> {
         self.edits.drawing_edits.retain(|(at, _, _)| at != part);
         #[cfg(any(feature = "images", feature = "charts"))]
         self.edits.drawing_removals.retain(|(at, _)| at != part);
+        #[cfg(feature = "charts")]
+        self.edits.chart_edits.retain(|(at, _, _)| at != part);
         #[cfg(feature = "copy")]
         self.edits.sheet_copies.retain(|(_, copy)| copy != part);
     }
@@ -11513,6 +11558,11 @@ impl<'a> Parts<'a> {
         // (`specs/0022-comments-and-images.md`, "Comments: the parts").
         #[cfg(feature = "comments")]
         self.record_comments()?;
+        // A kept chart's in-place edits, before the drawings: a removal's
+        // drawing rewrite is a replacement the edits' checks would meet
+        // (`specs/0041-chart-text-and-edits.md`, ruling E).
+        #[cfg(feature = "charts")]
+        self.record_chart_edits()?;
         // And an image's or a chart's (`specs/0022-comments-and-images.md`,
         // "Images: the parts"; `specs/0035-charts-write-first-set.md`, "The
         // parts").

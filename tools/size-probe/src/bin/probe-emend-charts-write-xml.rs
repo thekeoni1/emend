@@ -516,6 +516,7 @@ fn read_first_sheet_charts(
         axis_title_text: None,
         axis_label_text: None,
         legend_text: None,
+        style: None,
     };
     let anchor = ImageAnchor::TwoCell {
         from: CellRef { row: 3, col: 1 },
@@ -907,6 +908,7 @@ fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<
         axis_title_text: None,
         axis_label_text: None,
         legend_text: None,
+        style: None,
     }
 }
 
