@@ -1148,7 +1148,7 @@ Estimate 15500 to 25500 under `charts`, a finding above 30000.
 | P3 | the probe's three kinds and series options; the size record (`charts` against part 1's 119344, `images`, `comments` and the core each judged by ruling N's form); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | DONE 2026-10-20 (doc 09e5f94, test 905085e, probe 8b2320a, changelog 50a3989, record 959785e, local; the test commit rebuilt by a fixup before any dry run, ruling N; verified by planning from primaries, its own privacy scan, the test and the probe read in the source; charts probe 1097236, +5716 over part 1's record, the cost 125060, below the estimate's floor and not a finding, ruling P; core 0, images and comments 0, budget 438960, 19792 under the ceiling; API 776 rows, 1 gone, 20 new, three rows marked Eq dropped; P2's runs rerun byte-identical 27 of 27 on both targets, the fixtures 4 of 4; open record 1748 pairs, no finding; the size record's stale index clause carried to `specs/0040`, ruling Q; rulings N to S, `specs/0039` "Planning verification of P3") |
 | Close | close-out push after P3, carrying 6cecae7, base 5b8b25a by its subject, `PREV` `^M6 part 1 close-out record`, no Excel-record check | DONE 2026-10-20 (doc bcc53a5 pushed, origin/main 5b8b25a..bcc53a5, 17 commits, 2104 blobs, 0 findings; CI run 39449541516 success; the post-push scan PASS; record 2933e3a local, goes with Milestone 6 part 3's push; the maintainer's authorisation typed 2026-10-20 in the implementing session after planning's word the same day; one independent check at the pre stage, blocking 0; changes 49 to 51, the two leftovers of `specs/0038` ruling R corrected; the six older local branches of ruling J deleted by ruling U; verified by planning from git, `gh`, the three logs and its own blob scans; `specs/0039` "Planning verification of the close-out", T and U) |
 
-### Part 3: analytic chart elements (`specs/0040-analytic-chart-elements.md`, APPROVED 2026-10-20, decisions 1 to 4 A; IN PROGRESS from 2026-10-20)
+### Part 3: analytic chart elements (`specs/0040-analytic-chart-elements.md`, APPROVED 2026-10-20, decisions 1 to 4 A; DONE and PUSHED 2026-10-21)
 
 Trendlines (`NewTrendline`: six kinds, forecast, intercept, equation
 and R-squared, a name) and error bars (`NewErrorBars`: direction,
@@ -1170,13 +1170,24 @@ message. Estimate 16500 to 26000 under `charts`, a finding above
 | P1 | `NewTrendline` and `NewErrorBars` on `NewSeries`, their rules and forms; `--chart-trend-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | DONE 2026-10-20 (phase commit a22f6d7, record 74b63de, local; 27 of 27 both targets, tests 1376, probe 1103064 told; the Excel-form fixture read; open record 1896 pairs, 148 new, no finding; rulings A to I) |
 | P2 | the plot lines and `NewAxis` with `NewDateAxis` on `NewChart`; `--chart-axis-sample`; the `chart-analytic` op of `scripts/openpyxl-ops.py` with its test; the limits; the openpyxl fixture; P1's corpus run rerun byte-identical | DONE 2026-10-21 (phase commit 3736eea, record 65703ee, local; 27 of 27 both targets, P1's run rerun byte-identical, tests 1386, probe 1107076 told; the openpyxl fixture read and compared twelve of twelve; open record 2121 pairs, 225 new, no finding; findings F1 and F2 ruled O and P; rulings J to S) |
 | P3 | the probe's options and its one-piece description; the size record (`charts` against part 2's 125060, `images`, `comments` and the core each judged by ruling N's form); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | DONE 2026-10-21 (phase commit 0707236, record 2c2a376, local; charts 135784, a move of 10724 below the estimate, told; API 815 items, NewSeries loses Eq; P2's runs rerun byte-identical 27 of 27 on four labels, the fixture 6 of 6; open record 2121 pairs, none moved; rulings T to W) |
-| Close | close-out push after P3, carrying 2933e3a, base bcc53a5 by its subject, `PREV` `^M6 part 2 close-out record`, no Excel-record check | PLANNED |
+| Close | close-out push after P3, carrying 2933e3a, base bcc53a5 by its subject, `PREV` `^M6 part 2 close-out record`, no Excel-record check | DONE 2026-10-21 (doc 69f4c89 pushed, origin/main bcc53a5..69f4c89, 19 commits; CI run 39613840305 success; record 5d1c302 local, goes with the next push; finding C1 ruled X) |
 
-### Part 4: chart text and in-place edits (PLANNED)
+### Part 4: chart text and in-place edits (`specs/0041-chart-text-and-edits.md`, APPROVED 2026-10-21, decisions 1 to 4 A; IN PROGRESS from 2026-10-21)
 
-Text properties (`txPr`) of titles and labels; the chart's `style`
-element and the style and colours parts for a written chart; changing
-a kept chart's title or series in place instead of remove-and-add.
+Text properties (`NewText`: size, bold, italic, colour, typeface) on
+a written chart's title, axis titles, axis labels, data labels and
+legend; the chart's `style` value (no style or colour parts,
+decision 2 A); a kept chart's title and one series' references
+changed in place (`set_chart_title`, `set_chart_series`), every other
+byte kept; the reader unchanged. Estimate 12000 to 20500 under
+`charts`, a finding above 25000.
+
+| Phase | Scope | Status |
+|---|---|---|
+| P1 | `NewText` on `NewChart` and `NewLabels`, the rules and forms; `--chart-text-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | PLANNED |
+| P2 | `style`; `ChartSeriesEdit`, `set_chart_title`, `set_chart_series` and the in-place walk; `--chart-edit-sample`; the `chart-text` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | PLANNED |
+| P3 | the probe's text, style and edit; the size record (`charts` against part 3's 135784, `images`, `comments` and the core each judged); the API record with the added-by fix (`specs/0040` ruling V); the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | PLANNED |
+| Close | close-out push after P3, carrying 5d1c302, base 69f4c89 by its subject, `PREV` `^M6 part 3 close-out record`, the pre driver passing HEAD (`specs/0040` ruling X), no Excel-record check | PLANNED |
 
 ### Part 5: gradient fills and named styles (PLANNED)
 

@@ -913,6 +913,46 @@ given at the close-out briefing and the maintainer's authorisation typed
 in the implementing session; this working spec and ROADMAP.md go into
 the close-out doc commit as planning leaves them, by hash.
 
+## Planning verification of the close-out (2026-10-21)
+
+Verified from primaries: the close-out doc commit 69f4c89 (parent
+2c2a376, blobs 3d7abf81 and cf6123c4, a message amended from dacea3a
+with no tree difference, accepted as a local rewrite before the report);
+the push of bcc53a5..69f4c89, 19 commits, on the maintainer's "push"
+typed in the implementing session on 2026-10-21 and planning's word
+(ruling X), origin/main and HEAD both 69f4c89 by git here; the record
+commit 5d1c302 (parent 69f4c89, local, goes with part 4's push) holding
+records/logs/m6p3-close/push.log 11dceba5, ci-run.log 8f6d5d47 and
+scan.log 5741cc00 only; push.log ending "pre checks all as expected:
+yes" then "push checks all as expected: yes"; ci-run.log: run
+39613840305 on 69f4c89, workflow ci, branch main, event push, completed,
+success, "ci-run log checks all as expected: yes"; scan.log "RESULT:
+PASS", structural checks failed 0; the report 91600086 with check 1's
+125 lines verbatim (YES, YES, PARTLY, its points taken in: the session's
+statements marked, ruling X named as planning's scratch, the pre
+driver's inherited stderr form noted, the check run after the push where
+part 2's ran on the pre material); the tree clean. Privacy over
+69f4c89..5d1c302: 1 commit, 2119 blobs, 0 findings, PASS. The close-out
+is DONE; Milestone 6 part 3 is DONE and PUSHED.
+
+X. Finding C1 (pre mode, try 1): the driver run-pre.sh gave
+m6p3close-push.sh pre the base bcc53a5 where its usage asks for the
+phase commit; the log's only refusals are "the phase commit given to
+this script is HEAD: no" and "HEAD is still the phase commit after the
+gate: no" (push.log 459d2262, scan-pre.log 941fcf3b, both PASS on the
+rest: the gate's nine, the tree clean, 19 commits, identity 19 of 19,
+the part 2 record once, stderr 0). The driver, not the generated scripts
+(gen.py b508e107, push 0e715759, ci 83bc3abe, scan 1448dd65), is at
+fault. Fix accepted as named: run-pre.sh's pre argument becomes "$(git
+rev-parse HEAD)", part 2's form; the scripts unchanged; pre mode and the
+pre scan rerun; try 1 kept under superseded/pre-try1; the report names
+C1; the record commit holds the three logs only, as the spec says and
+part 2's does (no README), this ruling carrying C1 into the spec. The
+rerun: push.log 74dc9468 "pre checks all as expected: yes", 19 commits,
+blob scan 0 findings; scan-pre.log c660db7d PASS; HEAD 69f4c89, the tree
+clean. Planning's word for the push of bcc53a5..69f4c89 given 2026-10-21
+on that result.
+
 ## Decisions for the maintainer
 
 1. Which kinds take a trendline and error bars: A (recommended), the
