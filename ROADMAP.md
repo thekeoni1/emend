@@ -1184,7 +1184,7 @@ byte kept; the reader unchanged. Estimate 12000 to 20500 under
 
 | Phase | Scope | Status |
 |---|---|---|
-| P1 | `NewText` on `NewChart` and `NewLabels`, the rules and forms; `--chart-text-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | PLANNED |
+| P1 | `NewText` on `NewChart` and `NewLabels`, the rules and forms; `--chart-text-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | DONE 2026-10-21 (phase commit f838d65, record 1156042, local; 27 of 27 both targets, tests 1396, probe 1112212 told; the Excel-form fixture read, its style parts kept byte for byte; open record 2173 pairs, 52 new, no finding; findings S1 and S2 ruled C and D; rulings A to D) |
 | P2 | `style`; `ChartSeriesEdit`, `set_chart_title`, `set_chart_series` and the in-place walk; `--chart-edit-sample`; the `chart-text` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | PLANNED |
 | P3 | the probe's text, style and edit; the size record (`charts` against part 3's 135784, `images`, `comments` and the core each judged); the API record with the added-by fix (`specs/0040` ruling V); the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | PLANNED |
 | Close | close-out push after P3, carrying 5d1c302, base 69f4c89 by its subject, `PREV` `^M6 part 3 close-out record`, the pre driver passing HEAD (`specs/0040` ruling X), no Excel-record check | PLANNED |

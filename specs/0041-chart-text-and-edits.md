@@ -401,6 +401,119 @@ close-out record commit and this part's commits, on planning's word
 and the maintainer's authorisation typed in the implementing session.
 The hashes are filled in at the briefing.
 
+## Planning rulings during P1 (2026-10-21)
+
+A. Four readings of the implementing session, ruled. (a) Check order: in
+add_chart, after the axis options (specs/0040 ruling K) and before the
+combined plot's rules, the chart's four text fields in declaration order
+(title_text, axis_title_text, axis_label_text, legend_text), each its
+applicability first (title_text with no title, axis text on a round kind
+or with no axis title, legend_text with no legend: the option-kind
+message), then its NewText fields in declaration order; a series'
+NewLabels::text in the series options after its error bars, so a
+combined plot's series take theirs with that plot's. (b) A colour above
+0xFFFFFF is refused with "a chart option does not apply to its kind", as
+a series', a marker's and a point's colour is; "a chart value is out of
+its range" covers size, font and style alone, as "Errors" says. (c) The
+font is checked by valid() with the limit 31: 1 to 31 BYTES, no
+character below U+0020, U+FFFE or U+FFFF (the writer's rule for every
+title and name; "Types"' "characters" is read as that unit), refused
+with the range message, escaped as an attribute. (d) A title or axis
+title whose NewText is given always writes both forms: a:pPr with the
+defRPr and the run's a:rPr carrying the same attributes and children, no
+lang; NewText::default() writes an empty defRPr and an empty rPr;
+without a NewText the title keeps today's form, no pPr and no rPr.
+axis_label_text goes on the primary category and value axes, a scatter's
+and a bubble's two value axes included, never on a series axis or the
+combined plot's secondary pair ("the secondary axis takes no text" is
+the pair).
+
+B. "Harness runs" is corrected on the fixtures' style reading. The
+reader takes a root mc:AlternateContent's style from its first Choice,
+c14:style, never the Fallback (specs/0034 ruling R), so Chart::style on
+the Excel-form fixture is Some(102); and --charts-sample prints no style
+value, only styles, the count of charts whose style is Some. So:
+--charts-sample on the Excel-form fixture reads count 1, series 1,
+styles 1 (not "style 2"); the run log's own ElementTree check of the
+kept part, before and after the text sample, confirms the
+mc:AlternateContent holds c14:style 102 with the fallback c:style 2, and
+the kept part and both style parts byte for byte; no claim of the value
+goes through the reader. The fixture keeps the corpus's form (c14:style
+102, the fallback 2). Likewise in P2, --charts-sample on the openpyxl
+fixture reads count 1, styles 1, the run log's own check reading the
+plain c:style val 26. The dev figures told (keep 2173 pairs, 52 new from
+ten new tests, none changed; chart_write.rs tests 97 to 104,
+null_rewrite.rs 150 to 153, two base tests edited by the one line text:
+None) are judged at the report.
+
+C. Finding S1 (the final scan, try 1, final.log 41b50740: total hits 1,
+form f_p6, RESULT: FAIL, structural 0): check 1's answer quotes the
+absolute path of a file it wrote in the implementing session's
+scratchpad, a path holding the session id, which P6 catches; nothing
+else in it hits. Ruled: the committed independent-check-1.md holds the
+answer with that ONE path replaced by "<scratch>/spec41.md" (the logs'
+placeholder rule), a named scrub that alters no judgment; the original
+stays outside the tree, its sha256 f067043e stated with the scrubbed
+file's in the README and the report; the final scan reruns as a named
+rerun, try 1 kept under superseded/scan-final-try1. No check 2. Carried
+as a rule: the check's brief says to name no absolute path (the
+placeholders <repo>, <scratch>, <home>, <phase>), and a check answer is
+scanned by the P6 form as the logs are. The check's 1a (title_text's doc
+cites a section "The call" that does not exist; it is "Types") and 1b
+(add_chart's Errors prose places the labels' text as if in order) are
+comment slips carried to P2's first code commit, as specs/0040 ruling Q
+was carried; 1c is answered (plot_applies refuses an axis title on a
+round kind before any text check).
+
+D. Finding S2 (the final scan, try 2, final.log 5a7c9251: total hits 0,
+structural checks failed 1, RESULT: FAIL): the invocation gave
+RERUN_FILES the live script beside the superseded try-1 log, and change
+AP requires every named file under <phase>/superseded. Ruling C's scrub
+is confirmed by try 2 (hits 0; independent-check-1.md dd38d6ad,
+differing from the original f067043e on its line 77 alone). Fix accepted
+as named (S2-a): RERUN_FILES names the two superseded final.logs (try 1,
+try 2) alone, RERUN_NOTE names both attempts and their causes, the
+scripts unchanged; try 2 kept under superseded/scan-final-try2; the
+third run is the scan. Ruling F's check is met by the logs alone (each
+prints the script byte for byte); the live script is never a rerun file.
+
+## Planning verification of P1 (2026-10-21)
+
+Verified from primaries: the chain 5d1c302, 245831d (doc, its three
+blobs at the hashes planning left), 4d2cdc3 (core), f838d65 (tool, the
+phase commit), 1156042 (record, 11 files), all local, the tree clean but
+for this working spec, origin/main still 69f4c89; the eleven files at
+the report's hashes (gate be22c684, test 6ddf72ed, negative 0e0f0940,
+run 48522aa8, scan 05ad73ed, README d13570b3, the check dd38d6ad; the
+charttext records 490575fe and b0ea3721, the open records 5a7de6d8 and
+9536cbcd; the report 68546236); the four logs ending "checks all as
+expected: yes"; the scan (try 3) "RESULT: PASS", total hits 0,
+structural 0, its RERUN_FILES the two superseded final.logs alone and
+its RERUN_NOTE naming both attempts (rulings C and D); the run log
+taking this working spec at 8a0dc59a (rulings A and B), the scan at
+bc81842f (A to D). The run log: 27 of 27 ok on both targets, lo ok 27
+and lo_in ok 27, the host and i686 outputs byte for byte the same, 27;
+the Excel-form fixture: --charts-sample reads charts 1, series 1, styles
+1 (ruling B), --chart-text-sample charts_before 1, charts_after 4,
+series 4, rows 6, texts 6, styles 0, read_back 3, the outputs the same
+on both targets; the kept chart part, its rels and both style parts byte
+for byte the fixture's, the first Choice c14:style 102 and the Fallback
+c:style 2, each txPr in its place by the schema's sequence; the keep
+2173 pairs, 52 new, exactly this phase's tests' and all ok and ok, none
+of the 2121 moved. The test log: 1396 on both targets, the feature sets
+515, 673, 715, 718, 776 and 1155. The gate: the charts probe 1112212
+section bytes, +4252 over part 3's 1107960, told and judged nowhere
+here; part 3's four target roots pruned after du -sb. The negative log:
+14 cases refused, N1 to N14. The independent check's 77 lines verbatim
+in the report (its line 77 the scrubbed one, ruling C), yes on all three
+questions; 1a and 1b carried to P2's first code commit (the "The call"
+citation is at chart_write.rs line 138 at f838d65); 1c answered. The
+README and the report state the scrub, both hashes, S1, S2 and the gate
+fork's scratchpad doc builds (a departure from its brief, touching
+neither the phase target nor the repository). Privacy: 4 commits, 2139
+blobs, 0 findings, PASS. The phase's two independent checks: check 1 and
+planning's privacy scan. P1 is DONE.
+
 ## Decisions for the maintainer
 
 1. The title's text form. A (recommended): the properties in the rich
