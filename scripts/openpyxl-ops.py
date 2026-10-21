@@ -68,6 +68,14 @@ The ops and every constant they write:
                its y axis of logBase ANALYTIC_LOG_BASE 10, added at (M+18, A)
                (specs/0040-analytic-chart-elements.md, "Harness runs": the
                openpyxl fixture of --charts-sample and --chart-axis-sample).
+  chart-text   a BarChart, one series over B2:B(M+1), categories A2:A(M+1),
+               its style TEXT_STYLE 26, its title TEXT_TITLE "emend text",
+               its x axis's txPr of sz TEXT_AXIS_SIZE 1400 bold with the latin
+               typeface TEXT_FONT "Arial", and data labels showing the values
+               with a txPr of sz TEXT_LABEL_SIZE 900, added at (M+2, A)
+               (specs/0041-chart-text-and-edits.md, "Harness runs": the
+               openpyxl fixture of --charts-sample, --chart-text-sample and
+               --chart-edit-sample).
 
 What it prints, on standard output: for read, the line "cells=<n>"; for an
 exception, one line holding the exception's class name only, never its
@@ -91,7 +99,7 @@ import sys
 
 OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
        "comment", "image", "add-chart", "copy", "chartsheet", "chart-format",
-       "chart-analytic")
+       "chart-analytic", "chart-text")
 
 EDIT_NUMBER = 42.5
 EDIT_TEXT = "emend compare"
@@ -126,6 +134,11 @@ ANALYTIC_TIME_UNIT = "days"
 ANALYTIC_DATE_MAJOR = 2
 ANALYTIC_LOG_BASE = 10
 ANALYTIC_DATE_FIRST = 45292
+TEXT_STYLE = 26
+TEXT_TITLE = "emend text"
+TEXT_AXIS_SIZE = 1400
+TEXT_FONT = "Arial"
+TEXT_LABEL_SIZE = 900
 # A 2 by 2 RGB PNG, 73 bytes: red and blue on each row.
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000002000000020802000000fdd49a73"
@@ -140,10 +153,13 @@ def run(op, source, target):
     from openpyxl.chart import BarChart, LineChart, PieChart, Reference
     from openpyxl.chart.axis import ChartLines, DateAxis
     from openpyxl.chart.error_bar import ErrorBars
+    from openpyxl.chart.label import DataLabelList
+    from openpyxl.chart.text import RichText
     from openpyxl.chart.trendline import Trendline
     from openpyxl.chart.marker import DataPoint, Marker
     from openpyxl.chart.shapes import GraphicalProperties
     from openpyxl.drawing.line import LineProperties
+    from openpyxl.drawing.text import CharacterProperties, Font, Paragraph, ParagraphProperties
     from openpyxl.comments import Comment
     from openpyxl.drawing.image import Image
     from openpyxl.utils import quote_sheetname
@@ -241,6 +257,20 @@ def run(op, source, target):
         dated.x_axis.majorTimeUnit = ANALYTIC_TIME_UNIT
         dated.y_axis.scaling.logBase = ANALYTIC_LOG_BASE
         ws.add_chart(dated, "A%d" % (m + 18))
+    elif op == "chart-text":
+        def text_properties(properties):
+            return RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=properties),
+                                         endParaRPr=CharacterProperties())])
+        chart = BarChart()
+        chart.add_data(Reference(ws, min_col=2, min_row=2, max_row=m + 1), titles_from_data=False)
+        chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=m + 1))
+        chart.style = TEXT_STYLE
+        chart.title = TEXT_TITLE
+        chart.x_axis.txPr = text_properties(
+            CharacterProperties(sz=TEXT_AXIS_SIZE, b=True, latin=Font(typeface=TEXT_FONT)))
+        chart.dataLabels = DataLabelList(showVal=True)
+        chart.dataLabels.txPr = text_properties(CharacterProperties(sz=TEXT_LABEL_SIZE))
+        ws.add_chart(chart, "A%d" % (m + 2))
     wb.save(target)
     return openpyxl.__version__
 

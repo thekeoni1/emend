@@ -3,7 +3,8 @@
 # and "Planning rulings during P1", ruling F; the chartsheet op,
 # specs/0038-chartsheets.md P2; the chart-format op,
 # specs/0039-chart-kinds-and-formatting.md P2; the chart-analytic op,
-# specs/0040-analytic-chart-elements.md P2).
+# specs/0040-analytic-chart-elements.md P2; the chart-text op,
+# specs/0041-chart-text-and-edits.md P2).
 #
 # usage: scripts/openpyxl-ops-test.sh <image>
 #
@@ -34,7 +35,7 @@ IMAGE=$1
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || exit 2
 FIXTURE=$ROOT/tests/fixtures/openpyxl-ops.xlsx
 readonly FIXTURE_SHA=12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd
-readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format chart-analytic"
+readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format chart-analytic chart-text"
 
 failed=0
 check() {
@@ -182,6 +183,21 @@ checks.append(("chart-analytic: two chart parts, a line chart over B2:B101 with 
                and "lineChart" in dated and "dateAx" in dated and "$Y$2:$Y$101" in dated
                and re.search(C + r'baseTimeUnit val="days"/>' + C + r'majorUnit val="2"/>' + C + r'majorTimeUnit val="days"/>', dated) is not None
                and re.search(C + r'logBase val="10"/>', dated) is not None))
+p, names = parts("chart-text")
+charts = [v for n, v in p.items() if re.match(r"xl/charts/chart\d+\.xml$", n)]
+bar = charts[0] if len(charts) == 1 else ""
+# The category axis's and the labels' own elements, whatever their prefix.
+category = re.search(C + r'catAx>(.*?)</(?:c:)?catAx>', bar, re.S)
+labels = re.search(C + r'dLbls>(.*?)</(?:c:)?dLbls>', bar, re.S)
+checks.append(("chart-text: one chart part, a bar chart over B2:B101 with style 26, the title emend text, its category axis's txPr of sz 1400 bold with the latin typeface Arial, and labels showing the values with a txPr of sz 900",
+               len(charts) == 1 and "barChart" in bar and "$B$2:$B$101" in bar
+               and re.search(C + r'style val="26"/>', bar) is not None
+               and re.search(C + r'title>.*' + A % "t" + r'>emend text</a:t>', bar, re.S) is not None
+               and category is not None
+               and re.search(C + r'txPr>.*' + A % "defRPr" + r' sz="1400" b="1">' + A % "latin" + r' typeface="Arial"/>', category.group(1), re.S) is not None
+               and labels is not None
+               and re.search(C + r'txPr>.*' + A % "defRPr" + r' sz="900"/>', labels.group(1), re.S) is not None
+               and re.search(C + r'showVal val="1"/>', labels.group(1)) is not None))
 for what, ok in checks:
     print("%s\t%s" % ("yes" if ok else "no", what))
 PY
@@ -190,7 +206,7 @@ check "$(yn [ "$py_rc" -eq 0 ])" "the parts reader exits 0"
 while IFS=$'\t' read -r verdict what; do
   check "$verdict" "$what"
 done <"$WORK/parts.txt"
-check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 15 ])" "the parts reader made its 15 checks"
+check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 16 ])" "the parts reader made its 16 checks"
 
 # An op the script does not know.
 podman run --rm --network=none --userns=keep-id -v "$ROOT/scripts/openpyxl-ops.py":/ops.py:ro "$IMAGE" \
