@@ -86,6 +86,9 @@ const REFERENCE_LIMIT: usize = 8_192;
 /// The widest line, in EMU (`specs/0039-chart-kinds-and-formatting.md`,
 /// "Applicability").
 const LINE_WIDTH_LIMIT: u32 = 20_116_800;
+/// The longest typeface, in bytes (`specs/0041-chart-text-and-edits.md`,
+/// ruling A).
+const FONT_LIMIT: usize = 31;
 
 /// A chart as a caller gives it to [`Package::add_chart`]
 /// (`specs/0035-charts-write-first-set.md`, "The call"). The Cargo feature
@@ -131,6 +134,17 @@ pub struct NewChart<'a> {
     /// The value axis's options, or a scatter's or a bubble's y axis's; a
     /// pie, a 3D pie, a doughnut and an of-pie take none.
     pub value_axis: Option<NewAxis>,
+    /// The title's text properties (`specs/0041-chart-text-and-edits.md`,
+    /// "The call"); taken where `title` is given.
+    pub title_text: Option<NewText<'a>>,
+    /// Both axis titles' text properties; taken where an axis title is
+    /// given.
+    pub axis_title_text: Option<NewText<'a>>,
+    /// Both axes' tick labels' text properties; a pie, a 3D pie, a doughnut
+    /// and an of-pie take none.
+    pub axis_label_text: Option<NewText<'a>>,
+    /// The legend's text properties; taken where `legend` is given.
+    pub legend_text: Option<NewText<'a>>,
 }
 
 /// An axis's options (`specs/0040-analytic-chart-elements.md`, "The
@@ -588,6 +602,26 @@ pub struct NewLabels<'a> {
     pub position: Option<LabelPosition>,
     /// The labels' number format code.
     pub number_format: Option<&'a str>,
+    /// The labels' text properties (`specs/0041-chart-text-and-edits.md`).
+    pub text: Option<NewText<'a>>,
+}
+
+/// A chart text's properties, written as a `defRPr` (and on a title's run
+/// an `rPr` of the same attributes and children:
+/// `specs/0041-chart-text-and-edits.md`, decision 1 A). `Default` is every
+/// field off, an empty `defRPr`. The Cargo feature `charts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct NewText<'a> {
+    /// The size in hundredths of a point (1400 is 14 pt), 100 to 40000.
+    pub size: Option<u16>,
+    /// Whether the text is bold.
+    pub bold: bool,
+    /// Whether the text is italic.
+    pub italic: bool,
+    /// The colour as an RGB value, at most `0xFFFFFF`, written `srgbClr`.
+    pub color: Option<u32>,
+    /// The `latin` typeface, 1 to 31 bytes.
+    pub font: Option<&'a str>,
 }
 
 /// Where a series' data labels sit, `dLblPos`; each plot takes some
@@ -679,6 +713,18 @@ struct LabelsWork {
     flags: [bool; 4],
     position: Option<LabelPosition>,
     format: Option<String>,
+    text: Option<TextWork>,
+}
+
+/// A chart text's properties as the call checked them, the typeface
+/// escaped as an attribute.
+#[derive(Clone)]
+struct TextWork {
+    size: Option<u16>,
+    bold: bool,
+    italic: bool,
+    color: Option<u32>,
+    font: Option<String>,
 }
 
 /// A series' name as the call checked it.
@@ -704,6 +750,10 @@ pub(super) struct ChartWork {
     lines: PlotLines,
     category_axis: Option<NewAxis>,
     value_axis: Option<NewAxis>,
+    title_text: Option<TextWork>,
+    axis_title_text: Option<TextWork>,
+    axis_label_text: Option<TextWork>,
+    legend_text: Option<TextWork>,
     pub(super) cx: u64,
     pub(super) cy: u64,
 }
@@ -808,7 +858,19 @@ impl<R: Read + Seek> Package<R> {
     /// category axis, each before its range, "a chart value is out of its
     /// range" for a bound that is not finite, a minimum not below the
     /// maximum, a base outside 2 to 1000, a unit that is not finite or not
-    /// positive, a skip of 0, and last a date unit's count of 0; then "a
+    /// positive, a skip of 0, and last a date unit's count of 0; then the
+    /// title's, the axis titles', the axis labels' and the legend's text
+    /// properties in that order (`specs/0041-chart-text-and-edits.md`,
+    /// "Applicability", ruling A), "a chart option does not apply to its
+    /// kind" for the title's without a title, the axis titles' without an
+    /// axis title, the axis labels' on a pie, a 3D pie, a doughnut or an
+    /// of-pie and the legend's without a legend, then field by field "a
+    /// chart value is out of its range" for a size outside 100 to 40000, "a
+    /// chart option does not apply to its kind" for a colour above
+    /// `0xFFFFFF` and "a chart value is out of its range" for a typeface
+    /// that is empty, holds a character below U+0020, U+FFFE or U+FFFF, or
+    /// is longer than 31 bytes; each series' labels' text properties are
+    /// checked the same way after its error bars; then "a
     /// chart option does not apply to its kind" for a combined plot a first
     /// plot other than a bar, line or area, a second other than a bar,
     /// line, area or scatter or of the first's variant, a second with no
@@ -1018,6 +1080,27 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
         let lines = plot_lines(chart)?;
         axis_options(chart.plot, chart.category_axis, true)?;
         axis_options(chart.plot, chart.value_axis, false)?;
+        // The four chart texts in declaration order, each where it applies
+        // before its fields (`specs/0041-chart-text-and-edits.md`, ruling
+        // A): the title's with a title, the axis titles' with one of them,
+        // the axis labels' where the plot writes axes, the legend's with a
+        // legend.
+        let round = matches!(
+            chart.plot,
+            NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. }
+        );
+        let chart_text = |given: Option<NewText<'_>>, applies: bool| match given {
+            Some(_) if !applies => Err(CHART_OPTION_KIND),
+            Some(given) => text_options(given).map(Some),
+            None => Ok(None),
+        };
+        let title_text = chart_text(chart.title_text, chart.title.is_some())?;
+        let axis_title_text = chart_text(
+            chart.axis_title_text,
+            chart.category_axis_title.is_some() || chart.value_axis_title.is_some(),
+        )?;
+        let axis_label_text = chart_text(chart.axis_label_text, !round)?;
+        let legend_text = chart_text(chart.legend_text, chart.legend.is_some())?;
         if let Some(combined) = &chart.combined {
             // The first plot a bar, line or area (no 3D plot combines: P2
             // ruling G; a scatter's x axis cannot share a category axis: P2
@@ -1084,6 +1167,10 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
             lines,
             category_axis: chart.category_axis,
             value_axis: chart.value_axis,
+            title_text,
+            axis_title_text,
+            axis_label_text,
+            legend_text,
             cx,
             cy,
         })
@@ -1251,8 +1338,44 @@ fn series_options(plot: NewPlot, series: &[NewSeries<'_>]) -> Result<(), Error> 
             trendline_options(plot, trendline)?;
         }
         error_bars_options(plot, one.error_bars)?;
+        // The labels' text after the error bars (`specs/0041-chart-text-
+        // and-edits.md`, ruling A); the labels themselves `plot_applies`
+        // judged.
+        if let Some(given) = one.labels.and_then(|labels| labels.text) {
+            text_options(given)?;
+        }
     }
     Ok(())
+}
+
+/// A chart text's properties checked in field order (`specs/0041-chart-
+/// text-and-edits.md`, "Applicability", ruling A): a size outside 100 to
+/// 40000, "a chart value is out of its range"; a colour above `0xFFFFFF`,
+/// "a chart option does not apply to its kind"; a typeface that is empty,
+/// holds a character below U+0020, U+FFFE or U+FFFF, or is longer than 31
+/// bytes, "a chart value is out of its range".
+fn text_options(given: NewText<'_>) -> Result<TextWork, Error> {
+    if given
+        .size
+        .is_some_and(|size| !(100..=40_000).contains(&size))
+    {
+        return Err(CHART_VALUE_RANGE);
+    }
+    if given.color.is_some_and(|color| color > 0xFF_FFFF) {
+        return Err(CHART_OPTION_KIND);
+    }
+    let font = match given.font {
+        Some(font) if !valid(font, FONT_LIMIT) => return Err(CHART_VALUE_RANGE),
+        Some(font) => Some(escape(font).into_owned()),
+        None => None,
+    };
+    Ok(TextWork {
+        size: given.size,
+        bold: given.bold,
+        italic: given.italic,
+        color: given.color,
+        font,
+    })
 }
 
 /// The first plot's drop lines, high-low lines and up-down bars
@@ -1496,6 +1619,7 @@ fn series_work(series: &[NewSeries<'_>]) -> Result<Vec<SeriesWork>, Error> {
                     ],
                     position: labels.position,
                     format: labels.number_format.map(text).transpose()?,
+                    text: labels.text.map(text_options).transpose()?,
                 }),
             },
             marker: one.marker,
@@ -1602,7 +1726,7 @@ impl ChartWork {
         out.extend_from_slice(DRAWINGML[s]);
         out.extend_from_slice(b"\"><c:roundedCorners val=\"0\"/><c:chart>");
         if let Some(title) = &self.title {
-            title_bytes(&mut out, title);
+            title_bytes(&mut out, title, self.title_text.as_ref());
         }
         value_element(
             &mut out,
@@ -1670,7 +1794,11 @@ impl ChartWork {
                     LegendPosition::TopRight => b"tr",
                 },
             );
-            out.extend_from_slice(b"<c:overlay val=\"0\"/></c:legend>");
+            out.extend_from_slice(b"<c:overlay val=\"0\"/>");
+            if let Some(properties) = &self.legend_text {
+                text_bytes(&mut out, properties);
+            }
+            out.extend_from_slice(b"</c:legend>");
         }
         out.extend_from_slice(
             b"<c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/></c:chart></c:chartSpace>",
@@ -1690,10 +1818,20 @@ impl ChartWork {
         let y_format = self.value_axis_format.as_deref();
         let primary = Axis {
             title: &None,
+            title_text: None,
+            label_text: None,
             format: None,
             deleted: false,
             crosses: b"autoZero",
             options: None,
+        };
+        // The primary pair's text properties (`specs/0041-chart-text-and-
+        // edits.md`, ruling A): never the series axis's or the secondary
+        // pair's.
+        let texts = Axis {
+            title_text: self.axis_title_text.as_ref(),
+            label_text: self.axis_label_text.as_ref(),
+            ..primary
         };
         match self.plot {
             NewPlot::Pie | NewPlot::Pie3D | NewPlot::Doughnut { .. } | NewPlot::OfPie { .. } => {}
@@ -1701,13 +1839,13 @@ impl ChartWork {
                 let x_axis = Axis {
                     title: x,
                     options: self.category_axis,
-                    ..primary
+                    ..texts
                 };
                 let y_axis = Axis {
                     title: y,
                     format: y_format,
                     options: self.value_axis,
-                    ..primary
+                    ..texts
                 };
                 axis_bytes(
                     out,
@@ -1745,13 +1883,13 @@ impl ChartWork {
                     title: x,
                     format: x_format,
                     options: self.category_axis,
-                    ..primary
+                    ..texts
                 };
                 let y_axis = Axis {
                     title: y,
                     format: y_format,
                     options: self.value_axis,
-                    ..primary
+                    ..texts
                 };
                 // A date axis in the category axis's place (`specs/0040-
                 // analytic-chart-elements.md`, "The chart part").
@@ -1784,6 +1922,8 @@ impl ChartWork {
             };
             let shown = Axis {
                 title: &combined.title,
+                title_text: None,
+                label_text: None,
                 format: combined.format.as_deref(),
                 deleted: false,
                 crosses: b"max",
@@ -2265,11 +2405,15 @@ fn flag(value: bool) -> &'static [u8] {
     if value { b"1" } else { b"0" }
 }
 
-/// A series' `dLbls`: the format, the position, then what a label shows.
+/// A series' `dLbls`: the format, the text properties, the position, then
+/// what a label shows.
 fn labels_bytes(out: &mut Vec<u8>, labels: &LabelsWork) {
     out.extend_from_slice(b"<c:dLbls>");
     if let Some(format) = &labels.format {
         number_format(out, format);
+    }
+    if let Some(properties) = &labels.text {
+        text_bytes(out, properties);
     }
     if let Some(position) = labels.position {
         value_element(
@@ -2313,11 +2457,64 @@ fn grouping_value(grouping: Grouping) -> &'static [u8] {
     }
 }
 
-/// A chart or axis title, its escaped text one run of one paragraph.
-fn title_bytes(out: &mut Vec<u8>, text: &str) {
-    out.extend_from_slice(b"<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>");
+/// A chart or axis title, its escaped text one run of one paragraph; with
+/// text properties, the paragraph's `pPr` `defRPr` and the run's `rPr` of
+/// the same attributes and children (`specs/0041-chart-text-and-edits.md`,
+/// decision 1 A, ruling A).
+fn title_bytes(out: &mut Vec<u8>, text: &str, properties: Option<&TextWork>) {
+    out.extend_from_slice(b"<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p>");
+    if let Some(properties) = properties {
+        out.extend_from_slice(b"<a:pPr>");
+        run_properties(out, b"defRPr", properties);
+        out.extend_from_slice(b"</a:pPr><a:r>");
+        run_properties(out, b"rPr", properties);
+    } else {
+        out.extend_from_slice(b"<a:r>");
+    }
+    out.extend_from_slice(b"<a:t>");
     out.extend_from_slice(text.as_bytes());
     out.extend_from_slice(b"</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title>");
+}
+
+/// A `txPr` of `properties`: one paragraph whose `pPr` holds the `defRPr`,
+/// then an `endParaRPr` (`specs/0041-chart-text-and-edits.md`, "The chart
+/// part").
+fn text_bytes(out: &mut Vec<u8>, properties: &TextWork) {
+    out.extend_from_slice(b"<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>");
+    run_properties(out, b"defRPr", properties);
+    out.extend_from_slice(b"</a:pPr><a:endParaRPr lang=\"en-US\"/></a:p></c:txPr>");
+}
+
+/// An `a:defRPr` or `a:rPr` (`name`): `sz`, `b` and `i` where given, then
+/// the `solidFill` and the `latin` typeface; empty where none is.
+fn run_properties(out: &mut Vec<u8>, name: &[u8], properties: &TextWork) {
+    out.extend_from_slice(b"<a:");
+    out.extend_from_slice(name);
+    if let Some(size) = properties.size {
+        out.extend_from_slice(format!(" sz=\"{size}\"").as_bytes());
+    }
+    if properties.bold {
+        out.extend_from_slice(b" b=\"1\"");
+    }
+    if properties.italic {
+        out.extend_from_slice(b" i=\"1\"");
+    }
+    if properties.color.is_none() && properties.font.is_none() {
+        out.extend_from_slice(b"/>");
+        return;
+    }
+    out.push(b'>');
+    if let Some(color) = properties.color {
+        solid_fill(out, color);
+    }
+    if let Some(font) = &properties.font {
+        out.extend_from_slice(b"<a:latin typeface=\"");
+        out.extend_from_slice(font.as_bytes());
+        out.extend_from_slice(b"\"/>");
+    }
+    out.extend_from_slice(b"</a:");
+    out.extend_from_slice(name);
+    out.push(b'>');
 }
 
 /// An element `<c:NAME val="VALUE"/>`.
@@ -2334,12 +2531,15 @@ fn tag(out: &mut Vec<u8>, open: &[u8], name: &[u8]) {
     }
 }
 
-/// An axis's title, number format, deletion, crossing and options: an axis
-/// with no format writes `General`, source linked; the primary axes are
-/// shown and cross at `autoZero`.
+/// An axis's title and its text properties, its tick labels' text
+/// properties, number format, deletion, crossing and options: an axis with
+/// no format writes `General`, source linked; the primary axes are shown and
+/// cross at `autoZero`.
 #[derive(Clone, Copy)]
 struct Axis<'a> {
     title: &'a Option<String>,
+    title_text: Option<&'a TextWork>,
+    label_text: Option<&'a TextWork>,
     format: Option<&'a str>,
     deleted: bool,
     crosses: &'a [u8],
@@ -2403,7 +2603,7 @@ fn axis_bytes(
         out.extend_from_slice(b"<c:majorGridlines/>");
     }
     if let Some(title) = axis.title {
-        title_bytes(out, title);
+        title_bytes(out, title, axis.title_text);
     }
     match (form, axis.format) {
         (Form::Series, _) => {}
@@ -2415,6 +2615,9 @@ fn axis_bytes(
     out.extend_from_slice(
         b"<c:majorTickMark val=\"out\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/>",
     );
+    if let Some(properties) = axis.label_text {
+        text_bytes(out, properties);
+    }
     value_element(out, b"crossAx", cross);
     value_element(out, b"crosses", axis.crosses);
     match form {

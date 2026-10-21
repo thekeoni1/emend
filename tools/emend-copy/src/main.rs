@@ -8038,6 +8038,10 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     };
     let anchor = ImageAnchor::TwoCell {
         from: CellRef {
@@ -8296,6 +8300,10 @@ fn chartsheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     };
     let added = package.add_chartsheet("emend chartsheet", &chart)?;
     write_into(package, output)?;
@@ -8466,6 +8474,10 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
             up_down_bars: false,
             category_axis: None,
             value_axis: None,
+            title_text: None,
+            axis_title_text: None,
+            axis_label_text: None,
+            legend_text: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8586,6 +8598,10 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
             up_down_bars: false,
             category_axis: None,
             value_axis: None,
+            title_text: None,
+            axis_title_text: None,
+            axis_label_text: None,
+            legend_text: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8768,6 +8784,10 @@ fn chart_3d_sample(input: &Path, output: &Path) -> Result<(), Error> {
             up_down_bars: false,
             category_axis: None,
             value_axis: None,
+            title_text: None,
+            axis_title_text: None,
+            axis_label_text: None,
+            legend_text: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -8966,6 +8986,10 @@ fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
             up_down_bars: false,
             category_axis: None,
             value_axis: None,
+            title_text: None,
+            axis_title_text: None,
+            axis_label_text: None,
+            legend_text: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -9193,6 +9217,10 @@ fn chart_format_sample(input: &Path, output: &Path) -> Result<(), Error> {
             up_down_bars: false,
             category_axis: None,
             value_axis: None,
+            title_text: None,
+            axis_title_text: None,
+            axis_label_text: None,
+            legend_text: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -9430,6 +9458,10 @@ fn chart_trend_sample(input: &Path, output: &Path) -> Result<(), Error> {
             up_down_bars: false,
             category_axis: None,
             value_axis: None,
+            title_text: None,
+            axis_title_text: None,
+            axis_label_text: None,
+            legend_text: None,
         };
         // Rows past the grid are the layer's to refuse, with its index message.
         let row = sampled
@@ -9580,6 +9612,10 @@ fn chart_axis_sample(input: &Path, output: &Path) -> Result<(), Error> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     };
     let line = NewChart {
         drop_lines: true,
@@ -9773,6 +9809,7 @@ fn chart_labels_sample(input: &Path, output: &Path) -> Result<(), Error> {
         percent: false,
         position: Some(LabelPosition::OutsideEnd),
         number_format: Some("#,##0"),
+        text: None,
     };
     let over_b = NewSeries {
         name: Some(NewSeriesName::Reference(&b_name)),
@@ -9810,6 +9847,7 @@ fn chart_labels_sample(input: &Path, output: &Path) -> Result<(), Error> {
             percent: true,
             position: Some(LabelPosition::BestFit),
             number_format: None,
+            text: None,
         }),
         ..over_b
     }];
@@ -9833,6 +9871,10 @@ fn chart_labels_sample(input: &Path, output: &Path) -> Result<(), Error> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     };
     let pie = NewChart {
         plot: NewPlot::Pie,
@@ -10068,6 +10110,10 @@ fn remove_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     };
     // Rows past the grid are the layer's to refuse, with its index message.
     let anchor = ImageAnchor::TwoCell {

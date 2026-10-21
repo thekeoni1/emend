@@ -512,6 +512,10 @@ fn read_first_sheet_charts(
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     };
     let anchor = ImageAnchor::TwoCell {
         from: CellRef { row: 3, col: 1 },
@@ -622,6 +626,7 @@ const fn labels(outside: bool) -> NewLabels<'static> {
             None
         },
         number_format: Some("0.0"),
+        text: None,
     }
 }
 
@@ -898,6 +903,10 @@ fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<
         up_down_bars: matches!(kind, NewPlot::Line { .. } | NewPlot::Stock),
         category_axis,
         value_axis: (!round).then_some(VALUE_AXIS),
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     }
 }
 

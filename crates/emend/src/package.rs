@@ -2344,8 +2344,8 @@ pub use chart::{
 pub use chart_write::{
     DashStyle, ErrorBarKind, ErrorDirection, ErrorValue, LabelPosition, MarkerSymbol, NewAxis,
     NewChart, NewCombined, NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot,
-    NewPoint, NewSeries, NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, RadarStyle, TimeUnit,
-    TrendlineKind,
+    NewPoint, NewSeries, NewSeriesName, NewText, NewTrendline, OfPieKind, OfPieSplit, RadarStyle,
+    TimeUnit, TrendlineKind,
 };
 #[cfg(feature = "read")]
 pub use extlink::{ExternalLink, ExternalLinkKind};

@@ -8,7 +8,8 @@
 //! formatting.md`, "P1: the surface and of-pie kinds" and "P2: markers,
 //! lines and points"; `specs/0040-analytic-chart-elements.md`, "P1:
 //! trendlines and error bars" and "P2: plot lines, axis options, the
-//! openpyxl fixture, the catalogue"):
+//! openpyxl fixture, the catalogue"; `specs/0041-chart-text-and-edits.md`,
+//! "P1: text properties", ruling A):
 //! each test builds the smallest package, records `add_chart` calls on its
 //! worksheet, writes, compares the parts the design gives byte for byte
 //! where it names them, and reads every chart written back through
@@ -21,8 +22,8 @@ use crate::package::{
     ChartKind, DashStyle, Data, EditAs, ErrorBarKind, ErrorDirection, ErrorValue, Grouping,
     ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewAxis, NewChart, NewCombined,
     NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint, NewSeries,
-    NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle, Series,
-    SeriesName, TimeUnit, TrendlineKind,
+    NewSeriesName, NewText, NewTrendline, OfPieKind, OfPieSplit, Plot, RadarStyle, ScatterStyle,
+    Series, SeriesName, TimeUnit, TrendlineKind,
 };
 
 /// The drawing and chart parts' content types.
@@ -219,6 +220,10 @@ fn column_chart() -> NewChart<'static> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     }
 }
 
@@ -253,6 +258,10 @@ fn bare(plot: NewPlot) -> NewChart<'static> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     }
 }
 
@@ -1292,6 +1301,10 @@ fn titled<'a>(
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     }
 }
 
@@ -2713,6 +2726,7 @@ fn value_labels(position: Option<LabelPosition>) -> NewLabels<'static> {
         percent: false,
         position,
         number_format: None,
+        text: None,
     }
 }
 
@@ -2940,6 +2954,7 @@ fn a_percentage_on_a_pie_is_written_and_on_a_bar_is_refused() {
         percent: true,
         position: Some(LabelPosition::BestFit),
         number_format: None,
+        text: None,
     };
     let series = labelled(ONE_NAMED, percent);
     let pie = NewChart {
@@ -3001,6 +3016,7 @@ fn a_label_format_is_written_escaped_in_the_label_bytes() {
         percent: false,
         position: Some(LabelPosition::OutsideEnd),
         number_format: Some("#,##0\"<&>\""),
+        text: None,
     };
     let series = labelled(ONE_NAMED, labels);
     let chart = NewChart {
@@ -6636,4 +6652,511 @@ fn the_plot_lines_and_the_axes_follow_the_check_order() {
         ..NO_AXIS
     });
     refused(&axes_chart(LINE, &ONE_NAMED, count_last, None), OPTION);
+}
+
+/// A text of `size` alone (`specs/0041-chart-text-and-edits.md`).
+const fn sized(size: u16) -> NewText<'static> {
+    NewText {
+        size: Some(size),
+        bold: false,
+        italic: false,
+        color: None,
+        font: None,
+    }
+}
+
+/// A `txPr` holding the `defRPr` `run`.
+fn text_written(run: &str) -> String {
+    format!(
+        "<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>{run}</a:pPr><a:endParaRPr \
+         lang=\"en-US\"/></a:p></c:txPr>"
+    )
+}
+
+/// A title's form with `text` and its properties: the `defRPr` `run`, the
+/// run's `rPr` of the same attributes and children (decision 1 A).
+fn title_with(text: &str, run: &str) -> String {
+    let rpr = run
+        .replacen("<a:defRPr", "<a:rPr", 1)
+        .replace("</a:defRPr>", "</a:rPr>");
+    format!(
+        "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr>{run}</a:pPr><a:r>{rpr}\
+         <a:t>{text}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title>"
+    )
+}
+
+#[test]
+fn each_text_property_is_written_in_its_form_and_place() {
+    let series = labelled(
+        ONE_NAMED,
+        NewLabels {
+            number_format: Some("0.0"),
+            text: Some(NewText {
+                color: Some(0x1F_77B4),
+                ..sized(800)
+            }),
+            ..value_labels(Some(LabelPosition::OutsideEnd))
+        },
+    );
+    let chart = NewChart {
+        series: &series,
+        title: Some("Totals"),
+        title_text: Some(NewText {
+            bold: true,
+            ..sized(1400)
+        }),
+        category_axis_title: Some("Month"),
+        value_axis_title: Some("Sum"),
+        axis_title_text: Some(NewText {
+            italic: true,
+            ..sized(1000)
+        }),
+        axis_label_text: Some(sized(900)),
+        legend: Some(LegendPosition::Right),
+        legend_text: Some(NewText {
+            font: Some("Arial"),
+            ..sized(900)
+        }),
+        ..bare(COLUMN)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    // The title's properties in the paragraph's `defRPr` and the run's
+    // `rPr`; then `autoTitleDeleted`.
+    let chart_title = title_with("Totals", "<a:defRPr sz=\"1400\" b=\"1\"/>");
+    assert!(
+        part.contains(&format!(
+            "<c:chart>{chart_title}<c:autoTitleDeleted val=\"0\"/>"
+        )),
+        "{part}"
+    );
+    // Each axis title italic in 10 pt; each axis's tick labels in 9 pt after
+    // `tickLblPos`, before `crossAx`.
+    let axis_run = "<a:defRPr sz=\"1000\" i=\"1\"/>";
+    let labels = text_written("<a:defRPr sz=\"900\"/>");
+    for (name, axis_title) in [("catAx", "Month"), ("valAx", "Sum")] {
+        let start = part.find(&format!("<c:{name}>")).expect("axis");
+        let end = part.find(&format!("</c:{name}>")).expect("axis end");
+        let axis = &part[start..end];
+        assert!(axis.contains(&title_with(axis_title, axis_run)), "{axis}");
+        assert!(
+            axis.contains(&format!(
+                "<c:tickLblPos val=\"nextTo\"/>{labels}<c:crossAx val="
+            )),
+            "{axis}"
+        );
+    }
+    // The legend's after `overlay`, its `latin` typeface a child.
+    let legend = text_written("<a:defRPr sz=\"900\"><a:latin typeface=\"Arial\"/></a:defRPr>");
+    assert!(
+        part.contains(&format!(
+            "<c:legend><c:legendPos val=\"r\"/><c:overlay val=\"0\"/>{legend}</c:legend>"
+        )),
+        "{part}"
+    );
+    // The labels' after `numFmt`, before `dLblPos`, the colour as six
+    // upper-case hex digits.
+    let label_text = text_written(
+        "<a:defRPr sz=\"800\"><a:solidFill><a:srgbClr val=\"1F77B4\"/></a:solidFill></a:defRPr>",
+    );
+    assert!(
+        part.contains(&format!(
+            "<c:dLbls><c:numFmt formatCode=\"0.0\" sourceLinked=\"0\"/>{label_text}<c:dLblPos \
+             val=\"outEnd\"/><c:showLegendKey val=\"0\"/>"
+        )),
+        "{part}"
+    );
+    assert_eq!(part.matches("<c:txPr>").count(), 4, "{part}");
+    // The reader reads the chart as without the properties.
+    let read = &charts_of(&output)[0].chart;
+    assert_eq!(read.title.as_deref(), Some("Totals"));
+    assert_eq!(read.axes[0].title.as_deref(), Some("Month"));
+    assert_eq!(read.axes[1].title.as_deref(), Some("Sum"));
+    assert_eq!(read.legend, Some(LegendPosition::Right));
+    assert_eq!(
+        read.plots[0].series,
+        [Series {
+            labels: true,
+            ..one_named_read()
+        }]
+    );
+}
+
+#[test]
+fn a_default_text_writes_an_empty_default_and_an_empty_run_property() {
+    let chart = NewChart {
+        title: Some("Plain"),
+        title_text: Some(NewText::default()),
+        ..bare(LINE)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains("<a:p><a:pPr><a:defRPr/></a:pPr><a:r><a:rPr/><a:t>Plain</a:t></a:r></a:p>"),
+        "{part}"
+    );
+    // Without a text the title keeps its form, no `pPr` and no `rPr`.
+    let chart = NewChart {
+        title: Some("Plain"),
+        ..bare(LINE)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(part.contains(&title("Plain")), "{part}");
+    assert!(
+        !part.contains("<a:pPr>") && !part.contains("<c:txPr>"),
+        "{part}"
+    );
+}
+
+#[test]
+fn the_axis_labels_text_goes_on_the_primary_pair_alone() {
+    let labels = text_written("<a:defRPr sz=\"900\"/>");
+    let tick_labels = format!("<c:tickLblPos val=\"nextTo\"/>{labels}<c:crossAx val=");
+    // A scatter's two value axes take it; a 3D line's series axis does not.
+    for (plot, expect) in [
+        (SCATTER, 2),
+        (
+            NewPlot::Line3D {
+                grouping: Grouping::Standard,
+            },
+            2,
+        ),
+    ] {
+        let chart = NewChart {
+            axis_label_text: Some(sized(900)),
+            ..bare(plot)
+        };
+        let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+        let part = text_of(&output, CHART1);
+        assert_eq!(part.matches(&tick_labels).count(), expect, "{part}");
+        assert_eq!(part.matches("<c:txPr>").count(), expect, "{part}");
+    }
+    // Nor does a combined chart's secondary pair, nor its secondary title.
+    let chart = NewChart {
+        axis_label_text: Some(sized(900)),
+        value_axis_title: Some("Sum"),
+        axis_title_text: Some(sized(1000)),
+        ..combined(NewCombined {
+            secondary_axis: true,
+            secondary_axis_title: Some("Share"),
+            ..second(LINE)
+        })
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    // The column chart's two primary titles take it, the secondary none.
+    assert_eq!(part.matches(&tick_labels).count(), 2, "{part}");
+    assert_eq!(part.matches("<a:defRPr sz=\"1000\"/>").count(), 2, "{part}");
+    assert!(part.contains(&title("Share")), "{part}");
+    // A combined second plot's labels take their own text.
+    let over = labelled(
+        OVER_C,
+        NewLabels {
+            text: Some(sized(700)),
+            ..value_labels(None)
+        },
+    );
+    let chart = combined(NewCombined {
+        series: &over,
+        ..second(LINE)
+    });
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains(&format!(
+            "<c:dLbls>{}<c:showLegendKey",
+            text_written("<a:defRPr sz=\"700\"/>")
+        )),
+        "{part}"
+    );
+}
+
+#[test]
+fn the_texts_apply_where_their_element_is_written_and_are_refused_elsewhere() {
+    let refused = |chart: &NewChart<'_>| {
+        assert_package(call(box_anchor(), chart).expect_err("refused"), OPTION);
+    };
+    let text = Some(sized(1000));
+    refused(&NewChart {
+        title_text: text,
+        ..bare(COLUMN)
+    });
+    refused(&NewChart {
+        axis_title_text: text,
+        ..bare(COLUMN)
+    });
+    refused(&NewChart {
+        legend_text: text,
+        ..bare(COLUMN)
+    });
+    for plot in [
+        NewPlot::Pie,
+        NewPlot::Pie3D,
+        NewPlot::Doughnut { hole_size: 50 },
+        NewPlot::OfPie {
+            kind: OfPieKind::Pie,
+            split: None,
+        },
+    ] {
+        assert!(round_kind(plot));
+        refused(&NewChart {
+            axis_label_text: text,
+            ..bare(plot)
+        });
+        // A round kind takes the title's, the legend's and the labels'.
+        let series = labelled(
+            ONE_NAMED,
+            NewLabels {
+                text,
+                ..value_labels(None)
+            },
+        );
+        let chart = NewChart {
+            series: &series,
+            title: Some("Share"),
+            title_text: text,
+            legend: Some(LegendPosition::Bottom),
+            legend_text: text,
+            ..bare(plot)
+        };
+        call(box_anchor(), &chart).expect("accepted");
+    }
+    // One axis title is enough for the axis titles' text.
+    let chart = NewChart {
+        value_axis_title: Some("Sum"),
+        axis_title_text: text,
+        ..bare(COLUMN)
+    };
+    call(box_anchor(), &chart).expect("accepted");
+}
+
+#[test]
+fn the_text_field_rules_are_refused() {
+    let check = |given: NewText<'_>| {
+        let chart = NewChart {
+            title: Some("T"),
+            title_text: Some(given),
+            ..bare(COLUMN)
+        };
+        let series = [NewSeries {
+            labels: Some(NewLabels {
+                text: Some(given),
+                ..value_labels(None)
+            }),
+            ..ONE_NAMED[0]
+        }];
+        let labelled_chart = NewChart {
+            series: &series,
+            ..bare(COLUMN)
+        };
+        let message = |result: Result<(), Error>| match result {
+            Ok(()) => Ok(()),
+            Err(Error::Package(message)) => Err(message),
+            Err(other) => panic!("{other:?}"),
+        };
+        let first = message(call(box_anchor(), &chart));
+        let second = message(call(box_anchor(), &labelled_chart));
+        assert_eq!(first, second, "{given:?}");
+        first
+    };
+    let error = |message: &'static str| Err(message);
+    for size in [100, 1400, 40_000] {
+        assert_eq!(check(sized(size)), Ok(()));
+    }
+    for size in [0, 99, 40_001, u16::MAX] {
+        assert_eq!(check(sized(size)), error(RANGE));
+    }
+    let colored = |color| NewText {
+        color: Some(color),
+        ..NewText::default()
+    };
+    assert_eq!(check(colored(0xFF_FFFF)), Ok(()));
+    assert_eq!(check(colored(0x100_0000)), error(OPTION));
+    let font = |font| NewText {
+        font: Some(font),
+        ..NewText::default()
+    };
+    let longest = "f".repeat(31);
+    let too_long = "f".repeat(32);
+    // The limit is bytes: sixteen two-byte characters are 32.
+    let wide = "\u{e9}".repeat(16);
+    assert_eq!(check(font(&longest)), Ok(()));
+    for bad in ["", too_long.as_str(), wide.as_str(), "A\tB", "A\u{ffff}"] {
+        assert_eq!(check(font(bad)), error(RANGE), "{bad:?}");
+    }
+}
+
+#[test]
+fn a_typeface_is_escaped_as_an_attribute() {
+    let chart = NewChart {
+        legend: Some(LegendPosition::Bottom),
+        legend_text: Some(NewText {
+            font: Some("A&B\"<C>'"),
+            ..NewText::default()
+        }),
+        ..bare(COLUMN)
+    };
+    let output = edited_output(smallest(), |p| add(p, box_anchor(), &chart));
+    let part = text_of(&output, CHART1);
+    assert!(
+        part.contains("<a:latin typeface=\"A&amp;B&quot;&lt;C&gt;&apos;\"/>"),
+        "{part}"
+    );
+}
+
+#[test]
+fn the_texts_follow_the_check_order() {
+    let refused = |chart: &NewChart<'_>, message: &str| {
+        assert_package(call(box_anchor(), chart).expect_err("refused"), message);
+    };
+    let bad_size = Some(sized(1));
+    let bad_color = NewText {
+        color: Some(0x100_0000),
+        ..NewText::default()
+    };
+    // The axes before the texts.
+    let chart = NewChart {
+        title_text: bad_size,
+        ..axes_chart(
+            LINE,
+            &ONE_NAMED,
+            Some(NewAxis {
+                tick_label_skip: Some(0),
+                ..NO_AXIS
+            }),
+            None,
+        )
+    };
+    refused(&chart, RANGE);
+    let chart = NewChart {
+        title: Some("T"),
+        title_text: Some(bad_color),
+        ..axes_chart(
+            LINE,
+            &ONE_NAMED,
+            None,
+            Some(NewAxis {
+                log_base: Some(1.0),
+                ..NO_AXIS
+            }),
+        )
+    };
+    refused(&chart, RANGE);
+    // A text's applicability before its fields.
+    refused(
+        &NewChart {
+            title_text: bad_size,
+            ..bare(COLUMN)
+        },
+        OPTION,
+    );
+    // The texts in declaration order.
+    refused(
+        &NewChart {
+            title: Some("T"),
+            title_text: bad_size,
+            legend_text: bad_size,
+            ..bare(COLUMN)
+        },
+        RANGE,
+    );
+    refused(
+        &NewChart {
+            title: Some("T"),
+            title_text: Some(bad_color),
+            axis_label_text: bad_size,
+            ..bare(COLUMN)
+        },
+        OPTION,
+    );
+    refused(
+        &NewChart {
+            legend: Some(LegendPosition::Top),
+            axis_label_text: bad_size,
+            legend_text: Some(bad_color),
+            ..bare(COLUMN)
+        },
+        RANGE,
+    );
+    // The fields in declaration order: the size, the colour, the typeface.
+    refused(
+        &NewChart {
+            axis_label_text: Some(NewText {
+                color: Some(0x100_0000),
+                ..sized(1)
+            }),
+            ..bare(COLUMN)
+        },
+        RANGE,
+    );
+    refused(
+        &NewChart {
+            axis_label_text: Some(NewText {
+                font: Some(""),
+                ..bad_color
+            }),
+            ..bare(COLUMN)
+        },
+        OPTION,
+    );
+    // The texts before the combined plot's rules and before the strings.
+    let chart = NewChart {
+        axis_label_text: bad_size,
+        ..combined(second(COLUMN))
+    };
+    refused(&chart, RANGE);
+    let chart = NewChart {
+        title: Some(""),
+        title_text: bad_size,
+        ..bare(COLUMN)
+    };
+    refused(&chart, RANGE);
+    // The labels' text after the series' error bars, before the plot lines.
+    let bars = [NewErrorBars {
+        direction: None,
+        kind: ErrorBarKind::Both,
+        value: ErrorValue::Fixed(-1.0),
+        end_cap: true,
+    }];
+    let bad_labels = NewLabels {
+        text: Some(bad_color),
+        ..value_labels(None)
+    };
+    let series = [NewSeries {
+        error_bars: &bars,
+        labels: Some(bad_labels),
+        ..ONE_NAMED[0]
+    }];
+    refused(
+        &NewChart {
+            series: &series,
+            ..bare(COLUMN)
+        },
+        RANGE,
+    );
+    let series = labelled(ONE_NAMED, bad_labels);
+    refused(
+        &NewChart {
+            series: &series,
+            drop_lines: true,
+            ..bare(COLUMN)
+        },
+        OPTION,
+    );
+    let series = labelled(
+        ONE_NAMED,
+        NewLabels {
+            text: bad_size,
+            ..value_labels(None)
+        },
+    );
+    refused(
+        &NewChart {
+            series: &series,
+            drop_lines: true,
+            ..bare(COLUMN)
+        },
+        RANGE,
+    );
 }

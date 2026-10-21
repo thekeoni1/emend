@@ -93,6 +93,10 @@ fn column_chart() -> NewChart<'static> {
         up_down_bars: false,
         category_axis: None,
         value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
     }
 }
 
