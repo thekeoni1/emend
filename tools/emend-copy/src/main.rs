@@ -949,22 +949,23 @@
 //!   `specs/0041-chart-text-and-edits.md`, "Harness runs", and ruling E:
 //!   two writes. The first, in memory, adds on W, with M, M', its quoted
 //!   name and L as the text sample has them, one clustered column chart
-//!   titled `emend edit` with the legend at the right, placed as the text
-//!   sample's first, of one series over B named by B1 with the categories
-//!   A2:A(L). The second, on the first's output, edits that chart in place:
-//!   its title set to `emend edited` and its series 0 given the name C1,
-//!   the categories B2:B(L) and the values C2:C(L); and where W held a
-//!   chart before, the first of W's charts retitled `emend kept`. The
+//!   titled `emend edit` with the legend at the right and the style 26
+//!   (ruling G), placed as the text sample's first, of one series over B
+//!   named by B1 with the categories A2:A(L). The second, on the first's
+//!   output, edits that chart in place: its title set to `emend edited`
+//!   and its series 0 given the name C1, the categories B2:B(L) and the
+//!   values C2:C(L); and where W held a chart before, the first of W's
+//!   charts retitled `emend kept`. The
 //!   output is reopened. One line: the word `chartedit` then `charts` (W's
 //!   charts, the first write's count), `series` (the edited chart's),
 //!   `rows` (L - 1), `read_back` (how many of the title, the name and the
 //!   two ranges together read as set) and `kept_edited` (1 when the kept
 //!   chart was retitled and reads so, else 0). COUNTS ONLY, as the
 //!   add-chart sample's. Asserted: `charts` one more than before, `series`
-//!   1, `read_back` 3, and every entry of the output the first write's,
-//!   byte for byte, but the edited chart parts, which differ; a failure is
-//!   exit 2 with the message and no output, and so is a refusal by the
-//!   layer.
+//!   1, `read_back` 3, the edited chart's style read as 26, and every
+//!   entry of the output the first write's, byte for byte, but the edited
+//!   chart parts, which differ; a failure is exit 2 with the message and no
+//!   output, and so is a refusal by the layer.
 //! - `--chart-labels-sample`: the labels sample of
 //!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
 //!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
@@ -10187,7 +10188,7 @@ fn chart_edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
         axis_title_text: None,
         axis_label_text: None,
         legend_text: None,
-        style: None,
+        style: Some(26),
     };
     // Rows past the grid are the layer's to refuse, with its index message.
     let anchor = ImageAnchor::OneCell {
@@ -10284,6 +10285,10 @@ fn chart_edit_read_back(
     .count() as u64;
     if read_back != 3 {
         return Err(Error::ChartEditSample("read-back edit"));
+    }
+    // The style the first write gave, kept by the edit (ruling G).
+    if edited.chart.style != Some(26) {
+        return Err(Error::ChartEditSample("edited chart's style"));
     }
     let mut changed = vec![edited.part.clone()];
     if kept {

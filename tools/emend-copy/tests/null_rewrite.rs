@@ -8234,6 +8234,11 @@ fn the_chart_edit_sample_adds_a_column_and_edits_its_title_and_series_in_place()
         }
         assert!(!text.contains("emend edit<"), "{text}");
         assert!(!text.contains("Cache"), "{text}");
+        // The style the first write gave, kept by the edit (ruling G).
+        assert!(
+            text.contains("<c:roundedCorners val=\"0\"/><c:style val=\"26\"/><c:chart>"),
+            "{text}"
+        );
     }
 }
 
