@@ -57,11 +57,15 @@ The ops and every constant they write:
                "fixedVal" ANALYTIC_ERROR_VALUE 1.5, the chart's dropLines,
                its y axis from ANALYTIC_MIN 0 to ANALYTIC_MAX 50 with
                majorUnit ANALYTIC_MAJOR 10, its x axis's tickLblSkip
-               ANALYTIC_SKIP 2, added at (M+2, A); and a LineChart over the
-               same with a DateAxis as its x axis, its baseTimeUnit
-               ANALYTIC_TIME_UNIT "days" and its majorUnit ANALYTIC_DATE_MAJOR
-               2 of majorTimeUnit ANALYTIC_TIME_UNIT, its y axis of logBase
-               ANALYTIC_LOG_BASE 10, added at (M+18, A)
+               ANALYTIC_SKIP 2, added at (M+2, A); a date column of its own
+               in the column after the first sheet's last (max_column + 1),
+               serial numbers from ANALYTIC_DATE_FIRST 45292 (2024-01-01)
+               on, one per row in rows 2 to M+1, plain numbers with no
+               number format; and a LineChart over B2:B(M+1) whose
+               categories are that column, with a DateAxis as its x axis,
+               its baseTimeUnit ANALYTIC_TIME_UNIT "days" and its majorUnit
+               ANALYTIC_DATE_MAJOR 2 of majorTimeUnit ANALYTIC_TIME_UNIT,
+               its y axis of logBase ANALYTIC_LOG_BASE 10, added at (M+18, A)
                (specs/0040-analytic-chart-elements.md, "Harness runs": the
                openpyxl fixture of --charts-sample and --chart-axis-sample).
 
@@ -121,6 +125,7 @@ ANALYTIC_SKIP = 2
 ANALYTIC_TIME_UNIT = "days"
 ANALYTIC_DATE_MAJOR = 2
 ANALYTIC_LOG_BASE = 10
+ANALYTIC_DATE_FIRST = 45292
 # A 2 by 2 RGB PNG, 73 bytes: red and blue on each row.
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000002000000020802000000fdd49a73"
@@ -222,9 +227,13 @@ def run(op, source, target):
         line.y_axis.majorUnit = ANALYTIC_MAJOR
         line.x_axis.tickLblSkip = ANALYTIC_SKIP
         ws.add_chart(line, "A%d" % (m + 2))
+        date_column = ws.max_column + 1
+        for row in range(2, m + 2):
+            ws.cell(row=row, column=date_column, value=ANALYTIC_DATE_FIRST + row - 2)
+        dates = Reference(ws, min_col=date_column, min_row=2, max_row=m + 1)
         dated = LineChart()
         dated.add_data(values, titles_from_data=False)
-        dated.set_categories(categories)
+        dated.set_categories(dates)
         dated.y_axis.crossAx = 500
         dated.x_axis = DateAxis(crossAx=100)
         dated.x_axis.baseTimeUnit = ANALYTIC_TIME_UNIT

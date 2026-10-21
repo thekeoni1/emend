@@ -171,7 +171,7 @@ p, names = parts("chart-analytic")
 charts = sorted((n, v) for n, v in p.items() if re.match(r"xl/charts/chart\d+\.xml$", n))
 line = charts[0][1] if len(charts) == 2 else ""
 dated = charts[1][1] if len(charts) == 2 else ""
-checks.append(("chart-analytic: two chart parts, a line chart over B2:B101 with a linear trendline showing its equation, fixed error bars of 1.5, drop lines, its value axis 0 to 50 by 10 and its category axis skipping 2 labels, and a line chart with a date axis of base unit days and major unit 2 days and a value axis of log base 10",
+checks.append(("chart-analytic: two chart parts, a line chart over B2:B101 with a linear trendline showing its equation, fixed error bars of 1.5, drop lines, its value axis 0 to 50 by 10 and its category axis skipping 2 labels, and a line chart over the date column Y2:Y101 with a date axis of base unit days and major unit 2 days and a value axis of log base 10",
                len(charts) == 2 and "lineChart" in line and "$B$2:$B$101" in line
                and re.search(C + r'trendline>' + C + r'trendlineType val="linear"/>' + C + r'dispEq val="1"/>', line) is not None
                and re.search(C + r'errBars>' + C + r'errBarType val="both"/>' + C + r'errValType val="fixedVal"/>' + C + r'val val="1.5"/>', line) is not None
@@ -179,7 +179,7 @@ checks.append(("chart-analytic: two chart parts, a line chart over B2:B101 with 
                and re.search(C + r'max val="50"/>' + C + r'min val="0"/>', line) is not None
                and re.search(C + r'majorUnit val="10"/>', line) is not None
                and re.search(C + r'tickLblSkip val="2"/>', line) is not None
-               and "lineChart" in dated and "dateAx" in dated
+               and "lineChart" in dated and "dateAx" in dated and "$Y$2:$Y$101" in dated
                and re.search(C + r'baseTimeUnit val="days"/>' + C + r'majorUnit val="2"/>' + C + r'majorTimeUnit val="days"/>', dated) is not None
                and re.search(C + r'logBase val="10"/>', dated) is not None))
 for what, ok in checks:
