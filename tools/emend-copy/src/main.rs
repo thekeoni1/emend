@@ -922,6 +922,29 @@
 //!   three more than before, `series` 3, `date_axes` 1, `bounded_axes` 2
 //!   and `read_back` 3; a failure is exit 2 with the message and no output,
 //!   and so is a refusal by the layer.
+//! - `--chart-text-sample`: the text sample of
+//!   `specs/0041-chart-text-and-edits.md`, "Harness runs": on W, with M,
+//!   M', its quoted name and L as the trend sample has them, three charts
+//!   placed as the format sample's, the k-th (k from 0) titled `emend text
+//!   k` with the legend at the right, each series over the categories
+//!   A2:A(L): a clustered column chart of the series over B named by B1,
+//!   its title in 14 pt bold, its axis titles `emend x` and `emend y` in
+//!   10 pt italic, its axis labels in 9 pt, value labels on its series in
+//!   8 pt of the colour `1F77B4` and its legend in 9 pt `Arial`; a standard
+//!   line chart of the series over B and over C named by C1, its title's
+//!   text the default (an empty `defRPr`), with no `style`, P2's; and a pie
+//!   of the series over B with value labels in 10 pt bold `Arial` and its
+//!   legend in 9 pt. The output is reopened. One line: the word `charttext`
+//!   then `charts_before` and `charts_after`, `series` (the series of the
+//!   last three entries of the output's charts of W), `rows` (L - 1),
+//!   `texts` and `styles` (the `txPr` and `style` elements of their three
+//!   chart parts, this tool's own token pass by local name) and `read_back`
+//!   (how many of the three read as their calls gave them, every field
+//!   compared, the titles among them; the reader reads no text property).
+//!   COUNTS ONLY, as the add-chart sample's. Asserted: `charts_after` and
+//!   the chart parts three more than before, `series` 4, `texts` 6,
+//!   `styles` 0 and `read_back` 3; a failure is exit 2 with the message and
+//!   no output, and so is a refusal by the layer.
 //! - `--chart-labels-sample`: the labels sample of
 //!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
 //!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
@@ -1099,7 +1122,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --remove-image-sample | --copy-sample | --kinds-sample | --pivot-sample | --extlink-sample \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
 | --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample \
-| --chart-surface-sample | --chart-format-sample | --chart-trend-sample | --chart-axis-sample]";
+| --chart-surface-sample | --chart-format-sample | --chart-trend-sample | --chart-axis-sample \
+| --chart-text-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1240,6 +1264,9 @@ enum Operation {
     /// A line, a scatter and a column chart with plot lines and axis
     /// options past the last row of W, and the counts.
     ChartAxisSample,
+    /// A column, a line and a pie chart with text properties past the last
+    /// row of W, and the counts.
+    ChartTextSample,
     /// A column chart and a pie with colours, labels and axis formats past
     /// the last row of W, and the counts.
     ChartLabelsSample,
@@ -1318,6 +1345,7 @@ enum Error {
     ChartFormatSample(&'static str),
     ChartTrendSample(&'static str),
     ChartAxisSample(&'static str),
+    ChartTextSample(&'static str),
     ChartLabelsSample(&'static str),
     RemoveChartSample(&'static str),
     ChartsheetSample(&'static str),
@@ -1456,6 +1484,7 @@ impl fmt::Display for Error {
             | Error::ChartFormatSample(what)
             | Error::ChartTrendSample(what)
             | Error::ChartAxisSample(what)
+            | Error::ChartTextSample(what)
             | Error::ChartLabelsSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
@@ -1705,6 +1734,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ChartAxisSample,
         ),
+        [input, output, flag] if flag == "--chart-text-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartTextSample,
+        ),
         [input, output, flag] if flag == "--chart-labels-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1916,6 +1950,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ChartAxisSample) {
         return chart_axis_sample(input, output);
     }
+    if matches!(operation, Operation::ChartTextSample) {
+        return chart_text_sample(input, output);
+    }
     if matches!(operation, Operation::ChartLabelsSample) {
         return chart_labels_sample(input, output);
     }
@@ -2013,6 +2050,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ChartFormatSample => unreachable!("the format sample has its own path"),
         Operation::ChartTrendSample => unreachable!("the trend sample has its own path"),
         Operation::ChartAxisSample => unreachable!("the axis sample has its own path"),
+        Operation::ChartTextSample => unreachable!("the text sample has its own path"),
         Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
         Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
         Operation::ChartsheetSample => unreachable!("the chartsheet sample has its own path"),
@@ -9771,6 +9809,271 @@ fn chart_axis_read_back(
         return Err(Error::ChartAxisSample("read-back chart"));
     }
     Ok((after, [series, dates, bounded, read_back]))
+}
+
+/// The text sample (`specs/0041-chart-text-and-edits.md`, "Harness runs",
+/// `--chart-text-sample`): a column chart, a line chart of two series and a
+/// pie, each with text properties, on W past its last row, the output
+/// written and read back. A failure after the output is in place removes
+/// it; a refusal by the layer is exit 2 with no output.
+fn chart_text_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, Grouping, LegendPosition, NewChart, NewLabels, NewPlot, NewSeries,
+        NewSeriesName, NewText,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    let last = bounded_last_row(sampled.max_row);
+    let rows = u64::from(last - 1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let (b_name, c_name) = (format!("{sheet}!$B$1"), format!("{sheet}!$C$1"));
+    let (a, b, c) = (column('A'), column('B'), column('C'));
+    let sized = |size: u16| NewText {
+        size: Some(size),
+        ..NewText::default()
+    };
+    let value_labels = |text: NewText<'static>| NewLabels {
+        value: true,
+        category: false,
+        series_name: false,
+        percent: false,
+        position: None,
+        number_format: None,
+        text: Some(text),
+    };
+    let over_b = NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+        color: None,
+        labels: None,
+        marker: None,
+        line: None,
+        points: &[],
+        trendline: None,
+        error_bars: &[],
+    };
+    let bar_series = [NewSeries {
+        labels: Some(value_labels(NewText {
+            color: Some(0x1F_77B4),
+            ..sized(800)
+        })),
+        ..over_b
+    }];
+    let line_series = [
+        over_b,
+        NewSeries {
+            name: Some(NewSeriesName::Reference(&c_name)),
+            values: &c,
+            ..over_b
+        },
+    ];
+    let pie_series = [NewSeries {
+        labels: Some(value_labels(NewText {
+            bold: true,
+            font: Some("Arial"),
+            ..sized(1000)
+        })),
+        ..over_b
+    }];
+    let titles: Vec<String> = (0..3).map(|k| format!("emend text {k}")).collect();
+    let base = NewChart {
+        plot: NewPlot::Pie,
+        title: None,
+        series: &pie_series,
+        category_axis_title: None,
+        value_axis_title: None,
+        category_axis_format: None,
+        value_axis_format: None,
+        legend: Some(LegendPosition::Right),
+        size: Some((480, 288)),
+        combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
+    };
+    let charts = [
+        NewChart {
+            plot: NewPlot::Bar {
+                direction: BarDirection::Column,
+                grouping: Grouping::Clustered,
+            },
+            title: Some(&titles[0]),
+            series: &bar_series,
+            category_axis_title: Some("emend x"),
+            value_axis_title: Some("emend y"),
+            title_text: Some(NewText {
+                bold: true,
+                ..sized(1400)
+            }),
+            axis_title_text: Some(NewText {
+                italic: true,
+                ..sized(1000)
+            }),
+            axis_label_text: Some(sized(900)),
+            legend_text: Some(NewText {
+                font: Some("Arial"),
+                ..sized(900)
+            }),
+            ..base
+        },
+        // No style here: the style value is P2's.
+        NewChart {
+            plot: NewPlot::Line {
+                grouping: Grouping::Standard,
+            },
+            title: Some(&titles[1]),
+            series: &line_series,
+            title_text: Some(NewText::default()),
+            ..base
+        },
+        NewChart {
+            title: Some(&titles[2]),
+            legend_text: Some(sized(900)),
+            ..base
+        },
+    ];
+    for (chart, k) in charts.iter().zip(0u32..) {
+        // Rows past the grid are the layer's to refuse, with its index message.
+        let row = sampled
+            .max_row
+            .saturating_add(2)
+            .saturating_add(k.saturating_mul(16));
+        let anchor = ImageAnchor::OneCell {
+            from: CellRef { row, col: 1 },
+            offset: (0, 0),
+        };
+        package.add_chart(&part, anchor, chart)?;
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_text_read_back(output, &part, &before, &charts);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (after, series, texts, styles, read_back) = checked?;
+    edit_line_named(
+        "charttext",
+        &[
+            ("charts_before", before.charts),
+            ("charts_after", after.charts),
+            ("series", series),
+            ("rows", rows),
+            ("texts", texts),
+            ("styles", styles),
+            ("read_back", read_back),
+        ],
+    )
+}
+
+/// Reopens the text sample's output and asserts three more charts and
+/// chart parts, the last three charts of W four series in all, six `txPr`
+/// and no `style` elements in their parts by this tool's own token pass,
+/// each chart read back as its call gave it, its labelled series read with
+/// labels; gives the counts after, the series, the two element counts and
+/// how many read back.
+fn chart_text_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    calls: &[emend::package::NewChart<'_>],
+) -> Result<(ChartKindsCounts, u64, u64, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let (after, charts) = chart_kinds_counts(&mut package, part)?;
+    let added = calls.len() as u64;
+    if after.charts != before.charts + added {
+        return Err(Error::ChartTextSample("chart count"));
+    }
+    if after.chart_parts != before.chart_parts + added {
+        return Err(Error::ChartTextSample("chart part count"));
+    }
+    let last = &charts[charts.len() - calls.len()..];
+    let count = last
+        .iter()
+        .flat_map(|entry| &entry.chart.plots)
+        .flat_map(|plot| &plot.series)
+        .count() as u64;
+    if count != 4 {
+        return Err(Error::ChartTextSample("series count"));
+    }
+    let (mut texts, mut styles) = (0u64, 0u64);
+    for entry in last {
+        let [t, s] = element_counts(&mut package, &entry.part, [b"txPr", b"style"])?;
+        texts += t;
+        styles += s;
+    }
+    if texts != 6 {
+        return Err(Error::ChartTextSample("text property count"));
+    }
+    if styles != 0 {
+        return Err(Error::ChartTextSample("style count"));
+    }
+    let read_back = last
+        .iter()
+        .zip(calls)
+        .filter(|(entry, chart)| {
+            let mut expected = chart_as_read(chart);
+            for plot in &mut expected.plots {
+                for (read, call) in plot.series.iter_mut().zip(chart.series) {
+                    read.labels = call.labels.is_some();
+                }
+            }
+            entry.chart == expected
+        })
+        .count() as u64;
+    if read_back != added {
+        return Err(Error::ChartTextSample("read-back chart"));
+    }
+    Ok((after, count, texts, styles, read_back))
+}
+
+/// This tool's own pass over the part `name`'s tokens: how many start or
+/// empty tags of each local name in `names` it holds, read from each
+/// token's bytes, so the pass shares no reader with the layer's writer.
+fn element_counts<R: io::Read + io::Seek, const N: usize>(
+    package: &mut Package<R>,
+    name: &[u8],
+    names: [&[u8]; N],
+) -> Result<[u64; N], Error> {
+    let index = package.part(name).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut counts = [0u64; N];
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if !raw.starts_with(b"<")
+            || raw.starts_with(b"</")
+            || raw.starts_with(b"<?")
+            || raw.starts_with(b"<!")
+        {
+            continue;
+        }
+        let local = tag_local_name(raw);
+        for (wanted, count) in names.iter().zip(&mut counts) {
+            if local == *wanted {
+                *count += 1;
+            }
+        }
+    }
+    Ok(counts)
 }
 
 /// The labels sample (`specs/0036-charts-write-second-set.md`, "Harness
