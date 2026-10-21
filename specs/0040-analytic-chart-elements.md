@@ -624,6 +624,213 @@ the numbered changes continuing; the gate prunes nothing (the m6p3-p1
 root stays for P3's rerun); the size figure is told at any value
 again. NewSeries losing Eq is P3's API listing's, as item 6 says.
 
+## Planning rulings during P2 (2026-10-20)
+
+Asked by the implementing session after the P2 doc commit d8479f5,
+before the code.
+
+### Ruling J: major_unit and minor_unit on a date axis
+
+"Applicability" and "The chart part" conflict: the first applies
+NewAxis's major_unit and minor_unit to a date axis, the second takes
+a dateAx's majorUnit and minorUnit from NewDateAxis's major and minor,
+each a count with its time unit, the only form the schema gives a
+dateAx. The second stands. On a date axis NewAxis's major_unit and
+minor_unit are refused with the option-kind message; min, max and
+reversed apply and are written in scaling; log_base, the skips and
+the units' count come from NewDateAxis alone. "Applicability" reads
+"min and max also to a date axis" from here.
+
+### Ruling K: the check order of the axes
+
+Confirmed as the implementing session reads it: the first plot's
+series options as P1 checks them, then the plot lines, then the
+category axis's fields, then the value axis's, all before the
+combined plot's rules, then the combined plot's series options, then
+the texts. For each axis, ruling E's shape: first whether the chart
+writes that axis (the round kinds refuse either), then its form,
+dateAx where date is given on the category axis of a Bar, Line, Area
+or Stock plot and refused where date is given elsewhere, catAx or
+valAx otherwise; then each field in NewAxis's declaration order, its
+option-kind check by that form before its range check (a log_base on
+a catAx is option-kind whatever its value; min below max is judged
+when max is reached with min given); date's own counts last, each 1
+or more.
+
+### Ruling L: the probe's kind 1 and the stock literals
+
+"The probe" gives the line plot's category axis (kind 1) both the
+skips and the date form, which ruling J's forms refuse together: on
+kind 1 the category axis takes the date form alone (Days, major 1
+Days), the skips going on the bar and area kinds' category axes and
+on no line kind's; P3 writes it so. Every NewChart literal with
+NewPlot::Stock in the tests, the tool and the probe gains
+high_low_lines: true, the written bytes unchanged, as the session
+reads "Applicability"; the gate names the base tests edited by their
+field lines.
+
+### Ruling M: the axis sample's bounded-axis count
+
+"Harness runs" describes three charts holding two axes with a min or
+max (the Line's value axis, min 0 and max 100; the Scatter's x axis,
+min 1) and then says the line prints that count as 3: planning's
+arithmetic error. The description governs: the charts stay as
+written, and the tool's line prints and asserts the bounded axes as
+2, the Date axes as 1, series 3, read_back 3, the chart and chart
+part counts three more than before. The line's keys, in order:
+chartaxis, charts_before, charts_after, series, rows, date_axes,
+bounded_axes, read_back, chart_parts_after; rows as specs/0039
+rulings A and C. "Harness runs" reads "(2)" from here.
+
+### Ruling N: the openpyxl fixture's field-by-field comparison
+
+"Field by field where both write the field" compares forms, not
+constants: the two samples' values differ by design. For each of the
+twelve fields the run log reads openpyxl's element from the op's
+output and emend's from emend's output on the same fixture, the axis
+fields from --chart-axis-sample's charts and the five trendline and
+error-bar fields from --chart-trend-sample run on the same fixture;
+it compares the element's local name, its parent and its place among
+its siblings by the schema's sequence, every sibling before it one
+the schema puts before it and every sibling after it one the schema
+puts after it, each element's preceding sibling printed for both
+outputs (logBase with no sibling before it; majorUnit after
+crossBetween where that is written, openpyxl 3.1.5 writing none,
+otherwise after crossAx or crosses; tickLblSkip after lblOffset;
+majorTimeUnit right after majorUnit), and val's lexical kind, an
+enumeration value of the same set or a decimal number; it prints both
+values; and where the two write the same constant (trendlineType
+linear, dispEq 1, errBarType both, errValType fixedVal, logBase 10,
+baseTimeUnit days) it requires them equal as well. The name
+attribute, errDir on a line and the minus-plus order are named and
+not compared, openpyxl writing none of them here. The tool commit's
+rebuild (9a6a220 to d367326, a type alias for clippy, the op commit
+recommitted unchanged) is accepted as a local rewrite before the
+report (specs/0001); the README states it.
+
+O. Finding F1 (P2 dry run 1, run log checks "fixture charts", "fixture
+chart-axis" and "fixture chart-trend" on both targets: no). The pinned
+LibreOffice (emend-lo 25.2.3-2-deb13u6) aborts with std::bad_alloc, exit
+134, on the chart-analytic op's OUTPUT before emend touches it, so lo_in
+and lo read error on the three fixture runs; the chart-axis corpus run
+is 27 of 27 ok, lo and lo_in ok, on both targets. The cause, the
+implementing session's bisection through scripts/lo-check.sh: the
+DateAxis chart's categories are the fixture's column A, scale-gen's
+numbers (planning read the fixture: 99 numeric cells in A2 to A100,
+116233 to 42886443, a span of 42770210 days; the implementing session's
+message said about 25.7M to 38.2M, about 13M days, a figure its README
+states the source of); a synthetic span of 13M days aborts LibreOffice,
+spans of 1M and 100k days open, a 100-day span past 9999-12-31 opens.
+Not an emend defect: a LibreOffice limit on the input. The requirement
+"lo and lo_in ok on every fixture output" stands; weakening the check
+(option b) is refused. The op changes: chart-analytic writes a date
+column of its own, serial numbers from ANALYTIC_DATE_FIRST 45292
+(2024-01-01) on, one per row, rows 2 to M+1, as plain numbers with no
+number format, into the column after the first sheet's last (max_column
++ 1; Y on the fixture, whose first sheet spans A to X), and the DateAxis
+chart's categories reference that column; the first LineChart keeps
+A2:A(M+1). The header's op text names the constant and the column; the
+test line asserts the dated chart's category reference $Y$2:$Y$101
+beside what it asserts now. This is a new op commit after d1192d2
+(subject "M6 part 3 P2: the chart-analytic op's date column (finding
+F1)"), not a rewrite, so the finding and its fix are in the history; its
+test line reruns; the five generators' op-dependent lines follow it; the
+run log's checks are unchanged. Dry run 1 goes to superseded/ naming F1
+and the dry run reruns from the start at the new op commit. The phase
+README names F1 with the bisection's spans as a LibreOffice fact; the
+negative log is unchanged. Ruling N's comparison is unaffected (the
+categories are not among its fields).
+
+P. Finding F2 (after ruling O, measured by hand with the d1 release
+binaries on the ruling O fixture): --chart-axis-sample's output aborts
+the pinned LibreOffice the same way (lo_in ok, lo error, exit 134, both
+targets), because the sample's Bar with the date category axis takes its
+categories from column A ($A$2:$A$102) like the other samples, the span
+of ruling O on emend's own chart; d1 hid it because the input already
+failed. The charts and trend samples are lo and lo_in ok and
+byte-identical across targets; on the corpus the axis sample is 27 of 27
+lo ok. Ruled: option (a). The axis sample's Bar takes no categories
+(categories: None; the writer writes no cat element, which the schema
+allows), so its date axis runs over the points' indices; "Harness runs"
+reads "a Bar of one series without categories with a date category
+axis". Option (b), the sheet's last column, is refused: on a corpus
+workbook that column is arbitrary, and so is column A, so (a) alone
+removes the hazard from every input. The read-back compares counts, not
+references, so ruling M's line is unchanged (series 3, date_axes 1,
+bounded_axes 2, read_back 3). Before the commit the implementing session
+measures by hand that LibreOffice opens the sample's output on the
+fixture (lo-check rc 0) and the README states it. A new tool commit
+after 87db736 (subject "M6 part 3 P2: the axis sample's date-axis bar
+takes no categories (finding F2)"), not a rewrite; the phase commit
+moves to it and the generators carry a seventh role; the run log's
+checks are unchanged. Accepted side effects of ruling O: the op's date
+column makes the fixture's first sheet 101 rows, so the axis and trend
+samples print rows=101 on the fixture (the run's expectation follows,
+change NYN); the charts line's digest_formulas changes and the run does
+not pin it; fieldcmp 12 of 12. The README names F2 beside F1 as a
+LibreOffice fact; the negative log is unchanged. The P3 probe is
+unaffected (it runs no LibreOffice).
+
+## Planning verification of P2 (2026-10-21)
+
+Verified from primaries: the chain 74b63de, d8479f5 (doc), 3c1f1f3
+(core), d367326 (tool), d1192d2 (op), 87db736 (the op's date column,
+finding F1), 3736eea (the tool's date-axis bar without categories,
+finding F2, the phase commit), 65703ee (record, 13 files), all local,
+the tree clean but for this working spec, origin/main still bcc53a5; the
+seven files of records/logs/m6p3-p2 at the report's hashes (gate
+dae75dd9, test 195f2b02, negative d0c3a57b, run 51253a45, scan 8ccafd7f,
+README 6ccbafe3, the check 096ccbea; the report a21f365e), the four logs
+ending "checks all as expected: yes", the scan "RESULT: PASS" with total
+hits 0 and structural checks failed 0; every PLANNING_SPEC input this
+working spec at b36f6165. The run log: the chartaxis corpus run 27 of 27
+ok on both targets, lo ok 27 and lo_in ok 27, the host and i686 outputs
+byte for byte the same, 27; the charttrend run rerun byte-identical to
+P1's by sha256, 27 of 27 per target; the six openpyxl fixture checks
+yes, the axis line as ruling M (charts_before 2, charts_after 5, series
+3, rows 101, date_axes 1, bounded_axes 2, read_back 3, chart_parts_after
+5) and the trend line rows 101; ruling N's comparison twelve of twelve,
+each field printed with both values and both preceding siblings (emend's
+majorUnit after crossBetween, openpyxl's after crossAx; majorTimeUnit
+after majorUnit on both); the keep 2121 pairs, the 225 new all ok and
+ok, none moved. The test log: 1386 on both targets, the feature sets
+515, 666, 708, 711, 769 and 1148 (the charts sets +7, off +0). The gate:
+the probe 1107076, +4012 over P1's 1103064, told and judged nowhere
+here. Ruling C: the trend sample's module doc line reads "the format
+sample's". Ruling D: no doc line of chart_write.rs is over 100 columns.
+3736eea sets categories: None on the date-axis column chart alone. The
+independent check's 146 lines are verbatim in the report, PARTLY on all
+three questions; its gaps and disagreements are fixed in the report and
+README (the final scan now committed, the "+7" claim corrected to the
+charts sets, the session's statements marked, ruling O's wording,
+lo-check rc 0 stated) or ruled below. The hash 4454629 the check found
+in no primary is a commit object in the repository, the first op commit
+rebuilt as d1192d2, a local rewrite before the report (specs/0001), as
+9a6a220 was. The README's F1 account states the fixture's span planning
+measured and the source of the session's first figure. Privacy: 7
+commits, 2115 blobs, 0 findings, PASS. The phase's two independent
+checks: check 1 and planning's privacy scan. P2 is DONE. The records and
+logs are dated 2026-10-21 (the logged runs began after midnight UTC)
+while the phase's commits are of 2026-10-20; accepted.
+
+Q. The axis sample's module doc entry (tools/emend-copy/src/main.rs,
+`--chart-axis-sample`) still says each chart is "of one series over B
+named by B1 against A2:A(L)"; since 3736eea the column chart's series
+has no categories. Carried to P3: its carry commit corrects the entry
+(the column chart's series without categories, ruling P), no P2 log
+rerun.
+
+R. The finite min and max rule (CHART_VALUE_RANGE on a non-finite min or
+max) is kept. "min below max when both are given" is read as a
+comparison of finite numbers, and a max or min alone finite as the units
+are: a NaN or an infinity written as a val attribute is no number Excel
+takes. The spec's sentence is read so; no new message, no new test.
+
+S. test.log's label "of them this phase's logs: 1" counts the working
+spec's status line, admitted under PLANNING_SPEC; the check is right,
+the label wrong. P3's test generator prints the phase's own paths'
+count; the P2 log stands.
+
 ## Decisions for the maintainer
 
 1. Which kinds take a trendline and error bars: A (recommended), the
