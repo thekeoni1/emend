@@ -11,23 +11,31 @@
 //! series over every plot of every chart, so the writer and the reader are
 //! linked and nothing is dead. The second output itself is not changed.
 //!
-//! The second set (`specs/0036-charts-write-second-set.md`, "The probe"): on
-//! the same package, `remove_chart` of that chart, written into memory and
-//! reopened (a removal and an addition on one part in one write are
-//! refused), then a second `add_chart` whose plot kind is the command line's
-//! index 0 to 12 over the thirteen `NewPlot` variants, with two series
-//! coloured and labelled, the axis formats and, on a bar or an area, a
-//! combined line on a secondary axis with its title and format, each option
-//! where the kind takes it; written into memory and reopened, then `charts`.
-//! The index keeps every plot arm live.
-//!
-//! The third set (`specs/0039-chart-kinds-and-formatting.md`, "The
-//! probe"): the index runs 0 to 15, the surface, the 3D surface and the
-//! bar of pie after the 3D area; each series takes its kind's rules (no
-//! colour, labels, marker, line or points on a surface's; one series on an
-//! of-pie, as a pie's), and on every kind that takes them a marker, a line
-//! and one formatted point, an explosion on the round kinds, a marker on
-//! the point where the series takes one, so every arm is live.
+//! The second add (`specs/0036-charts-write-second-set.md`,
+//! `specs/0039-chart-kinds-and-formatting.md` and
+//! `specs/0040-analytic-chart-elements.md`, "The probe"): on the same
+//! package, `remove_chart` of that chart, written into memory and reopened
+//! (a removal and an addition on one part in one write are refused), then
+//! a second `add_chart` whose plot kind is the command line's index 0 to 15
+//! over the sixteen `NewPlot` variants in their declared order, so every
+//! plot arm is live. Its series, one on a pie, a 3D pie or an of-pie, three
+//! on a stock plot and two otherwise, each take what their kind takes: a
+//! colour and labels (none on a surface's), a marker, a line and one
+//! formatted point, an explosion on the round kinds, a marker on the point
+//! where the series takes one, and on a bar, line, scatter, area or bubble
+//! series a linear trendline (R-squared shown, forecast forward 1) and
+//! fixed error bars (1, both ways, end caps; direction y on a scatter's or
+//! a bubble's). The chart takes the axis titles and formats where the kind
+//! takes them; on a bar or an area a combined line on a secondary axis with
+//! its title and format, its series as a line's; the plot lines, drop
+//! lines, high-low lines and up-down bars on the line, drop lines on the
+//! area, drop lines and up-down bars beside a stock plot's high-low lines;
+//! and the axis options: the value axis of every kind that writes one
+//! bounded 0 to 100 with a major unit of 25 and a minor unit of 5,
+//! reversed; the category axis of the bar and area kinds skipping every
+//! second label and tick mark; the line's (index 1) category axis the date
+//! form, base unit days, major unit one day; a scatter's x axis of
+//! logarithm base 10. Written into memory and reopened, then `charts`.
 //!
 //! The chartsheet (`specs/0038-chartsheets.md`, "Size and packaging"): on
 //! the same package, `add_chartsheet` of the first set's column chart at
@@ -48,10 +56,11 @@ use std::process::ExitCode;
 
 use emend::cells::{Area, CellRef, FormulaKind, Value};
 use emend::package::{
-    BarDirection, CALC_CHAIN, DashStyle, EditAs, Grouping, ImageAnchor, LabelPosition,
-    LegendPosition, MarkerSymbol, NewChart, NewCombined, NewLabels, NewLine, NewMarker, NewPlot,
-    NewPoint, NewSeries, NewSeriesName, OfPieKind, OfPieSplit, Package, RadarStyle, ScatterStyle,
-    THEME,
+    BarDirection, CALC_CHAIN, DashStyle, EditAs, ErrorBarKind, ErrorDirection, ErrorValue,
+    Grouping, ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewAxis, NewChart,
+    NewCombined, NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint,
+    NewSeries, NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, Package, RadarStyle,
+    ScatterStyle, THEME, TimeUnit, TrendlineKind,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -641,12 +650,82 @@ const MARKED_POINT: [NewPoint; 1] = [NewPoint {
     ..PLAIN_POINT[0]
 }];
 
+/// The trendline each series takes where its kind takes one: linear,
+/// showing R-squared, forecast forward 1 (`specs/0040-analytic-chart-
+/// elements.md`, "The probe").
+const TRENDLINE: NewTrendline = NewTrendline {
+    kind: TrendlineKind::Linear,
+    forward: Some(1.0),
+    backward: None,
+    intercept: None,
+    show_equation: false,
+    show_r_squared: true,
+    name: None,
+};
+
+/// The error bars each series takes where its kind takes them: fixed 1,
+/// both ways, end caps; on a scatter's or a bubble's, direction y.
+const ERROR_BARS: [NewErrorBars; 1] = [NewErrorBars {
+    direction: None,
+    kind: ErrorBarKind::Both,
+    value: ErrorValue::Fixed(1.0),
+    end_cap: true,
+}];
+const XY_ERROR_BARS: [NewErrorBars; 1] = [NewErrorBars {
+    direction: Some(ErrorDirection::Y),
+    ..ERROR_BARS[0]
+}];
+
+/// The axis options, each axis's from these (`specs/0040-analytic-chart-
+/// elements.md`, "The probe", ruling L): the value axis bounded 0 to 100,
+/// its units 25 and 5, reversed; the bar and area kinds' category axis
+/// skipping every second label and tick mark; the line's category axis the
+/// date form; a scatter's x axis of logarithm base 10.
+const NO_AXIS: NewAxis = NewAxis {
+    min: None,
+    max: None,
+    log_base: None,
+    reversed: false,
+    major_unit: None,
+    minor_unit: None,
+    tick_label_skip: None,
+    tick_mark_skip: None,
+    date: None,
+};
+const VALUE_AXIS: NewAxis = NewAxis {
+    min: Some(0.0),
+    max: Some(100.0),
+    reversed: true,
+    major_unit: Some(25.0),
+    minor_unit: Some(5.0),
+    ..NO_AXIS
+};
+const SKIPPING_AXIS: NewAxis = NewAxis {
+    tick_label_skip: Some(2),
+    tick_mark_skip: Some(2),
+    ..NO_AXIS
+};
+const DATE_AXIS: NewAxis = NewAxis {
+    date: Some(NewDateAxis {
+        base_unit: TimeUnit::Days,
+        major: Some((1, TimeUnit::Days)),
+        minor: None,
+    }),
+    ..NO_AXIS
+};
+const LOG_AXIS: NewAxis = NewAxis {
+    log_base: Some(10.0),
+    ..NO_AXIS
+};
+
 /// One series of the second chart: its values' column, its colour (none on
 /// a stock plot or a surface), its labels (none on a surface), sizes on a
 /// bubble's; a marker (`Circle`, size 7, the series' colour) on a line, a
 /// scatter or a marker radar, a line (28575 EMU, `Dash`) on a line, a 3D
 /// line, a scatter, a radar or a stock plot, and one point on every kind but
-/// the surfaces (`specs/0039-chart-kinds-and-formatting.md`, "The probe").
+/// the surfaces (`specs/0039-chart-kinds-and-formatting.md`, "The probe");
+/// the trendline and the error bars on a bar, line, scatter, area or bubble
+/// series (`specs/0040-analytic-chart-elements.md`, "The probe").
 const fn probe_series(values: &'static str, color: u32, kind: NewPlot) -> NewSeries<'static> {
     let surface = matches!(kind, NewPlot::Surface { .. } | NewPlot::Surface3D { .. });
     let round = matches!(
@@ -673,6 +752,15 @@ const fn probe_series(values: &'static str, color: u32, kind: NewPlot) -> NewSer
         } | NewPlot::Pie
             | NewPlot::Pie3D
     );
+    let analytic = matches!(
+        kind,
+        NewPlot::Bar { .. }
+            | NewPlot::Line { .. }
+            | NewPlot::Scatter { .. }
+            | NewPlot::Area { .. }
+            | NewPlot::Bubble
+    );
+    let xy = matches!(kind, NewPlot::Scatter { .. } | NewPlot::Bubble);
     NewSeries {
         name: Some(NewSeriesName::Text("probe series")),
         categories: Some("'probe'!$A$1:$A$2"),
@@ -714,12 +802,19 @@ const fn probe_series(values: &'static str, color: u32, kind: NewPlot) -> NewSer
         } else {
             &PLAIN_POINT
         },
-        trendline: None,
-        error_bars: &[],
+        trendline: if analytic { Some(TRENDLINE) } else { None },
+        error_bars: if !analytic {
+            &[]
+        } else if xy {
+            &XY_ERROR_BARS
+        } else {
+            &ERROR_BARS
+        },
     }
 }
 
-/// The combined line's one series, on the secondary axis.
+/// The combined line's one series, on the secondary axis, with a line's
+/// trendline and error bars.
 const COMBINED_SERIES: [NewSeries<'static>; 1] = [NewSeries {
     name: Some(NewSeriesName::Text("probe line")),
     categories: Some("'probe'!$A$1:$A$2"),
@@ -730,8 +825,8 @@ const COMBINED_SERIES: [NewSeries<'static>; 1] = [NewSeries {
     marker: None,
     line: None,
     points: &[],
-    trendline: None,
-    error_bars: &[],
+    trendline: Some(TRENDLINE),
+    error_bars: &ERROR_BARS,
 }];
 
 /// The three series the second set's chart takes its own from.
@@ -746,9 +841,11 @@ fn second_set_series(kind: NewPlot) -> [NewSeries<'static>; 3] {
 /// The second set's chart for `kind` (`specs/0036-charts-write-second-
 /// set.md`, "The probe", P4 ruling R): two series (one on a pie, a 3D pie
 /// or an of-pie, three on a stock plot), each coloured and labelled where
-/// the kind takes it, with its marker, line and point; the axis titles
-/// and formats where the kind takes them; on a bar or an area a combined
-/// line on a secondary axis with its title and format.
+/// the kind takes it, with its marker, line, point, trendline and error
+/// bars; the axis titles and formats where the kind takes them; on a bar or
+/// an area a combined line on a secondary axis with its title and format;
+/// the plot lines and the axis options where the kind takes them
+/// (`specs/0040-analytic-chart-elements.md`, "The probe", ruling L).
 fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<'a> {
     let round = matches!(
         kind,
@@ -770,6 +867,15 @@ fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<
             secondary_axis_title: Some("probe secondary"),
             secondary_axis_format: Some("0%"),
         });
+    let category_axis = match kind {
+        NewPlot::Line { .. } => Some(DATE_AXIS),
+        NewPlot::Bar { .. }
+        | NewPlot::Bar3D { .. }
+        | NewPlot::Area { .. }
+        | NewPlot::Area3D { .. } => Some(SKIPPING_AXIS),
+        NewPlot::Scatter { .. } => Some(LOG_AXIS),
+        _ => None,
+    };
     NewChart {
         plot: kind,
         title: Some("probe second set"),
@@ -781,11 +887,14 @@ fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<
         legend: Some(LegendPosition::Right),
         size: None,
         combined,
-        drop_lines: false,
-        high_low_lines: kind == NewPlot::Stock,
-        up_down_bars: false,
-        category_axis: None,
-        value_axis: None,
+        drop_lines: matches!(
+            kind,
+            NewPlot::Line { .. } | NewPlot::Area { .. } | NewPlot::Stock
+        ),
+        high_low_lines: matches!(kind, NewPlot::Line { .. } | NewPlot::Stock),
+        up_down_bars: matches!(kind, NewPlot::Line { .. } | NewPlot::Stock),
+        category_axis,
+        value_axis: (!round).then_some(VALUE_AXIS),
     }
 }
 
