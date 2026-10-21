@@ -831,6 +831,88 @@ spec's status line, admitted under PLANNING_SPEC; the check is right,
 the label wrong. P3's test generator prints the phase's own paths'
 count; the P2 log stands.
 
+## Planning rulings during P3 (2026-10-21)
+
+T. Three readings of "The probe" (the doc d5399c6, carry 0765fee, probe
+8100ae3 and CHANGELOG 63c9af9 commits verified: the doc commit's blobs
+at a02a2089 and 6db24326, the carry touching the axis sample's module
+doc entry alone, the probe and the CHANGELOG each one file). (1) Agreed:
+on the bar and area kinds the combined line's series takes the trendline
+and the error bars by the second plot's kind ("Applicability"). (2)
+Agreed: the bubble's error bars take direction Y, as the scatter's do, a
+direction being required on both. (3) Amended: "the category axis of a
+bar, line or area kind" takes the 3D kinds in, Bar3D, Line3D and Area3D,
+since each writes a catAx and the writer refuses category_axis on the
+round kinds alone; so the 3D line's category axis takes the skips too
+(kind 1 alone takes the date form, ruling L). A new probe commit after
+63c9af9 (subject "M6 part 3 P3: the 3D line's category axis takes the
+skips (ruling T)"), the phase commit, its header's description
+following; the generators, not yet written, take it.
+
+U. The dev figure 1107960 (i686 size-profile sections, +884 over P2's
+gate figure 1107076, +10724 over part 2's 1097236) lies below the
+estimate of 16500 to 26000. A figure below the estimate is told, not a
+finding ("Size and packaging": told at any value, a finding above
+31000). The size log judges the logged figure in words against both
+lines (below the estimate; under the finding line) and names the arms
+the probe reaches (specs/0039 ruling P); the estimate's excess is
+recorded there as the estimate's, not the probe's.
+
+## Planning verification of P3 (2026-10-21)
+
+Verified from primaries: the chain 65703ee, d5399c6 (doc, its blobs
+a02a2089 and 6db24326), 0765fee (carry, ruling Q), 8100ae3 (probe),
+63c9af9 (CHANGELOG), 0707236 (the 3D line's skips, ruling T, the phase
+commit), 2c2a376 (record, 16 files), all local, the tree clean but for
+this working spec, origin/main still bcc53a5; the sixteen files at the
+report's hashes (gate 92b43ad4, test 8afe97d5, negative 833a4b8d, size
+ce2f829e, run bf8b41ca, scan 51f0e972, README 32187214, the check
+f1de45c5, the size record 788acec2, the API record 9e13ce65, chartaxis
+e91d8fbc and dac383f2, charttrend be5fe9fa and 032df328, open ad86f0e0
+and 2cff9eca; the report c7acc289); the five logs ending "checks all as
+expected: yes", the scan "RESULT: PASS" with structural checks failed 0;
+the size and run logs and the scan taking this working spec at 9f5bb018,
+the size log pinning the committed spec at a02a2089. The size record:
+charts 135784 against part 2's 125060, a move of 10724, below the
+estimate of 16500 to 26000 and under 31000, told and not a finding, the
+5776 below the low end recorded as the estimate's (ruling U), the arms
+reached named; images 0, comments 0, the core 0, no finding; the gate's
+probe 1107960. The API record: 815 items, 40 new by key and 1 gone (the
+charts re-export, its key changed), NewSeries alone losing Eq, marked.
+The run log: the chartaxis and charttrend reruns byte-identical to P2's
+by sha256, 27 of 27 on each of the four labels; P2's own kept fixture
+through the three samples 6 of 6 byte-identical; the fresh fixture's six
+lines and twelve field lines as P2's (specs/0038 ruling P: a fresh
+openpyxl file cannot match by sha256); the keep 2121 pairs, listing
+sha256 1632cceb as P2's, 0 new, 0 gone, none moved. The test log: 1386
+on both targets; ruling S's label now counts the phase's own paths. The
+negative log: 13 cases refused, N1 to N13, 132 constants at the phase
+commit and the base. The CHANGELOG: one "Added" bullet citing this spec.
+The independent check's 132 lines verbatim in the report, YES, YES,
+PARTLY, its Q3 points taken into the report and README; its open
+question, the fresh op output's hash against P2's, is answered by
+specs/0038 ruling P, which the run log follows; no second check needed.
+The README names the facts-file error (c566a01, M5 part 3 P1's commit,
+for 12f1314) and the corrected doc-commit hashes. Privacy: 6 commits,
+2120 blobs, 0 findings, PASS. The phase's two independent checks: check
+1 and planning's privacy scan. P3 is DONE.
+
+V. The API listing's heuristic dates four of the 40 new rows to 4c36f05,
+the commit that declared NewChart: NewTrendline.name and
+NewErrorBars.value (the record names these two, their types' rows dated
+12f1314) and NewChart.category_axis and NewChart.value_axis (unnamed,
+since NewChart is 4c36f05's too). By the diff the first two are
+12f1314's (P1) and the last two 3c1f1f3's (P2). Recorded here, the
+record unchanged; part 4's spec carries an item for the listing: a
+member's added-by is the first commit whose diff adds its declaration
+line within its type, not the first holding an equal line.
+
+W. The record commit 2c2a376 and this part's sixteen other commits are
+pushed with part 2's record 2933e3a at the close-out, on planning's word
+given at the close-out briefing and the maintainer's authorisation typed
+in the implementing session; this working spec and ROADMAP.md go into
+the close-out doc commit as planning leaves them, by hash.
+
 ## Decisions for the maintainer
 
 1. Which kinds take a trendline and error bars: A (recommended), the
