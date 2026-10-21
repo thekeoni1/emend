@@ -8185,3 +8185,108 @@ fn the_chart_text_sample_references_at_most_a_thousand_rows() {
         "{drawing}"
     );
 }
+
+/// The text of the entry `name` of the output at `output`.
+fn edit_part_text(output: &Path, name: &str) -> String {
+    let file = fs::File::open(output).expect("open the output");
+    let mut package =
+        emend::package::Package::open(std::io::BufReader::new(file)).expect("a package");
+    let index = package.part(name.as_bytes()).expect("the part");
+    let mut text = String::new();
+    std::io::Read::read_to_string(&mut package.read_part(index).expect("read_part"), &mut text)
+        .expect("read");
+    text
+}
+
+#[test]
+fn the_chart_edit_sample_adds_a_column_and_edits_its_title_and_series_in_place() {
+    // `specs/0041-chart-text-and-edits.md`, "Harness runs", ruling E: the
+    // first write's column chart over B, named by B1, retitled and given
+    // C1, B and C in the second, with no cache; no chart kept, so
+    // `kept_edited` 0. M is 1.
+    for (label, drawing, after) in [
+        ("chart-edit-sample-created", false, ""),
+        (
+            "chart-edit-sample-appended",
+            true,
+            "<drawing r:id=\"rId1\"/>",
+        ),
+    ] {
+        let specs = image_specs(A_CELL, after, drawing);
+        let dir = TempDir::new(label);
+        let input = dir.path("in.xlsx");
+        let output = dir.path("out.xlsx");
+        fs::write(&input, build(&specs)).expect("write the input");
+        let ran = emend_copy_with(&input, &output, &["--chart-edit-sample"]);
+        assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+        assert_eq!(
+            ran.stdout, "chartedit\tcharts=1\tseries=1\trows=1\tread_back=3\tkept_edited=0\n",
+            "the line"
+        );
+        let text = edit_part_text(&output, "xl/charts/chart1.xml");
+        for form in [
+            "<a:t>emend edited</a:t>",
+            "<c:tx><c:strRef><c:f>'Sheet1'!$C$1</c:f></c:strRef></c:tx>",
+            "<c:cat><c:strRef><c:f>'Sheet1'!$B$2:$B$2</c:f></c:strRef></c:cat>",
+            "<c:val><c:numRef><c:f>'Sheet1'!$C$2:$C$2</c:f></c:numRef></c:val>",
+        ] {
+            assert!(text.contains(form), "{form} in {text}");
+        }
+        assert!(!text.contains("emend edit<"), "{text}");
+        assert!(!text.contains("Cache"), "{text}");
+    }
+}
+
+#[test]
+fn the_chart_edit_sample_retitles_the_first_kept_chart_and_keeps_the_second() {
+    // With two charts on W, the first kept chart retitled `emend kept`, its
+    // style and the rest of its part kept; the second kept byte for byte.
+    let specs = charts_specs("rId2", "<c:axPos val=\"l\"/>");
+    let dir = TempDir::new("chart-edit-sample-kept");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-edit-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout, "chartedit\tcharts=3\tseries=1\trows=1\tread_back=3\tkept_edited=1\n",
+        "the line"
+    );
+    let kept = edit_part_text(&output, "xl/charts/chart1.xml");
+    assert!(kept.contains("<a:t>emend kept</a:t>"), "{kept}");
+    assert!(!kept.contains("Sales"), "{kept}");
+    assert!(kept.contains("<c:style val=\"2\"/>"), "{kept}");
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    untouched_but(
+        &entries,
+        &specs,
+        &[
+            b"xl/charts/chart1.xml",
+            b"xl/drawings/drawing1.xml",
+            b"xl/drawings/_rels/drawing1.xml.rels",
+            b"[Content_Types].xml",
+        ],
+    );
+}
+
+#[test]
+fn the_chart_edit_sample_references_at_most_a_thousand_rows() {
+    // `specs/0039-chart-kinds-and-formatting.md`, ruling C, as `specs/0041`
+    // carries it: M is 1500, so every edited reference stops at row 1001.
+    let cell = "<sheetData><row r=\"1500\"><c r=\"A1500\"><v>1</v></c></row></sheetData>";
+    let specs = image_specs(cell, "", false);
+    let dir = TempDir::new("chart-edit-sample-bound");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--chart-edit-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout, "chartedit\tcharts=1\tseries=1\trows=1000\tread_back=3\tkept_edited=0\n",
+        "the line"
+    );
+    let text = edit_part_text(&output, "xl/charts/chart1.xml");
+    assert!(text.contains("<c:f>'Sheet1'!$B$2:$B$1001</c:f>"), "{text}");
+    assert!(text.contains("<c:f>'Sheet1'!$C$2:$C$1001</c:f>"), "{text}");
+    assert!(!text.contains("$1002<"), "{text}");
+}

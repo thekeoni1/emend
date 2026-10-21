@@ -945,6 +945,26 @@
 //!   the chart parts three more than before, `series` 4, `texts` 6,
 //!   `styles` 0 and `read_back` 3; a failure is exit 2 with the message and
 //!   no output, and so is a refusal by the layer.
+//! - `--chart-edit-sample`: the edit sample of
+//!   `specs/0041-chart-text-and-edits.md`, "Harness runs", and ruling E:
+//!   two writes. The first, in memory, adds on W, with M, M', its quoted
+//!   name and L as the text sample has them, one clustered column chart
+//!   titled `emend edit` with the legend at the right, placed as the text
+//!   sample's first, of one series over B named by B1 with the categories
+//!   A2:A(L). The second, on the first's output, edits that chart in place:
+//!   its title set to `emend edited` and its series 0 given the name C1,
+//!   the categories B2:B(L) and the values C2:C(L); and where W held a
+//!   chart before, the first of W's charts retitled `emend kept`. The
+//!   output is reopened. One line: the word `chartedit` then `charts` (W's
+//!   charts, the first write's count), `series` (the edited chart's),
+//!   `rows` (L - 1), `read_back` (how many of the title, the name and the
+//!   two ranges together read as set) and `kept_edited` (1 when the kept
+//!   chart was retitled and reads so, else 0). COUNTS ONLY, as the
+//!   add-chart sample's. Asserted: `charts` one more than before, `series`
+//!   1, `read_back` 3, and every entry of the output the first write's,
+//!   byte for byte, but the edited chart parts, which differ; a failure is
+//!   exit 2 with the message and no output, and so is a refusal by the
+//!   layer.
 //! - `--chart-labels-sample`: the labels sample of
 //!   `specs/0036-charts-write-second-set.md`, "Harness runs": on W, with M,
 //!   M' and its quoted name as `--chart-kinds-sample` has them, two charts
@@ -1123,7 +1143,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 | --charts-sample | --add-chart-sample | --chart-kinds-sample | --chart-more-sample \
 | --chart-3d-sample | --chart-labels-sample | --remove-chart-sample | --chartsheet-sample \
 | --chart-surface-sample | --chart-format-sample | --chart-trend-sample | --chart-axis-sample \
-| --chart-text-sample]";
+| --chart-text-sample | --chart-edit-sample]";
 
 /// The one operation an invocation may carry, chosen by the arguments after
 /// the two paths. At most one: the parser refuses two at once, an unknown
@@ -1267,6 +1287,9 @@ enum Operation {
     /// A column, a line and a pie chart with text properties past the last
     /// row of W, and the counts.
     ChartTextSample,
+    /// A column chart past the last row of W, then its title and series
+    /// edited in place in a second write, and the counts.
+    ChartEditSample,
     /// A column chart and a pie with colours, labels and axis formats past
     /// the last row of W, and the counts.
     ChartLabelsSample,
@@ -1346,6 +1369,7 @@ enum Error {
     ChartTrendSample(&'static str),
     ChartAxisSample(&'static str),
     ChartTextSample(&'static str),
+    ChartEditSample(&'static str),
     ChartLabelsSample(&'static str),
     RemoveChartSample(&'static str),
     ChartsheetSample(&'static str),
@@ -1485,6 +1509,7 @@ impl fmt::Display for Error {
             | Error::ChartTrendSample(what)
             | Error::ChartAxisSample(what)
             | Error::ChartTextSample(what)
+            | Error::ChartEditSample(what)
             | Error::ChartLabelsSample(what) => {
                 write!(f, "the output's {what} is not what the charts imply")
             }
@@ -1739,6 +1764,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::ChartTextSample,
         ),
+        [input, output, flag] if flag == "--chart-edit-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::ChartEditSample,
+        ),
         [input, output, flag] if flag == "--chart-labels-sample" => run(
             Path::new(input),
             Path::new(output),
@@ -1953,6 +1983,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::ChartTextSample) {
         return chart_text_sample(input, output);
     }
+    if matches!(operation, Operation::ChartEditSample) {
+        return chart_edit_sample(input, output);
+    }
     if matches!(operation, Operation::ChartLabelsSample) {
         return chart_labels_sample(input, output);
     }
@@ -2051,6 +2084,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::ChartTrendSample => unreachable!("the trend sample has its own path"),
         Operation::ChartAxisSample => unreachable!("the axis sample has its own path"),
         Operation::ChartTextSample => unreachable!("the text sample has its own path"),
+        Operation::ChartEditSample => unreachable!("the edit sample has its own path"),
         Operation::ChartLabelsSample => unreachable!("the labels sample has its own path"),
         Operation::RemoveChartSample => unreachable!("the chart removal sample has its own path"),
         Operation::ChartsheetSample => unreachable!("the chartsheet sample has its own path"),
@@ -10084,6 +10118,208 @@ fn element_counts<R: io::Read + io::Seek, const N: usize>(
         }
     }
     Ok(counts)
+}
+
+/// The edit sample (`specs/0041-chart-text-and-edits.md`, "Harness
+/// runs", `--chart-edit-sample`, ruling E): a column chart of one series on
+/// W past its last row, written in memory; then, on that output, the chart's
+/// title and series 0 edited in place and, where W held a chart before, the
+/// first one retitled, the output written and read back against the first
+/// write. A failure after the output is in place removes it; a refusal by
+/// the layer is exit 2 with no output.
+fn chart_edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    use emend::package::{
+        BarDirection, ChartSeriesEdit, Grouping, LegendPosition, NewChart, NewPlot, NewSeries,
+        NewSeriesName,
+    };
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = first_worksheet(&mut package)?;
+    let name = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.part == part)
+        .map(|sheet| sheet.name.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let sampled = sample(&mut package, &part)?;
+    let before = chart_kinds_counts(&mut package, &part)?.0;
+    let kept = before.charts > 0;
+    let sheet = format!("'{}'", name.replace('\'', "''"));
+    let last = bounded_last_row(sampled.max_row);
+    let rows = u64::from(last - 1);
+    let column = |letter: char| format!("{sheet}!${letter}$2:${letter}${last}");
+    let (b_name, c_name) = (format!("{sheet}!$B$1"), format!("{sheet}!$C$1"));
+    let (a, b, c) = (column('A'), column('B'), column('C'));
+    let series = [NewSeries {
+        name: Some(NewSeriesName::Reference(&b_name)),
+        categories: Some(&a),
+        values: &b,
+        sizes: None,
+        color: None,
+        labels: None,
+        marker: None,
+        line: None,
+        points: &[],
+        trendline: None,
+        error_bars: &[],
+    }];
+    let chart = NewChart {
+        plot: NewPlot::Bar {
+            direction: BarDirection::Column,
+            grouping: Grouping::Clustered,
+        },
+        title: Some("emend edit"),
+        series: &series,
+        category_axis_title: None,
+        value_axis_title: None,
+        category_axis_format: None,
+        value_axis_format: None,
+        legend: Some(LegendPosition::Right),
+        size: Some((480, 288)),
+        combined: None,
+        drop_lines: false,
+        high_low_lines: false,
+        up_down_bars: false,
+        category_axis: None,
+        value_axis: None,
+        title_text: None,
+        axis_title_text: None,
+        axis_label_text: None,
+        legend_text: None,
+        style: None,
+    };
+    // Rows past the grid are the layer's to refuse, with its index message.
+    let anchor = ImageAnchor::OneCell {
+        from: CellRef {
+            row: sampled.max_row.saturating_add(2),
+            col: 1,
+        },
+        offset: (0, 0),
+    };
+    package.add_chart(&part, anchor, &chart)?;
+    let mut buffer = io::Cursor::new(Vec::new());
+    package.write_to(&mut buffer)?;
+    let first = buffer.into_inner();
+    let mut added = Package::open(io::Cursor::new(first.clone()))?;
+    let index = added
+        .charts(&part)?
+        .len()
+        .checked_sub(1)
+        .ok_or(Error::ChartEditSample("chart count after the addition"))?;
+    let edit = ChartSeriesEdit {
+        name: Some(NewSeriesName::Reference(&c_name)),
+        categories: Some(&b),
+        values: Some(&c),
+    };
+    added.set_chart_title(&part, index, Some("emend edited"))?;
+    added.set_chart_series(&part, index, 0, &edit)?;
+    if kept {
+        added.set_chart_title(&part, 0, Some("emend kept"))?;
+    }
+    write_into(added, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = chart_edit_read_back(output, &part, &before, &first, kept, (&c_name, &b, &c));
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (charts, series, read_back) = checked?;
+    edit_line_named(
+        "chartedit",
+        &[
+            ("charts", charts),
+            ("series", series),
+            ("rows", rows),
+            ("read_back", read_back),
+            ("kept_edited", u64::from(kept)),
+        ],
+    )
+}
+
+/// Reopens the edit sample's output and asserts W's charts one more than
+/// before; the edited chart, the last, of one series, its title, its name
+/// and its two ranges read as set, with no cache; the kept chart, where
+/// there is one, retitled; and every entry the first write's, byte for
+/// byte, but the edited chart parts, which differ. Gives the chart count,
+/// the edited chart's series and how many of the three read back.
+fn chart_edit_read_back(
+    output: &Path,
+    part: &[u8],
+    before: &ChartKindsCounts,
+    first: &[u8],
+    kept: bool,
+    (name, categories, values): (&str, &str, &str),
+) -> Result<(u64, u64, u64), Error> {
+    use emend::package::{Data, SeriesName};
+    // Both packages in memory, read the same way.
+    let bytes = fs::read(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut package = Package::open(io::Cursor::new(bytes))?;
+    let charts = package.charts(part)?;
+    if charts.len() as u64 != before.charts + 1 {
+        return Err(Error::ChartEditSample("chart count"));
+    }
+    let edited = &charts[charts.len() - 1];
+    let all: Vec<_> = edited
+        .chart
+        .plots
+        .iter()
+        .flat_map(|plot| &plot.series)
+        .collect();
+    if all.len() != 1 {
+        return Err(Error::ChartEditSample("series count"));
+    }
+    let reference = |formula: &str| {
+        Some(Data::Reference {
+            formula: formula.to_owned(),
+            cached: None,
+        })
+    };
+    let read_back = [
+        edited.chart.title.as_deref() == Some("emend edited"),
+        all[0].name == Some(SeriesName::Reference(name.to_owned())),
+        all[0].categories == reference(categories) && all[0].values == reference(values),
+    ]
+    .iter()
+    .filter(|held| **held)
+    .count() as u64;
+    if read_back != 3 {
+        return Err(Error::ChartEditSample("read-back edit"));
+    }
+    let mut changed = vec![edited.part.clone()];
+    if kept {
+        if charts[0].chart.title.as_deref() != Some("emend kept") {
+            return Err(Error::ChartEditSample("kept chart's title"));
+        }
+        changed.push(charts[0].part.clone());
+    }
+    // Every entry the first write's but the edited chart parts.
+    let mut written = Package::open(io::Cursor::new(first.to_vec()))?;
+    let names = |package: &Package<io::Cursor<Vec<u8>>>| -> Vec<Vec<u8>> {
+        package
+            .archive()
+            .entries()
+            .iter()
+            .map(|entry| entry.name().to_vec())
+            .collect()
+    };
+    let (out_names, first_names) = (names(&package), names(&written));
+    if out_names != first_names {
+        return Err(Error::ChartEditSample("entry names"));
+    }
+    for entry in &out_names {
+        let read = |package: &mut Package<io::Cursor<Vec<u8>>>| -> Result<Vec<u8>, Error> {
+            let index = package.part(entry).ok_or(Error::NoSuchName)?;
+            let mut bytes = Vec::new();
+            io::Read::read_to_end(&mut package.read_part(index)?, &mut bytes)
+                .map_err(|e| Error::ReadOutput(e.kind()))?;
+            Ok(bytes)
+        };
+        let same = read(&mut package)? == read(&mut written)?;
+        if same == changed.contains(entry) {
+            return Err(Error::ChartEditSample("entry bytes"));
+        }
+    }
+    Ok((charts.len() as u64, all.len() as u64, read_back))
 }
 
 /// The labels sample (`specs/0036-charts-write-second-set.md`, "Harness
