@@ -903,13 +903,14 @@
 //!   M', its quoted name and L as the trend sample has them, three charts
 //!   placed as the format sample's, the k-th (k from 0) titled `emend axis
 //!   k` with the legend at the right and no axis titles, each of one series
-//!   over B named by B1 against A2:A(L): a standard line chart with drop
-//!   lines, high-low lines and up-down bars, its value axis bounded 0 to
-//!   100 with a major unit of 25 and a minor unit of 5, its category axis
-//!   skipping every second label and tick mark; a scatter of style
-//!   `marker` with a value axis of logarithm base 10 and a reversed x axis
-//!   from 1; and a clustered column chart with a date category axis of
-//!   base unit days and a major unit of one month, and a reversed value
+//!   over B named by B1, the line's and the scatter's against A2:A(L) and
+//!   the column's without categories (ruling P): a standard line chart
+//!   with drop lines, high-low lines and up-down bars, its value axis
+//!   bounded 0 to 100 with a major unit of 25 and a minor unit of 5, its
+//!   category axis skipping every second label and tick mark; a scatter of
+//!   style `marker` with a value axis of logarithm base 10 and a reversed x
+//!   axis from 1; and a clustered column chart with a date category axis
+//!   of base unit days and a major unit of one month, and a reversed value
 //!   axis. The output is reopened. One line: the word `chartaxis` then
 //!   `charts_before` and `charts_after`, `series` (the series of the last
 //!   three entries of the output's charts of W), `rows` (L - 1),
