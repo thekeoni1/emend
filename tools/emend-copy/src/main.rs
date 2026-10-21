@@ -9510,8 +9510,10 @@ const AXIS_SAMPLE_BOUNDED: u64 = 2;
 /// runs", `--chart-axis-sample`): a line chart with its plot lines, its
 /// value axis bounded and divided and its category axis skipping; a
 /// scatter with a logarithmic value axis and a reversed x axis from 1; and
-/// a column chart with a date category axis and a reversed value axis; each
-/// of one series, on W past its last row, the output written and read back.
+/// a column chart without categories, with a date category axis and a
+/// reversed value axis (ruling P: a date axis over column A's values can
+/// span more days than LibreOffice can lay out); each of one series, on W
+/// past its last row, the output written and read back.
 /// A failure after the output is in place removes it; a refusal by the
 /// layer is exit 2 with no output.
 fn chart_axis_sample(input: &Path, output: &Path) -> Result<(), Error> {
@@ -9612,7 +9614,12 @@ fn chart_axis_sample(input: &Path, output: &Path) -> Result<(), Error> {
             style: ScatterStyle::Marker,
         })
     };
+    let undated = [NewSeries {
+        categories: None,
+        ..series[0]
+    }];
     let column_chart = NewChart {
+        series: &undated,
         category_axis: Some(NewAxis {
             date: Some(NewDateAxis {
                 base_unit: TimeUnit::Days,

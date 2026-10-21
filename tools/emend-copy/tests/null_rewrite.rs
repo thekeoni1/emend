@@ -7778,9 +7778,10 @@ fn the_chart_trend_sample_references_at_most_a_thousand_rows() {
 fn the_chart_axis_sample_adds_a_line_a_scatter_and_a_column_and_reads_them_back() {
     // `specs/0040-analytic-chart-elements.md`, "Harness runs" and ruling M:
     // a line with its plot lines and two axes' options, a scatter with a
-    // logarithmic value axis and a reversed x axis from 1, a column with a
-    // date category axis and a reversed value axis, one series each, on
-    // one-cell anchors at rows 3, 19 and 35, M being 1.
+    // logarithmic value axis and a reversed x axis from 1, a column without
+    // categories (ruling P) with a date category axis and a reversed value
+    // axis, one series each, on one-cell anchors at rows 3, 19 and 35, M
+    // being 1.
     let line = "chartaxis\tcharts_before=0\tcharts_after=3\tseries=3\trows=1\tdate_axes=1\
                 \tbounded_axes=2\tread_back=3\tchart_parts_after=3\n";
     for (label, drawing, after) in [
@@ -7924,6 +7925,13 @@ fn the_chart_axis_sample_writes_each_plot_line_and_axis_form() {
             assert!(text.contains(form), "{form} in {text}");
         }
         assert!(!text.contains("<c:catAx>") || name != b"xl/charts/chart3.xml");
+        // Ruling P: the column's series has no categories, the line's a cat
+        // and the scatter's an xVal.
+        assert_eq!(
+            text.contains("<c:cat>") || text.contains("<c:xVal>"),
+            name != b"xl/charts/chart3.xml",
+            "{text}"
+        );
     }
 }
 
