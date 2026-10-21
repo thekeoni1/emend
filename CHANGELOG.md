@@ -81,6 +81,10 @@
   surface and of-pie charts, and on a chart's series a marker, a line's width
   and dash, and formatted data points, each where the kind takes it
   (`specs/0039-chart-kinds-and-formatting.md`).
+- Analytic chart elements, with the feature `charts`: a series' trendline and
+  error bars, a chart's drop lines, high-low lines and up-down bars, and its
+  axes' scaling, units, label and tick mark skips and a date category axis,
+  each where the kind takes it (`specs/0040-analytic-chart-elements.md`).
 
 ### Changed
 
