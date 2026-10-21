@@ -32,10 +32,11 @@
 //! area, drop lines and up-down bars beside a stock plot's high-low lines;
 //! and the axis options: the value axis of every kind that writes one
 //! bounded 0 to 100 with a major unit of 25 and a minor unit of 5,
-//! reversed; the category axis of the bar and area kinds skipping every
-//! second label and tick mark; the line's (index 1) category axis the date
-//! form, base unit days, major unit one day; a scatter's x axis of
-//! logarithm base 10. Written into memory and reopened, then `charts`.
+//! reversed; the category axis of the bar and area kinds and of the 3D
+//! line skipping every second label and tick mark; the line's (index 1)
+//! category axis the date form, base unit days, major unit one day; a
+//! scatter's x axis of logarithm base 10. Written into memory and
+//! reopened, then `charts`.
 //!
 //! The chartsheet (`specs/0038-chartsheets.md`, "Size and packaging"): on
 //! the same package, `add_chartsheet` of the first set's column chart at
@@ -677,10 +678,11 @@ const XY_ERROR_BARS: [NewErrorBars; 1] = [NewErrorBars {
 }];
 
 /// The axis options, each axis's from these (`specs/0040-analytic-chart-
-/// elements.md`, "The probe", ruling L): the value axis bounded 0 to 100,
-/// its units 25 and 5, reversed; the bar and area kinds' category axis
-/// skipping every second label and tick mark; the line's category axis the
-/// date form; a scatter's x axis of logarithm base 10.
+/// elements.md`, "The probe", rulings L and T): the value axis bounded 0
+/// to 100, its units 25 and 5, reversed; the category axis of the bar and
+/// area kinds and of the 3D line skipping every second label and tick mark;
+/// the line's category axis the date form; a scatter's x axis of logarithm
+/// base 10.
 const NO_AXIS: NewAxis = NewAxis {
     min: None,
     max: None,
@@ -871,6 +873,7 @@ fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<
         NewPlot::Line { .. } => Some(DATE_AXIS),
         NewPlot::Bar { .. }
         | NewPlot::Bar3D { .. }
+        | NewPlot::Line3D { .. }
         | NewPlot::Area { .. }
         | NewPlot::Area3D { .. } => Some(SKIPPING_AXIS),
         NewPlot::Scatter { .. } => Some(LOG_AXIS),
