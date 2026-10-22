@@ -12,8 +12,9 @@
 //! linked and nothing is dead. The second output itself is not changed.
 //!
 //! The second add (`specs/0036-charts-write-second-set.md`,
-//! `specs/0039-chart-kinds-and-formatting.md` and
-//! `specs/0040-analytic-chart-elements.md`, "The probe"): on the same
+//! `specs/0039-chart-kinds-and-formatting.md`,
+//! `specs/0040-analytic-chart-elements.md` and
+//! `specs/0041-chart-text-and-edits.md`, "The probe"): on the same
 //! package, `remove_chart` of that chart, written into memory and reopened
 //! (a removal and an addition on one part in one write are refused), then
 //! a second `add_chart` whose plot kind is the command line's index 0 to 15
@@ -35,8 +36,13 @@
 //! reversed; the category axis of the bar and area kinds and of the 3D
 //! line skipping every second label and tick mark; the line's (index 1)
 //! category axis the date form, base unit days, major unit one day; a
-//! scatter's x axis of logarithm base 10. Written into memory and
-//! reopened, then `charts`.
+//! scatter's x axis of logarithm base 10; the text properties, the title
+//! 14 pt bold, the axis titles 10 pt italic and the axis labels 9 pt on
+//! every kind but the round ones, each series' labels 8 pt in a colour,
+//! the legend 9 pt in a typeface; and the style 26. Written into memory and
+//! reopened; then the second set's chart, the sheet's one chart, edited in
+//! place, its title and its first series' name and references replaced,
+//! written into memory and reopened; then `charts`.
 //!
 //! The chartsheet (`specs/0038-chartsheets.md`, "Size and packaging"): on
 //! the same package, `add_chartsheet` of the first set's column chart at
@@ -57,11 +63,11 @@ use std::process::ExitCode;
 
 use emend::cells::{Area, CellRef, FormulaKind, Value};
 use emend::package::{
-    BarDirection, CALC_CHAIN, DashStyle, EditAs, ErrorBarKind, ErrorDirection, ErrorValue,
-    Grouping, ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewAxis, NewChart,
-    NewCombined, NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot, NewPoint,
-    NewSeries, NewSeriesName, NewTrendline, OfPieKind, OfPieSplit, Package, RadarStyle,
-    ScatterStyle, THEME, TimeUnit, TrendlineKind,
+    BarDirection, CALC_CHAIN, ChartSeriesEdit, DashStyle, EditAs, ErrorBarKind, ErrorDirection,
+    ErrorValue, Grouping, ImageAnchor, LabelPosition, LegendPosition, MarkerSymbol, NewAxis,
+    NewChart, NewCombined, NewDateAxis, NewErrorBars, NewLabels, NewLine, NewMarker, NewPlot,
+    NewPoint, NewSeries, NewSeriesName, NewText, NewTrendline, OfPieKind, OfPieSplit, Package,
+    RadarStyle, ScatterStyle, THEME, TimeUnit, TrendlineKind,
 };
 use emend::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
@@ -463,10 +469,12 @@ fn edit(
 /// one series on its first sheet from the probe's own constants, written
 /// into memory and reopened; then (specs/0036 "The probe") `remove_chart` of
 /// it, written and reopened, and `add_chart` of `kind`'s chart, written and
-/// reopened; then `charts` of that sheet: the chart count and the series
-/// count over every plot of every chart; then (specs/0038 "Size and
-/// packaging") `add_chartsheet` of the column chart at 960 by 640, written
-/// and reopened, and `charts` of the new part: its chart count.
+/// reopened; then (specs/0041 "The probe", ruling J) that chart, the
+/// sheet's one, edited in place, its title and its first series replaced,
+/// written and reopened; then `charts` of that sheet: the chart count and
+/// the series count over every plot of every chart; then (specs/0038 "Size
+/// and packaging") `add_chartsheet` of the column chart at 960 by 640,
+/// written and reopened, and `charts` of the new part: its chart count.
 fn read_first_sheet_charts(
     second: &std::ffi::OsStr,
     kind: NewPlot,
@@ -534,6 +542,22 @@ fn read_first_sheet_charts(
     let series = second_set_series(kind);
     package
         .add_chart(&first, anchor, &second_set_chart(kind, &series))
+        .map_err(|e| e.to_string())?;
+    let mut package = reopened(package)?;
+    package
+        .set_chart_title(&first, 0, Some("probe edited"))
+        .map_err(|e| e.to_string())?;
+    package
+        .set_chart_series(
+            &first,
+            0,
+            0,
+            &ChartSeriesEdit {
+                name: Some(NewSeriesName::Text("probe edited series")),
+                categories: Some("'probe'!$A$3:$A$4"),
+                values: Some("'probe'!$B$3:$B$4"),
+            },
+        )
         .map_err(|e| e.to_string())?;
     let mut package = reopened(package)?;
     let charts = package.charts(&first).map_err(|e| e.to_string())?;
@@ -627,9 +651,47 @@ const fn labels(outside: bool) -> NewLabels<'static> {
             None
         },
         number_format: Some("0.0"),
-        text: None,
+        text: Some(LABEL_TEXT),
     }
 }
+
+/// The text properties the second set's chart takes, one value per option
+/// (`specs/0041-chart-text-and-edits.md`, "The probe"): the title 14 pt
+/// bold, the axis titles 10 pt italic, the axis labels 9 pt, the data
+/// labels 8 pt in a colour, the legend 9 pt in a typeface.
+const TITLE_TEXT: NewText<'static> = NewText {
+    size: Some(1400),
+    bold: true,
+    italic: false,
+    color: None,
+    font: None,
+};
+const AXIS_TITLE_TEXT: NewText<'static> = NewText {
+    size: Some(1000),
+    italic: true,
+    bold: false,
+    ..TITLE_TEXT
+};
+const AXIS_LABEL_TEXT: NewText<'static> = NewText {
+    size: Some(900),
+    bold: false,
+    ..TITLE_TEXT
+};
+const LABEL_TEXT: NewText<'static> = NewText {
+    size: Some(800),
+    bold: false,
+    color: Some(0x1F_77B4),
+    ..TITLE_TEXT
+};
+const LEGEND_TEXT: NewText<'static> = NewText {
+    size: Some(900),
+    bold: false,
+    font: Some("Arial"),
+    ..TITLE_TEXT
+};
+
+/// The style every kind's chart takes.
+const STYLE: u8 = 26;
 
 /// The point's colour and the marker a point takes where its series takes
 /// one (`specs/0039-chart-kinds-and-formatting.md`, "The probe").
@@ -904,11 +966,11 @@ fn second_set_chart<'a>(kind: NewPlot, all: &'a [NewSeries<'a>; 3]) -> NewChart<
         up_down_bars: matches!(kind, NewPlot::Line { .. } | NewPlot::Stock),
         category_axis,
         value_axis: (!round).then_some(VALUE_AXIS),
-        title_text: None,
-        axis_title_text: None,
-        axis_label_text: None,
-        legend_text: None,
-        style: None,
+        title_text: Some(TITLE_TEXT),
+        axis_title_text: (!round).then_some(AXIS_TITLE_TEXT),
+        axis_label_text: (!round).then_some(AXIS_LABEL_TEXT),
+        legend_text: Some(LEGEND_TEXT),
+        style: Some(STYLE),
     }
 }
 
