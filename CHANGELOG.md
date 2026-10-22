@@ -85,6 +85,11 @@
   error bars, a chart's drop lines, high-low lines and up-down bars, and its
   axes' scaling, units, label and tick mark skips and a date category axis,
   each where the kind takes it (`specs/0040-analytic-chart-elements.md`).
+- Chart text and in-place edits, with the feature `charts`: a written chart's
+  title, axis titles, axis labels, data labels and legend given a size, bold,
+  italic, a colour and a typeface, and the chart a style value; a kept chart's
+  title and a kept series' name and references changed in place, every other
+  byte of its chart part kept (`specs/0041-chart-text-and-edits.md`).
 
 ### Changed
 
