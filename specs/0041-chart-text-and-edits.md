@@ -514,6 +514,167 @@ neither the phase target nor the repository). Privacy: 4 commits, 2139
 blobs, 0 findings, PASS. The phase's two independent checks: check 1 and
 planning's privacy scan. P1 is DONE.
 
+## Planning rulings during P2 (2026-10-21)
+
+E. Nine readings of the edit calls, ruled. (Q1) Agreed, and "The chart
+part"'s "Order of checks at the call" is amended: at the call nothing is
+recorded on an error; set_chart_title checks the title by the text rule,
+set_chart_series the edit's references in field order (name, categories,
+values) by the reference rule; the part and the index are checked at the
+write as remove_chart's are, per part in record order: the twice,
+removal and addition refusals; remove_chart's part refusals; the index
+past the frame list ("no chart at that position"); the frame's chart
+part ("a chart part cannot be read": no part, or not chartSpace); the
+series index ("no series at that position"); the walk's own failures on
+a malformed part, "a chart part cannot be read". (Q2) Agreed:
+set_chart_title twice on one index, or set_chart_series twice on one
+(index, series), is "no chart at that position"; a title edit with
+series edits on one chart, and edits of distinct series, go in one walk.
+(Q3) Agreed: a part this write adds an image or a chart to refuses the
+edit part-wide; an index this write removes refuses it; a removal of
+another index on the same part is allowed, the indexes naming the
+input's list. (Q4) Agreed: on a chartsheet part the edit calls are
+refused with the worksheet-root message the cell calls use
+(NOT_WORKSHEET), not remove_chart's. (Q5) Amended: no kind takes no
+categories, so "Applicability"'s refusal of categories is struck; the
+walk names cat and val, or xVal and yVal under scatterChart and
+bubbleChart, by the ser's parent; a parent outside the plot elements the
+writer knows is "a chart part cannot be read". (Q6) Agreed: the
+reference form found (numRef or strRef) is kept with its f replaced and
+its cache dropped; the writer's form (cat strRef; xVal, val, yVal
+numRef) is used where the element is absent or is a literal or a
+multiLvlStrRef. (Q7) Amended toward keeping bytes: in a kept rich title
+the bodyPr, lstStyle, the first paragraph's pPr and its first run's rPr
+are kept, that run's t alone replaced, further runs and paragraphs
+dropped; a tx holding a strRef, or a rich with no run, is replaced by
+the writer's rich form; the title's other children (layout, overlay,
+spPr, txPr, extLst) are kept byte for byte; a title with no tx gets one
+inserted as its first child; no overlay is added. The Excel-form
+fixture's check reads "the title run's t alone replaced" accordingly.
+(Q8) Agreed: None with no title writes autoTitleDeleted 1 as c:chart's
+first child where absent; Some with no title inserts the title as
+c:chart's first child, an autoTitleDeleted 1 becoming 0 and an absent
+one staying absent. (Q9) Agreed: the chart elements written take the
+prefix the root binds to the chart namespace ("c:", none or another);
+the rich text takes the DrawingML prefix in scope at the root, and where
+none is bound the inserted rich carries its own xmlns:a. The edit
+sample's "FIRST kept chart" is index 0 of the first worksheet's
+Package::charts list read before the first write, where non-empty; its
+new title the constant "emend kept" (ruling H); the read-back through
+the reader (the title, the name's reference, the two ranges).
+
+F. (Q10) style, NewChart's last field, is checked in declaration order:
+its range (1 to 48, else "a chart value is out of its range") right
+after the four texts' checks (ruling A a) and before the combined plot's
+rules; one test pins it (a bad legend_text with a bad style takes the
+legend's message).
+
+G. (Q11) No P2 sample wrote a style, so the openpyxl comparison had no
+emend style val to set beside openpyxl's 26. Ruled (c): the edit
+sample's added chart takes style 26 (a one-line tool change, a new tool
+commit after 1adc74d, the phase commit moving to it; the generators take
+it); the comparison takes emend's c:style from the edit sample's added
+chart part and openpyxl's from the fixture, the same constant, equality
+required, each printed with its preceding sibling as found:
+roundedCorners for emend, none for openpyxl, whose style is the root's
+first child (the implementing session's dev run of the op; planning's
+"roundedCorners on both" was wrong), the difference named and not
+judged, as the catAx's tickLblPos is; P1's text sample is unchanged and
+its rerun stays byte-identical; the edit sample's line is unchanged (the
+reader reads the style, read_back stays 3). The openpyxl fixture's
+charts line reading labels 0 is a reading fact named in the log:
+openpyxl puts dLbls on the plot, which the reader's per-series flag does
+not count. The run fork's hand figures (the Excel-form fixture through
+the edit sample: charts 2, series 1, rows 6, read_back 3, kept_edited 1,
+the title run's t alone replaced; the openpyxl fixture: styles 1,
+charts_after 4, kept_edited 1) are judged at the report.
+
+H. (Check 1 of P2, point 1a) The edit sample titles the kept chart
+"emend kept", its added chart "emend edit" at the first write and "emend
+edited" at the second, three distinct constants the tool and every log
+agree on; ruling E had named "emend edit" for the kept chart. Ruled (a):
+ruling E is amended in place to "emend kept"; no code or log changes;
+the README names the departure. Points 1b (the twice, removal and
+addition refusals across all parts first, then each part's remaining
+checks, no test pinning the order across two parts), 1c (an inserted
+whole title carries overlay 0, the writer's form; ruling E's "no overlay
+is added" concerns a kept title gaining a tx) and 1d (the enclosing
+element's prefix, the root's unless rebound) are accepted readings; 2a
+(the entry identity enforced by the tool's exit 2, not printed) is
+accepted, the run log naming it; 3a and 3b are wording fixes in the
+report's "after the check" section. 3c: the charts probe at f229553 is
+1136996 section bytes, 29036 over part 3's 1107960, above the 25000
+finding line before P3 adds anything; stated in the report, judged by
+P3's size log, where a movement above 25000 is a finding recorded and
+not fixed ("Size and packaging"). The check answer holds two U+2026 and
+no U+2014 or path form: committed verbatim, the scan the arbiter; if the
+scan refuses non-ASCII, the two are replaced by "..." as a named scrub
+with both hashes stated, as ruling C's was.
+
+I. The final scan of P2. Try 1 (final.log 3d47f32e): total hits 6, form
+f_nonascii, the check answer's two U+2026 (lines 43 and 55), RESULT:
+FAIL, structural 0; ruling H's scrub applied as change S1-a, each U+2026
+replaced by "...", the original 3aaf0a7d outside the tree and the
+committed file 26f35b4c differing on those two lines alone, finding S1
+in the README. Try 2 (final.log 29ad1ae6): RESULT: PASS, hits 0,
+structural 0, but its printed RERUN_NOTE holds the home directory on one
+line, an expanded absolute path given where P1 gave the literal <phase>;
+the scan does not scan its own output; not committed, kept as
+superseded/scan-final-try2 (finding S2). Ruled: a third run, the scripts
+unchanged (change S2-a); RERUN_NOTE uses the literal placeholders and
+names both attempts and their causes; RERUN_FILES names the two
+superseded final.logs, the script printing them scrubbed; before
+installing, the log is grepped for the home directory (count 0). Carried
+to P3's scan generator: a self-check that no line of the scan's own
+output holds the home directory, the RERUN_NOTE line included.
+
+## Planning verification of P2 (2026-10-22)
+
+Verified from primaries: the chain 1156042, 8faf930 (doc, blobs fd01e97e
+and 897ae22b), 075abca (core, 1a and 1b carried), 5548bcc (tool),
+1adc74d (op), f229553 (the edit sample's style 26, ruling G, the phase
+commit), 6203ddc (record, 13 files), all local, 11 commits over
+origin/main 69f4c89, the tree clean but for this working spec; the
+thirteen files and the report at the hashes reported (gate 4ecd52bc,
+test bef63747, negative 647e3945, run be00488e, scan 66e01fc6, README
+0e111f83, the check 26f35b4c; the chartedit records 7b10b177 and
+83c9ccde, charttext 095f5578 and c16fdea1, open 5637fa0c and 920f5fdc;
+the report b6c34f52); the four logs ending "checks all as expected:
+yes"; the scan (try 3) "RESULT: PASS", hits 0, structural 0, RERUN_FILES
+the two superseded final.logs, RERUN_NOTE with the placeholders, no line
+of the scan, the README or the check holding the home directory (rulings
+H and I); the run log taking this working spec at d59ed185 (A to G), the
+scan at bcfe65d2 (A to I). The run log: the edit sample 27 of 27 ok on
+both targets, lo ok 27 and lo_in ok 27, the outputs byte for byte the
+same across targets, read_back 81 of 81, kept_edited 4, every added
+chart part holding one c:style 26 after roundedCorners (27) and each
+kept part keeping the input's style (4); the text sample rerun
+byte-identical to P1's run by sha256, 27 of 27 per target; the
+Excel-form fixture through the edit sample charts 2, series 1, rows 6,
+read_back 3, kept_edited 1, the fixture's title run's t alone replaced
+byte for byte, its four txPr, its c14:style, its rels and both style
+parts kept; the openpyxl fixture through the three samples (styles 1 and
+labels 0, a reading fact named; charts_after 4; kept_edited 1, rows 100)
+and the field comparison seven of seven the same form, style 26 equal
+with the preceding siblings named (none; roundedCorners), sz, b and
+latin compared, the two txPr placed by the schema, openpyxl's empty
+runs, bare endParaRPr and bare title run named and not compared; the
+keep 2215 pairs, 42 new, exactly this phase's tests' and all ok and ok,
+none moved. The test log: 1414 on both targets, the sets 515, 688, 730,
+733, 791 and 1170; the ops test PASS. The gate: the charts probe 1136996
+section bytes, 29036 over part 3's 1107960, above the 25000 line before
+P3, stated in the report and judged by P3's size log (ruling H). The
+negative log: 15 cases refused, N1 to N15. The independent check's 95
+lines verbatim in the report in the scrubbed form (ruling H), yes on all
+three questions with one disagreement (1a, ruling H) and the doubts
+accepted as readings; the README names rulings E to I, S1 with both
+hashes, S2, the title constants, the forks' departures (block O restored
+from 65703ee's print; the scan fork's one rm against its move-only
+brief) and the prune. The records are dated 2026-10-22 (the logged run
+crossed midnight UTC) at f229553; accepted. Privacy: 6 commits, 2158
+blobs, 0 findings, PASS. The phase's two independent checks: check 1 and
+planning's privacy scan. P2 is DONE.
+
 ## Decisions for the maintainer
 
 1. The title's text form. A (recommended): the properties in the rich
