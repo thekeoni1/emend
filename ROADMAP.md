@@ -1172,7 +1172,7 @@ message. Estimate 16500 to 26000 under `charts`, a finding above
 | P3 | the probe's options and its one-piece description; the size record (`charts` against part 2's 125060, `images`, `comments` and the core each judged by ruling N's form); the API record; the CHANGELOG bullet; the negative log through the binary; P2's runs rerun on the release binaries; the open record | DONE 2026-10-21 (phase commit 0707236, record 2c2a376, local; charts 135784, a move of 10724 below the estimate, told; API 815 items, NewSeries loses Eq; P2's runs rerun byte-identical 27 of 27 on four labels, the fixture 6 of 6; open record 2121 pairs, none moved; rulings T to W) |
 | Close | close-out push after P3, carrying 2933e3a, base bcc53a5 by its subject, `PREV` `^M6 part 2 close-out record`, no Excel-record check | DONE 2026-10-21 (doc 69f4c89 pushed, origin/main bcc53a5..69f4c89, 19 commits; CI run 39613840305 success; record 5d1c302 local, goes with the next push; finding C1 ruled X) |
 
-### Part 4: chart text and in-place edits (`specs/0041-chart-text-and-edits.md`, APPROVED 2026-10-21, decisions 1 to 4 A; IN PROGRESS from 2026-10-21)
+### Part 4: chart text and in-place edits (`specs/0041-chart-text-and-edits.md`, APPROVED 2026-10-21, decisions 1 to 4 A; DONE and PUSHED 2026-10-22)
 
 Text properties (`NewText`: size, bold, italic, colour, typeface) on
 a written chart's title, axis titles, axis labels, data labels and
@@ -1187,15 +1187,24 @@ byte kept; the reader unchanged. Estimate 12000 to 20500 under
 | P1 | `NewText` on `NewChart` and `NewLabels`, the rules and forms; `--chart-text-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | DONE 2026-10-21 (phase commit f838d65, record 1156042, local; 27 of 27 both targets, tests 1396, probe 1112212 told; the Excel-form fixture read, its style parts kept byte for byte; open record 2173 pairs, 52 new, no finding; findings S1 and S2 ruled C and D; rulings A to D) |
 | P2 | `style`; `ChartSeriesEdit`, `set_chart_title`, `set_chart_series` and the in-place walk; `--chart-edit-sample`; the `chart-text` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | DONE 2026-10-22 (phase commit f229553, record 6203ddc, local; 27 of 27 both targets, kept_edited 4, P1's run rerun byte-identical, tests 1414, probe 1136996 told (29036 over part 3, above the 25000 line, P3 judges); the openpyxl fixture read and compared seven of seven; open record 2215 pairs, 42 new, no finding; findings S1 and S2 ruled H and I; rulings E to I) |
 | P3 | the probe's text, style and edit; the size record (`charts` against part 3's 135784, `images`, `comments` and the core each judged); the API record with the added-by fix (`specs/0040` ruling V); the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | DONE 2026-10-22 (phase commit 1cc0de4, record 5d5eee0, local; charts 166176, moved 30392 over part 3, a FINDING above 25000 recorded not fixed (ruling K: steps 4252, 24784, 1356); core, images and comments 0; API 834 rows, 1 gone, 20 new, 44 re-dated (ruling L); reruns 27 of 27 both targets byte-identical to P2's; keep 2215 pairs unchanged; check 1 ruled N; rulings J to N) |
-| Close | close-out push after P3, carrying 5d1c302, base 69f4c89 by its subject, `PREV` `^M6 part 3 close-out record`, the pre driver passing HEAD (`specs/0040` ruling X), no Excel-record check | PLANNED |
+| Close | close-out push after P3, carrying 5d1c302, base 69f4c89 by its subject, `PREV` `^M6 part 3 close-out record`, the pre driver passing HEAD (`specs/0040` ruling X), no Excel-record check | DONE 2026-10-22 (pushed 69f4c89..f630f67, 16 commits, on "great, push 10/22/2026" typed in the implementing session and planning's word (ruling O); CI run 39790811450 success; post scan PASS; record 7359783 local, goes with part 5; check 2 ruled P; part 4 DONE and PUSHED) |
 
-### Part 5: gradient fills and named styles (PLANNED)
+### Part 5: gradient fills and named styles (`specs/0042-gradient-fills-and-named-styles.md`, APPROVED 2026-10-22, decisions 1 to 4 A)
 
 Gradient fills written (`Fill` gains the gradient form the reader
-passes over today); `add_named_style` writing `cellStyles`,
-`cellStyleXfs` and a cell style's `xfId`; core, within the Milestone
-2 ceiling (decision 2 A). openpyxl's `NamedStyle` and
-`Workbook.add_named_style`.
+passes over today) and read back typed; `add_named_style` writing a
+`cellStyleXfs` format and a `cellStyles` entry, and a cell format
+naming it through `xfId` (`Style::named`); core, within the Milestone
+2 ceiling (decision 2 A), headroom 19792 after part 4, estimate 8000
+to 15000. openpyxl's `GradientFill`, `NamedStyle`,
+`Workbook.add_named_style` and `cell.style`.
+
+| Phase | Scope | Status |
+|---|---|---|
+| P1 | `Gradient`, `GradientKind`, `Stop`, `Fill::gradient`, the composer and checks, the typed read in a cell format and a `dxf`; `--gradient-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | PLANNED |
+| P2 | the core read of `cellStyleXfs` and `cellStyles`; `Style::named`, `add_named_style`, the two containers in the rewrite, the name checks; `--namedstyle-sample`; the `named-style` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | PLANNED |
+| P3 | the probe's gradient and named style; the size record (the budget against part 4's 438960, the estimate, the 15000 line and the ceiling 458752; `read`, `images`, `comments` and `charts` each judged); the API record; the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | PLANNED |
+| Close | close-out push after P3, carrying 7359783, base f630f67 by its subject, `PREV` `^M6 part 4 close-out record`, the pre driver passing HEAD, no Excel-record check | PLANNED |
 
 ### Part 6: measurement and close (PLANNED)
 

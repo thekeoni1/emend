@@ -853,6 +853,67 @@ every hash below is sha256sum's own print.
 
 P3 is DONE. Part 4's work is complete; the close-out follows.
 
+## Planning verification of the close-out (2026-10-22)
+
+Verified from primaries: the close-out doc commit f630f67 (parent
+5d5eee0, blobs 10e93c9c and f82f1ae6, the tree clean); the push of
+69f4c89..f630f67, 16 commits, on the maintainer's "great, push
+10/22/2026" typed in the implementing session on 2026-10-22 and
+planning's word (ruling O), origin/main and HEAD~1 both f630f67 by git
+here, the remote holding refs/heads/main alone; the record commit
+7359783 (parent f630f67, local, goes with part 5's push) holding
+records/logs/m6p4-close/push.log 464580dc, ci-run.log 3da4f13c and
+scan.log a956e184 only, its message ASCII, ending with the
+Co-Authored-By line; push.log ending "pre checks all as expected: yes"
+then "push checks all as expected: yes", the hook's scan 16 commits 0
+findings, "remote main equals local main: yes", "still PRIVATE: yes";
+ci-run.log: run 39790811450 on f630f67, workflow ci, branch main, event
+push, completed, success, steps other than success or skipped 0,
+"ci-run log checks all as expected: yes"; scan.log "RESULT: PASS",
+total hits 0, read or counting errors 0, structural checks failed 0,
+messages scanned 16; the report e3a31aea with check 2's answer verbatim
+(no disagreement affecting the result; its points ruled P); no home
+directory and no non-ASCII byte in the three logs (grep 0, 0, 0); the
+tree clean. Privacy over f630f67..7359783: 1 commit, 2163 blobs, 0
+findings, PASS. The close-out is DONE; Milestone 6 part 4 is DONE and
+PUSHED.
+
+O. Planning's word for the push of 69f4c89..f630f67 given 2026-10-22
+on the pre log, from planning's scratch into the spec after the push:
+the doc commit f630f67 (parent 5d5eee0, blobs 10e93c9c and f82f1ae6,
+the tree clean); push.log (pre) 1246201d ending "pre checks all as
+expected: yes", the base pattern matching 69f4c89 alone, origin/main
+and the remote's main the base, 16 commits, identity 16 of 16, the
+part 3 close-out record 5d1c302 in the range once, privacy 16 commits
+0 findings, the Excel-record check absent, the gate's nine PASS lines,
+CARGO_TARGET_DIR <home>/.cache/emend-build/m6p4-close/target, HEAD the
+phase commit after the gate; scan-pre.log ae029951 RESULT: PASS,
+structural 0; no home directory in either log; the generator fc73a35e
+with changes 54 and 55 (push 98c8776d, ci e0e3d54c, scan 8cdfaf2c);
+planning's own privacy scan of 69f4c89..f630f67: 16 commits, 2191
+blobs, 0 findings, PASS.
+
+P. (Check 2 of the close-out, answer 6cc210eb, in the report verbatim:
+no disagreement affecting the result.) Ruled, with no code, log or
+record change and no rerun. Check try 1, briefed with a placeholder
+where the draft report belonged and stopped before it answered, is an
+implementer error named in the report; a check that never answered
+leaves no answer to carry, and the count of one independent check per
+close-out stands on check 2 alone. The four claims the check marks as
+the session's word are as the report says: planning's word is a
+cross-session message, recorded here as ruling O; the drivers' outer
+standard error and exit codes live in files outside the tree; the home
+and non-ASCII grep the check reproduced; scan-pre.log ae029951 stays
+under <phase> uncommitted, as part 3's did. The two stale labels the
+generator carries forward ("gating no push in Milestones 4 and 5" on
+the stray Excel-record count and "changes against part 6's script" on
+push.log line 48) are wording only, printed by scripts whose checks
+read the right things; part 5's generator renames both as numbered
+changes continuing from 55, so the labels are not carried a fourth
+time. The "(check 2's answer, verbatim, goes here)" placeholder the
+check quotes was the frozen draft's slot for the answer and is filled
+in the final report.
+
 ## Decisions for the maintainer
 
 1. The title's text form. A (recommended): the properties in the rich
