@@ -675,6 +675,184 @@ crossed midnight UTC) at f229553; accepted. Privacy: 6 commits, 2158
 blobs, 0 findings, PASS. The phase's two independent checks: check 1 and
 planning's privacy scan. P2 is DONE.
 
+## Planning rulings during P3 (2026-10-22)
+
+J. (Q12) "The probe" said the edit falls on the first set's chart, but
+the probe removes that chart before the second add (add, reopen,
+remove_chart, reopen, add the second set, reopen), so after the second
+add the first worksheet holds the second set's chart alone, at index 0,
+and the first set survives only as the chartsheet's chart, which ruling
+E (Q4) refuses to edit. Ruled (a): after the second add's reopen the
+probe calls set_chart_title(first, 0, Some("probe edited")) and
+set_chart_series(first, 0, 0, ...) with a Text name and the two constant
+references, one call each on the worksheet's one chart, the second
+set's; then writes, reopens and prints as today; the line count and
+every printed figure unchanged; the walk meets all sixteen kinds' parts
+across the kind index. The header's description reads "then the second
+set's chart, the sheet's one chart, edited in place". Option (b),
+re-adding the first set's chart, is refused (it moves the printed charts
+figure). The second set's options as read: title_text 1400 bold;
+axis_title_text and axis_label_text on every kind but the four round
+ones, the surfaces and the scatter, bubble, radar and stock kinds
+included since they write axes (a kind the writer refuses is a question
+back to planning); legend_text on every kind; NewLabels::text on every
+series that takes labels, not the surfaces'; style Some(26) on every
+kind; one NewText constant per option: the title 1400 bold, the axis
+titles 1000 italic, the axis labels 900, the labels 800 with colour
+1F77B4, the legend 900 Arial. The doc commit 11e1715 (parent 6203ddc,
+blobs edaeea43 and 9b72d75f) is verified; the carry is skipped, nothing
+carried from P2's check and no doc slip found.
+
+K. The charts probe at 0217d1f is 1138352 section bytes on i686 (the
+implementing session's dev figure), 30392 over part 3's 1107960 and 1356
+over P2's gate figure 1136996; P2's own movement, 24784 over P1's
+1112212, is the in-place walk linked in through write_to before the
+probe called it. A movement above 25000 is a finding by "Size and
+packaging": the size log records it, recorded and not fixed, the report
+names it, no code changes in this part. Its cause is planning's
+estimate: the walk was priced at 5000 to 9000 and measures about 24800;
+the text properties and the style priced 5000 to 8000 measure about 5600
+(P1's 4252 and the probe's 1356). Carried: the next spec that adds an
+XML walk prices it at this part's measured cost, not by forms. The probe
+commit 0217d1f (the probe's source alone, ruling J's edit, the one
+description) and the CHANGELOG commit 1cc0de4 (one bullet of five lines
+citing this spec, the phase commit) are verified; the writer refused no
+text option on any kind, so ruling J's reading stands.
+
+L. (Q13) Ruling V's added-by fix (api-listing.py bb1fba22, M3 part 7's
+59f4043c with the one labelled change AV1: a member row's added-by is
+the oldest commit of the file's history whose copy, read by the
+program's own parser, holds a member of that kind and name in that
+container; root items keep the -S rule) re-dates 42 rows at part 3's
+phase commit 0707236, not the four ruling V named, the other 38 the same
+misdating (planning checked Area to d03ed7b and Scope to 5fc1b3d by git
+log -S; the equal lines at 6c27167 and a9f2cad are CellRef's and
+Stream's). Ruled, the recommended form: the P3 record compares rows on
+the key without added (module, kind, name, container, cfg) and names
+separately, under "added-by re-dated by ruling V (change AV1)", every
+row whose added-by differs from the old program's at the same phase
+commit; the test log runs both programs at the phase commit and requires
+the two listings to differ in added and added_subject alone and the four
+named rows to read 12f1314, 12f1314, 3c1f1f3 and 3c1f1f3; it shows part
+3's 42 by the same run at 0707236. The alternative, the old key with the
+moves as gone and new pairs, is refused as noise. The new program is the
+listing's from this part on; the record names its hash and AV1.
+
+M. (Q14) The size log's cause check is widened (change QW): a crate
+commit's code lines in the core's sources may be comment lines,
+re-export-list lines, or lines gated under #[cfg(feature = "charts")],
+the gating read by a reader printed in the log (gated.py 34eb101a) with
+fixture controls refusing an ungated line. P2's core commit 075abca has
+19 such lines in package.rs (the chart_edit module, its re-export, the
+recorded edits and their arms, the write's call), all gated (planning
+counted 19 code lines and the gates in the diff); P1's 4d2cdc3 adds
+re-export lines alone. Ruled (a): QW is the check, consistent with the
+measured core growth of 0; option (b), a finding against part 3's
+narrower form, is refused. The finding under ruling K is built from the
+committed gate figures, P1 4252, P2 24784 and P3 1356 summing to 30392,
+with the check that the steps sum to the cost. The scan's self-check
+(KL) reads its own standard output, so the scan writes to a file, never
+a pipe; the negative log's NC54 control refuses the base's set less
+NO_SERIES_AT.
+
+N. (Check 1 of P3, independent-check-1.md eb21e98d: yes to all three
+questions, fourteen points.) Ruled, with no code, log or record change
+and no rerun. Points 1, 4 and 6 are stale wording: the gate, negative
+and run logs call c3a19a41 "rulings J to L" where the file holds J to
+M (gate 8 lines, negative 9, run 2, counted by grep); the gate heading
+at line 9336 says "two added style lines alone (Q80)" above the 81/19
+check (Q81); size.log repeats the heading at lines 10648 and 10650.
+The checks under them hold; the README and the report name them.
+Point 2: api-listing.py bb1fba22 and gated.py 34eb101a live under
+<phase>/gen as M3 part 7's program did, pinned by the committed
+test.log (AV1 printed as a diff -u against part 7's program) and
+size.log (gated.py printed whole); ruling L's "from this part on"
+means that pinned program. Committing it is a scripts/ change outside
+this part. Point 3: the diff and 0217d1f's message carry which series
+take label text and that round is the four round kinds; no log prints
+them, and the sixteen index runs exiting 0 show the writer refused
+nothing. Point 5: the spec's "P1 and P2 runs rerun" is met through
+P2's two run directories, P2's text run being P1's byte-identical
+rerun (README, departures). Point 7: the open text equals P2's
+(920f5fdc) because 0 pairs changed. Point 8: scan.log comes last by
+design. Points 9 to 14 are the report's wording: "no code changes" is
+said in ruling K's sense, no change made to fix the finding; the
+numstat note says the gate prints 81/19, 5/0 and the doc commit's 0
+and 1 removed, the spec's +161 and ROADMAP's +1 from the diff alone;
+"line count and figures unchanged" cites size.log 12603 and 12650;
+"stay local" is the session's statement; the two trimmed quotes are
+noted. These corrections go in a section after the verbatim answer.
+The checker's one command that redirected to /dev/stdin blocked, was
+killed by the session, wrote nothing; the README names it. The
+"/dev/stdin" in the answer is no path form the scan reads.
+
+## Planning verification of P3 (2026-10-22)
+
+Verified from primaries after the record commit 5d5eee0 landed on
+1cc0de4: the six logs, the README, the check answer, the two records
+and the three record pairs, each read in the tree at the record commit;
+every hash below is sha256sum's own print.
+
+- The phase: 11e1715 (doc: this spec edaeea43, ROADMAP 9b72d75f),
+  0217d1f (the probe), 1cc0de4 (the CHANGELOG bullet, five lines under
+  "### Added", citing this spec). No code commit, no carry, no prune.
+  The record 5d5eee0 holds 16 files, parent 1cc0de4, ASCII message,
+  the Co-Authored-By line alone.
+- The logs (records/logs/m6p4-p3): gate f358db59, test 5f95b843,
+  negative 53ffae05, size 72233d1f, run d5ecdcde; each ends "<log>
+  checks all as expected: yes"; each names PLANNING_SPEC c3a19a41
+  (this spec's working copy with rulings J to M). The scan 9d36f95a:
+  RESULT: PASS, total hits 0, structural 0, PLANNING_SPEC 029cb50c
+  (rulings J to N), self-check KL yes. No line of any committed file
+  holds the home directory (the four "/home/" lines in the run, scan
+  and size logs are the scripts' own pattern text and a planted
+  control); no non-ASCII byte. The README 952c90d0.
+- The size record (records/size-m6p4-2026-10-22-1cc0de4.md, 8f45ada5):
+  charts 166176 over the core probe (1138352 over 972176), a move of
+  30392 over part 3's 135784 (probe 1107960), above the finding line of
+  25000: a FINDING, recorded and not fixed, its cause planning's
+  estimate (ruling K). The steps as the record reads them from the
+  committed gate logs: P1 4252 (1107960 to 1112212), P2 24784 (1112212
+  to 1136996), the probe commit 1356 (1136996 to 1138352). Core,
+  images and comments moved 0. The budget 438960, headroom 19792,
+  unchanged.
+- The API record (records/api-review-m6p4-2026-10-22-1cc0de4.md,
+  8e9b3f6e): 834 rows, compared by key without added-by (ruling L);
+  1 gone (the chart_write re-export whose text grew) and 20 new (the
+  re-export, NewText and its five fields, NewChart's five fields,
+  NewLabels.text, ChartSeriesEdit and its three fields, the two Package
+  methods); 44 rows re-dated by the AV1 program at 1cc0de4 and part 3's
+  42 at 0707236, ruling V's four among them (NewChart.category_axis
+  and value_axis 3c1f1f3, NewTrendline.name and NewErrorBars.value
+  12f1314); Eq dropped 0.
+- The gate log: 1417 test names at the base and the phase commit, 155
+  distinct messages, nine PASS lines; the test log: 1414 passed on both
+  targets, the six feature runs P2's figures.
+- The negative log: 15 cases refused (N1 to N15); NO_SERIES_AT's
+  message once in the catalogue at the phase commit and at the base,
+  quoted in this spec and in no earlier chart spec, covered by two
+  tests named in the log, and unreachable through the binary as P2's
+  log stated.
+- The run log: with the size log's four release binaries (4 of 4);
+  charttext and chartedit rerun on both labels byte-identical to P2's
+  runs (4 of 4, 27 of 27 each); the Excel-form fixture's three samples
+  byte-identical to P2's (6 of 6); the openpyxl fixture written fresh by
+  the pinned image, its six lines P2's (6 of 6; specs/0038 ruling P)
+  and P2's own fixture rerun byte-identical (6 of 6); the keep 2215
+  pairs, 0 new, 0 gone, 0 changed; the open record's text byte-identical
+  to P2's (920f5fdc), lo_in 2203/12/0, lo 2204/11/0, the twelve and
+  eleven P2's.
+- The record pairs at 1cc0de4: charttext 6d965562/9f512550, chartedit
+  c6aebb64/d35a9b4c, open e4bbd4e6/920f5fdc; 27 of 27 on each label.
+- The check (eb21e98d): yes to all three questions, fourteen points,
+  ruled by ruling N; in the record and the report verbatim, no path
+  form, no non-ASCII byte. The report (b0c90573, outside the tree)
+  carries the corrections of points 9 to 14 after the answer.
+- Privacy scan 6203ddc..5d5eee0: 4 commits, 2162 blobs, 0 findings,
+  PASS.
+
+P3 is DONE. Part 4's work is complete; the close-out follows.
+
 ## Decisions for the maintainer
 
 1. The title's text form. A (recommended): the properties in the rich
