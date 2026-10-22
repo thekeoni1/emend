@@ -704,7 +704,10 @@ impl Font {
 }
 
 impl Fill {
-    /// The `<fill>` element, or the refusal of a colour or of the gradient.
+    /// The `<fill>` element, or the refusal of a colour or of the gradient,
+    /// for a differential style's fill. The Cargo feature `rules` (and the
+    /// tests).
+    #[cfg(any(test, feature = "rules"))]
     pub(crate) fn compose(&self) -> Result<Composed, Error> {
         self.check_colors()?;
         self.check_gradient()?;
