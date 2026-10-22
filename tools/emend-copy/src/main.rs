@@ -169,6 +169,22 @@
 //!   `read_back`, counts only. `xfs_after` and `cells_after` are asserted as
 //!   `--style-sample`'s are. A styles part without `borders` is refused by
 //!   the layer with no output.
+//! - `--gradient-sample`: the gradient sample of
+//!   `specs/0042-gradient-fills-and-named-styles.md`, "Harness runs": two
+//!   cell formats are added through `add_style` over no base, one with the
+//!   tool's linear gradient G1 (two stops at 90 degrees in two `Rgb`
+//!   colours) and one with its path gradient G2 (two stops from the centre),
+//!   and two new cells one row past the last, columns 1 and 2, take
+//!   `Number(7)` and `Number(8)` with them. The output is reopened and both
+//!   cell formats' fills read back. One line goes to stdout: the word `edit`
+//!   then `added`, `xfs_before`, `xfs_after`, `fills_added`,
+//!   `cells_before`, `cells_after`, `read_back` (the two formats whose fill
+//!   reads back as the gradient set) and `gradients_before` (the input
+//!   styles part's own main-namespace `gradientFill` elements, counted from
+//!   its bytes beside the typed read). COUNTS ONLY: the colours and numbers
+//!   are this tool's own constants. `xfs_after`, `cells_after` and
+//!   `read_back` (2) are asserted as `--style-sample`'s are. A styles part
+//!   without `fills` is refused by the layer with no output.
 //! - `--format-sample`: the sample formats, pane and merge of
 //!   `specs/0018-rows-and-columns.md`, "Harness runs", with P1 ruling 1: on
 //!   the first sheet of kind `Worksheet`, column 2 takes width 20.5, column
@@ -1127,8 +1143,8 @@ use emend::package::{
     Validation, ValidationKind, legacy_password_hash, rels_part_name, rels_part_source,
 };
 use emend::styles::{
-    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
-    Protection, Side, Style, Vertical,
+    Alignment, Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal,
+    NumberFormat, Pattern, Protection, Side, Stop, Style, Vertical,
 };
 use emend::xml::{BYTE_ORDER_MARK, Stream};
 
@@ -1136,7 +1152,7 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
-| --remove-sample | --font-sample | --border-sample | --format-sample | --insert-rows-sample \
+| --remove-sample | --font-sample | --border-sample | --gradient-sample | --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
@@ -1183,6 +1199,8 @@ enum Operation {
     FontSample,
     /// The sample border, alignment and protection, and their counts.
     BorderSample,
+    /// The sample gradient fills, and their counts.
+    GradientSample,
     /// The sample dated cell, and its counts on stdout.
     DateSample,
     /// No edits, and the workbook's two calculation flags on stdout.
@@ -1596,6 +1614,11 @@ fn main() -> ExitCode {
         [input, output, flag] if flag == "--border-sample" => {
             run(Path::new(input), Path::new(output), Operation::BorderSample)
         }
+        [input, output, flag] if flag == "--gradient-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::GradientSample,
+        ),
         [input, output, flag] if flag == "--format-sample" => {
             run(Path::new(input), Path::new(output), Operation::FormatSample)
         }
@@ -1858,6 +1881,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::BorderSample) {
         return border_sample(input, output);
     }
+    if matches!(operation, Operation::GradientSample) {
+        return gradient_sample(input, output);
+    }
     if matches!(operation, Operation::DateSample) {
         return date_sample(input, output);
     }
@@ -2041,6 +2067,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::StyleSample => unreachable!("the style sample has its own path"),
         Operation::FontSample => unreachable!("the font sample has its own path"),
         Operation::BorderSample => unreachable!("the border sample has its own path"),
+        Operation::GradientSample => unreachable!("the gradient sample has its own path"),
         Operation::DateSample => unreachable!("the date sample has its own path"),
         Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
         Operation::NewSample => unreachable!("the new workbook sample has its own path"),
@@ -2877,6 +2904,189 @@ fn sample_fill() -> Fill {
         background: Some(Color::Indexed(64)),
         gradient: None,
     }
+}
+
+/// G1 and G2 of `specs/0042-gradient-fills-and-named-styles.md`, "Harness
+/// runs", `--gradient-sample`: a linear gradient at 90 degrees and a path
+/// gradient from the centre, each of two stops in two `Rgb` colours.
+fn sample_gradients() -> [Fill; 2] {
+    let stops = |from: u32, to: u32| {
+        vec![
+            Stop {
+                position: 0.0,
+                color: Color::Rgb(from),
+            },
+            Stop {
+                position: 1.0,
+                color: Color::Rgb(to),
+            },
+        ]
+    };
+    let fill = |kind, stops| Fill {
+        pattern: Pattern::None,
+        foreground: None,
+        background: None,
+        gradient: Some(Gradient { kind, stops }),
+    };
+    [
+        fill(
+            GradientKind::Linear { degree: 90.0 },
+            stops(0xFF4F_81BD, 0xFFFF_FFFF),
+        ),
+        fill(
+            GradientKind::Path {
+                left: 0.5,
+                right: 0.5,
+                top: 0.5,
+                bottom: 0.5,
+            },
+            stops(0xFFFF_FFFF, 0xFFC0_504D),
+        ),
+    ]
+}
+
+/// The gradient sample of `specs/0042-gradient-fills-and-named-styles.md`,
+/// "Harness runs", `--gradient-sample`.
+///
+/// As [`style_sample`], with X the `cell_xfs` count, I the `fills` count and
+/// M from [`sample`]: S1 is `add_style` over no base with G1, S2 with G2;
+/// `(M + 1, 1)` is set to `Number(7)` with `Some(S1)` and `(M + 1, 2)` to
+/// `Number(8)` with `Some(S2)`. `xfs_after` is asserted equal to X + 2,
+/// `cells_after` to `cells_before + 2` and `read_back` to 2; a failure
+/// removes the output.
+fn gradient_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let gradients_before = gradient_elements(&mut package)?;
+    let styles = package.styles()?;
+    let xfs_before = styles.cell_xfs.len() as u64;
+    let fills_before = styles.fills();
+    let before = sample(&mut package, &part)?;
+    let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let gradients = sample_gradients();
+    let mut added = Vec::new();
+    for (col, (fill, number)) in (1u32..).zip(gradients.iter().zip([7.0, 8.0])) {
+        let style = Style {
+            fill: Some(fill.clone()),
+            ..Style::default()
+        };
+        let index = package.add_style(None, &style)?;
+        let at = CellRef { row: new_row, col };
+        package.set_cell(&part, at, Value::Number(number));
+        package.set_cell_style(&part, at, Some(index));
+        added.push(index);
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = gradient_read_back(output, &part, &gradients, &added);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let (xfs_after, fills_after, cells_after, read_back) = checked?;
+    if xfs_after != xfs_before + 2 {
+        let _ = fs::remove_file(output);
+        return Err(Error::XfsAfter {
+            expected: xfs_before + 2,
+            found: xfs_after,
+        });
+    }
+    if cells_after != before.cells + 2 {
+        let _ = fs::remove_file(output);
+        return Err(Error::CellsAfter {
+            expected: before.cells + 2,
+            found: cells_after,
+        });
+    }
+    if read_back != 2 {
+        let _ = fs::remove_file(output);
+        return Err(Error::ReadBack {
+            expected: 2,
+            found: read_back,
+        });
+    }
+    edit_line(&[
+        ("added", 2),
+        ("xfs_before", xfs_before),
+        ("xfs_after", xfs_after),
+        (
+            "fills_added",
+            u64::from(
+                fills_after
+                    .unwrap_or(0)
+                    .saturating_sub(fills_before.unwrap_or(0)),
+            ),
+        ),
+        ("cells_before", before.cells),
+        ("cells_after", cells_after),
+        ("read_back", read_back),
+        ("gradients_before", gradients_before),
+    ])
+}
+
+/// Reopens the gradient sample's output: the cell format count, the `fills`
+/// count, the edited sheet's cell count, and how many of the added formats'
+/// fills read back as the gradient set.
+fn gradient_read_back(
+    output: &Path,
+    part: &[u8],
+    gradients: &[Fill],
+    added: &[u32],
+) -> Result<(u64, Option<u32>, u64, u64), Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let styles = written.styles()?;
+    let xfs_after = styles.cell_xfs.len() as u64;
+    let fills_after = styles.fills();
+    let mut read_back = 0u64;
+    for (fill, &index) in gradients.iter().zip(added) {
+        if written.cell_style(index)?.fill.as_ref() == Some(fill) {
+            read_back += 1;
+        }
+    }
+    let mut cells_after = 0u64;
+    for cell in written.cells(part)? {
+        cell?;
+        cells_after += 1;
+    }
+    Ok((xfs_after, fills_after, cells_after, read_back))
+}
+
+/// The main-namespace `gradientFill` elements of the input's styles part,
+/// counted from its own bytes (`--gradient-sample`'s `gradients_before`).
+fn gradient_elements<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<u64, Error> {
+    let Some(part) = package.workbook()?.styles.clone() else {
+        return Ok(0);
+    };
+    let index = package.part(&part).ok_or(Error::NoSuchName)?;
+    let mut stream = Stream::new(package.read_part(index)?, index)?;
+    let mut root: Vec<u8> = Vec::new();
+    let mut count = 0u64;
+    while let Some(token) = stream.next()? {
+        let raw = token.raw;
+        if !raw.starts_with(b"<")
+            || raw.starts_with(b"</")
+            || raw.starts_with(b"<?")
+            || raw.starts_with(b"<!")
+        {
+            continue;
+        }
+        if root.is_empty() {
+            root = raw.to_vec();
+        }
+        if tag_local_name(raw) == b"gradientFill"
+            && MAIN.contains(&element_namespace(raw, &root).as_slice())
+        {
+            count += 1;
+        }
+    }
+    Ok(count)
 }
 
 /// The sample font and fill of `specs/0017-fuller-styles.md`, "Harness

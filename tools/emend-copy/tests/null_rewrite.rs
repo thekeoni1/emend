@@ -2500,6 +2500,75 @@ fn the_border_sample_refuses_a_part_without_borders_and_leaves_nothing() {
     );
 }
 
+// ----------------------------------------------------- --gradient-sample
+
+/// G1's and G2's elements, as `specs/0042-gradient-fills-and-named-styles.md`
+/// "Harness runs" has them and the tool's constants give them.
+const G1: &str = "<fill><gradientFill degree=\"90\"><stop position=\"0\">\
+                  <color rgb=\"FF4F81BD\"/></stop><stop position=\"1\">\
+                  <color rgb=\"FFFFFFFF\"/></stop></gradientFill></fill>";
+const G2: &str = "<fill><gradientFill type=\"path\" left=\"0.5\" right=\"0.5\" top=\"0.5\" \
+                  bottom=\"0.5\"><stop position=\"0\"><color rgb=\"FFFFFFFF\"/></stop>\
+                  <stop position=\"1\"><color rgb=\"FFC0504D\"/></stop></gradientFill></fill>";
+
+#[test]
+fn the_gradient_sample_adds_two_gradient_fills_and_two_formats() {
+    // M is 2; S1 is 3 with G1 (fill 3, past the input's own gradient at 2),
+    // S2 is 4 with G2; the new cells are A3 and B3. The input's own
+    // `gradientFill` is counted.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><v>3</v></c></row>";
+    let fills = SAMPLE_FILLS
+        .replace("<fills count=\"2\">", "<fills count=\"3\">")
+        .replace("</fills>", &format!("{G1}</fills>"));
+    let part = font_sample_part(SAMPLE_FONTS, &fills, SAMPLE_XFS, 3);
+    let (line, styles, sheet) = styled_run(
+        "gradient-sample",
+        &styled_specs(&format!("<sheetData>{rows}</sheetData>"), &part),
+        "--gradient-sample",
+    );
+    assert_eq!(
+        line,
+        "edit\tadded=2\txfs_before=3\txfs_after=5\tfills_added=2\tcells_before=2\
+         \tcells_after=4\tread_back=2\tgradients_before=1\n",
+        "the edit line"
+    );
+    let want = part
+        .replace(
+            &fills,
+            &fills
+                .replace("<fills count=\"3\">", "<fills count=\"5\">")
+                .replace("</fills>", &format!("{G1}{G2}</fills>")),
+        )
+        .replace(
+            "<xf/></cellXfs>",
+            "<xf/><xf numFmtId=\"0\" fontId=\"0\" fillId=\"3\" borderId=\"0\" xfId=\"0\" \
+             applyFill=\"1\"/><xf numFmtId=\"0\" fontId=\"0\" fillId=\"4\" borderId=\"0\" \
+             xfId=\"0\" applyFill=\"1\"/></cellXfs>",
+        )
+        .replace("<cellXfs count=\"3\">", "<cellXfs count=\"5\">");
+    assert_eq!(styles, want, "the styles part");
+    let rows_after = format!(
+        "{rows}<row r=\"3\"><c r=\"A3\" s=\"3\"><v>7</v></c><c r=\"B3\" s=\"4\"><v>8</v></c>\
+         </row>"
+    );
+    assert_eq!(
+        sheet,
+        edited(&format!("<sheetData>{rows_after}</sheetData>")),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_gradient_sample_refuses_a_part_without_fills_and_leaves_nothing() {
+    styled_run_refused(
+        "gradient-sample-no-fills",
+        &styled_specs(A_CELL, &font_sample_part(SAMPLE_FONTS, "", SAMPLE_XFS, 3)),
+        "a style addition needs a collection the styles part lacks",
+        "--gradient-sample",
+    );
+}
+
 // --------------------------------------------------------- --date-sample
 
 /// The `xf` the date sample adds: over no base, with the built-in id 22.
