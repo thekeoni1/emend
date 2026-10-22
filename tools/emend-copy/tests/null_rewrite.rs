@@ -5153,9 +5153,10 @@ fn the_namedstyles_sample_reads_every_style_and_writes_the_differential_ones_bac
     // `specs/0032-read-breadth-styles.md`, "Harness runs",
     // `--namedstyles-sample`, and P1 rulings 1 and 2: three named styles
     // over two formats; five `dxf`s, of which the font and fill one, the
-    // border one and the fill alone are written back (the number format one
-    // is not a differential style the writer takes, and the gradient one
-    // reads as no style at all).
+    // border one, the gradient one (read typed since
+    // `specs/0042-gradient-fills-and-named-styles.md`) and the fill alone are
+    // written back (the number format one is not a differential style the
+    // writer takes).
     let specs = styled_specs(A_CELL, &namedstyles_styles(NAMED_STYLES, NAMED_DXFS));
     let dir = TempDir::new("namedstyles-sample");
     let input = dir.path("in.xlsx");
@@ -5166,9 +5167,9 @@ fn the_namedstyles_sample_reads_every_style_and_writes_the_differential_ones_bac
     assert_eq!(
         ran.stdout,
         "namedstyles\tnamed=3\tnamed_xfs=2\tbuiltin=1\tcustom=1\tresolved=2\
-         \tdefault_font_size=10.5\tdxfs=5\tdxf_fonts=1\tdxf_fills=2\tdxf_borders=1\
+         \tdefault_font_size=10.5\tdxfs=5\tdxf_fonts=1\tdxf_fills=3\tdxf_borders=1\
          \tdxf_numfmts=1\tdxf_alignments=0\tdxf_protections=0\tdxf_gradients=1\
-         \tdxf_implied_solid=1\tdxf_inside_sides=1\tdxf_written=3\tdxf_equal=3\n",
+         \tdxf_implied_solid=1\tdxf_inside_sides=1\tdxf_written=4\tdxf_equal=4\n",
         "the line"
     );
     let entries = parse_independently(&fs::read(&output).expect("read the output"));
@@ -5179,10 +5180,12 @@ fn the_namedstyles_sample_reads_every_style_and_writes_the_differential_ones_bac
     let appended = "<dxf><font><b/></font><fill><patternFill patternType=\"solid\">\
                     <bgColor rgb=\"FFFFC7CE\"/></patternFill></fill></dxf>\
                     <dxf><border><left style=\"thin\"/><right/><top/><bottom/><diagonal/>\
-                    </border></dxf><dxf><fill><patternFill patternType=\"solid\">\
+                    </border></dxf><dxf><fill><gradientFill degree=\"90\"><stop position=\"0\">\
+                    <color theme=\"0\"/></stop><stop position=\"1\"><color theme=\"4\"/></stop>\
+                    </gradientFill></fill></dxf><dxf><fill><patternFill patternType=\"solid\">\
                     <fgColor theme=\"4\"/></patternFill></fill></dxf></dxfs>";
     assert!(styles.contains(appended), "the appended dxfs");
-    assert!(styles.contains("<dxfs count=\"8\">"), "the count");
+    assert!(styles.contains("<dxfs count=\"9\">"), "the count");
     untouched_but(&entries, &specs, &[b"xl/styles.xml"]);
 }
 
@@ -5375,9 +5378,57 @@ fn the_colors_sample_refuses_a_sys_clr_with_no_last_clr_and_leaves_nothing() {
 #[test]
 fn the_roundtrip_sample_compares_a_none_fill_with_fill_0_s_value() {
     // `specs/0027-read-back.md`, "Planning verification and rulings on P1",
-    // ruling 1: a gradient fill reads as `None`, `add_style` given no fill
-    // writes `fillId="0"`, and the added cell format reads back with fill 0's
-    // value, which the sample compares it with; no fill is appended.
+    // ruling 1: a fill with no child reads as `None`, `add_style` given no
+    // fill writes `fillId="0"`, and the added cell format reads back with
+    // fill 0's value, which the sample compares it with; no fill is appended
+    // (a gradient reads typed since
+    // `specs/0042-gradient-fills-and-named-styles.md`, below).
+    let styles = roundtrip_styles("").replace(
+        "<fill><patternFill patternType=\"gray125\"/></fill></fills>",
+        "<fill><patternFill patternType=\"gray125\"/></fill><fill/></fills>",
+    );
+    let styles = styles
+        .replace("<fills count=\"2\">", "<fills count=\"3\">")
+        .replace("<fonts count=\"2\">", "<fonts count=\"1\">")
+        .replace(
+            "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\"/>",
+            "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"2\" borderId=\"0\"/>",
+        );
+    let specs = styled_specs(
+        "<sheetData><row r=\"1\"><c r=\"A1\" s=\"2\"><v>1</v></c></row></sheetData>",
+        &styles,
+    );
+    let dir = TempDir::new("roundtrip-sample-none-fill");
+    let input = dir.path("in.xlsx");
+    let output = dir.path("out.xlsx");
+    fs::write(&input, build(&specs)).expect("write the input");
+    let ran = emend_copy_with(&input, &output, &["--roundtrip-sample"]);
+    assert_eq!(ran.status, 0, "stderr: {}", ran.stderr);
+    assert_eq!(
+        ran.stdout,
+        "roundtrip\tstyles_in=1\tstyles_added=1\txfs_before=3\txfs_after=4\
+         \tfonts_before=1\tfonts_after=2\tfills_before=3\tfills_after=3\tborders_before=1\
+         \tborders_after=2\tequal=1\n",
+        "the line"
+    );
+    let entries = parse_independently(&fs::read(&output).expect("read the output"));
+    let written = String::from_utf8(entry_named(&entries, b"xl/styles.xml").compressed.clone())
+        .expect("UTF-8");
+    assert!(
+        written.contains(
+            "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"1\" xfId=\"0\" \
+             applyNumberFormat=\"1\" applyFont=\"1\" applyBorder=\"1\"/>"
+        ),
+        "the added cell format names fill 0"
+    );
+}
+
+#[test]
+fn the_roundtrip_sample_writes_a_gradient_fill_back_as_read() {
+    // `specs/0042-gradient-fills-and-named-styles.md`, "Planning rulings
+    // during P1", ruling C: a gradient fill reads typed, is given back to
+    // `add_style` and appended, and the added cell format names it and reads
+    // back equal.
     let styles = roundtrip_styles("").replace(
         "<fill><patternFill patternType=\"gray125\"/></fill></fills>",
         "<fill><patternFill patternType=\"gray125\"/></fill><fill><gradientFill degree=\"90\">\
@@ -5404,7 +5455,7 @@ fn the_roundtrip_sample_compares_a_none_fill_with_fill_0_s_value() {
     assert_eq!(
         ran.stdout,
         "roundtrip\tstyles_in=1\tstyles_added=1\txfs_before=3\txfs_after=4\
-         \tfonts_before=1\tfonts_after=2\tfills_before=3\tfills_after=3\tborders_before=1\
+         \tfonts_before=1\tfonts_after=2\tfills_before=3\tfills_after=4\tborders_before=1\
          \tborders_after=2\tequal=1\n",
         "the line"
     );
@@ -5413,10 +5464,18 @@ fn the_roundtrip_sample_compares_a_none_fill_with_fill_0_s_value() {
         .expect("UTF-8");
     assert!(
         written.contains(
-            "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"1\" xfId=\"0\" \
-             applyNumberFormat=\"1\" applyFont=\"1\" applyBorder=\"1\"/>"
+            "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"3\" borderId=\"1\" xfId=\"0\" \
+             applyNumberFormat=\"1\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\"/>"
         ),
-        "the added cell format names fill 0"
+        "the added cell format names the appended fill"
+    );
+    assert!(
+        written.contains(
+            "<fill><gradientFill degree=\"90\"><stop position=\"0\"><color theme=\"0\"/>\
+             </stop><stop position=\"1\"><color theme=\"4\"/></stop></gradientFill></fill>\
+             <fill><gradientFill degree=\"90\">"
+        ),
+        "the gradient appended in the writer's form"
     );
 }
 

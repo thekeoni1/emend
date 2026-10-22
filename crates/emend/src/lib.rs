@@ -78,7 +78,8 @@ pub use package::{
 #[cfg(feature = "tables")]
 pub use package::{Table, TableEntry, TableStyle, TableStyleInfo};
 pub use styles::{
-    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumFmt, NumberFormat, Pattern,
-    Protection, Scheme, Side, Style, Styles, Underline, Vertical, VerticalAlign, Xf,
+    Alignment, Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal, NumFmt,
+    NumberFormat, Pattern, Protection, Scheme, Side, Stop, Style, Styles, Underline, Vertical,
+    VerticalAlign, Xf,
 };
 pub use xml::{BYTE_ORDER_MARK, Scope, Stream, Token};

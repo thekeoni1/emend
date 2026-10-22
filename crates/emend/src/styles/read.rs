@@ -8,7 +8,9 @@
 //! read past (decision 3): a font's `charset`, `outline`, `shadow`,
 //! `condense` and `extend` (by the font reader runs share), an alignment's
 //! `justifyLastLine`, `readingOrder` and `relativeIndent`; a `<fill>` that
-//! holds no `patternFill`, a gradient among them, reads as `None`.
+//! holds no child reads as `None`, and a `gradientFill` as a [`Fill`] whose
+//! `gradient` is `Some` (`specs/0042-gradient-fills-and-named-styles.md`,
+//! "The styles part").
 //! Everything else this layer does not know is refused with "a style cannot
 //! be read".
 //!
@@ -29,8 +31,8 @@ use crate::cells::{
 };
 use crate::package::MAIN;
 use crate::styles::{
-    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
-    Protection, Side, Style, Styles, Vertical, Xf,
+    Alignment, Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal,
+    NumberFormat, Pattern, Protection, Side, Stop, Style, Styles, Vertical, Xf,
 };
 use crate::xml::{Scope, Stream};
 
@@ -66,7 +68,7 @@ pub struct CellStyle {
     /// The font at `fontId`, font 0 without one.
     pub font: Font,
     /// The fill at `fillId`, fill 0 without one: `None` for a fill holding
-    /// no `patternFill`, which a gradient fill is.
+    /// no child.
     pub fill: Option<Fill>,
     /// The border at `borderId`, border 0 without one.
     pub border: Border,
@@ -183,10 +185,44 @@ fn same_fill(a: &Fill, b: &Fill) -> bool {
         pattern,
         foreground,
         background,
+        gradient,
     } = a;
     *pattern == b.pattern
         && same_color(foreground.as_ref(), b.foreground.as_ref())
         && same_color(background.as_ref(), b.background.as_ref())
+        && match (gradient, &b.gradient) {
+            (Some(a), Some(b)) => {
+                kind_bits(a.kind) == kind_bits(b.kind)
+                    && a.stops.len() == b.stops.len()
+                    && a.stops.iter().zip(&b.stops).all(|(a, b)| {
+                        a.position.to_bits() == b.position.to_bits()
+                            && same_color(Some(&a.color), Some(&b.color))
+                    })
+            }
+            (a, b) => a.is_none() && b.is_none(),
+        }
+}
+
+/// A gradient's kind as the bits of its numbers, so two compare as
+/// [`same_color`] compares a tint.
+fn kind_bits(kind: GradientKind) -> (bool, [u64; 4]) {
+    match kind {
+        GradientKind::Linear { degree } => (false, [degree.to_bits(), 0, 0, 0]),
+        GradientKind::Path {
+            left,
+            right,
+            top,
+            bottom,
+        } => (
+            true,
+            [
+                left.to_bits(),
+                right.to_bits(),
+                top.to_bits(),
+                bottom.to_bits(),
+            ],
+        ),
+    }
 }
 
 /// Whether two borders are equal, each side's colour as [`same_color`]
@@ -251,7 +287,7 @@ impl Styles {
     }
 
     /// The `fill` children of `<fills>` read typed, in part order, a fill
-    /// holding no `patternFill` (a gradient among them) as `None`: what a
+    /// holding no child as `None`: what a
     /// `fillId` names (ruling 9 as above). The Cargo feature `read`.
     pub fn typed_fills(&self) -> &[Option<Fill>] {
         &self.typed.fills
@@ -308,7 +344,7 @@ impl Styles {
         Ok(CellStyle {
             number_format,
             font: font.clone(),
-            fill: *fill,
+            fill: fill.clone(),
             border: *border,
             alignment: xf.alignment_value,
             protection: xf.protection_value,
@@ -331,8 +367,9 @@ pub(crate) fn read_font<R: Read>(
 }
 
 /// A `<fill>` of `<fills>`, its start tag given to `scope`, read through its
-/// end tag: its `patternFill` as a [`Fill`], `None` for a fill holding no
-/// `patternFill` (a `gradientFill`, read past with its subtree, or no child).
+/// end tag: its `patternFill` or its `gradientFill` as a [`Fill`], `None`
+/// for a fill holding no child
+/// (`specs/0042-gradient-fills-and-named-styles.md`, "The styles part").
 ///
 /// A `patternFill` with no `patternType` reads as `untyped`: `None` in
 /// `<fills>`, `Solid` in a `dxf` (`specs/0032-read-breadth-styles.md`,
@@ -357,9 +394,12 @@ pub(crate) fn read_fill<R: Read>(
         match child.local.as_slice() {
             b"patternFill" => fill = Some(read_pattern(stream, scope, index, &child, untyped)?),
             b"gradientFill" => {
-                if !child.empty {
-                    skip_subtree(stream, scope, index)?;
-                }
+                fill = Some(Fill {
+                    pattern: Pattern::None,
+                    foreground: None,
+                    background: None,
+                    gradient: Some(read_gradient(stream, scope, index, &child)?),
+                });
             }
             _ => return Err(STYLE_UNREADABLE),
         }
@@ -384,6 +424,7 @@ fn read_pattern<R: Read>(
         pattern,
         foreground: None,
         background: None,
+        gradient: None,
     };
     if element.empty {
         return Ok(fill);
@@ -400,6 +441,61 @@ fn read_pattern<R: Read>(
         *slot = Some(read_color(stream, scope, index, &child)?);
     }
     Ok(fill)
+}
+
+/// A `<gradientFill>`, read through its end tag: `type` absent or `linear`
+/// as [`GradientKind::Linear`], its `degree` absent read as 0, `path` with
+/// each of `left`, `right`, `top` and `bottom` absent read as 0; each
+/// `stop`'s `position` and its one `color`. A number reads as a tint does,
+/// any finite value.
+fn read_gradient<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+    element: &Child,
+) -> Result<Gradient, Error> {
+    let number = |name: &[u8]| element.value(name).map_or(Ok(0.0), finite);
+    let kind = match element.value(b"type") {
+        None | Some("linear") => GradientKind::Linear {
+            degree: number(b"degree")?,
+        },
+        Some("path") => GradientKind::Path {
+            left: number(b"left")?,
+            right: number(b"right")?,
+            top: number(b"top")?,
+            bottom: number(b"bottom")?,
+        },
+        Some(_) => return Err(STYLE_UNREADABLE),
+    };
+    let mut stops = Vec::new();
+    if !element.empty {
+        while let Step::Child(child) = step(stream, scope, index)? {
+            if !child.main || child.local != b"stop" {
+                return Err(STYLE_UNREADABLE);
+            }
+            let position = finite(child.value(b"position").ok_or(STYLE_UNREADABLE)?)?;
+            let mut color = None;
+            if !child.empty {
+                while let Step::Child(inner) = step(stream, scope, index)? {
+                    if !inner.main || inner.local != b"color" || color.is_some() {
+                        return Err(STYLE_UNREADABLE);
+                    }
+                    color = Some(read_color(stream, scope, index, &inner)?);
+                }
+            }
+            let color = color.ok_or(STYLE_UNREADABLE)?;
+            stops.push(Stop { position, color });
+        }
+    }
+    Ok(Gradient { kind, stops })
+}
+
+/// A number attribute's value as a finite `f64`, as a tint is read.
+fn finite(text: &str) -> Result<f64, Error> {
+    text.parse::<f64>()
+        .ok()
+        .filter(|number| number.is_finite())
+        .ok_or(STYLE_UNREADABLE)
 }
 
 /// A `<border>` of `<borders>`, its start tag's attributes in `element`,
@@ -651,7 +747,7 @@ pub(crate) fn read_dxf<R: Read>(
         let empty = child.empty;
         match child.local.as_slice() {
             b"font" => style.font = Some(read_font(stream, scope, index, empty)?),
-            // A fill holding no `patternFill`, a gradient, reads as no fill.
+            // A fill holding no child reads as no fill.
             b"fill" => style.fill = read_fill(stream, scope, index, empty, Pattern::Solid)?,
             _ => style.border = Some(read_border(stream, scope, index, &child, true)?),
         }

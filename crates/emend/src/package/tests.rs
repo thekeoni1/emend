@@ -6732,6 +6732,7 @@ fn solid(index: u32) -> Fill {
         pattern: Pattern::Solid,
         foreground: Some(Color::Indexed(index)),
         background: None,
+        gradient: None,
     }
 }
 
@@ -7159,6 +7160,7 @@ fn a_refused_font_name_or_field_records_nothing() {
                         tint: Some(1.5),
                     }),
                     background: None,
+                    gradient: None,
                 }),
                 ..Style::default()
             },
@@ -7469,6 +7471,7 @@ mod copy;
 mod dxf;
 #[cfg(feature = "read")]
 mod extlink;
+mod gradient;
 #[cfg(feature = "rowcol")]
 mod grouping;
 #[cfg(feature = "images")]

@@ -237,6 +237,7 @@ fn a_size_and_a_tint_take_the_number_text_of_a_cell() {
                 tint: Some(tint),
             }),
             background: None,
+            gradient: None,
         };
         text(fill.compose().expect("the fill composes"))
     };
@@ -310,6 +311,7 @@ fn a_field_out_of_range_is_refused() {
             pattern: Pattern::Solid,
             foreground: None,
             background: color,
+            gradient: None,
         };
         let side = Some(Side {
             style: BorderStyle::Thin,
@@ -355,6 +357,7 @@ fn a_fill_is_written_with_both_colours_one_or_none() {
         pattern: Pattern::Solid,
         foreground,
         background,
+        gradient: None,
     };
     assert_eq!(
         text(
@@ -373,6 +376,7 @@ fn a_fill_is_written_with_both_colours_one_or_none() {
         pattern: Pattern::Gray0625,
         foreground: None,
         background: None,
+        gradient: None,
     };
     assert_eq!(
         text(none.compose().expect("composes")),
@@ -463,6 +467,7 @@ fn every_name_in_an_element_takes_the_prefix() {
         pattern: Pattern::Solid,
         foreground: Some(Color::Indexed(9)),
         background: None,
+        gradient: None,
     };
     let element = fill.compose().expect("composes").element(b"x:");
     assert_eq!(

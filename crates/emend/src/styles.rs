@@ -99,7 +99,7 @@
 //!   two additions with an equal base and style are two cell formats, since
 //!   nothing is deduplicated at the `xf` level.
 //! - What cannot be written: a font's `charset`, `outline`, `shadow`,
-//!   `condense` or `extend`, a gradient fill, an inside-of-range border side,
+//!   `condense` or `extend`, an inside-of-range border side,
 //!   and an alignment's `readingOrder`, `justifyLastLine` or
 //!   `relativeIndent` (`specs/0017-fuller-styles.md`, decision 2).
 //! - An addition is refused, with the messages catalogued in
@@ -138,8 +138,8 @@ pub(crate) use elements::Composed;
 #[cfg(any(feature = "rules", feature = "sheetprops"))]
 pub(crate) use elements::color_element;
 pub use elements::{
-    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, Pattern, Protection, Scheme,
-    Side, Style, Underline, Vertical, VerticalAlign,
+    Alignment, Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal, Pattern,
+    Protection, Scheme, Side, Stop, Style, Underline, Vertical, VerticalAlign,
 };
 #[cfg(feature = "read")]
 pub use read::{CellStyle, NamedStyle};

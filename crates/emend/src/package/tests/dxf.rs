@@ -34,6 +34,7 @@ fn red_fill() -> Fill {
         pattern: Pattern::Solid,
         foreground: None,
         background: Some(Color::Rgb(0xFFFF_C7CE)),
+        gradient: None,
     }
 }
 

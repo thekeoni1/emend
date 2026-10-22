@@ -132,9 +132,14 @@ pub enum Color {
     Auto,
 }
 
-/// A pattern fill. A solid fill shows its foreground, not its background,
-/// as in Excel.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// A pattern fill, or a gradient fill. A solid fill shows its foreground,
+/// not its background, as in Excel.
+///
+/// The schema gives a fill one child, so a fill whose `gradient` is `Some`
+/// has `pattern` [`Pattern::None`] and both colours `None`, and is written
+/// as a `gradientFill` (`specs/0042-gradient-fills-and-named-styles.md`,
+/// "Types").
+#[derive(Clone, Debug, PartialEq)]
 pub struct Fill {
     /// `patternType`.
     pub pattern: Pattern,
@@ -142,6 +147,49 @@ pub struct Fill {
     pub foreground: Option<Color>,
     /// `bgColor`: the colour behind the pattern.
     pub background: Option<Color>,
+    /// `gradientFill`: the fill is a gradient, in place of the pattern.
+    pub gradient: Option<Gradient>,
+}
+
+/// A gradient fill, `gradientFill`: its kind and its stops, at least two,
+/// their positions non-decreasing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Gradient {
+    /// Linear at an angle, or a path from a rectangle.
+    pub kind: GradientKind,
+    /// The `stop` children, in order.
+    pub stops: Vec<Stop>,
+}
+
+/// A gradient's kind, `ST_GradientType`, with its attributes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GradientKind {
+    /// `linear`, at `degree`, finite and in `0.0..=360.0`.
+    Linear {
+        /// `degree`.
+        degree: f64,
+    },
+    /// `path`: the colours run out from the rectangle the four give, each a
+    /// fraction of the cell, finite and in `0.0..=1.0`.
+    Path {
+        /// `left`.
+        left: f64,
+        /// `right`.
+        right: f64,
+        /// `top`.
+        top: f64,
+        /// `bottom`.
+        bottom: f64,
+    },
+}
+
+/// One `stop` of a gradient.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stop {
+    /// `position`: finite and in `0.0..=1.0`.
+    pub position: f64,
+    /// The stop's `color`, checked as a fill's colour is.
+    pub color: Color,
 }
 
 /// A fill pattern, `ST_PatternType`.
@@ -656,13 +704,67 @@ impl Font {
 }
 
 impl Fill {
-    /// The `<fill>` element, or the refusal of a colour.
+    /// The `<fill>` element, or the refusal of a colour or of the gradient.
     pub(crate) fn compose(&self) -> Result<Composed, Error> {
+        self.check_colors()?;
+        self.check_gradient()?;
+        Ok(self.composed())
+    }
+
+    /// The refusal of a pattern colour's tint, or nothing.
+    pub(crate) fn check_colors(&self) -> Result<(), Error> {
         check_color(self.foreground.as_ref())?;
-        check_color(self.background.as_ref())?;
+        check_color(self.background.as_ref())
+    }
+
+    /// The refusal of the gradient, or nothing: a pattern or a colour beside
+    /// it (the schema's one child), then its fields in declaration order, the
+    /// kind's numbers, fewer than two stops, and each stop's position, its
+    /// order and its colour.
+    pub(crate) fn check_gradient(&self) -> Result<(), Error> {
+        let Some(gradient) = &self.gradient else {
+            return Ok(());
+        };
+        if self.pattern != Pattern::None || self.foreground.is_some() || self.background.is_some() {
+            return Err(FIELD_OUT_OF_RANGE);
+        }
+        let within = |number: f64, top: f64| number.is_finite() && (0.0..=top).contains(&number);
+        let kind = match gradient.kind {
+            GradientKind::Linear { degree } => within(degree, 360.0),
+            GradientKind::Path {
+                left,
+                right,
+                top,
+                bottom,
+            } => [left, right, top, bottom]
+                .into_iter()
+                .all(|number| within(number, 1.0)),
+        };
+        if !kind || gradient.stops.len() < 2 {
+            return Err(FIELD_OUT_OF_RANGE);
+        }
+        let mut last = 0.0;
+        for stop in &gradient.stops {
+            if !within(stop.position, 1.0) || stop.position < last {
+                return Err(FIELD_OUT_OF_RANGE);
+            }
+            last = stop.position;
+            check_color(Some(&stop.color))?;
+        }
+        Ok(())
+    }
+
+    /// The element [`Fill::compose`] writes, for a fill its checks have
+    /// passed.
+    pub(crate) fn composed(&self) -> Composed {
         let mut out = Composed::new();
         out.open("fill");
         out.end_tag(false);
+        if let Some(gradient) = &self.gradient {
+            gradient.compose_into(&mut out);
+            out.close("fill");
+            return out;
+        }
         out.open("patternFill");
         out.attribute("patternType", self.pattern.keyword());
         if self.foreground.is_none() && self.background.is_none() {
@@ -678,7 +780,48 @@ impl Fill {
             out.close("patternFill");
         }
         out.close("fill");
-        Ok(out)
+        out
+    }
+}
+
+impl Gradient {
+    /// `<gradientFill ATTRS>` with its stops: `degree` for a linear gradient
+    /// whose degree is not 0, the schema's default; `type="path"` and the
+    /// four, always written, for a path gradient.
+    fn compose_into(&self, out: &mut Composed) {
+        out.open("gradientFill");
+        match self.kind {
+            GradientKind::Linear { degree } => {
+                if degree != 0.0 {
+                    out.attribute("degree", &number_text(degree));
+                }
+            }
+            GradientKind::Path {
+                left,
+                right,
+                top,
+                bottom,
+            } => {
+                out.attribute("type", "path");
+                for (name, number) in [
+                    ("left", left),
+                    ("right", right),
+                    ("top", top),
+                    ("bottom", bottom),
+                ] {
+                    out.attribute(name, &number_text(number));
+                }
+            }
+        }
+        out.end_tag(false);
+        for stop in &self.stops {
+            out.open("stop");
+            out.attribute("position", &number_text(stop.position));
+            out.end_tag(false);
+            out.color("color", &stop.color);
+            out.close("stop");
+        }
+        out.close("gradientFill");
     }
 }
 

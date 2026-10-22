@@ -60,8 +60,9 @@
 //!   `resolved` (styles resolved, equal to `styled`, asserted), then over
 //!   the distinct cell formats the cells use: `fonts`, `fills` and `borders`
 //!   (the distinct fonts, `Some` fills and borders among them), `gradients`
-//!   (those whose fill reads as `None`) and `codes` (those whose number
-//!   format reads as a code); then `columns` (W's `<col>`), `rows` (W's
+//!   (those whose fill reads with a gradient,
+//!   `specs/0042-gradient-fills-and-named-styles.md`) and `codes` (those
+//!   whose number format reads as a code); then `columns` (W's `<col>`), `rows` (W's
 //!   rows), `merges`, `links`, `frozen` and `protected` (1 when W has a
 //!   frozen pane, a `<sheetProtection>`), `items` (the table's items walked,
 //!   equal to the held table's length, asserted) and `sst_items_equal` (the
@@ -635,7 +636,9 @@
 //!   styles resolved), `default_font_size` (the default font's size, 0 for
 //!   none), `dxfs`, `dxf_fonts`, `dxf_fills`, `dxf_borders`, `dxf_numfmts`,
 //!   `dxf_alignments`, `dxf_protections` (the `dxf`s read with each field
-//!   given), `dxf_gradients` (a `fill` child read as no fill),
+//!   given), `dxf_gradients` (a fill whose child is a `gradientFill`, read
+//!   typed: `specs/0042-gradient-fills-and-named-styles.md`, "The styles
+//!   part"),
 //!   `dxf_implied_solid` (a `patternFill` with no `patternType`, read as
 //!   solid), `dxf_inside_sides` (`vertical` and `horizontal` sides read
 //!   past), `dxf_written` (written back) and `dxf_equal` (appended ones that
@@ -644,7 +647,7 @@
 //!   own bytes beside the typed read. COUNTS ONLY: no reference, index, name,
 //!   code or text is printed, and a style name is counted, never printed.
 //!   Asserted: `resolved` equal to `named_xfs`, each implied solid fill read
-//!   as `Solid`, the output's differential styles the input's followed by
+//!   as `Solid`, each gradient fill read with its gradient, the output's differential styles the input's followed by
 //!   the ones written, and `dxf_equal` equal to `dxf_written`; a failure is
 //!   exit 2 with the message and no output, and so is a refusal by the
 //!   layer (a style it cannot read).
@@ -2872,6 +2875,7 @@ fn sample_fill() -> Fill {
         pattern: Pattern::Solid,
         foreground: Some(Color::Rgb(0xFFDD_EEFF)),
         background: Some(Color::Indexed(64)),
+        gradient: None,
     }
 }
 
@@ -4514,6 +4518,7 @@ fn cf_sample(input: &Path, output: &Path) -> Result<(), Error> {
             pattern: Pattern::Solid,
             foreground: None,
             background: Some(Color::Rgb(0xFFC7CE)),
+            gradient: None,
         }),
         ..Style::default()
     })?;
@@ -7213,7 +7218,7 @@ fn roundtrip_sample(input: &Path, output: &Path) -> Result<(), Error> {
             &Style {
                 number_format: Some(style.number_format.clone()),
                 font: Some(style.font.clone()),
-                fill: style.fill,
+                fill: style.fill.clone(),
                 border: Some(style.border),
                 alignment: style.alignment,
                 protection: style.protection,
@@ -7295,7 +7300,7 @@ fn roundtrip_read_back(
             return Err(Error::RoundtripSample(what));
         }
     }
-    // A `None` fill (a gradient, or no pattern) is written as fill 0, so it
+    // A `None` fill (a fill with no child) is written as fill 0, so it
     // reads back as fill 0's value ("Planning verification and rulings on
     // P1", ruling 1): read from the output's first cell format naming fill 0.
     let fill_zero = match read.iter().any(|style| style.fill.is_none()) {
@@ -7315,7 +7320,7 @@ fn roundtrip_read_back(
     for (style, &index) in read.iter().zip(added) {
         let mut expected = style.clone();
         if expected.fill.is_none() {
-            expected.fill = fill_zero;
+            expected.fill = fill_zero.clone();
         }
         if package.cell_style(index)? == expected {
             equal += 1;
@@ -7331,8 +7336,8 @@ fn roundtrip_read_back(
 /// own bytes, beside the typed read.
 #[derive(Default)]
 struct DxfBytes {
-    /// Whether it has a `fill` child.
-    fill: bool,
+    /// Whether its fill's child is a `gradientFill`.
+    gradient: bool,
     /// Whether its fill's `patternFill` has no `patternType`.
     implied_solid: bool,
     /// Its border's `vertical` and `horizontal` children.
@@ -7376,14 +7381,23 @@ fn namedstyles_sample(input: &Path, output: &Path) -> Result<(), Error> {
     }
     let count = |given: fn(&Style) -> bool| read.iter().filter(|style| given(style)).count() as u64;
     let pairs = read.iter().zip(&bytes);
-    let gradients = pairs
-        .clone()
-        .filter(|(style, bytes)| bytes.fill && style.fill.is_none())
-        .count() as u64;
+    let mut gradients = 0u64;
+    for (style, bytes) in pairs.clone() {
+        if bytes.gradient {
+            if style
+                .fill
+                .as_ref()
+                .is_none_or(|fill| fill.gradient.is_none())
+            {
+                return Err(Error::NamedstylesSample("input's gradient fill"));
+            }
+            gradients += 1;
+        }
+    }
     let mut implied_solid = 0u64;
     for (style, bytes) in pairs.clone() {
         if bytes.implied_solid {
-            if style.fill.map(|fill| fill.pattern) != Some(Pattern::Solid) {
+            if style.fill.as_ref().map(|fill| fill.pattern) != Some(Pattern::Solid) {
                 return Err(Error::NamedstylesSample("input's implied solid fill"));
             }
             implied_solid += 1;
@@ -7511,9 +7525,9 @@ fn dxf_bytes<R: io::Read + io::Seek>(package: &mut Package<R>) -> Result<Vec<Dxf
         if main && is(1, b"dxfs") {
             match path.len() {
                 2 if local == b"dxf" => out.push(DxfBytes::default()),
-                3 if is(2, b"dxf") && local == b"fill" => {
+                4 if is(2, b"dxf") && is(3, b"fill") && local == b"gradientFill" => {
                     if let Some(last) = out.last_mut() {
-                        last.fill = true;
+                        last.gradient = true;
                     }
                 }
                 4 if is(2, b"dxf")
@@ -11889,7 +11903,12 @@ fn read_line(input: &Path) -> Result<String, Error> {
     let borders = distinct(formats.iter().map(|format| &format.border));
     let gradients = formats
         .iter()
-        .filter(|format| format.fill.is_none())
+        .filter(|format| {
+            format
+                .fill
+                .as_ref()
+                .is_some_and(|fill| fill.gradient.is_some())
+        })
         .count() as u64;
     let codes = formats
         .iter()

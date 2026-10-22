@@ -7,7 +7,10 @@
 
 use super::*;
 use crate::styles::PALETTE;
-use crate::styles::{Border, BorderStyle, Color, Fill, Font, Pattern, ResolvedColor, Side};
+use crate::styles::{
+    Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Pattern, ResolvedColor, Side,
+    Stop,
+};
 
 /// The DrawingML main namespace, transitional.
 const DRAWING_NS: &str = "http://schemas.openxmlformats.org/drawingml/2006/main";
@@ -484,7 +487,7 @@ fn the_tint_formula_on_a_known_case_each_way_and_no_tint() {
 // --- the typed lists (ruling 9) ---
 
 #[test]
-fn the_typed_lists_lend_the_part_s_elements_in_order_a_gradient_as_none() {
+fn the_typed_lists_lend_the_part_s_elements_in_order_a_gradient_typed() {
     let body = "<fonts count=\"2\"><font><b/></font><font><color theme=\"1\"/></font></fonts>\
                 <fills count=\"3\"><fill><patternFill patternType=\"none\"/></fill>\
                 <fill><gradientFill><stop position=\"0\"><color rgb=\"FF000000\"/></stop>\
@@ -519,12 +522,25 @@ fn the_typed_lists_lend_the_part_s_elements_in_order_a_gradient_as_none() {
                 pattern: Pattern::None,
                 foreground: None,
                 background: None,
+                gradient: None,
             }),
-            None,
+            Some(Fill {
+                pattern: Pattern::None,
+                foreground: None,
+                background: None,
+                gradient: Some(Gradient {
+                    kind: GradientKind::Linear { degree: 0.0 },
+                    stops: vec![Stop {
+                        position: 0.0,
+                        color: Color::Rgb(0xFF00_0000),
+                    }],
+                }),
+            }),
             Some(Fill {
                 pattern: Pattern::Solid,
                 foreground: Some(Color::Indexed(2)),
                 background: None,
+                gradient: None,
             }),
         ]
     );

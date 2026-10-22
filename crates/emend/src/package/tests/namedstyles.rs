@@ -9,8 +9,8 @@
 
 use super::*;
 use crate::styles::{
-    Alignment, BorderStyle, CellStyle, Color, Fill, Font, Horizontal, NamedStyle, Pattern,
-    Protection, Side, Vertical,
+    Alignment, BorderStyle, CellStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal,
+    NamedStyle, Pattern, Protection, Side, Stop, Vertical,
 };
 
 /// The package whose styles part holds `body`.
@@ -124,6 +124,7 @@ fn a_named_style_resolves_as_a_cell_format_with_equal_ids_does() {
                 pattern: Pattern::None,
                 foreground: None,
                 background: None,
+                gradient: None,
             }),
             border: Border::default(),
             alignment: Some(Alignment {
@@ -222,6 +223,7 @@ fn each_dxf_child_kind_is_read_alone_and_all_six_together() {
             tint: Some(0.5),
         }),
         background: Some(Color::Indexed(64)),
+        gradient: None,
     };
     let alignment_value = Alignment {
         horizontal: Some(Horizontal::Left),
@@ -272,7 +274,7 @@ fn each_dxf_child_kind_is_read_alone_and_all_six_together() {
     assert_eq!(
         dxf(&format!("<dxf>{fill}</dxf>")),
         Style {
-            fill: all.fill,
+            fill: all.fill.clone(),
             ..Style::default()
         }
     );
@@ -327,6 +329,7 @@ fn a_dxf_pattern_fill_with_no_pattern_type_reads_solid_beside_a_cell_format_s_no
             pattern: Pattern::None,
             foreground: None,
             background,
+            gradient: None,
         })
     );
     let read = package.differential_styles().expect("read");
@@ -336,10 +339,14 @@ fn a_dxf_pattern_fill_with_no_pattern_type_reads_solid_beside_a_cell_format_s_no
             pattern: Pattern::Solid,
             foreground: None,
             background,
+            gradient: None,
         })
     );
     // A `patternType` given is read as given.
-    assert_eq!(read[1].fill.map(|fill| fill.pattern), Some(Pattern::None));
+    assert_eq!(
+        read[1].fill.as_ref().map(|fill| fill.pattern),
+        Some(Pattern::None)
+    );
     // An empty `patternFill` is solid too.
     assert_eq!(
         dxf("<dxf><fill><patternFill/></fill></dxf>").fill,
@@ -347,17 +354,40 @@ fn a_dxf_pattern_fill_with_no_pattern_type_reads_solid_beside_a_cell_format_s_no
             pattern: Pattern::Solid,
             foreground: None,
             background: None,
+            gradient: None,
         })
     );
 }
 
 #[test]
-fn a_gradient_dxf_fill_and_an_empty_fill_read_as_none() {
+fn a_gradient_dxf_fill_reads_typed_and_an_empty_fill_as_none() {
+    // `specs/0042-gradient-fills-and-named-styles.md`, "The styles part".
     let gradient = "<dxf><font><i/></font><fill><gradientFill degree=\"90\">\
                     <stop position=\"0\"><color theme=\"0\"/></stop>\
                     <stop position=\"1\"><color theme=\"4\"/></stop></gradientFill></fill></dxf>";
     let read = dxf(gradient);
-    assert_eq!(read.fill, None);
+    let theme = |index| Color::Theme { index, tint: None };
+    assert_eq!(
+        read.fill,
+        Some(Fill {
+            pattern: Pattern::None,
+            foreground: None,
+            background: None,
+            gradient: Some(Gradient {
+                kind: GradientKind::Linear { degree: 90.0 },
+                stops: vec![
+                    Stop {
+                        position: 0.0,
+                        color: theme(0),
+                    },
+                    Stop {
+                        position: 1.0,
+                        color: theme(4),
+                    },
+                ],
+            }),
+        })
+    );
     assert!(read.font.is_some_and(|font| font.italic));
     assert_eq!(dxf("<dxf><fill/></dxf>").fill, None);
 }

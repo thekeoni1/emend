@@ -205,7 +205,8 @@ fn each_pattern_and_both_colours_are_read() {
             Some(Fill {
                 pattern,
                 foreground: None,
-                background: None
+                background: None,
+                gradient: None,
             })
         );
     }
@@ -221,6 +222,7 @@ fn each_pattern_and_both_colours_are_read() {
                 tint: Some(0.5)
             }),
             background: Some(Color::Indexed(64)),
+            gradient: None,
         })
     );
     // No `patternType` reads as `none`.
@@ -230,18 +232,22 @@ fn each_pattern_and_both_colours_are_read() {
             pattern: Pattern::None,
             foreground: None,
             background: Some(Color::Auto),
+            gradient: None,
         })
     );
 }
 
 #[test]
-fn a_gradient_fill_and_a_fill_with_no_pattern_read_as_none() {
+fn a_gradient_fill_reads_typed_and_a_fill_with_no_child_as_none() {
+    // `specs/0042-gradient-fills-and-named-styles.md`, "The styles part".
+    let read = fill(
+        "<fill><gradientFill degree=\"90\"><stop position=\"0\"><color theme=\"0\"/></stop>\
+         <stop position=\"1\"><color theme=\"4\"/></stop></gradientFill></fill>",
+    )
+    .and_then(|fill| fill.gradient);
     assert_eq!(
-        fill(
-            "<fill><gradientFill degree=\"90\"><stop position=\"0\"><color theme=\"0\"/></stop>\
-             <stop position=\"1\"><color theme=\"4\"/></stop></gradientFill></fill>"
-        ),
-        None
+        read.map(|gradient| (gradient.kind, gradient.stops.len())),
+        Some((crate::styles::GradientKind::Linear { degree: 90.0 }, 2))
     );
     assert_eq!(fill("<fill/>"), None);
     assert_eq!(fill("<fill></fill>"), None);
@@ -604,7 +610,7 @@ fn round_trip(body: &str) -> (CellStyle, CellStyle, String) {
             &Style {
                 number_format: Some(read.number_format.clone()),
                 font: Some(read.font.clone()),
-                fill: read.fill,
+                fill: read.fill.clone(),
                 border: Some(read.border),
                 alignment: read.alignment,
                 protection: read.protection,
@@ -732,6 +738,7 @@ fn an_attribute_the_types_do_not_name_is_read_past() {
             pattern: Pattern::Solid,
             foreground: Some(Color::Indexed(8)),
             background: None,
+            gradient: None,
         })
     );
     assert_eq!(

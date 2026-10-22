@@ -190,7 +190,13 @@
 //! - "a style field is out of range"
 //!   (`styles::elements::tests::a_field_out_of_range_is_refused`,
 //!   `a_refused_font_name_or_field_records_nothing`,
-//!   `a_rotation_out_of_range_refuses_the_addition_and_records_nothing`).
+//!   `a_rotation_out_of_range_refuses_the_addition_and_records_nothing`,
+//!   `gradient::a_gradient_beside_a_pattern_or_a_colour_is_refused_and_records_nothing`,
+//!   `gradient::each_gradient_range_is_refused_and_records_nothing`; the
+//!   gradient's limits, `specs/0042-gradient-fills-and-named-styles.md`,
+//!   "Types": a degree finite in `0.0..=360.0`, a path side and a stop's
+//!   position finite in `0.0..=1.0`, at least two stops in non-decreasing
+//!   order, no pattern or pattern colour beside it).
 //!
 //! Formulas and the workbook's `calcPr` add five (`specs/0013-formulas.md`,
 //! "Errors"); the first three are raised by [`Value`] in `cells` and reported
@@ -717,6 +723,7 @@
 //!
 //! - "a style cannot be read"
 //!   (`readback::a_child_outside_the_namespace_or_unknown_to_the_type_is_refused`,
+//!   `gradient::a_gradient_that_cannot_be_read_is_refused`,
 //!   `readback::a_value_that_does_not_parse_is_refused`,
 //!   `readback::a_colour_with_no_form_is_refused`,
 //!   `readback::an_id_past_its_list_is_refused`,
@@ -1178,7 +1185,7 @@
 //!   main-namespace `alignment` and `protection`, as the base's bytes (one
 //!   inside an `extLst` is not a child and is kept raw).
 //! - What cannot be written: a font's `charset`, `outline`, `shadow`,
-//!   `condense` or `extend`; a gradient fill; an inside-of-range border side
+//!   `condense` or `extend`; an inside-of-range border side
 //!   (`vertical`, `horizontal`); an alignment's `readingOrder`,
 //!   `justifyLastLine` or `relativeIndent`.
 //! - A part without `<fonts>`, `<fills>` or `<borders>` refuses an addition
@@ -1985,8 +1992,9 @@
 //!   the first view's first, and a `<selection>`; the theme's colours,
 //!   which a `Color::Theme` or `Indexed` gives as the index it is, and
 //!   `Package::resolve_color` resolves (below).
-//! - What reads as `None`: a `<fill>` holding no `patternFill`, a gradient
-//!   or an empty fill (decision 3 A, P1 verification ruling 2); a border
+//! - What reads as `None`: a `<fill>` holding no child (decision 3 A, P1
+//!   verification ruling 2; a gradient reads typed since
+//!   `specs/0042-gradient-fills-and-named-styles.md`); a border
 //!   side with no `style` or `style="none"`, its colour with it; a pane
 //!   that is not frozen, a split one among them; a flag child of a font
 //!   with `val` 0 or `false`, `u val="none"` and `scheme val="none"`; a
@@ -6162,8 +6170,9 @@ impl<R: Read + Seek> Package<R> {
     /// The styles part is read typed with [`Package::styles`], once, and
     /// each call resolves from it: [`crate::cells::Cell`] carries its `s`
     /// alone, and a caller resolves it here when it wants the picture
-    /// (decision 2). A gradient fill reads as `fill: None`, and what the
-    /// types have no field for is read past (decision 3).
+    /// (decision 2). A gradient fill reads as a [`crate::styles::Fill`]
+    /// whose `gradient` is `Some`, and what the types have no field for is
+    /// read past (decision 3).
     ///
     /// # Errors
     ///
@@ -6477,7 +6486,9 @@ impl<R: Read + Seek> Package<R> {
     /// earlier by this package, else the collection's count plus the number
     /// of distinct ones recorded earlier. Nothing is compared with the part's
     /// own fonts, fills and borders, which are not read, so an equal one is a
-    /// second copy.
+    /// second copy. A fill whose `gradient` is `Some` is written as a
+    /// `gradientFill` (`specs/0042-gradient-fills-and-named-styles.md`, "The
+    /// styles part").
     ///
     /// With a base, the new cell format is a copy of it with each id `style`
     /// gives replaced and the apply flag of each thing it gives set to `1`,
@@ -6500,8 +6511,13 @@ impl<R: Read + Seek> Package<R> {
     /// `<borders>`; "a font name is empty or holds a character XML cannot
     /// carry"; "a style field is out of range" for a font size that is not
     /// finite or not above zero, a tint that is not finite or lies outside
-    /// `-1.0..=1.0`, and a text rotation above 180 that is not 255; "a style index is out of range" for an id `u32`
-    /// cannot hold.
+    /// `-1.0..=1.0`, and a text rotation above 180 that is not 255, and for
+    /// a gradient fill beside a pattern or a pattern colour, a degree not
+    /// finite or outside `0.0..=360.0`, a path side or a stop's position not
+    /// finite or outside `0.0..=1.0`, fewer than two stops and stops out of
+    /// order, checked after the rest
+    /// (`specs/0042-gradient-fills-and-named-styles.md`, "Types"); "a style
+    /// index is out of range" for an id `u32` cannot hold.
     pub fn add_style(&mut self, base: Option<u32>, style: &Style) -> Result<u32, Error> {
         self.parts().add_style(base, style)
     }
@@ -8600,7 +8616,14 @@ impl<'a> Parts<'a> {
                 let recorded = &self.edits.fill_additions;
                 let position = recorded.iter().position(|(have, _)| have == fill);
                 let id = collection_id(styles.fills(), position, recorded.len())?;
-                Some((id, position.is_none().then(|| fill.compose()).transpose()?))
+                // The gradient is checked after the cell format's own
+                // children (`specs/0042-gradient-fills-and-named-styles.md`,
+                // "The styles part", the order of checks).
+                let element = position
+                    .is_none()
+                    .then(|| fill.check_colors().map(|()| fill.composed()))
+                    .transpose()?;
+                Some((id, element))
             }
         };
         let border = match &style.border {
@@ -8624,6 +8647,9 @@ impl<'a> Parts<'a> {
             .map(Alignment::compose)
             .transpose()?;
         let protection = style.protection.as_ref().map(Protection::compose);
+        if let Some(fill) = &style.fill {
+            fill.check_gradient()?;
+        }
         let changes = Changes {
             num_fmt,
             font: font.as_ref().map(|(id, _)| *id),
@@ -8645,7 +8671,7 @@ impl<'a> Parts<'a> {
             self.edits.font_additions.push((font.clone(), element));
         }
         if let (Some(fill), Some((_, Some(element)))) = (&style.fill, fill) {
-            self.edits.fill_additions.push((*fill, element));
+            self.edits.fill_additions.push((fill.clone(), element));
         }
         if let (Some(border), Some((_, Some(element)))) = (&style.border, border) {
             self.edits.border_additions.push((*border, element));

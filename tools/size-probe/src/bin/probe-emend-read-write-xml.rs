@@ -593,6 +593,7 @@ fn full_style(name: &str) -> Style {
             pattern: Pattern::Solid,
             foreground: Some(Color::Rgb(0xFFDD_EEFF)),
             background: Some(Color::Indexed(64)),
+            gradient: None,
         }),
         border: Some(Border {
             left: side,
