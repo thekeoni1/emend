@@ -378,6 +378,40 @@ fn with_no_named_style_both_containers_are_rewritten_byte_for_byte() {
     );
 }
 
+#[test]
+fn self_closing_cell_style_xfs_and_cell_styles_are_opened_for_a_named_style() {
+    // Ruling U, pinned by rulings AL and AU: both containers self-closing, so
+    // the named style's index is 0 and each container is opened up, its
+    // `count` rewritten where the tag has one and none added where it has
+    // none, as the other grown containers' are.
+    for count in ["", " count=\"0\""] {
+        let body = format!(
+            "{}<cellStyleXfs{count}/><cellXfs count=\"1\"><xf/></cellXfs><cellStyles{count}/>",
+            with_collections("")
+        );
+        let got = added_styles(&body, |p| {
+            add_named(p, "Mine", &Style::default(), 0);
+            add_styled(p, None, &naming(0), 1);
+        });
+        let opened = count.replace('0', "1");
+        let expected = body
+            .replace(
+                &format!("<cellStyleXfs{count}/>"),
+                &format!("<cellStyleXfs{opened}>{PLAIN_XF}</cellStyleXfs>"),
+            )
+            .replace(
+                "<cellXfs count=\"1\"><xf/></cellXfs>",
+                "<cellXfs count=\"2\"><xf/><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" \
+                 borderId=\"0\" xfId=\"0\"/></cellXfs>",
+            )
+            .replace(
+                &format!("<cellStyles{count}/>"),
+                &format!("<cellStyles{opened}><cellStyle name=\"Mine\" xfId=\"0\"/></cellStyles>"),
+            );
+        assert_eq!(got, style_sheet(&expected), "count form {count:?}");
+    }
+}
+
 #[cfg(feature = "rules")]
 #[test]
 fn a_differential_style_given_named_is_refused() {
