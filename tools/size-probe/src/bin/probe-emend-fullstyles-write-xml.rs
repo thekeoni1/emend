@@ -13,6 +13,17 @@
 //! three ids give four more, `full_style`, `full_font`, `full_fill` and
 //! `full_border`, so no composer is dead.
 //!
+//! Milestone 6 part 5's additions (`specs/0042-gradient-fills-and-named-
+//! styles.md`, "The probe", rulings AN to AP), before the write: a second
+//! `add_style` over no base of a linear gradient of two stops, its degree
+//! and colours the probe's constants, set on the text cell; `add_named_style`
+//! of a name from the command line with the first style's font; and a third
+//! `add_style` over no base with `named` the index it returns, set on the
+//! boolean cell. After the write four more lines: `named_xfs` (the output's
+//! `cellStyleXfs` count), `gradient_fill` (the text cell's format's
+//! `fillId`), and `named_fill` and `named_xf` (the boolean cell's format's
+//! `fillId` and `xfId`).
+//!
 //! Every name, part, reference, code, formula text and font name comes from
 //! the command line, so the compiler cannot prove an edit or a read path
 //! dead and drop it.
@@ -25,8 +36,8 @@ use std::process::ExitCode;
 use emend::cells::{CellRef, FormulaKind, Value};
 use emend::package::{CALC_CHAIN, Package, THEME};
 use emend::styles::{
-    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
-    Protection, Side, Style, Vertical,
+    Alignment, Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal,
+    NumberFormat, Pattern, Protection, Side, Stop, Style, Vertical,
 };
 use emend::{BYTE_ORDER_MARK, Replacement, Stream};
 use quick_xml::Reader;
@@ -35,7 +46,7 @@ use quick_xml::events::Event;
 const USAGE: &str = "usage: probe-emend-fullstyles-write-xml <archive> <output> \
 <part to replace> <override part name> <content type> <sheet part> \
 <number at> <text at> <boolean at> <clear at> <second output> <format code> \
-<formula at> <formula text> <sheet name> <new sheet name> <third output> <font name>";
+<formula at> <formula text> <sheet name> <new sheet name> <third output> <font name> <style name>";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -58,6 +69,7 @@ fn main() -> ExitCode {
         renamed,
         third,
         font_name,
+        style_name,
     ] = args.as_slice()
     else {
         let _ = writeln!(io::stderr(), "error: {USAGE}");
@@ -94,6 +106,10 @@ fn main() -> ExitCode {
         let _ = writeln!(io::stderr(), "error: the font name is not UTF-8");
         return ExitCode::from(2);
     };
+    let Some(style_name) = style_name.to_str() else {
+        let _ = writeln!(io::stderr(), "error: the style name is not UTF-8");
+        return ExitCode::from(2);
+    };
     let (Some(added), Some(renamed)) = (added.to_str(), renamed.to_str()) else {
         let _ = writeln!(io::stderr(), "error: a sheet name is not UTF-8");
         return ExitCode::from(2);
@@ -109,6 +125,7 @@ fn main() -> ExitCode {
         added: added.to_string(),
         renamed: renamed.to_string(),
         font_name: font_name.to_string(),
+        style_name: style_name.to_string(),
     };
     let result = run(input, output, &names).and_then(|counts| {
         let written = edit(input, second, names.sheet, &edits)?;
@@ -123,7 +140,7 @@ fn main() -> ExitCode {
                  number_style {}\ntext_style {}\nfull_calc {}\nchain {}\nformula_read_back {}\n\
                  sheets {}\nfirst_name {}\nfirst_part {}\nnew_bytes {}\n\
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
-                 full_border {}",
+                 full_border {}\nnamed_xfs {}\ngradient_fill {}\nnamed_fill {}\nnamed_xf {}",
                 counts.sheets,
                 counts.elements,
                 counts.items,
@@ -151,6 +168,10 @@ fn main() -> ExitCode {
                 style(written.full_ids.0),
                 style(written.full_ids.1),
                 style(written.full_ids.2),
+                written.named_xfs,
+                style(written.gradient_fill),
+                style(written.named_fill),
+                style(written.named_xf),
             );
             ExitCode::SUCCESS
         }
@@ -184,6 +205,7 @@ struct CellEdits {
     added: String,
     renamed: String,
     font_name: String,
+    style_name: String,
 }
 
 /// What the second write is checked by: the cells read back, the styles
@@ -207,6 +229,10 @@ struct Written {
     fills: Option<u32>,
     borders: Option<u32>,
     full_ids: (Option<u32>, Option<u32>, Option<u32>),
+    named_xfs: u64,
+    gradient_fill: Option<u32>,
+    named_fill: Option<u32>,
+    named_xf: Option<u32>,
 }
 
 /// A cell's `style` as printed: the index, or `none`.
@@ -271,6 +297,29 @@ fn edit(
         .add_style(Some(0), &full_style(&edits.font_name))
         .map_err(|e| e.to_string())?;
     package.set_cell_style(sheet, edits.number_at, Some(full));
+    let gradient_at = package
+        .add_style(None, &gradient_style())
+        .map_err(|e| e.to_string())?;
+    package.set_cell_style(sheet, edits.text_at, Some(gradient_at));
+    let named_at = package
+        .add_named_style(
+            &edits.style_name,
+            &Style {
+                font: full_style(&edits.font_name).font,
+                ..Style::default()
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let naming_at = package
+        .add_style(
+            None,
+            &Style {
+                named: Some(named_at),
+                ..Style::default()
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    package.set_cell_style(sheet, edits.boolean_at, Some(naming_at));
 
     let out = File::create(second).map_err(|e| e.kind().to_string())?;
     let mut writer = BufWriter::new(out);
@@ -290,6 +339,15 @@ fn edit(
         .map_or((None, None, None), |xf| {
             (xf.font_id, xf.fill_id, xf.border_id)
         });
+    let named_xfs = styles.cell_style_xfs.len() as u64;
+    let gradient_fill = styles
+        .cell_xfs
+        .get(gradient_at as usize)
+        .and_then(|xf| xf.fill_id);
+    let (named_fill, named_xf) = styles
+        .cell_xfs
+        .get(naming_at as usize)
+        .map_or((None, None), |xf| (xf.fill_id, xf.xf_id));
     let workbook = written.workbook().map_err(|e| e.to_string())?;
     let full_calc = workbook.full_calc_on_load;
     let chain = workbook.calc_chain.is_some();
@@ -335,7 +393,38 @@ fn edit(
         fills,
         borders,
         full_ids,
+        named_xfs,
+        gradient_fill,
+        named_fill,
+        named_xf,
     })
+}
+
+/// The `Style` the second addition takes: a linear gradient of two stops,
+/// its degree and colours the probe's constants
+/// (`specs/0042-gradient-fills-and-named-styles.md`, "The probe").
+fn gradient_style() -> Style {
+    Style {
+        fill: Some(Fill {
+            pattern: Pattern::None,
+            foreground: None,
+            background: None,
+            gradient: Some(Gradient {
+                kind: GradientKind::Linear { degree: 90.0 },
+                stops: vec![
+                    Stop {
+                        position: 0.0,
+                        color: Color::Rgb(0xFF33_6699),
+                    },
+                    Stop {
+                        position: 1.0,
+                        color: Color::Rgb(0xFFDD_EEFF),
+                    },
+                ],
+            }),
+        }),
+        ..Style::default()
+    }
 }
 
 /// The `Style` the part's edit adds: every element this part composes.

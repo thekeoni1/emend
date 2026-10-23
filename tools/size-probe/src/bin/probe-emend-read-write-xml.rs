@@ -37,8 +37,8 @@ use std::process::ExitCode;
 use emend::cells::{Area, CellRef, FormulaKind, Value};
 use emend::package::{CALC_CHAIN, Package, THEME};
 use emend::styles::{
-    Alignment, Border, BorderStyle, Color, Fill, Font, Horizontal, NumberFormat, Pattern,
-    Protection, Side, Style, Vertical,
+    Alignment, Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal,
+    NumberFormat, Pattern, Protection, Side, Stop, Style, Vertical,
 };
 use emend::{BYTE_ORDER_MARK, Replacement, Stream};
 use quick_xml::Reader;
@@ -48,7 +48,7 @@ const USAGE: &str = "usage: probe-emend-read-write-xml <archive> <output> \
 <part to replace> <override part name> <content type> <sheet part> \
 <number at> <text at> <boolean at> <clear at> <second output> <format code> \
 <formula at> <formula text> <sheet name> <new sheet name> <third output> <font name> \
-<column> <row> <freeze at> <merge area>";
+<column> <row> <freeze at> <merge area> <style name>";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -75,6 +75,7 @@ fn main() -> ExitCode {
         row,
         freeze_at,
         merge_area,
+        style_name,
     ] = args.as_slice()
     else {
         let _ = writeln!(io::stderr(), "error: {USAGE}");
@@ -111,6 +112,10 @@ fn main() -> ExitCode {
         let _ = writeln!(io::stderr(), "error: the font name is not UTF-8");
         return ExitCode::from(2);
     };
+    let Some(style_name) = style_name.to_str() else {
+        let _ = writeln!(io::stderr(), "error: the style name is not UTF-8");
+        return ExitCode::from(2);
+    };
     let (Some(column), Some(row)) = (
         column.to_str().and_then(|c| c.parse::<u32>().ok()),
         row.to_str().and_then(|r| r.parse::<u32>().ok()),
@@ -143,6 +148,7 @@ fn main() -> ExitCode {
         added: added.to_string(),
         renamed: renamed.to_string(),
         font_name: font_name.to_string(),
+        style_name: style_name.to_string(),
         column,
         row,
         freeze_at,
@@ -163,7 +169,7 @@ fn main() -> ExitCode {
                  number_style {}\ntext_style {}\nfull_calc {}\nchain {}\nformula_read_back {}\n\
                  sheets {}\nfirst_name {}\nfirst_part {}\nnew_bytes {}\n\
                  fonts {}\nfills {}\nborders {}\nfull_style {}\nfull_font {}\nfull_fill {}\n\
-                 full_border {}\nmerges {}\nread_fonts {}\nread_cols {}\nread_rows {}\n\
+                 full_border {}\nnamed_xfs {}\ngradient_fill {}\nnamed_fill {}\nnamed_xf {}\nmerges {}\nread_fonts {}\nread_cols {}\nread_rows {}\n\
                  read_merges {}\nread_items {}\nread_named {}\nread_dxfs {}\n\
                  read_resolved {}\nread_tinted {}\nread_default_size {}\n\
                  read_worksheets {}\nread_drawings {}\nread_pivots {}\nread_links {}",
@@ -194,6 +200,10 @@ fn main() -> ExitCode {
                 style(written.full_ids.0),
                 style(written.full_ids.1),
                 style(written.full_ids.2),
+                written.named_xfs,
+                style(written.gradient_fill),
+                style(written.named_fill),
+                style(written.named_xf),
                 written.merges,
                 read.fonts,
                 read.cols,
@@ -364,6 +374,7 @@ struct CellEdits {
     added: String,
     renamed: String,
     font_name: String,
+    style_name: String,
     column: u32,
     row: u32,
     freeze_at: CellRef,
@@ -391,6 +402,10 @@ struct Written {
     fills: Option<u32>,
     borders: Option<u32>,
     full_ids: (Option<u32>, Option<u32>, Option<u32>),
+    named_xfs: u64,
+    gradient_fill: Option<u32>,
+    named_fill: Option<u32>,
+    named_xf: Option<u32>,
     merges: u64,
 }
 
@@ -456,6 +471,29 @@ fn edit(
         .add_style(Some(0), &full_style(&edits.font_name))
         .map_err(|e| e.to_string())?;
     package.set_cell_style(sheet, edits.number_at, Some(full));
+    let gradient_at = package
+        .add_style(None, &gradient_style())
+        .map_err(|e| e.to_string())?;
+    package.set_cell_style(sheet, edits.text_at, Some(gradient_at));
+    let named_at = package
+        .add_named_style(
+            &edits.style_name,
+            &Style {
+                font: full_style(&edits.font_name).font,
+                ..Style::default()
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let naming_at = package
+        .add_style(
+            None,
+            &Style {
+                named: Some(named_at),
+                ..Style::default()
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    package.set_cell_style(sheet, edits.boolean_at, Some(naming_at));
     let next_column = edits
         .column
         .checked_add(1)
@@ -498,6 +536,15 @@ fn edit(
         .map_or((None, None, None), |xf| {
             (xf.font_id, xf.fill_id, xf.border_id)
         });
+    let named_xfs = styles.cell_style_xfs.len() as u64;
+    let gradient_fill = styles
+        .cell_xfs
+        .get(gradient_at as usize)
+        .and_then(|xf| xf.fill_id);
+    let (named_fill, named_xf) = styles
+        .cell_xfs
+        .get(naming_at as usize)
+        .map_or((None, None), |xf| (xf.fill_id, xf.xf_id));
     let workbook = written.workbook().map_err(|e| e.to_string())?;
     let full_calc = workbook.full_calc_on_load;
     let chain = workbook.calc_chain.is_some();
@@ -547,6 +594,10 @@ fn edit(
         fills,
         borders,
         full_ids,
+        named_xfs,
+        gradient_fill,
+        named_fill,
+        named_xf,
         merges,
     })
 }
@@ -569,6 +620,33 @@ fn count_named<R: io::Read + io::Seek>(
         }
     }
     Ok(count)
+}
+
+/// The `Style` the second addition takes: a linear gradient of two stops,
+/// its degree and colours the probe's constants
+/// (`specs/0042-gradient-fills-and-named-styles.md`, "The probe").
+fn gradient_style() -> Style {
+    Style {
+        fill: Some(Fill {
+            pattern: Pattern::None,
+            foreground: None,
+            background: None,
+            gradient: Some(Gradient {
+                kind: GradientKind::Linear { degree: 90.0 },
+                stops: vec![
+                    Stop {
+                        position: 0.0,
+                        color: Color::Rgb(0xFF33_6699),
+                    },
+                    Stop {
+                        position: 1.0,
+                        color: Color::Rgb(0xFFDD_EEFF),
+                    },
+                ],
+            }),
+        }),
+        ..Style::default()
+    }
 }
 
 /// The `Style` the part's edit adds: every element this part composes.
