@@ -793,6 +793,263 @@ AM. (Check 1's 1 c.) The continuation line's indentation in
 passed and the value is unchanged. Left as it is; no commit touches
 it for that alone.
 
+## Planning rulings during P3 (2026-10-23)
+
+AN. (P1, the probe chain.) A. The size profile is `lto = "fat"` with
+one codegen unit, so each probe links what its own source calls, and
+the fullstyles work is a copy in each probe that carries it: sixteen
+sources hold `fn full_style` (planning's count by `grep -l`; the
+session's list named sixteen and said fifteen). "The probe" is
+amended: the same added lines go into every source that holds
+`full_style`, so each probe's "X, then ..." description stays true,
+the budget probe carries the gradient composer and `add_named_style`,
+and the feature costs move by their own code alone. Fullstyles alone
+(C) would leave the budget blind to P2; fullstyles and format (B)
+would show each feature cost falling by the addition. No precedent:
+no probe's inherited work has changed after a probe built on it was
+added, and the size record says so.
+
+AO. (P2, the added lines.) Four lines, as the session read them:
+`named_xfs` (the output's `cellStyleXfs` count), `gradient_fill`
+(the text cell's format's `fillId`), `named_fill` and `named_xf` (the
+boolean cell's format's `fillId` and `xfId`). The constants are the
+two `Rgb` colours `full_style` already uses, degree 90, stops at 0
+and 1; the gradient style and the named style are literals with
+every other field `None`; the named style's font is `full_style`'s.
+The existing lines move with it on the size log's fixture
+(`text_style` 2 to 4, `xfs_after` 4 to 6, `fills` 2 to 3, `fonts` 2
+to 3, the read probe's `read_named` 1 to 2 if its read follows the
+write) and the size log prints each moved line's before and after
+against part 4's size log; a move the session did not read is a
+finding.
+
+AP. (P3, the name.) One new argument `<style name>`, last in each
+probe's USAGE and argument list; the size log passes a constant.
+
+AQ. (P4, the size fixture.) The size log's generated styles part
+gains `<cellStyles count="1"><cellStyle name="Normal" xfId="0"
+builtinId="0"/></cellStyles>` after `cellStyleXfs` (part 4's fixture
+has none: planning's grep of part 4 P3's size.log). A generator
+change, printed in the size log as such with the fixture's byte
+count before and after; no line a probe printed before moves for it.
+
+AR. (P5, ruling AL's test.) `self_closing_cell_style_xfs_and_cell_
+styles_are_opened_for_a_named_style`, ungated, as read: the index
+returned is 0, the written part holds both containers opened with
+`count="1"` and the new cell format `xfId="0"`, the rest byte for
+byte. The test-only commit is the first code commit; a failure of
+the open is a finding before any code change.
+
+AS. (P6, the API listing.) The rows beyond the seven the brief named
+are read as the session gives them: the four field rows, the two
+re-export rows whose key changes (one lost, one new each), and
+`Styles.cell_style_xfs` cfg-widened, not new; no variant rows. The
+added-by commits by `specs/0040` ruling V: 6a7644e for P1's rows,
+d0e7b32 for P2's; the record names any row the listing dates
+otherwise.
+
+AT. (P7, the logs and the word.) The gate prunes P2's target root;
+the generators come from P2's scripts and part 4 P3's size
+generator; the phase commit is the CHANGELOG commit after the test
+commit and the probe commit. The word: proceed with the test
+commit, the probe commit and the CHANGELOG commit, then the readings
+the records force, before the generators.
+
+AU. (Finding T1, the session's reading in P5.) A self-closing
+container without `count` opens without one: the rewrite's `counted`
+replaces an unprefixed `count` where the tag has one and leaves the
+tag unchanged where it has none, as `package`'s catalogue says for
+the five containers since `specs/0017` and as "Design"'s "both
+`count` attributes updated as `fonts`'s is" means. Ruling AR's
+`count="1"` on the opened tags was the session's reading, wrong; no
+code changes. The test expects the opened containers without
+`count`, and a second case on `<cellStyleXfs count="0"/>` and
+`<cellStyles count="0"/>` expects `count="1"` on each, pinning both
+forms. The word for the test commit stands with that test.
+
+AV. (The probe commit's two departures.) `Style` derives `Default`
+(planning's grep of `elements.rs`), so the two new literals take
+`..Style::default()`; the session's "Style has no Default" was a
+wrong reading of no consequence. The four new lines sit after
+`full_border` in every probe, not last, so each feature probe's
+output stays the fullstyles lines plus its own; ruling AO named the
+lines, not their place. Accepted as committed.
+
+AW. (T2, a move read that does not happen.) `fonts` stays 2 on the
+size fixture: the named style's font equals the full style's and the
+core keeps recorded fonts distinct, as `font_additions`'s doc says.
+Ruling AO's "fonts 2 to 3" was the session's reading, wrong, and is
+struck; the code is as documented. The size log prints the moved
+lines (`text_style` 2 to 4, `xfs_after` 4 to 6, `fills` 2 to 3, the
+read probe's `read_named` 1 to 2), `fonts` 2 unmoved, the four new
+lines (`named_xfs` 2, `gradient_fill` 2, `named_fill` 0, `named_xf`
+1) and the format probe's `merges` 1 after them, each against part
+4's size log; a figure other than these is a finding.
+
+AX. (T3, the fixture's bytes.) The size log prints each generated
+fixture's byte count before and after ruling AQ's container; the
+session's hand figures (2496 to 2524, 2510 to 2538, 2512 to 2540,
+2781 to 2809) are the expectation, the log the record.
+
+AY. (T4, the API listing.) The listing at the phase commit against
+part 4's record: 834 to 844 reachable rows, 13 new, 3 lost, as the
+session read them. The record carries the listing's `added by` as
+the heuristic gives it and, in part 4's form for a row the diff
+dates otherwise, the diff's commit beside it: `Styles.cell_style_xfs`
+at core, 0b3e46f by the heuristic and d0e7b32 by the diff (the cfg
+widening, ruling R); the two re-export rows, 35cd499 and f14885f by
+the heuristic and 6a7644e by the diff (the key changed when the
+three types joined the list). `GradientKind`'s variants are not
+rows. The ten other new rows date 6a7644e or d0e7b32 as ruling AS
+gives.
+
+AZ. (T5 and the word.) The generators as read; the size log's
+per-probe attribution names f4b249b for the sixteen probes and
+6a7644e, 029400e and d0e7b32 for the core's growth since part 4's
+record. PHASE is fe280ff7c76bb76c5e4a0c21a15df8e84320d3ea (the
+session's first message typed it wrongly as fe280ffd and corrected
+it). Proceed with the facts file, the generator forks, the dry runs,
+the logged runs, the record commit, the scan and the report, then
+stop.
+
+BA. (T6, the container's place.) Ruling AQ's "after `cellStyleXfs`"
+reads "after `cellXfs`", last among the generated part's children:
+the schema's sequence puts `cellStyles` after `cellXfs`, and every
+corpus styles part with both has `cellStyles` after `cellXfs`
+(planning's count over the corpus: 26 of 26 parts holding both, 0
+the other way). Ruling AX's byte figures are from that placement.
+
+BB. (S1, the other probes' band.) Part 4's band (expected 0,
+accepted up to 2000, `records/size-m6p4-2026-10-22-1cc0de4.md` "The
+bands") was for a part whose core did not grow. Here every probe that
+links emend carries the core's growth, so each such probe's growth
+over part 4's record is judged expected from 0 up to the core's
+growth (the budget's movement) and accepted up to that plus 2000; a
+shrink below 0 stays a finding as before. The three probes that link
+no emend keep expected 0 and accepted 2000. The size log says so in
+its band table and the record in its "The bands" section, naming
+this ruling.
+
+BC. (S2, the `read` cost.) "Expected under 3000" is judged as a
+movement accepted up to 3000 either way, printed under its own name;
+the `images`, `comments` and `charts` costs' movements keep part 4's
+form (expected 0, accepted up to 1500 either way, `specs/0038`
+ruling N). A movement outside its band is a finding.
+
+BD. (S3, the ceiling.) A budget above 458752 is a printed line and a
+finding recorded in the size record and the report for decision 3,
+not a failure of the size log, so the record commit can be made and
+the part stopped as "P3" says. Under the ceiling, the line prints
+the headroom left.
+
+BE. (S4 and the forks' departures.) The size log's own reader of the
+rules probe's output lists `cellStyles` among the part's children
+because ruling AQ's fixture holds it: the reader's expectation, no
+probe's line moved. The size fork's `rm -r` on its own scratch under
+`fork-scratch` departs from the facts file's move-aside rule and
+removed nothing outside it; recorded as the session's departure, no
+finding. The scan fork's dropped token, the test fork's copied
+listing and the size fork's cut charts blocks are README matter.
+
+BF. (The word.) The dry run of the five scripts proceeds as the
+session has it; the logged runs follow on a dry run of all "yes",
+then the record commit, the scan and the report, then stop. The
+generators' label series ends at NZZ; the close-out's scripts
+number their changes from 55 (`specs/0042` "Close-out push"), a
+different series, so nothing continues from NZZ.
+
+## Planning verification of P3 (2026-10-23)
+
+Verified from primaries after the record commit 738954e landed on
+fe280ff7: the six logs, the README, the check answer, the two records
+and the three record pairs, each read in the tree at the record commit;
+every hash below is sha256sum's own print.
+
+- The phase: 693497c (doc: this spec 7658019a, ROADMAP 69c26b1b),
+  fd3c967 (the test of rulings AL and AU, 34 lines in one test file),
+  f4b249b (the sixteen probe sources, 1323 added, 64 deleted), fe280ff7
+  (the CHANGELOG bullet, four lines under "### Added", citing this
+  spec); d4d9eca..fe280ff7 by numstat 20 files, 1583 added, 65 deleted,
+  the check's figures. The record 738954e holds 16 files, parent
+  fe280ff7, an ASCII message carrying the diff-alone sentence and the
+  Co-Authored-By line alone; no non-ASCII byte in any of its files.
+- The logs (records/logs/m6p5-p3): gate 31d3a453, test bc8eefbc,
+  negative 1a5bd2ca, size 4346db2e, run 526ea0e5; each ends "<log>
+  checks all as expected: yes"; each prints PLANNING_SPEC 7742fae1, this
+  working copy's hash at the briefing and until this section was
+  written. The scan 3f91218b: RESULT: PASS, total hits 0, structural
+  checks failed 0, messages scanned 4. The four "/home/" lines in the
+  run, size and scan logs are the scripts' own pattern text and a
+  planted control. The README 725de0ae, the check 47099573.
+- The gate: P2's target pruned, 1 of 1, 7740025302 bytes, `rm -r`
+  without -f, the 29 kept names still there; test names 1450 at the base
+  and 1451 at the phase commit; the sets 538, 711, 575, 753, 756, 818,
+  1199 on both targets; the charts probe 1151328, the format probe
+  984664, the budget 451448 against the record's 438960.
+- The test log: 1448 on both targets; read 645, rules 575, read,rules
+  685; the listing 844 rows, part 4 P3's 834 with 3 gone and 13 new,
+  equal by key 831, ruling AY's three rows carrying both commits.
+- The negative log: 23 cases refused, fifteen outputs, twenty-three
+  fixtures; 203 captured outputs with 0 control or non-ASCII bytes.
+- The size log and record (records/size-m6p5-2026-10-23-fe280ff.md,
+  5dd50b7e): the budget 451448, grown 12488 over 438960, inside the
+  estimate 8000 to 15000 and 7304 under the ceiling, so decision 3 is
+  not reached; images -484, comments 52 and charts 488 (accepted 1500
+  either way), read 976 (accepted 3000, ruling BC); the three probes
+  without emend 0; every probe linking emend inside its band (ruling
+  BB), five above the expected 12488 and under the accepted 14488
+  (fullstyles 12536, rowcol 12724, rules 12844, richtext 12808,
+  richcomment 12748), by the band's own terms not findings; findings 0.
+  The fixture bytes 4 of 4 (ruling AX); the moved lines 3 of 3 (ruling
+  AW); the container after cellXfs (ruling BA).
+- The API record (records/api-review-m6p5-2026-10-23-fe280ff.md,
+  04658d24): 844 items.
+- The run log: namedstyle 27 of 27 byte-identical to P2's run and
+  gradient 27 of 27 to P1's, by sha256, on each label; the Excel-form
+  fixture 6 of 6 and the openpyxl fixture's lines 6 of 6 against P2's;
+  the keep 2237 pairs, the record's 2235 unchanged, 2 new (the phase's
+  test), 0 gone; the open record lo_in 2225/12/0, lo 2226/11/0.
+- The record pairs: namedstyle 4f58cea8/c66a274b, gradient
+  aaedc095/cf25fd3b, open d8ce1321/a4bbfd56.
+- The check (47099573): yes, yes with a note, yes with exceptions; in
+  the record and the report (8c198c22, outside the tree) verbatim; its
+  brief names no absolute path and holds the frozen draft 6976fa89
+  inline; ruled BG and BH.
+- Privacy scan d4d9eca..738954e: 5 commits, 2224 blobs, 0 findings,
+  PASS. No API key is in the environment. Nothing is pushed: origin/main
+  is f630f67 and no remote branch contains fe280ff7; the repository has
+  been PUBLIC since 2026-10-22.
+
+P3 is DONE. Part 5's work is complete; the close-out follows.
+
+BG. (Check 1's note under 2.) The gate's input line says "rulings AN to
+BA": text generated at ruling BA, while the hash it pins, 7742fae1, is
+the working copy with AN to BF. The hash gates and the text describes;
+recorded, no rerun.
+
+BH. (Check 1's exceptions a to d.) Accepted without a change: the final
+report names S4 and the three new types' derive lines; gen2's place
+before the dry run rests on the dry and logged size logs printing the
+same script block, 050d90e9 by the README's reading, reproduced by
+planning, the block's text hashing 98e325a1, gen2's script; "nothing
+pushed" is planning's own finding above. No disagreement on substance.
+
+BI. (The README's reading of the gate's charts line.) "part 4's:
+1055368" is a constant carried from M5 part 5 P4's gate, and the
+difference printed against it, 95960, measures nothing; the gate reads
+part 4's record's 1138352 on its own line. The next part's gate
+generator replaces the constant by the figure read from this part's size
+record, or drops the line, as a numbered change; nothing in this part
+changes for it.
+
+BJ. (The close-out's visibility check.) Part 4's push script checks `gh
+repo view --json visibility` for `{"visibility":"PRIVATE"}` as "still
+PRIVATE". The repository has been PUBLIC since the maintainer flipped it
+on 2026-10-22, after part 4's push. The close-out generator's change
+after the two renames (ruling G) turns the check into "PUBLIC, as the
+maintainer set it on 2026-10-22", read from the same command at the pre
+stage and after the push; a value other than PUBLIC refuses.
+
 ## Decisions for the maintainer
 
 1. The gradient's place in the API: A (recommended), `Fill` gains
