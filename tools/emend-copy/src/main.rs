@@ -185,6 +185,25 @@
 //!   are this tool's own constants. `xfs_after`, `cells_after` and
 //!   `read_back` (2) are asserted as `--style-sample`'s are. A styles part
 //!   without `fills` is refused by the layer with no output.
+//! - `--namedstyle-sample`: the named style sample of
+//!   `specs/0042-gradient-fills-and-named-styles.md`, "Harness runs":
+//!   `add_named_style` of the tool's constant name `emend sample style`
+//!   with a bold font and a solid fill gives the index K; a cell format over
+//!   no base with `named` K and the code `0.000`, and a second over the
+//!   first sampled cell's own format (or no base when it has none) with
+//!   `named` K, go to `--gradient-sample`'s two new cells with `Number(7)`
+//!   and `Number(8)`; the first sampled cell is not restyled. The output is
+//!   reopened: the named style K read back with the font and fill set, and
+//!   both cell formats' `xfId` K. One line goes to stdout: the word
+//!   `namedstyle` then `named_before`, `named_after`, `named_xfs_before`,
+//!   `named_xfs_after`, `xfs_before`, `xfs_after`, `cells_before`,
+//!   `cells_after`, `read_back` (3: the named style and the two `xfId`s) and
+//!   `custom_before` (the input's `cellStyles` entries without `builtinId`).
+//!   COUNTS ONLY: the name is this tool's constant and no name of the part
+//!   is printed. `xfs_after`, `cells_after` and `read_back` are asserted as
+//!   `--style-sample`'s are. A styles part without `cellStyleXfs` or
+//!   `cellStyles`, or holding the constant's name in any ASCII case, is
+//!   refused by the layer with no output.
 //! - `--format-sample`: the sample formats, pane and merge of
 //!   `specs/0018-rows-and-columns.md`, "Harness runs", with P1 ruling 1: on
 //!   the first sheet of kind `Worksheet`, column 2 takes width 20.5, column
@@ -1152,7 +1171,8 @@ const USAGE: &str = "usage: emend-copy <input.xlsx> <output.xlsx> \
 [--replace <name> | --xml-null-rewrite | --survey | --drop-calc-chain \
 | --shared-strings | --cells | --edit-sample | --edit-formula-sample | --styles \
 | --style-sample | --date-sample | --calc | --formula-sample | --new-sample | --sheet-sample \
-| --remove-sample | --font-sample | --border-sample | --gradient-sample | --format-sample | --insert-rows-sample \
+| --remove-sample | --font-sample | --border-sample | --gradient-sample | --namedstyle-sample \
+| --format-sample | --insert-rows-sample \
 | --delete-rows-sample | --insert-columns-sample | --delete-columns-sample | --names-sample \
 | --link-sample | --props-sample | --protect-sample | --validate-sample | --cf-sample | --scale-sample \
 | --table-sample | --comment-sample | --image-sample | --richtext-sample \
@@ -1201,6 +1221,8 @@ enum Operation {
     BorderSample,
     /// The sample gradient fills, and their counts.
     GradientSample,
+    /// The sample named style and two formats naming it, and their counts.
+    NamedstyleSample,
     /// The sample dated cell, and its counts on stdout.
     DateSample,
     /// No edits, and the workbook's two calculation flags on stdout.
@@ -1619,6 +1641,11 @@ fn main() -> ExitCode {
             Path::new(output),
             Operation::GradientSample,
         ),
+        [input, output, flag] if flag == "--namedstyle-sample" => run(
+            Path::new(input),
+            Path::new(output),
+            Operation::NamedstyleSample,
+        ),
         [input, output, flag] if flag == "--format-sample" => {
             run(Path::new(input), Path::new(output), Operation::FormatSample)
         }
@@ -1884,6 +1911,9 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
     if matches!(operation, Operation::GradientSample) {
         return gradient_sample(input, output);
     }
+    if matches!(operation, Operation::NamedstyleSample) {
+        return namedstyle_sample(input, output);
+    }
     if matches!(operation, Operation::DateSample) {
         return date_sample(input, output);
     }
@@ -2068,6 +2098,7 @@ fn run(input: &Path, output: &Path, operation: Operation) -> Result<(), Error> {
         Operation::FontSample => unreachable!("the font sample has its own path"),
         Operation::BorderSample => unreachable!("the border sample has its own path"),
         Operation::GradientSample => unreachable!("the gradient sample has its own path"),
+        Operation::NamedstyleSample => unreachable!("the named style sample has its own path"),
         Operation::DateSample => unreachable!("the date sample has its own path"),
         Operation::FormulaSample => unreachable!("the part 6 formula sample has its own path"),
         Operation::NewSample => unreachable!("the new workbook sample has its own path"),
@@ -3028,6 +3059,167 @@ fn gradient_sample(input: &Path, output: &Path) -> Result<(), Error> {
         ("read_back", read_back),
         ("gradients_before", gradients_before),
     ])
+}
+
+/// The named style sample's constant name
+/// (`specs/0042-gradient-fills-and-named-styles.md`, "Planning rulings during
+/// P2", ruling W).
+const SAMPLE_STYLE_NAME: &str = "emend sample style";
+
+/// The named style sample's style: a bold font and a solid fill.
+fn sample_named_style() -> Style {
+    Style {
+        font: Some(Font {
+            bold: true,
+            ..Font::default()
+        }),
+        fill: Some(Fill {
+            pattern: Pattern::Solid,
+            foreground: Some(Color::Rgb(0xFFDD_EEFF)),
+            background: None,
+            gradient: None,
+        }),
+        ..Style::default()
+    }
+}
+
+fn namedstyle_sample(input: &Path, output: &Path) -> Result<(), Error> {
+    let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
+    let mut package = Package::open(BufReader::new(file))?;
+    let part = package
+        .workbook()?
+        .sheets
+        .iter()
+        .find(|sheet| sheet.kind == SheetKind::Worksheet)
+        .map(|sheet| sheet.part.clone())
+        .ok_or(Error::NoWorksheet)?;
+    let styles = package.styles()?;
+    let xfs_before = styles.cell_xfs.len() as u64;
+    let named_xfs_before = styles.cell_style_xfs.len() as u64;
+    let named_before = styles.cell_styles.len() as u64;
+    let custom_before = styles
+        .cell_styles
+        .iter()
+        .filter(|entry| entry.builtin_id.is_none())
+        .count() as u64;
+    let before = sample(&mut package, &part)?;
+    let new_row = before.max_row.checked_add(1).ok_or(Error::NoNewRow)?;
+    let set = sample_named_style();
+    let k = package.add_named_style(SAMPLE_STYLE_NAME, &set)?;
+    let coded = package.add_style(
+        None,
+        &Style {
+            number_format: Some(NumberFormat::Code("0.000".to_string())),
+            named: Some(k),
+            ..Style::default()
+        },
+    )?;
+    let based = package.add_style(
+        before.first_style,
+        &Style {
+            named: Some(k),
+            ..Style::default()
+        },
+    )?;
+    for (col, (index, number)) in (1u32..).zip([(coded, 7.0), (based, 8.0)]) {
+        let at = CellRef { row: new_row, col };
+        package.set_cell(&part, at, Value::Number(number));
+        package.set_cell_style(&part, at, Some(index));
+    }
+    write_into(package, output)?;
+    // The output is in place: a failure from here on removes it.
+    let checked = namedstyle_read_back(output, &part, &set, k, [coded, based]);
+    if checked.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    let read = checked?;
+    if read.xfs_after != xfs_before + 2 {
+        let _ = fs::remove_file(output);
+        return Err(Error::XfsAfter {
+            expected: xfs_before + 2,
+            found: read.xfs_after,
+        });
+    }
+    if read.cells_after != before.cells + 2 {
+        let _ = fs::remove_file(output);
+        return Err(Error::CellsAfter {
+            expected: before.cells + 2,
+            found: read.cells_after,
+        });
+    }
+    if read.read_back != 3 {
+        let _ = fs::remove_file(output);
+        return Err(Error::ReadBack {
+            expected: 3,
+            found: read.read_back,
+        });
+    }
+    edit_line_named(
+        "namedstyle",
+        &[
+            ("named_before", named_before),
+            ("named_after", read.named_after),
+            ("named_xfs_before", named_xfs_before),
+            ("named_xfs_after", read.named_xfs_after),
+            ("xfs_before", xfs_before),
+            ("xfs_after", read.xfs_after),
+            ("cells_before", before.cells),
+            ("cells_after", read.cells_after),
+            ("read_back", read.read_back),
+            ("custom_before", custom_before),
+        ],
+    )
+}
+
+/// What the named style sample reads back from its output.
+struct NamedstyleRead {
+    named_after: u64,
+    named_xfs_after: u64,
+    xfs_after: u64,
+    cells_after: u64,
+    read_back: u64,
+}
+
+/// Reopens the named style sample's output: the counts, and how many of the
+/// named style (its font and fill those set) and the two formats' `xfId`
+/// read back as recorded.
+fn namedstyle_read_back(
+    output: &Path,
+    part: &[u8],
+    set: &Style,
+    k: u32,
+    added: [u32; 2],
+) -> Result<NamedstyleRead, Error> {
+    let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
+    let mut written = Package::open(BufReader::new(file))?;
+    let named = written.named_style(k)?;
+    let mut read_back = u64::from(
+        Some(&named.font) == set.font.as_ref() && named.fill.as_ref() == set.fill.as_ref(),
+    );
+    let styles = written.styles()?;
+    for index in added {
+        let xf = usize::try_from(index)
+            .ok()
+            .and_then(|at| styles.cell_xfs.get(at));
+        read_back += u64::from(xf.and_then(|xf| xf.xf_id) == Some(k));
+    }
+    let (named_after, named_xfs_after, xfs_after) = (
+        styles.cell_styles.len() as u64,
+        styles.cell_style_xfs.len() as u64,
+        styles.cell_xfs.len() as u64,
+    );
+    let mut cells_after = 0u64;
+    for cell in written.cells(part)? {
+        cell?;
+        cells_after += 1;
+    }
+    Ok(NamedstyleRead {
+        named_after,
+        named_xfs_after,
+        xfs_after,
+        cells_after,
+        read_back,
+    })
 }
 
 /// Reopens the gradient sample's output: the cell format count, the `fills`

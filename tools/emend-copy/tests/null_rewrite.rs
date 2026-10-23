@@ -2569,6 +2569,105 @@ fn the_gradient_sample_refuses_a_part_without_fills_and_leaves_nothing() {
     );
 }
 
+// ---------------------------------------------------- --namedstyle-sample
+
+/// [`font_sample_part`] with one plain `cellStyleXfs` format before
+/// `<cellXfs>` and the `Normal` entry after it, as Excel writes them.
+fn named_sample_part(cell_xfs: &str, count: u32) -> String {
+    font_sample_part(SAMPLE_FONTS, SAMPLE_FILLS, cell_xfs, count)
+        .replace(
+            &format!("<cellXfs count=\"{count}\">"),
+            &format!(
+                "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" \
+                 borderId=\"0\"/></cellStyleXfs><cellXfs count=\"{count}\">"
+            ),
+        )
+        .replace(
+            "</cellXfs>",
+            "</cellXfs><cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" \
+             builtinId=\"0\"/></cellStyles>",
+        )
+}
+
+#[test]
+fn the_namedstyle_sample_adds_a_named_style_and_two_formats_naming_it() {
+    // M is 2 and A is A1, styled 1. The named style is 1 (font 1, fill 2);
+    // N1 is 3 over no base with the code 164 and the named format's ids, N2
+    // is 4 over A's format with xfId added; the new cells are A3 and B3.
+    let rows = "<row r=\"1\"><c r=\"A1\" s=\"1\"><v>1.5</v></c></row>\
+                <row r=\"2\"><c r=\"A2\"><v>3</v></c></row>";
+    let part = named_sample_part(SAMPLE_XFS, 3);
+    let (line, styles, sheet) = styled_run(
+        "namedstyle-sample",
+        &styled_specs(&format!("<sheetData>{rows}</sheetData>"), &part),
+        "--namedstyle-sample",
+    );
+    assert_eq!(
+        line,
+        "namedstyle\tnamed_before=1\tnamed_after=2\tnamed_xfs_before=1\tnamed_xfs_after=2\
+         \txfs_before=3\txfs_after=5\tcells_before=2\tcells_after=4\tread_back=3\
+         \tcustom_before=0\n",
+        "the namedstyle line"
+    );
+    let want = part
+        .replace(
+            "<fonts count=\"1\">",
+            "<numFmts count=\"1\"><numFmt numFmtId=\"164\" formatCode=\"0.000\"/></numFmts>\
+             <fonts count=\"2\">",
+        )
+        .replace("</font></fonts>", "</font><font><b/></font></fonts>")
+        .replace("<fills count=\"2\">", "<fills count=\"3\">")
+        .replace(
+            "</fills>",
+            "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFDDEEFF\"/></patternFill>\
+             </fill></fills>",
+        )
+        .replace("<cellStyleXfs count=\"1\">", "<cellStyleXfs count=\"2\">")
+        .replace(
+            "</cellStyleXfs>",
+            "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"0\" applyFont=\"1\" \
+             applyFill=\"1\"/></cellStyleXfs>",
+        )
+        .replace("<cellXfs count=\"3\">", "<cellXfs count=\"5\">")
+        .replace(
+            "<xf/></cellXfs>",
+            "<xf/><xf numFmtId=\"164\" fontId=\"1\" fillId=\"2\" borderId=\"0\" xfId=\"1\" \
+             applyNumberFormat=\"1\"/><xf numFmtId=\"2\" fontId=\"0\" applyAlignment=\"1\" \
+             xfId=\"1\"><alignment horizontal=\"left\"/></xf></cellXfs>",
+        )
+        .replace("<cellStyles count=\"1\">", "<cellStyles count=\"2\">")
+        .replace(
+            "</cellStyles>",
+            "<cellStyle name=\"emend sample style\" xfId=\"1\"/></cellStyles>",
+        );
+    assert_eq!(styles, want, "the styles part");
+    let rows_after = format!(
+        "{rows}<row r=\"3\"><c r=\"A3\" s=\"3\"><v>7</v></c><c r=\"B3\" s=\"4\"><v>8</v></c>\
+         </row>"
+    );
+    assert_eq!(
+        sheet,
+        edited(&format!("<sheetData>{rows_after}</sheetData>")),
+        "the sheet"
+    );
+}
+
+#[test]
+fn the_namedstyle_sample_refuses_a_part_without_cell_styles_and_leaves_nothing() {
+    let part = named_sample_part(SAMPLE_XFS, 3).replace(
+        "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/>\
+         </cellStyles>",
+        "",
+    );
+    assert!(!part.contains("cellStyles"), "the part keeps no cellStyles");
+    styled_run_refused(
+        "namedstyle-sample-no-cell-styles",
+        &styled_specs(A_CELL, &part),
+        "a style addition needs a collection the styles part lacks",
+        "--namedstyle-sample",
+    );
+}
+
 // --------------------------------------------------------- --date-sample
 
 /// The `xf` the date sample adds: over no base, with the built-in id 22.
