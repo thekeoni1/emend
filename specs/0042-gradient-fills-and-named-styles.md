@@ -356,6 +356,222 @@ part 4's close-out record commit and this part's commits, on
 planning's word and the maintainer's authorisation typed in the
 implementing session. The hashes are filled in at the briefing.
 
+## Planning rulings during P1 (2026-10-22)
+
+A. (R1.) `Fill` losing `Copy` and gaining a field (decision 1 A)
+touches one line in each struct literal outside the core, the fifteen
+`probe-emend-*-write-xml` sources among them (`gradient: None,`), and
+a handful of `.clone()` or `.as_ref()` forms in tests and the tool.
+Accepted in P1: a literal's new field is not "The probe", which is
+P3's addition of the gradient and the named style to the fullstyles
+probe. The probes' figures may move in P1 through the shared
+composer; P3's record measures against part 4's record, so the
+movement is this part's cost wherever it lands. The report lists the
+touched files by count per directory.
+
+B. (R2.) The three tests that pinned "a gradient reads as `None`" are
+rewritten to the typed read and renamed as the session proposes; the
+superseded wording of `specs/0027` and `specs/0032` on a gradient
+reading as no fill is the sentence this spec replaces, and the
+catalogue says so in P2's limits.
+
+C. (R3 to R5.) The samples that met a gradient as no fill now meet it
+typed: `--namedstyles-sample`'s `dxf_gradients` counts the `dxf`s
+whose bytes hold a `gradientFill`, each asserted to read with `Some`
+gradient, and such a `dxf` passes the writable filter and is written
+back, so `dxf_fills`, `dxf_written` and `dxf_equal` grow by them
+(the null-rewrite test's figures 1, 3, 4, 4 as the session states);
+`--read-sample`'s `gradients` is the distinct formats whose fill
+reads with a gradient, the "reads as `None`" wording dropped since
+it would count an empty fill; `--roundtrip-sample` gives a gradient
+read back to `add_style`, so `fills_after` grows, with the old
+`None`-fill case kept on an empty `<fill/>`. The corpus counts of the
+three samples move on the 2 gradient workbooks against earlier runs:
+the run log names each move beside the earlier figure, as an expected
+move, not a regression, and the rerun check of later phases compares
+against P1's figures.
+
+D. (R6.) The typed read takes any finite number as a tint is read,
+with no range check, and a `gradientFill` with no `stop` reads with
+an empty list; the writer alone enforces the ranges and the two-stop
+floor, so a part Excel wrote reads whatever it holds and nothing
+written leaves this crate out of range. Both are tested, as stated.
+
+E. (R7.) The gradient's checks (the one-child rule, then the kind's
+numbers, the stop count, each stop's position and the order, its
+colour) run after the alignment and protection checks of `add_style`,
+and in a `dxf` after the colours, as "Order of checks" says. The test
+pairing a border on a part without `<borders>` with an out-of-range
+gradient, refusing with the collection message, pins the order.
+
+F. (The session's correction to R3 to R5, confirmed by planning's own
+count 2026-10-22: 6 `gradientFill` elements in 2 workbooks, all 6
+inside `extLst` (an `x14:dxfs` extension's `dxf` fills), 0 in
+`<fills>` and 0 in the main `<dxfs>`.) Ruling C's corpus clause is
+replaced: the typed read reads `<fills>` and the main `<dxfs>` only,
+so the three samples meet no corpus gradient and NO move is expected
+on the corpus for `--namedstyles-sample`, `--read-sample` or
+`--roundtrip-sample`. The run log reruns the three on the corpus on
+both targets with the phase's binaries and compares each workbook's
+stdout line field by field with the earlier run's (namedstyles
+2026-10-12-6f51899, read and roundtrip 2026-10-16-5e52758), printing
+per sample "27 of 27 lines equal" and any field that moved beside its
+earlier figure (R9, accepted); the expected result is no move, and a
+move is a finding. The run log also prints the extension count: 6
+`gradientFill` inside `extLst`, 0 in `<fills>`, 0 in the main
+`<dxfs>`, over the run, by its own count. `--gradient-sample`'s
+`gradients_before` counts main-namespace `gradientFill` start tags
+anywhere in the part's bytes, so it finds the six (2 workbooks), and
+its `read_back` counts the two formats the sample adds alone. "Facts
+planning checked" stands corrected by this ruling: the six are
+extension `dxf` fills, which no reader of this crate reads
+(`specs/0032`: an `x14:dxfs` is not read).
+
+G. (R8.) The two stale labels of `specs/0041` ruling P occur in the
+close-out push script alone, in none of the phase scripts; "Phases"'s
+sentence on renaming them applies at the close-out generator, as its
+first numbered changes after 55 (56 and 57). P1's generators rename
+nothing.
+
+H. (Finding M1, the session's, before any logged run.) The two P1
+code commits 0f8d809 (core) and 4bb297d (tool) state counts in their
+messages without the sentence the commit-message count rule requires
+(`specs/0037`, change AD, carried), an implementer error the report
+names. The fix accepted as proposed: both commits rewritten with
+identical trees through `git commit-tree`, the sentence "No log
+prints a count for this commit; the diff alone carries what it
+changes." added before the Co-Authored-By line and nothing else
+changed, the chain 893e12c -> core' -> tool' with main moved to
+tool'; the doc commit unchanged. A local, unreported commit may be
+rewritten before the report (`specs/0001`); the old hashes go in
+FACTS and the report, the forks pin the new ones, and nothing ran
+against the old ones. The run log's tree check (each rewritten
+commit's tree equal to the old one's by `git rev-parse <hash>^{tree}`)
+is printed in the gate. Verified by planning from git 2026-10-22: core
+6a7644e (was 0f8d809) and tool 6285028 (was 4bb297d), each tree equal
+to the old commit's, each message the old one plus the sentence and a
+blank line, ASCII, the chain 893e12c -> 6a7644e -> 6285028.
+
+I. (Finding M2, the test fork's hand run, before any logged run.)
+`clippy -D warnings` fails on every feature set without `rules`
+("method `compose` is never used", `styles/elements.rs`): after the
+split of ruling E, `Fill::compose` is called by
+`add_differential_style` alone, which is `rules`'s, while `add_style`
+calls the colour check, the gradient check and the composer directly.
+The session's own check ran clippy with every feature only, an
+implementer error the report names. Fix accepted as proposed: one
+attribute, `#[cfg(feature = "rules")]` on `Fill::compose`, its doc
+line naming the feature, as `color_element` is gated; nothing else
+changes; built and clippy'd on every set before the commit. Placement
+(a): a third code commit on top, "M6 part 5 P1: Fill::compose under
+the rules feature (finding M2)", the phase commit; 6a7644e and
+6285028 stay as they are, failing clippy off `rules` in the history,
+which the gate names beside M2. The count rule's sentence goes in its
+message if it states a count.
+
+J. (R10, departing from ruling I's literal form.) The attribute is
+`#[cfg(any(test, feature = "rules"))]`, since the styles element unit
+tests call `Fill::compose` in every feature set and the `rules`-only
+form stops the crate's tests compiling off `rules` (measured and
+reverted by the session before the commit). Accepted: one attribute,
+the doc line naming the feature and the tests. Verified by planning
+from git 2026-10-22: the phase commit 029400e, parent 6285028, one
+file, four lines added and one removed, the attribute and the doc
+line as stated, the message stating no count, ASCII.
+
+K. (R11.) A gradient range IS reachable through the binary: under
+ruling D the typed read takes any finite value, and
+`--roundtrip-sample` and `--namedstyles-sample` give what they read
+back to the writer, which refuses it with "a style field is out of
+range". The negative log's new cases are accepted as the session
+lists them: N16 (an unreadable degree, "a style cannot be read"), N17
+(no `<fills>`, the collection message), N18 (the roundtrip sample on
+a one-stop gradient), N19 (the named-styles sample on a `dxf`
+gradient at degree 400), with the controls B11 to B13 (exit 0, the
+expected lines the log's own constants). `--gradient-sample`'s own
+gradients stay constants inside the ranges, checked over the tool's
+source with planted controls.
+
+L. (Finding M3, against ruling F's text; confirmed by planning from
+the run directories 2026-10-22.) The roundtrip run F names,
+2026-10-16-5e52758-roundtrip, is the null round trip (its run rows
+carry empty `tool_args`, its stdout files are empty, its outputs
+identical), not a `--roundtrip-sample` run; the latest
+`--roundtrip-sample` corpus run is 2026-10-05-6b6125b-roundtrip,
+whose stdout lines begin "roundtrip" with the sample's fields.
+Ruling F's roundtrip reference is amended to 2026-10-05-6b6125b; the
+named-styles and read references stand. The run log prints the
+wrongly named directory's empty `tool_args` as a control. The
+session's hand checks (27 of 27 equal on both targets for all three;
+the extension count 6, 0, 0; `--gradient-sample` on all 27) are the
+logged run's expectation. Planning's word for the logged run given
+on this ruling.
+
+## Planning verification of P1 (2026-10-22)
+
+Verified from primaries, not the report: the chain 7359783, 893e12c,
+6a7644e, 6285028, 029400e (PHASE), 02c467e (record) by `git log`;
+`git diff --numstat 7359783 029400e` printed 33 files, 1721 added, 92
+deleted, five of them under package/tests and sixteen under the size
+probe's bin (the report's corrected count); the five logs at the
+hashes the message gave (gate 847ab555, test 00795752, negative
+4927b97f, run 00cf932b, scan 54f7337f), each of the four ending
+"checks all as expected: yes" and the scan "RESULT: PASS" with
+structural checks failed 0; each log printing PLANNING_SPEC
+2041984d, the working copy's hash at this writing; the report at
+5b52333a with every figure found in a log by grep: the gate's trees
+(ruling H), "FINDING M2" named and not rerun, 4 commits, 155 and 155
+messages, 1417 and 1432 test names with the three ruling B renames
+the only loss, 16 probe sources with no added line but
+`gradient: None,`, the charts probe 1140868 against the size record's
+1138352, the format probe 974636 and the budget 441420 against
+438960 (judged nowhere; P3's size log judges), the part 4 prune
+sizes; the test log's 1429 on both targets and 523, 629, 559, 668,
+1182 per set on both, the gradient module's 12 tests by name; the
+negative log's N16 to N19 each "exit 2, no stdout" with the named
+message, B11 to B13, 19 refused, 14 output files, 18 fixtures; the
+run log's 27 ok on each label, 54 of 54 three ways, "gradients_before:
+6 in 2 workbooks", 27 of 27 byte for byte across targets, the three
+reruns of ruling F each "lines equal 27 of 27; fields moved 0" on
+both targets with the ruling L control (the null round trip's empty
+tool_args), "total extLst 6 fills 0 dxfs 0 other 0; workbooks 2 of
+27", the Excel-form fixture's two sample lines on both targets, the
+keep's pairs 2227 with 12 new (the phase's tests, by name) and 2
+changed (ruling C's two, by name), the open record lo_in ok 2215 and
+lo ok 2216. The four records, the README and the check's answer hash
+as the report says; the check's brief and prompt name no absolute
+path, the frozen draft is at 94d77302 and the spec copy the check
+read is at 2041984d. The check's answer is in the report verbatim.
+Planning's own scan, `scripts/privacy.sh --range 893e12c..02c467e`:
+4 commits, 2179 blobs, 0 findings, PASS. No API key is in the
+environment. Nothing is pushed: origin/main is f630f67. P1 is DONE.
+
+M. (Check 1's 1 a.) Accepted as P1's. "Errors" gives the gradient's
+ranges to the existing message "a style field is out of range", so
+that entry's limits are the gradient's and belong with the gradient's
+code, 6a7644e. The "catalogue entry and limits" that "P2" lists are
+the new message's entry and the name limits; P2 adds those and the
+sentence ruling B leaves to it. Nothing to change.
+
+N. (Check 1's 1 b.) The session's reading is right. In a dxf the
+colours are the fill's own: `Fill::compose` checks the pattern
+colours, then the gradient, and the dxf writer composes the font, the
+fill and the border in that order. Ruling E's "after the colours"
+means that and nothing about the border.
+
+O. (Ruling A's count.) Ruling A said "the fifteen" probe sources;
+gate.log printed "probe sources changed: 16", the rules probe
+holding two literals, seventeen lines in all. Sixteen is the count;
+ruling A reads so from here. No log or commit names fifteen.
+
+P. (The draft's directory counts.) The check found the draft's
+"package/tests 6" and "crates/emend/src 5" wrong against numstat;
+the final report carries the corrected counts and names the error.
+An implementer counting error caught by the check as designed, not a
+finding; no number. The rule stands: every count in a report is
+printed by a command first, and a per-directory count is printed by
+the command that groups it, not worked by hand.
+
 ## Decisions for the maintainer
 
 1. The gradient's place in the API: A (recommended), `Fill` gains
