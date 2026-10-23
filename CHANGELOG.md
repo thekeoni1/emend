@@ -90,6 +90,10 @@
   italic, a colour and a typeface, and the chart a style value; a kept chart's
   title and a kept series' name and references changed in place, every other
   byte of its chart part kept (`specs/0041-chart-text-and-edits.md`).
+- Gradient fills and named styles: a cell format's or a differential style's
+  fill given a linear or path gradient of stops, written and read typed; a
+  named style added to the styles part by name, and a cell format naming it
+  (`specs/0042-gradient-fills-and-named-styles.md`).
 
 ### Changed
 
