@@ -7480,6 +7480,7 @@ mod images;
 mod linestyle;
 #[cfg(feature = "metadata")]
 mod links;
+mod named_style;
 #[cfg(feature = "read")]
 mod namedstyles;
 #[cfg(feature = "metadata")]

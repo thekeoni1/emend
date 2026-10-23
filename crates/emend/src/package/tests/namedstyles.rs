@@ -178,19 +178,30 @@ fn a_cell_style_without_name_or_xf_id_or_past_the_list_and_an_index_past_it_are_
 }
 
 #[test]
-fn a_second_cell_style_xfs_cell_styles_or_dxfs_is_refused() {
-    // P1 ruling 3: one of each, or the indexes are ambiguous.
+fn a_second_dxfs_is_refused_and_a_second_cell_style_xfs_or_cell_styles_takes_the_containers_message()
+ {
+    // P1 ruling 3: one of each, or the indexes are ambiguous; the two
+    // named-style containers are the core's since
+    // `specs/0042-gradient-fills-and-named-styles.md`, ruling Q, and refuse
+    // with its message before the typed read.
     for second in [
         "<cellStyleXfs count=\"1\"><xf/></cellStyleXfs>",
         "<cellStyles count=\"0\"/><cellStyles count=\"0\"/>",
-        "<dxfs count=\"0\"/><dxfs count=\"0\"/>",
     ] {
-        refused(
-            with_styles_part(&part("<xf/>", second))
-                .styles()
-                .map(|_| ()),
-        );
+        match with_styles_part(&part("<xf/>", second)).styles() {
+            Err(error) => assert_package(
+                error,
+                "the styles part has more than one numFmts, fonts, fills, borders, cellStyleXfs, \
+                 cellXfs or cellStyles",
+            ),
+            Ok(value) => panic!("read as {value:?}"),
+        }
     }
+    refused(
+        with_styles_part(&part("<xf/>", "<dxfs count=\"0\"/><dxfs count=\"0\"/>"))
+            .styles()
+            .map(|_| ()),
+    );
     // One of each is read; a foreign container of the name is not one.
     let one = "<cellStyles count=\"0\"/><dxfs count=\"0\"/>\
                <o:dxfs xmlns:o=\"urn:other\"/><o:cellStyles xmlns:o=\"urn:other\"/>";
@@ -256,6 +267,7 @@ fn each_dxf_child_kind_is_read_alone_and_all_six_together() {
         border: Some(border_value),
         alignment: Some(alignment_value),
         protection: Some(protection_value),
+        named: None,
     };
     assert_eq!(
         dxf(&format!("<dxf>{font}</dxf>")),

@@ -565,6 +565,7 @@ fn full_style(name: &str) -> Style {
             locked: Some(false),
             hidden: Some(true),
         }),
+        named: None,
     }
 }
 

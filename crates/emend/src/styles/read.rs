@@ -32,7 +32,7 @@ use crate::cells::{
 use crate::package::MAIN;
 use crate::styles::{
     Alignment, Border, BorderStyle, Color, Fill, Font, Gradient, GradientKind, Horizontal,
-    NumberFormat, Pattern, Protection, Side, Stop, Style, Styles, Vertical, Xf,
+    NumberFormat, Pattern, Protection, Side, Stop, Style, Styles, Vertical, Xf, text_attribute,
 };
 use crate::xml::{Scope, Stream};
 
@@ -158,6 +158,7 @@ fn same_style(a: &Style, b: &Style) -> bool {
         border,
         alignment,
         protection,
+        named,
     } = a;
     let both = |a: bool, b: bool| a == b;
     *number_format == b.number_format
@@ -175,6 +176,7 @@ fn same_style(a: &Style, b: &Style) -> bool {
         }
         && *alignment == b.alignment
         && *protection == b.protection
+        && *named == b.named
 }
 
 impl Eq for Typed {}
@@ -782,31 +784,6 @@ pub(crate) fn read_named_style(
         hidden: element.flag(b"hidden")?.unwrap_or(false),
         outline_level: number(b"iLevel")?,
     })
-}
-
-/// The unprefixed attribute `name` of `start` as text, unescaped and
-/// normalised as a `formatCode` of `<numFmts>` is (the `styles` module
-/// header), `None` when absent.
-fn text_attribute(
-    start: &BytesStart<'_>,
-    scope: &Scope,
-    index: usize,
-    name: &[u8],
-) -> Result<Option<String>, Error> {
-    for attribute in start.attributes() {
-        let attribute = attribute.map_err(|_| Error::Xml(index))?;
-        if attribute.key.as_namespace_binding().is_some() {
-            continue;
-        }
-        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
-        if namespace.is_none() && local == name {
-            let text = attribute
-                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
-                .map_err(|_| Error::Xml(index))?;
-            return Ok(Some(text.into_owned()));
-        }
-    }
-    Ok(None)
 }
 
 /// An `xf`'s `<alignment>` from its start tag: each field from its

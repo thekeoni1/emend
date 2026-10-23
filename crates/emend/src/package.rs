@@ -148,12 +148,16 @@
 //! - "a style attribute is not a number"
 //!   (`styles::tests::a_num_fmt_id_that_is_not_a_number_is_refused`,
 //!   `an_xf_id_that_is_not_a_number_is_refused`).
-//! - "the styles part has more than one numFmts, fonts, fills, borders or cellXfs"
+//! - "the styles part has more than one numFmts, fonts, fills, borders, cellStyleXfs, cellXfs or cellStyles"
 //!   (`styles::tests::a_second_num_fmts_is_refused`,
 //!   `a_second_cell_xfs_is_refused`,
-//!   `a_second_fonts_fills_or_borders_is_refused`), widened from its two
-//!   containers by `specs/0017-fuller-styles.md`, "Module `styles`: the
-//!   counts", and P1 ruling 2.
+//!   `a_second_fonts_fills_or_borders_is_refused`,
+//!   `a_second_dxfs_is_walked_past_and_a_second_cell_style_xfs_or_cell_styles_refused`,
+//!   `namedstyles::a_second_dxfs_is_refused_and_a_second_cell_style_xfs_or_cell_styles_takes_the_containers_message`),
+//!   widened from its two containers by `specs/0017-fuller-styles.md`,
+//!   "Module `styles`: the counts", and P1 ruling 2, and to the two
+//!   named-style containers by `specs/0042-gradient-fills-and-named-styles.md`,
+//!   "Planning rulings during P2", ruling Q.
 //!
 //! The additions and the style edits add five more (the same "Errors"),
 //! raised here by [`Package::add_cell_style`] and [`Package::write_to`]; the
@@ -164,7 +168,10 @@
 //!
 //! - "a style index is out of range"
 //!   (`an_addition_is_refused_on_a_bad_base_or_format`,
-//!   `an_index_at_the_count_plus_additions_is_refused_and_below_it_accepted`).
+//!   `an_index_at_the_count_plus_additions_is_refused_and_below_it_accepted`,
+//!   and for a `Style::named` at or past `<cellStyleXfs>`'s count plus the
+//!   named styles recorded,
+//!   `named_style::a_named_index_past_the_count_and_those_recorded_is_refused_and_records_nothing`).
 //! - "a built-in number format id is 164 or more"
 //!   (`an_addition_is_refused_on_a_bad_base_or_format`).
 //! - "a number format code is empty or holds a character XML cannot carry"
@@ -183,7 +190,9 @@
 //!   `a_collection_id_past_u32_is_refused`, and at the write, for a part that
 //!   lost the collection after it was read, which no path of this crate can
 //!   cause, `a_collection_gone_at_the_write_is_refused_with_no_output`; P1
-//!   ruling 1).
+//!   ruling 1); and by [`Package::add_named_style`] for a part without
+//!   `<cellStyleXfs>` or `<cellStyles>`
+//!   (`named_style::a_part_without_cell_style_xfs_or_cell_styles_is_refused_with_the_collection_message`).
 //! - "a font name is empty or holds a character XML cannot carry"
 //!   (`styles::elements::tests::a_font_name_empty_or_holding_a_forbidden_character_is_refused`,
 //!   `a_refused_font_name_or_field_records_nothing`).
@@ -196,7 +205,22 @@
 //!   gradient's limits, `specs/0042-gradient-fills-and-named-styles.md`,
 //!   "Types": a degree finite in `0.0..=360.0`, a path side and a stop's
 //!   position finite in `0.0..=1.0`, at least two stops in non-decreasing
-//!   order, no pattern or pattern colour beside it).
+//!   order, no pattern or pattern colour beside it); and by
+//!   [`Package::add_named_style`] for a style whose `named` is `Some`
+//!   (`named_style::a_named_style_given_named_is_refused_as_out_of_range`).
+//!
+//! The named styles add one (`specs/0042-gradient-fills-and-named-styles.md`,
+//! "Errors"), raised by [`Package::add_named_style`]:
+//!
+//! - "a style name is empty, too long or taken"
+//!   (`named_style::an_empty_too_long_or_unwritable_name_is_refused_and_records_nothing`,
+//!   `named_style::a_name_equal_ignoring_case_to_one_held_or_recorded_is_refused`,
+//!   `named_style::a_part_without_cell_style_xfs_or_cell_styles_is_refused_with_the_collection_message`;
+//!   the name's limits: not empty, at most 255 characters, none a character
+//!   XML cannot carry, and not equal ignoring ASCII case to a name the
+//!   part's `<cellStyles>` holds or one recorded earlier by the package,
+//!   "Planning rulings during P2", ruling S; it is checked before the
+//!   containers and the style, ruling T).
 //!
 //! Formulas and the workbook's `calcPr` add five (`specs/0013-formulas.md`,
 //! "Errors"); the first three are raised by [`Value`] in `cells` and reported
@@ -703,7 +727,9 @@
 //! `Package::cell_style`, for an index past `cellXfs` or an id past its
 //! list. The same read refuses, with the first, a `cellStyle` with no
 //! `name` or `xfId` or an `xfId` past `<cellStyleXfs>`, a second
-//! main-namespace `<cellStyleXfs>`, `<cellStyles>` or `<dxfs>`, and a `dxf`
+//! main-namespace `<dxfs>` (a second `<cellStyleXfs>` or `<cellStyles>` takes
+//! the containers' message in the core, `specs/0042-gradient-fills-and-named-
+//! styles.md`, ruling Q), and a `dxf`
 //! the type cannot hold; a second main-namespace `<colors>` or a second
 //! `<indexedColors>` in it, an `rgbColor` with no `rgb` or one that is not
 //! eight hex digits, and a main-namespace child of `<indexedColors>` other
@@ -728,7 +754,7 @@
 //!   `readback::a_colour_with_no_form_is_refused`,
 //!   `readback::an_id_past_its_list_is_refused`,
 //!   `namedstyles::a_cell_style_without_name_or_xf_id_or_past_the_list_and_an_index_past_it_are_refused`,
-//!   `namedstyles::a_second_cell_style_xfs_cell_styles_or_dxfs_is_refused`,
+//!   `namedstyles::a_second_dxfs_is_refused_and_a_second_cell_style_xfs_or_cell_styles_takes_the_containers_message`,
 //!   `namedstyles::a_dxf_child_outside_the_namespace_unknown_to_the_type_or_twice_is_refused`,
 //!   `namedstyles::the_default_font_is_refused_with_no_fonts_or_a_font_id_past_them`,
 //!   `colors::a_second_colors_is_refused`,
@@ -1130,8 +1156,11 @@
 //!   a `<col style>` overrides those, as any `s` does.
 //! - A cell shown as a date is a number with a date format; what a consumer
 //!   shows for a format code is the consumer's.
-//! - `cellStyles` is never touched, and `dxfs` only by the Cargo feature
-//!   `rules`'s differential styles (below). `fonts`, `fills` and
+//! - `cellStyleXfs` and `cellStyles` grow only by
+//!   [`Package::add_named_style`]'s named styles, and are copied byte for
+//!   byte otherwise (`specs/0042-gradient-fills-and-named-styles.md`,
+//!   ruling U); `dxfs` is touched only by the Cargo feature `rules`'s
+//!   differential styles (below). `fonts`, `fills` and
 //!   `borders` grow at their ends when an addition gives a font, a fill or a
 //!   border; nothing already in them is read, changed or compared.
 //! - Whenever the styles part is rewritten, each of `numFmts`, `fonts`,
@@ -1177,8 +1206,8 @@
 //!   values; with the feature `read` its alignment and protection are (the
 //!   read-back block below).
 //! - What is kept: `x14ac:knownFonts` on `fonts` as it was; `dxfs` (but
-//!   for the feature `rules`'s additions), `cellStyles`, `cellStyleXfs` and
-//!   the theme, untouched, so a
+//!   for the feature `rules`'s additions), `cellStyles` and `cellStyleXfs`
+//!   (but for the named styles' additions), and the theme, untouched, so a
 //!   [`crate::styles::Color::Theme`] names whatever the workbook's theme defines at that
 //!   index and a [`crate::styles::Color::Indexed`] whatever its `colors` or the default
 //!   palette defines; a derived cell format's children other than its first
@@ -1492,9 +1521,9 @@
 //!   deduplicated and no `dxf` is removed. Excel reads a differential solid
 //!   fill's colour from `bgColor`, so a caller sets the fill's `background`
 //!   (decision 5 A), as openpyxl's `PatternFill(bgColor=..)` does. A number
-//!   format, an alignment or a protection is refused at the call, "a
-//!   differential style holds a field this part does not write", and so is a
-//!   style with none of a font, a fill and a border.
+//!   format, an alignment, a protection or a named style is refused at the
+//!   call, "a differential style holds a field this part does not write",
+//!   and so is a style with none of a font, a fill and a border.
 //! - The visual rules are the 2007 form (decision 2 A): a data bar is a
 //!   solid bar of one colour with no negative bar or axis, and no `x14`
 //!   extension is written. A rule the part keeps whose `cfRule` holds an
@@ -1994,7 +2023,9 @@
 //!   `Package::resolve_color` resolves (below).
 //! - What reads as `None`: a `<fill>` holding no child (decision 3 A, P1
 //!   verification ruling 2; a gradient reads typed since
-//!   `specs/0042-gradient-fills-and-named-styles.md`); a border
+//!   `specs/0042-gradient-fills-and-named-styles.md`, whose ruling B
+//!   supersedes the sentences of `specs/0027-read-back.md` and
+//!   `specs/0032-read-breadth-styles.md` that read a gradient as no fill); a border
 //!   side with no `style` or `style="none"`, its colour with it; a pane
 //!   that is not frozen, a split one among them; a flag child of a font
 //!   with `val` 0 or `false`, `u val="none"` and `scheme val="none"`; a
@@ -2414,8 +2445,9 @@ use crate::cells::{
 #[cfg(all(feature = "comments", feature = "richtext"))]
 use crate::cells::{Collect, RichText, Runs};
 use crate::styles::{
-    Alignment, Border, Changes, Composed, Fill, Font, NewXf, NumberFormat, Protection, Style,
-    Styles, counted, num_fmt_element, scan_start_tag,
+    Alignment, Border, Changes, Composed, FIELD_OUT_OF_RANGE, Fill, Font, NamedFormat, NewXf,
+    NumberFormat, Protection, Style, Styles, attribute_text, counted, num_fmt_element, plain_xf,
+    scan_start_tag,
 };
 #[cfg(any(feature = "rules", feature = "sheetprops"))]
 use crate::styles::{Color, color_element};
@@ -3295,6 +3327,10 @@ struct Recorded {
     fill_additions: Vec<(Fill, Composed)>,
     /// The distinct borders, as `font_additions`.
     border_additions: Vec<(Border, Composed)>,
+    /// The named styles [`Package::add_named_style`] recorded, in record
+    /// order: the one at `i` has the `<cellStyleXfs>` index of the part's
+    /// count plus `i` (`specs/0042-gradient-fills-and-named-styles.md`).
+    named_additions: Vec<NamedAddition>,
     /// Whether the workbook part gets `fullCalcOnLoad="1"`: recorded by
     /// [`Package::recalculate_on_open`], or by the formula-change rule of
     /// [`Package::write_to`] (`specs/0013-formulas.md`).
@@ -5214,6 +5250,7 @@ impl Recorded {
             && self.cell_edits.is_empty()
             && self.style_edits.is_empty()
             && self.xf_additions.is_empty()
+            && self.named_additions.is_empty()
             && !self.recalculate
             && self.sheet_edits.is_empty()
             && self.column_formats.is_empty()
@@ -6517,9 +6554,56 @@ impl<R: Read + Seek> Package<R> {
     /// finite or outside `0.0..=1.0`, fewer than two stops and stops out of
     /// order, checked after the rest
     /// (`specs/0042-gradient-fills-and-named-styles.md`, "Types"); "a style
-    /// index is out of range" for an id `u32` cannot hold.
+    /// index is out of range" for an id `u32` cannot hold, and for a
+    /// [`Style::named`] at or past the part's `<cellStyleXfs>` count plus the
+    /// named styles recorded, checked after the format's own children and
+    /// before the gradient (`specs/0042-gradient-fills-and-named-styles.md`,
+    /// "Planning rulings during P2", ruling U).
+    ///
+    /// With [`Style::named`] `Some(k)`, the new cell format names the named
+    /// style `k`. Over no base it takes the named format's `numFmtId`,
+    /// `fontId`, `fillId` and `borderId` for each the style leaves `None`, and
+    /// its `alignment` and `protection` children likewise, with `xfId="k"` and
+    /// the apply flags of what the style gives, as openpyxl's `cell.style`
+    /// writes one; over a base it is the base's copy as above with `xfId`
+    /// replaced by `k`, or added after the base's attributes and the ids added
+    /// when the base has none.
     pub fn add_style(&mut self, base: Option<u32>, style: &Style) -> Result<u32, Error> {
         self.parts().add_style(base, style)
+    }
+
+    /// Records a named style called `name` whose format carries `style`, and
+    /// returns the `<cellStyleXfs>` index it will have: the part's count plus
+    /// the number recorded earlier by this package.
+    ///
+    /// `specs/0042-gradient-fills-and-named-styles.md`, "The styles part".
+    /// [`Package::write_to`] appends `<xf numFmtId="N" fontId="F" fillId="I"
+    /// borderId="B" .../>` to `<cellStyleXfs>`, the given ids or 0, the apply
+    /// flag of each thing given, the given `alignment` and `protection` as its
+    /// children and no `xfId`, and `<cellStyle name="NAME" xfId="K"/>` to
+    /// `<cellStyles>`, the name escaped as an attribute and `K` the index
+    /// returned; both `count`s are updated. The font, the fill, the border and
+    /// the number format are added as [`Package::add_style`] adds them, shared
+    /// with its additions. No `builtinId`, `customBuiltin`, `hidden` or
+    /// `iLevel` is written, and no format is deduplicated. A cell format
+    /// names the style through [`Style::named`].
+    ///
+    /// The styles part is read first when it is not cached, so this fails as
+    /// [`Package::styles`] fails. Nothing is recorded when this fails.
+    ///
+    /// # Errors
+    ///
+    /// In this order: [`Error::Package`] "a style name is empty, too long or
+    /// taken" for an empty name, one of more than 255 characters, one holding
+    /// a character XML cannot carry, and one equal ignoring ASCII case to a
+    /// name the part's `<cellStyles>` holds or one recorded earlier by this
+    /// package; "a style addition needs a collection the styles part lacks"
+    /// for a part without `<cellStyleXfs>` or `<cellStyles>`; "a style field
+    /// is out of range" for a `style` whose [`Style::named`] is `Some`; then
+    /// whatever [`Package::add_style`] refuses a style over no base with; "a
+    /// style index is out of range" for an index `u32` cannot hold.
+    pub fn add_named_style(&mut self, name: &str, style: &Style) -> Result<u32, Error> {
+        self.parts().add_named_style(name, style)
     }
 
     /// Records `reference` in the worksheet part `part` given the style
@@ -7466,8 +7550,9 @@ impl<R: Read + Seek> Package<R> {
     /// # Errors
     ///
     /// [`Error::Package`] "a differential style holds a field this part does
-    /// not write" for a number format, an alignment or a protection, or for a
-    /// style with none of a font, a fill and a border; the refusals of the
+    /// not write" for a number format, an alignment, a protection or a named
+    /// style, or for a style with none of a font, a fill and a border; the
+    /// refusals of the
     /// three element writers; "the workbook has no styles part"; "a styles
     /// part has two dxfs elements"; and "a differential style index is out of
     /// range" for an index `u32` cannot hold. Nothing is recorded when this
@@ -8553,7 +8638,6 @@ impl<'a> Parts<'a> {
     fn add_style(&mut self, base: Option<u32>, style: &Style) -> Result<u32, Error> {
         let recorded = self.edits.xf_additions.len();
         self.styles()?;
-        // A borrow of the field alone, so the recorded edits stay readable.
         let Some(styles) = self.styles.as_ref() else {
             return Err(NO_STYLES_PART);
         };
@@ -8563,6 +8647,87 @@ impl<'a> Parts<'a> {
         {
             return Err(STYLE_OUT_OF_RANGE);
         }
+        let prepared = self.prepared_style(style)?;
+        let index = u32::try_from(existing + recorded).map_err(|_| STYLE_OUT_OF_RANGE)?;
+        let Some(styles) = self.styles.as_ref() else {
+            return Err(NO_STYLES_PART);
+        };
+        // The base is in range by the check above, and its bytes are ones the
+        // reader accepted, so this is `None` only for a part that could not
+        // have been read.
+        let named = prepared.named.as_ref().map(|(k, format)| (*k, format));
+        let xf = styles
+            .derived_xf(base, &prepared.changes, named)
+            .ok_or(STYLE_OUT_OF_RANGE)?;
+        self.record_style(style, prepared);
+        self.edits.xf_additions.push(xf);
+        Ok(index)
+    }
+
+    /// The body of [`Package::add_named_style`]: the name, the duplicate,
+    /// the two containers, then the style as [`Package::add_style`] checks
+    /// one over no base (`specs/0042-gradient-fills-and-named-styles.md`,
+    /// "The styles part", and "Planning rulings during P2", ruling T).
+    fn add_named_style(&mut self, name: &str, style: &Style) -> Result<u32, Error> {
+        if name.is_empty() || name.chars().count() > 255 || name.chars().any(forbidden_in_xml) {
+            return Err(STYLE_NAME_REFUSED);
+        }
+        self.styles()?;
+        let Some(styles) = self.styles.as_ref() else {
+            return Err(NO_STYLES_PART);
+        };
+        let held = styles.cell_style_names().unwrap_or(&[]);
+        if held
+            .iter()
+            .flatten()
+            .map(String::as_str)
+            .chain(
+                self.edits
+                    .named_additions
+                    .iter()
+                    .map(|added| added.name.as_str()),
+            )
+            .any(|have| have.eq_ignore_ascii_case(name))
+        {
+            return Err(STYLE_NAME_REFUSED);
+        }
+        if !styles.has_cell_style_xfs() || styles.cell_style_names().is_none() {
+            return Err(NEEDS_COLLECTION);
+        }
+        if style.named.is_some() {
+            return Err(FIELD_OUT_OF_RANGE);
+        }
+        let index = u32::try_from(styles.cell_style_xfs.len() + self.edits.named_additions.len())
+            .map_err(|_| STYLE_OUT_OF_RANGE)?;
+        let prepared = self.prepared_style(style)?;
+        let xf = plain_xf(&prepared.changes, &[], None, [None, None]);
+        let format = NamedFormat {
+            ids: [
+                prepared.changes.num_fmt,
+                prepared.changes.font,
+                prepared.changes.fill,
+                prepared.changes.border,
+            ],
+            alignment: prepared.changes.alignment.clone(),
+            protection: prepared.changes.protection.clone(),
+        };
+        self.record_style(style, prepared);
+        self.edits.named_additions.push(NamedAddition {
+            name: name.to_string(),
+            xf,
+            format,
+        });
+        Ok(index)
+    }
+
+    /// What a style gives a new format, every field checked in
+    /// [`Package::add_style`]'s order and nothing recorded: the ids, the
+    /// new number format, font, fill and border elements, the format's own
+    /// children, and the named style's format for [`Style::named`].
+    fn prepared_style(&self, style: &Style) -> Result<PreparedStyle, Error> {
+        let Some(styles) = self.styles.as_ref() else {
+            return Err(NO_STYLES_PART);
+        };
         let (num_fmt, new_code) = match &style.number_format {
             None => (None, None),
             Some(NumberFormat::BuiltIn(id)) if *id >= 164 => return Err(BUILT_IN_164),
@@ -8638,7 +8803,6 @@ impl<'a> Parts<'a> {
                 ))
             }
         };
-        let index = u32::try_from(existing + recorded).map_err(|_| STYLE_OUT_OF_RANGE)?;
         // The cell format's own children, composed here as the collections'
         // elements are; only an alignment can be refused (its rotation).
         let alignment = style
@@ -8647,37 +8811,59 @@ impl<'a> Parts<'a> {
             .map(Alignment::compose)
             .transpose()?;
         let protection = style.protection.as_ref().map(Protection::compose);
+        // The named style, after the format's own children and before the
+        // gradient (ruling U): one of the part's or one recorded here.
+        let named = match style.named {
+            None => None,
+            Some(k) => {
+                let held = styles.cell_style_xfs.len();
+                let at = usize::try_from(k).map_err(|_| STYLE_OUT_OF_RANGE)?;
+                let format = match at.checked_sub(held) {
+                    None => styles.named_format(k),
+                    Some(recorded) => self
+                        .edits
+                        .named_additions
+                        .get(recorded)
+                        .map(|added| added.format.clone()),
+                };
+                Some((k, format.ok_or(STYLE_OUT_OF_RANGE)?))
+            }
+        };
         if let Some(fill) = &style.fill {
             fill.check_gradient()?;
         }
-        let changes = Changes {
-            num_fmt,
-            font: font.as_ref().map(|(id, _)| *id),
-            fill: fill.as_ref().map(|(id, _)| *id),
-            border: border.as_ref().map(|(id, _)| *id),
-            alignment,
-            protection,
-        };
-        // The base is in range by the check above, and its bytes are ones the
-        // reader accepted, so this is `None` only for a part that could not
-        // have been read.
-        let xf = styles
-            .derived_xf(base, &changes)
-            .ok_or(STYLE_OUT_OF_RANGE)?;
-        if let (Some(id), Some(code)) = (num_fmt, new_code) {
-            self.edits.num_fmt_additions.push((id, code));
+        Ok(PreparedStyle {
+            changes: Changes {
+                num_fmt,
+                font: font.as_ref().map(|(id, _)| *id),
+                fill: fill.as_ref().map(|(id, _)| *id),
+                border: border.as_ref().map(|(id, _)| *id),
+                alignment,
+                protection,
+            },
+            new_code: num_fmt.zip(new_code),
+            font: font.and_then(|(_, element)| element),
+            fill: fill.and_then(|(_, element)| element),
+            border: border.and_then(|(_, element)| element),
+            named,
+        })
+    }
+
+    /// Records the number format, font, fill and border a prepared style
+    /// adds.
+    fn record_style(&mut self, style: &Style, prepared: PreparedStyle) {
+        if let Some(code) = prepared.new_code {
+            self.edits.num_fmt_additions.push(code);
         }
-        if let (Some(font), Some((_, Some(element)))) = (&style.font, font) {
+        if let (Some(font), Some(element)) = (&style.font, prepared.font) {
             self.edits.font_additions.push((font.clone(), element));
         }
-        if let (Some(fill), Some((_, Some(element)))) = (&style.fill, fill) {
+        if let (Some(fill), Some(element)) = (&style.fill, prepared.fill) {
             self.edits.fill_additions.push((fill.clone(), element));
         }
-        if let (Some(border), Some((_, Some(element)))) = (&style.border, border) {
+        if let (Some(border), Some(element)) = (&style.border, prepared.border) {
             self.edits.border_additions.push((*border, element));
         }
-        self.edits.xf_additions.push(xf);
-        Ok(index)
     }
 
     /// The body of [`Package::set_cell_style`].
@@ -9243,6 +9429,7 @@ impl<'a> Parts<'a> {
         if style.number_format.is_some()
             || style.alignment.is_some()
             || style.protection.is_some()
+            || style.named.is_some()
             || !written.contains(&true)
         {
             return Err(DXF_FIELD);
@@ -11689,7 +11876,10 @@ impl<'a> Parts<'a> {
         let dxfs_added = !self.edits.dxf_additions.is_empty();
         #[cfg(not(feature = "rules"))]
         let dxfs_added = false;
-        if !self.edits.xf_additions.is_empty() || dxfs_added {
+        if !self.edits.xf_additions.is_empty()
+            || !self.edits.named_additions.is_empty()
+            || dxfs_added
+        {
             #[cfg(feature = "rules")]
             let dxf_children = if dxfs_added { self.dxf_children()? } else { 0 };
             let part = self.workbook()?.styles.clone().ok_or(NO_STYLES_PART)?;
@@ -11701,6 +11891,10 @@ impl<'a> Parts<'a> {
                 fills: styles.fills().map_or(0, u64::from),
                 borders: styles.borders().map_or(0, u64::from),
                 cell_xfs: styles.cell_xfs.len() as u64,
+                cell_style_xfs: styles.cell_style_xfs.len() as u64,
+                cell_styles: styles
+                    .cell_style_names()
+                    .map_or(0, |names| names.len() as u64),
                 has_num_fmts: styles.has_num_fmts(),
             };
             let mut codes = self.edits.num_fmt_additions.clone();
@@ -11711,6 +11905,7 @@ impl<'a> Parts<'a> {
                 fills: &self.edits.fill_additions,
                 borders: &self.edits.border_additions,
                 xfs: &self.edits.xf_additions,
+                named: &self.edits.named_additions,
                 #[cfg(feature = "rules")]
                 dxfs: dxfs_added.then_some((dxf_children, self.edits.dxf_additions.as_slice())),
             };
@@ -12786,6 +12981,9 @@ const NO_CELL_XFS: Error = Error::Package("a styles part without cellXfs cannot 
 /// messages about a field are raised by `styles`.
 const NEEDS_COLLECTION: Error =
     Error::Package("a style addition needs a collection the styles part lacks");
+/// What [`Package::add_named_style`] refuses a name with
+/// (`specs/0042-gradient-fills-and-named-styles.md`, "Errors").
+const STYLE_NAME_REFUSED: Error = Error::Package("a style name is empty, too long or taken");
 
 /// The id a font, a fill or a border gets: the collection's `count` plus its
 /// `position` among the distinct ones recorded, or plus `recorded` when it is
@@ -13302,7 +13500,33 @@ struct Counts {
     fills: u64,
     borders: u64,
     cell_xfs: u64,
+    cell_style_xfs: u64,
+    cell_styles: u64,
     has_num_fmts: bool,
+}
+
+/// What a style gives a new format, checked and composed and not yet
+/// recorded: by [`Package::add_style`] and [`Package::add_named_style`].
+struct PreparedStyle {
+    /// The ids and the format's own children.
+    changes: Changes,
+    /// `(id, code)` for a number format the part and the package lack.
+    new_code: Option<(u32, String)>,
+    /// The font, fill and border elements that are new.
+    font: Option<Composed>,
+    fill: Option<Composed>,
+    border: Option<Composed>,
+    /// `(k, the named format)` for [`Style::named`].
+    named: Option<(u32, NamedFormat)>,
+}
+
+/// A named style [`Package::add_named_style`] recorded: its `cellStyle`'s
+/// name, its `<cellStyleXfs>` format, and what a cell format naming it takes.
+#[derive(Clone, Debug)]
+struct NamedAddition {
+    name: String,
+    xf: NewXf,
+    format: NamedFormat,
 }
 
 /// What the styles rewrite appends, container by container.
@@ -13313,6 +13537,9 @@ struct StyleAdditions<'a> {
     fills: &'a [(Fill, Composed)],
     borders: &'a [(Border, Composed)],
     xfs: &'a [NewXf],
+    /// The named styles: each one's `<cellStyleXfs>` format and its
+    /// `<cellStyles>` entry.
+    named: &'a [NamedAddition],
     /// The styles part's `dxf` children and the differential styles to
     /// append, when there are any (the Cargo feature `rules`).
     #[cfg(feature = "rules")]
@@ -13348,10 +13575,24 @@ fn rewrite_styles(
     /// goes, in the schema's order.
     const AFTER_NUM_FMTS: [&[u8]; 5] =
         [b"fonts", b"fills", b"borders", b"cellStyleXfs", b"cellXfs"];
-    /// The containers the rewrite grows, by the index `grown` and `seen` use.
-    const GROWN: [&[u8]; 5] = [b"numFmts", b"fonts", b"fills", b"borders", b"cellXfs"];
+    /// The containers the rewrite grows, by the index `grown` and `seen` use;
+    /// the two named-style containers only when a named style is recorded,
+    /// so with none they are copied byte for byte
+    /// (`specs/0042-gradient-fills-and-named-styles.md`, "Planning rulings
+    /// during P2", ruling U).
+    const GROWN: [&[u8]; 7] = [
+        b"numFmts",
+        b"fonts",
+        b"fills",
+        b"borders",
+        b"cellXfs",
+        b"cellStyleXfs",
+        b"cellStyles",
+    ];
     const NUM_FMTS: usize = 0;
     const CELL_XFS: usize = 4;
+    const CELL_STYLE_XFS: usize = 5;
+    const CELL_STYLES: usize = 6;
 
     let (temp, file) = temp_for_part()?;
     let mut out = BufWriter::new(file);
@@ -13382,11 +13623,28 @@ fn rewrite_styles(
                 .iter()
                 .flat_map(|(_, e)| e.element(prefix))
                 .collect(),
-            _ => additions
+            CELL_XFS => additions
                 .xfs
                 .iter()
                 .flat_map(|xf| xf.element(prefix))
                 .collect(),
+            CELL_STYLE_XFS => additions
+                .named
+                .iter()
+                .flat_map(|named| named.xf.element(prefix))
+                .collect(),
+            CELL_STYLES => (counts.cell_style_xfs..)
+                .zip(additions.named)
+                .flat_map(|(k, named)| {
+                    let mut out = [b"<".as_slice(), prefix, b"cellStyle name=\""].concat();
+                    out.extend_from_slice(attribute_text(&named.name).as_bytes());
+                    out.extend_from_slice(b"\" xfId=\"");
+                    out.extend_from_slice(k.to_string().as_bytes());
+                    out.extend_from_slice(b"\"/>");
+                    out
+                })
+                .collect(),
+            _ => Vec::new(),
         }
     };
     let added = [
@@ -13395,6 +13653,8 @@ fn rewrite_styles(
         additions.fills.len(),
         additions.borders.len(),
         additions.xfs.len(),
+        additions.named.len(),
+        additions.named.len(),
     ];
     let had = [
         counts.num_fmts,
@@ -13402,6 +13662,8 @@ fn rewrite_styles(
         counts.fills,
         counts.borders,
         counts.cell_xfs,
+        counts.cell_style_xfs,
+        counts.cell_styles,
     ];
 
     let mut scope = Scope::new(index);
@@ -13410,7 +13672,7 @@ fn rewrite_styles(
     // Whether a `<numFmts>` still has to be created before the next of
     // `AFTER_NUM_FMTS`.
     let mut create_num_fmts = !counts.has_num_fmts && added[NUM_FMTS] > 0;
-    let mut seen = [false; 5];
+    let mut seen = [false; 7];
     // The open container among the root's children, with its prefix.
     let mut open: Option<(usize, Vec<u8>)> = None;
     #[cfg(feature = "rules")]
@@ -13462,7 +13724,10 @@ fn rewrite_styles(
                     create_num_fmts = false;
                 }
                 let container = if depth == 2 && ours {
-                    GROWN.iter().position(|name| *name == local)
+                    GROWN
+                        .iter()
+                        .position(|name| *name == local)
+                        .filter(|at| *at < CELL_STYLE_XFS || added[*at] > 0)
                 } else {
                     None
                 };
@@ -13518,7 +13783,10 @@ fn rewrite_styles(
     if !seen[CELL_XFS] {
         return Err(NO_CELL_XFS);
     }
-    if (1..CELL_XFS).any(|container| added[container] > 0 && !seen[container]) {
+    if (1..GROWN.len())
+        .filter(|container| *container != CELL_XFS)
+        .any(|container| added[container] > 0 && !seen[container])
+    {
         return Err(NEEDS_COLLECTION);
     }
     written_part(temp, out.into_inner().map_err(|e| Error::Io(e.into()))?)

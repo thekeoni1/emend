@@ -7432,6 +7432,7 @@ fn roundtrip_sample(input: &Path, output: &Path) -> Result<(), Error> {
                 border: Some(style.border),
                 alignment: style.alignment,
                 protection: style.protection,
+                named: None,
             },
         )?);
     }

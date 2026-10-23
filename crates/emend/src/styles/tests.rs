@@ -370,6 +370,58 @@ fn a_num_fmt_id_that_is_not_a_number_is_refused() {
 }
 
 #[test]
+fn the_core_reads_cell_style_xfs_and_counts_cell_styles_with_their_names() {
+    // `specs/0042-gradient-fills-and-named-styles.md`, "Types" and ruling
+    // S: the formats with their ids and the entries' names, unescaped.
+    let styles = read(
+        "<cellStyleXfs count=\"2\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/>\
+         <xf numFmtId=\"4\" fontId=\"1\" fillId=\"2\" borderId=\"3\"><alignment/></xf>\
+         </cellStyleXfs><cellXfs><xf/></cellXfs>\
+         <cellStyles count=\"2\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/>\
+         <cellStyle name=\"A &amp; B\" xfId=\"1\"/></cellStyles>",
+    );
+    let ids: Vec<_> = styles
+        .cell_style_xfs
+        .iter()
+        .map(|xf| {
+            (
+                xf.num_fmt_id,
+                xf.font_id,
+                xf.fill_id,
+                xf.border_id,
+                xf.xf_id,
+            )
+        })
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            (Some(0), Some(0), Some(0), Some(0), None),
+            (Some(4), Some(1), Some(2), Some(3), None)
+        ]
+    );
+    assert_eq!(styles.cell_xfs.len(), 1);
+    assert!(styles.has_cell_style_xfs());
+    assert_eq!(
+        styles.cell_style_names(),
+        Some(&[Some("Normal".to_string()), Some("A & B".to_string())][..])
+    );
+    // Neither container: none held.
+    let neither = read("<cellXfs><xf/></cellXfs>");
+    assert!(!neither.has_cell_style_xfs());
+    assert_eq!(neither.cell_style_names(), None);
+    assert!(neither.cell_style_xfs.is_empty());
+    // A nameless entry is counted with no name in the core; the typed read
+    // refuses it.
+    #[cfg(not(feature = "read"))]
+    assert_eq!(
+        read("<cellXfs><xf/></cellXfs><cellStyles><cellStyle xfId=\"0\"/></cellStyles>")
+            .cell_style_names(),
+        Some(&[None][..])
+    );
+}
+
+#[test]
 fn an_xf_id_that_is_not_a_number_is_refused() {
     for attribute in ["numFmtId", "fontId", "fillId", "borderId", "xfId"] {
         let body = part(&cell_xfs(&format!("<xf {attribute}=\"one\"/>")));
@@ -386,7 +438,8 @@ fn a_second_num_fmts_is_refused() {
     );
     assert_package(
         refused(&body),
-        "the styles part has more than one numFmts, fonts, fills, borders or cellXfs",
+        "the styles part has more than one numFmts, fonts, fills, borders, cellStyleXfs, cellXfs or \
+         cellStyles",
     );
 }
 
@@ -396,7 +449,8 @@ fn a_second_cell_xfs_is_refused() {
     let body = part("<cellXfs><xf/></cellXfs><cellStyles/><cellXfs><xf/></cellXfs>");
     assert_package(
         refused(&body),
-        "the styles part has more than one numFmts, fonts, fills, borders or cellXfs",
+        "the styles part has more than one numFmts, fonts, fills, borders, cellStyleXfs, cellXfs or \
+         cellStyles",
     );
 }
 
@@ -454,7 +508,10 @@ fn the_counts_are_the_children_not_the_count_attribute() {
 // `package/tests/namedstyles.rs`).
 #[cfg(not(feature = "read"))]
 #[test]
-fn a_second_cell_style_xfs_cell_styles_or_dxfs_is_walked_past() {
+fn a_second_dxfs_is_walked_past_and_a_second_cell_style_xfs_or_cell_styles_refused() {
+    // `specs/0042-gradient-fills-and-named-styles.md`, ruling Q: the two
+    // named-style containers are the core's, one of each; `dxfs` is still
+    // walked past without the feature `read`.
     let collections = "<fonts><font/></fonts><fills><fill/><fill/></fills>\
                        <borders><border/></borders>";
     let once = read(&format!(
@@ -462,18 +519,30 @@ fn a_second_cell_style_xfs_cell_styles_or_dxfs_is_walked_past() {
          <cellStyles><cellStyle name=\"Normal\" xfId=\"0\"/></cellStyles>\
          <dxfs><dxf><font><b/></font></dxf></dxfs>"
     ));
-    let twice = read(&format!(
-        "{collections}<cellStyleXfs><xf/></cellStyleXfs><cellStyleXfs><xf/></cellStyleXfs>\
-         <cellXfs><xf/></cellXfs>\
-         <cellStyles><cellStyle name=\"Normal\" xfId=\"0\"/></cellStyles><cellStyles/>\
+    let dxfs_twice = read(&format!(
+        "{collections}<cellStyleXfs><xf/></cellStyleXfs><cellXfs><xf/></cellXfs>\
+         <cellStyles><cellStyle name=\"Normal\" xfId=\"0\"/></cellStyles>\
          <dxfs><dxf><font><b/></font></dxf></dxfs><dxfs><dxf/></dxfs>"
     ));
-    for styles in [&once, &twice] {
+    for styles in [&once, &dxfs_twice] {
         assert_eq!(
             (styles.fonts(), styles.fills(), styles.borders()),
             (Some(1), Some(2), Some(1))
         );
         assert_eq!(styles.cell_xfs.len(), 1);
+        assert_eq!(styles.cell_style_xfs.len(), 1);
+    }
+    for twice in [
+        "<cellStyleXfs><xf/></cellStyleXfs><cellStyleXfs><xf/></cellStyleXfs>\
+         <cellXfs><xf/></cellXfs>",
+        "<cellXfs><xf/></cellXfs>\
+         <cellStyles><cellStyle name=\"Normal\" xfId=\"0\"/></cellStyles><cellStyles/>",
+    ] {
+        assert_package(
+            refused(&part(&format!("{collections}{twice}"))),
+            "the styles part has more than one numFmts, fonts, fills, borders, cellStyleXfs, cellXfs or \
+             cellStyles",
+        );
     }
 }
 
@@ -501,7 +570,8 @@ fn a_second_fonts_fills_or_borders_is_refused() {
     ] {
         assert_package(
             refused(&part(&format!("{twice}<cellXfs><xf/></cellXfs>"))),
-            "the styles part has more than one numFmts, fonts, fills, borders or cellXfs",
+            "the styles part has more than one numFmts, fonts, fills, borders, cellStyleXfs, cellXfs or \
+         cellStyles",
         );
     }
 }

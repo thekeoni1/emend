@@ -614,6 +614,7 @@ fn round_trip(body: &str) -> (CellStyle, CellStyle, String) {
                 border: Some(read.border),
                 alignment: read.alignment,
                 protection: read.protection,
+                named: None,
             },
         )
         .expect("added");

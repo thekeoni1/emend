@@ -47,6 +47,14 @@ pub struct Style {
     pub alignment: Option<Alignment>,
     /// The cell format's `protection` child, in place of its base's.
     pub protection: Option<Protection>,
+    /// The named style the new cell format derives from, by its
+    /// `<cellStyleXfs>` index: one the part has or one
+    /// [`crate::package::Package::add_named_style`] returned
+    /// (`specs/0042-gradient-fills-and-named-styles.md`, "Types"). Over no
+    /// base the format takes the named format's ids and children where this
+    /// style gives none, as openpyxl's `cell.style` does; over a base it
+    /// keeps the base's and names the style by `xfId` alone.
+    pub named: Option<u32>,
 }
 
 /// A font: the children of a `<font>` element.
