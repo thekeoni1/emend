@@ -1202,7 +1202,7 @@ to 15000. openpyxl's `GradientFill`, `NamedStyle`,
 | Phase | Scope | Status |
 |---|---|---|
 | P1 | `Gradient`, `GradientKind`, `Stop`, `Fill::gradient`, the composer and checks, the typed read in a cell format and a `dxf`; `--gradient-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | DONE 2026-10-22 (029400e; record 02c467e local) |
-| P2 | the core read of `cellStyleXfs` and `cellStyles`; `Style::named`, `add_named_style`, the two containers in the rewrite, the name checks; `--namedstyle-sample`; the `named-style` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | PLANNED |
+| P2 | the core read of `cellStyleXfs` and `cellStyles`; `Style::named`, `add_named_style`, the two containers in the rewrite, the name checks; `--namedstyle-sample`; the `named-style` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | DONE 2026-10-23 (bf07f86; record d4d9eca local) |
 | P3 | the probe's gradient and named style; the size record (the budget against part 4's 438960, the estimate, the 15000 line and the ceiling 458752; `read`, `images`, `comments` and `charts` each judged); the API record; the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | PLANNED |
 | Close | close-out push after P3, carrying 7359783, base f630f67 by its subject, `PREV` `^M6 part 4 close-out record`, the pre driver passing HEAD, no Excel-record check | PLANNED |
 

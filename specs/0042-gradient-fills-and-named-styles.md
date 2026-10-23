@@ -572,6 +572,227 @@ finding; no number. The rule stands: every count in a report is
 printed by a command first, and a per-directory count is printed by
 the command that groups it, not worked by hand.
 
+## Planning rulings during P2 (2026-10-22)
+
+Q. (R1.) (a). The two-containers message names every container it
+refuses, so its text becomes "the styles part has more than one
+numFmts, fonts, fills, borders, cellStyleXfs, cellXfs or
+cellStyles"; a second `cellStyleXfs` or `cellStyles` refuses with it
+in every feature set, the core's refusal before `read`'s; a second
+`dxfs` stays as today. "Design" line "with the existing message"
+reads "with the two-containers message, its text grown by the two
+names". The set of messages is the base's plus one (the name
+message) with one text changed; the catalogue, the two renamed tests
+and the negative log carry the new text (ruling X). The spec's "one
+new message" counts messages, not texts; `specs/0012` and
+`specs/0017` keep their quotes as history.
+
+R. (R2.) Accepted. `cell_style_xfs` is a `pub` core field by the
+existing `xf` read; the API record moves in P3 as "P3" says. `Xf`'s
+doc loses the feature clause. `read`'s check of a `cellStyle` naming
+a format past the container stays `read`'s.
+
+S. (R3, R4.) `text_attribute` moves to the core, one copy, no twin.
+A `cellStyle` without `name` is counted in the core with no name and
+no refusal; `read` refuses it as today. The comparison is ASCII-case-
+folded equality of the unescaped names. "More than 255 characters"
+counts Unicode scalar values; the empty name and any character
+`forbidden_in_xml` refuses are refused with the name message; tab,
+LF and CR are written as character references by `attribute_text`.
+
+T. (R5.) The order at `add_named_style`: the name (empty, length,
+characters), the duplicate (the part's names, then those recorded),
+the containers (the collection message), then the style as
+`add_style` checks one over no base with `named` first. "Design"'s
+"the name, then the style" reads so. The order is pinned by one test
+giving a bad name on a part without `cellStyles` (the name message)
+and a good name on it (the collection message).
+
+U. (R6 to R10.) Accepted as read. Over no base: each id the style's
+where given, else the named format's, else 0; `xfId="k"` where
+`xfId="0"` stands today; apply flags for the fields given only; the
+alignment and protection the style's where given, else the named
+format's children's bytes (a recorded one's composed form), no other
+child copied. Over a base: the base's copy, `xfId` replaced in place
+or added after the base's attributes and any added ids, before the
+added apply flags; the base's ids kept. The index check after
+protection and before the gradient; an index or count past `u32`
+the same message. With no named style recorded both containers are
+written byte for byte (P1's rerun pins it); an empty `<cellStyles/>`
+is opened up as the empty containers are. A recorded named style
+keeps its ids and its composed alignment and protection for a later
+`named` naming it.
+
+V. (The sample's note on N2.) The spec stands: over a base the
+base's ids are kept and `xfId` alone names the style, which is
+"Design"'s text and not openpyxl's `cell.style` (that copies the
+named format's ids, the no-base form here). `Style::named`'s doc
+says so in one sentence: a caller wanting openpyxl's form gives no
+base. The openpyxl fixture's comparison covers the no-base form only.
+
+W. (The sample.) "emend sample style" is the tool's constant, not
+corpus content, and may be printed. The session's count over the
+directory was not over the corpus's 27 alone; the run log prints its
+own count of `cellStyle` entries equal to the constant ignoring
+ASCII case over the 27 corpus workbooks, expected 0, as the
+duplicate check's control, beside `custom_before` 36 (the "Facts"
+count). The tool test's line and the forms on its part are accepted
+as the session printed them; the line is pinned by the tool test.
+
+X. (The negative log.) P2's cases continue from N19 with controls
+from B13: the name message through the binary (a part holding the
+constant's name in another case), the index message, the collection
+message on a part without `cellStyles`, and the two-containers
+message's new text on a part with two `cellStyles` (ruling Q), each
+exit 2, no stdout, no output file.
+
+Y. (Tests.) The list stands with ruling T's pairing added to the
+collection test; R1's two renames are the only renames. The test
+names are read by the gate as P1's were.
+
+Z. (Z1.) Ruling Q reaches five base tests: the two renamed and three
+more (`a_second_num_fmts_is_refused`, `a_second_cell_xfs_is_refused`,
+`a_second_fonts_fills_or_borders_is_refused`) that take the new text
+by the one string alone, names kept. The catalogue entry names the
+five.
+
+AA. (Z2.) As ruling A for P1: `Style` gaining `named` touches one
+`named: None,` line in each full `Style` literal outside the core,
+the sixteen probe sources (sixteen lines), the tool's round-trip
+literal, one line each in `namedstyles.rs` and `readback.rs`, and
+`same_style`'s destructuring in `read.rs`. The gate prints the probe
+sources changed and the added lines other than `named: None,`, 16
+and 0 expected.
+
+AB. (Z3.) A `named` on a differential style refuses with the
+existing "a differential style holds a field this part does not
+write", as a number format does: a `dxf` has no `xfId`. "Design"
+reads so; the test `a_differential_style_given_named_is_refused`
+(`rules`) stays, one beyond ruling Y's list.
+
+AC. (Z4, Z5.) The tests as written, with ruling T's pairing, are
+accepted. Under `read` a part with a `cellStyles` entry and no
+`cellStyleXfs` is unreadable, so the collection test's missing-
+`cellStyleXfs` case carries an empty `<cellStyles count="0"/>`: a
+fixture choice, no code change. With nothing recorded the two
+containers pass through untouched, `count` included, unlike the
+other grown containers whose `count` is normalised on every rewrite;
+the byte-for-byte test pins it with counts that disagree with the
+children.
+
+AD. (Z6.) The op's constant "emend named style" differs from the
+tool's "emend sample style" so the fixture's entry and the sample's
+addition never collide; both are constants and may be printed.
+Ruling W's count over the corpus is of the tool's constant.
+
+AE. (Z7.) The run log compares, where both write the field: the
+gradient's `degree`, each stop's `position` and `rgb`; the named
+`xf`'s four ids present and its lack of `xfId`; the `cellStyle`'s
+`name` present and its `xfId`; the cell format's `xfId`. The ids are
+compared by what they name (the part's bold font, the gradient fill),
+not by number. Named and not compared: `type="linear"`, `hidden="0"`,
+`pivotButton`, `quotePrefix`, openpyxl's added empty `<border/>`, and
+the apply flags (openpyxl writes none; emend writes `applyFont` and
+`applyFill` on its named `xf` and `applyNumberFormat` on N1).
+
+AF. (Z8.) "Harness runs"' "one custom entry" on the openpyxl fixture
+reads as `named` less `builtin` equal to 1 on the `--namedstyles-
+sample` line, since that line's `custom` counts `customBuiltin`. The
+three lines the session hand-ran are what the run log prints and
+checks: `named=2 ... builtin=1`, `--gradient-sample` `read_back=2
+gradients_before=1`, `--namedstyle-sample` `named_after=3
+read_back=3 custom_before=1`.
+
+AG. (Z9.) The phase's files are as listed; no manifest, lock or
+CHANGELOG change. PHASE is bf07f86 unless a finding lands a further
+commit.
+
+AH. (The word.) The facts file and the generator forks proceed on
+bf07f86 against the working spec at this ruling's hash; the logged
+runs follow the dry runs as in P1, then the record commit, the scan
+and the report, then stop.
+
+AI. (G1, the facts file's count.) The carried message reader matches
+`Error::Package("...")` on one line, so it never counted the thirteen
+base messages rustfmt wrote over two lines and now misses the new
+two-containers text; the facts file's 156 was the session's error.
+The gate keeps the carried reader with its set pinned as the base's
+plus the name message less the old text (155 to 155, named as the
+one-line reader's) and adds a multi-line reader whose whole set is
+168 to 169 (the name message and the new text added, the old text
+gone), both printed. The negative log's own reader holds the folded
+text already. Planning's own count at b427e1d and bf07f86: 155
+distinct one-line messages at each.
+
+AJ. (G2, the prune.) P2's gate prunes P1's target root
+`<home>/.cache/emend-build/m6p5-p1/target` in the `m6p4-p2` form
+(listed with `du -sb`, removed with `rm -r "${var:?}"`), one target
+root per phase as part 4's P2 did; the brief's "no prune" was
+planning's omission. The gate fork regenerates from that form before
+the dry run, the first generator moved aside as P1's was.
+
+## Planning verification of P2 (2026-10-23)
+
+Verified from primaries, not the report: the chain 02c467e, b427e1d,
+d0e7b32, cbd5f81, bf07f86 (PHASE), d4d9eca (record) by `git log`;
+`git diff --numstat 02c467e bf07f86` printed 31 files, 1684 added,
+170 deleted, grouped by directory as the report gives; the five logs
+at the hashes the message gave (gate 771d14dd, test a17c2c42,
+negative fc8ad12e, run 616cbf86, scan 547c69af), each of the four
+ending "checks all as expected: yes" and the scan "RESULT: PASS";
+each log printing PLANNING_SPEC bda6c1f8, the working copy's hash at
+this writing; the report at 53c1af95 with every figure found by grep:
+the prune of P1's target root (11972721687 bytes, `rm -r` exit 0),
+the one-line reader 155 and 155 and the several-line reader 168 and
+169 with the thirteen base messages it alone sees listed, test names
+1432 and 1450, the sets 537, 710, 574, 752, 755, 817, 1198 on both
+targets, nine PASS lines, probe sources 16 with 0 other added lines,
+the charts probe 1147896, the format probe 981312 and the budget
+448096 against 438960 (judged nowhere; P3's size log judges); the
+test log's 1447 on both targets and 537, 644, 574, 684, 1198 per set
+on both, the module's 15 tests read, the ops test's 17 checks, 109 ok
+lines and PASS; the negative log's N20 to N23 each "exit 2, no
+stdout" with the named message, 23 refused, 15 output files, 23
+fixtures; the run log's 27 ok on each label, read_back 81, custom
+36 in 23, named_before 221, ruling W's count 0 with its planted
+control 1, 27 of 27 byte for byte across targets, P1's gradient run
+byte-identical by sha256 27 of 27 on each label, the openpyxl
+fixture's three lines as ruling AF, "fields compared 10; the same
+form 10", the keep's 2235 pairs with 8 new and 0 changed, the open
+record lo_in ok 2223 and lo ok 2224. The six records, the README and
+the check's answer hash as the report says; the check's text in the
+report equals the committed answer byte for byte; the brief and the
+prompt name no absolute path; the frozen draft is at a90cbe73 and
+the spec copy the check read at bda6c1f8. Planning's own scan,
+`scripts/privacy.sh --range 02c467e..d4d9eca`: 5 commits, 2219
+blobs, 0 findings, PASS. No API key is in the environment. Nothing
+is pushed: origin/main is f630f67. P2 is DONE.
+
+The budget at bf07f86 is 448096, 9136 over part 4's 438960 and
+10656 under the ceiling 458752; the movement is within the estimate
+8000 to 15000 and under the 15000 line, with P3's probe additions
+still to land. P3's size log judges it.
+
+AK. (Check 1's 1 a.) The core commit's message names rulings Q to
+Y; Z, AA and AB were ruled after the commit, on the session's
+readings of it, and the message describes those changes without
+naming them. Accepted as it stands: the logs ran against bf07f86 and
+a rewrite would move every hash for a message's ruling range. The
+README names it; this ruling records it.
+
+AL. (Check 1's 1 b.) The opening of a self-closing `<cellStyles/>`
+or `<cellStyleXfs/>` for a recorded named style is carried by the
+rewrite's general empty-container branch and pinned by no test. P3
+adds one test on a built package whose part holds both containers
+self-closing, writing a named style and a format naming it, in a
+test-only commit before the probe commit. It is a test of ruling U,
+not a code change.
+
+AM. (Check 1's 1 c.) The continuation line's indentation in
+`a_second_fonts_fills_or_borders_is_refused` is cosmetic; `fmt`
+passed and the value is unchanged. Left as it is; no commit touches
+it for that alone.
+
 ## Decisions for the maintainer
 
 1. The gradient's place in the API: A (recommended), `Fill` gains
