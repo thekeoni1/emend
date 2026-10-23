@@ -4,7 +4,8 @@
 # specs/0038-chartsheets.md P2; the chart-format op,
 # specs/0039-chart-kinds-and-formatting.md P2; the chart-analytic op,
 # specs/0040-analytic-chart-elements.md P2; the chart-text op,
-# specs/0041-chart-text-and-edits.md P2).
+# specs/0041-chart-text-and-edits.md P2; the named-style op,
+# specs/0042-gradient-fills-and-named-styles.md P2).
 #
 # usage: scripts/openpyxl-ops-test.sh <image>
 #
@@ -35,7 +36,7 @@ IMAGE=$1
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || exit 2
 FIXTURE=$ROOT/tests/fixtures/openpyxl-ops.xlsx
 readonly FIXTURE_SHA=12ec7ca04a52d9253e947e8f394d04b6d18ca1b133b90500955603a825805fdd
-readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format chart-analytic chart-text"
+readonly OPS="roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format chart-analytic chart-text named-style"
 
 failed=0
 check() {
@@ -198,6 +199,37 @@ checks.append(("chart-text: one chart part, a bar chart over B2:B101 with style 
                and labels is not None
                and re.search(C + r'txPr>.*' + A % "defRPr" + r' sz="900"/>', labels.group(1), re.S) is not None
                and re.search(C + r'showVal val="1"/>', labels.group(1)) is not None))
+p, names = parts("named-style")
+import xml.etree.ElementTree as ET
+M = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+root = ET.fromstring(p.get("xl/styles.xml", "<styleSheet/>"))
+
+
+def children(container, child):
+    found = root.find(M + container)
+    return list(found.findall(M + child)) if found is not None else []
+
+
+def at(items, index):
+    return items[int(index)] if index is not None and index.isdigit() and int(index) < len(items) else None
+
+
+entry = [e for e in children("cellStyles", "cellStyle") if e.get("name") == "emend named style"]
+k = entry[0].get("xfId") if len(entry) == 1 else None
+named = at(children("cellStyleXfs", "xf"), k)
+font = at(children("fonts", "font"), named.get("fontId")) if named is not None else None
+fill = at(children("fills", "fill"), named.get("fillId")) if named is not None else None
+gradient = fill.find(M + "gradientFill") if fill is not None else None
+stops = [(s.get("position"), s.find(M + "color").get("rgb") if s.find(M + "color") is not None else None)
+         for s in gradient.findall(M + "stop")] if gradient is not None else []
+cell = re.search(r'<c r="A101"[^>]*?s="(\d+)"', first_sheet(p))
+cell_xf = at(children("cellXfs", "xf"), cell.group(1)) if cell is not None else None
+checks.append(("named-style: one cellStyle emend named style with no builtinId, its cellStyleXfs format naming a bold font and a linear gradient fill of degree 90 over FF336699 at 0 and FFDDEEFF at 1, and A101's cell format naming it by xfId",
+               len(entry) == 1 and entry[0].get("builtinId") is None and k is not None
+               and font is not None and font.find(M + "b") is not None
+               and gradient is not None and gradient.get("degree") == "90" and gradient.get("type") in (None, "linear")
+               and stops == [("0", "FF336699"), ("1", "FFDDEEFF")]
+               and cell_xf is not None and cell_xf.get("xfId") == k))
 for what, ok in checks:
     print("%s\t%s" % ("yes" if ok else "no", what))
 PY
@@ -206,7 +238,7 @@ check "$(yn [ "$py_rc" -eq 0 ])" "the parts reader exits 0"
 while IFS=$'\t' read -r verdict what; do
   check "$verdict" "$what"
 done <"$WORK/parts.txt"
-check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 16 ])" "the parts reader made its 16 checks"
+check "$(yn [ "$(wc -l <"$WORK/parts.txt")" = 17 ])" "the parts reader made its 17 checks"
 
 # An op the script does not know.
 podman run --rm --network=none --userns=keep-id -v "$ROOT/scripts/openpyxl-ops.py":/ops.py:ro "$IMAGE" \

@@ -76,6 +76,14 @@ The ops and every constant they write:
                (specs/0041-chart-text-and-edits.md, "Harness runs": the
                openpyxl fixture of --charts-sample, --chart-text-sample and
                --chart-edit-sample).
+  named-style  a NamedStyle NAMED_STYLE_NAME "emend named style" with a bold
+               Font and a linear GradientFill of degree NAMED_STYLE_DEGREE 90
+               over the two stops NAMED_STYLE_STOPS "FF336699" and
+               "FFDDEEFF", added with add_named_style and set on the cell at
+               (M+1, A) through cell.style
+               (specs/0042-gradient-fills-and-named-styles.md, "Harness
+               runs": the openpyxl fixture of --namedstyles-sample,
+               --gradient-sample and --namedstyle-sample).
 
 What it prints, on standard output: for read, the line "cells=<n>"; for an
 exception, one line holding the exception's class name only, never its
@@ -99,7 +107,7 @@ import sys
 
 OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
        "comment", "image", "add-chart", "copy", "chartsheet", "chart-format",
-       "chart-analytic", "chart-text")
+       "chart-analytic", "chart-text", "named-style")
 
 EDIT_NUMBER = 42.5
 EDIT_TEXT = "emend compare"
@@ -139,6 +147,9 @@ TEXT_TITLE = "emend text"
 TEXT_AXIS_SIZE = 1400
 TEXT_FONT = "Arial"
 TEXT_LABEL_SIZE = 900
+NAMED_STYLE_NAME = "emend named style"
+NAMED_STYLE_DEGREE = 90
+NAMED_STYLE_STOPS = ("FF336699", "FFDDEEFF")
 # A 2 by 2 RGB PNG, 73 bytes: red and blue on each row.
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000002000000020802000000fdd49a73"
@@ -161,6 +172,7 @@ def run(op, source, target):
     from openpyxl.drawing.line import LineProperties
     from openpyxl.drawing.text import CharacterProperties, Font, Paragraph, ParagraphProperties
     from openpyxl.comments import Comment
+    from openpyxl.styles import Font as CellFont, GradientFill, NamedStyle
     from openpyxl.drawing.image import Image
     from openpyxl.utils import quote_sheetname
     from openpyxl.workbook.defined_name import DefinedName
@@ -271,6 +283,12 @@ def run(op, source, target):
         chart.dataLabels = DataLabelList(showVal=True)
         chart.dataLabels.txPr = text_properties(CharacterProperties(sz=TEXT_LABEL_SIZE))
         ws.add_chart(chart, "A%d" % (m + 2))
+    elif op == "named-style":
+        style = NamedStyle(name=NAMED_STYLE_NAME)
+        style.font = CellFont(bold=True)
+        style.fill = GradientFill(type="linear", degree=NAMED_STYLE_DEGREE, stop=NAMED_STYLE_STOPS)
+        wb.add_named_style(style)
+        ws.cell(row=m + 1, column=1).style = NAMED_STYLE_NAME
     wb.save(target)
     return openpyxl.__version__
 
