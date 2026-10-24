@@ -1189,7 +1189,7 @@ byte kept; the reader unchanged. Estimate 12000 to 20500 under
 | P3 | the probe's text, style and edit; the size record (`charts` against part 3's 135784, `images`, `comments` and the core each judged); the API record with the added-by fix (`specs/0040` ruling V); the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | DONE 2026-10-22 (phase commit 1cc0de4, record 5d5eee0, local; charts 166176, moved 30392 over part 3, a FINDING above 25000 recorded not fixed (ruling K: steps 4252, 24784, 1356); core, images and comments 0; API 834 rows, 1 gone, 20 new, 44 re-dated (ruling L); reruns 27 of 27 both targets byte-identical to P2's; keep 2215 pairs unchanged; check 1 ruled N; rulings J to N) |
 | Close | close-out push after P3, carrying 5d1c302, base 69f4c89 by its subject, `PREV` `^M6 part 3 close-out record`, the pre driver passing HEAD (`specs/0040` ruling X), no Excel-record check | DONE 2026-10-22 (pushed 69f4c89..f630f67, 16 commits, on "great, push 10/22/2026" typed in the implementing session and planning's word (ruling O); CI run 39790811450 success; post scan PASS; record 7359783 local, goes with part 5; check 2 ruled P; part 4 DONE and PUSHED) |
 
-### Part 5: gradient fills and named styles (`specs/0042-gradient-fills-and-named-styles.md`, APPROVED 2026-10-22, decisions 1 to 4 A)
+### Part 5: gradient fills and named styles (`specs/0042-gradient-fills-and-named-styles.md`, APPROVED 2026-10-22, decisions 1 to 4 A; DONE and PUSHED 2026-10-23)
 
 Gradient fills written (`Fill` gains the gradient form the reader
 passes over today) and read back typed; `add_named_style` writing a
@@ -1204,14 +1204,27 @@ to 15000. openpyxl's `GradientFill`, `NamedStyle`,
 | P1 | `Gradient`, `GradientKind`, `Stop`, `Fill::gradient`, the composer and checks, the typed read in a cell format and a `dxf`; `--gradient-sample`; the tests on built packages; the negative log; the corpus run, the Excel-form fixture and the open record | DONE 2026-10-22 (029400e; record 02c467e local) |
 | P2 | the core read of `cellStyleXfs` and `cellStyles`; `Style::named`, `add_named_style`, the two containers in the rewrite, the name checks; `--namedstyle-sample`; the `named-style` op of `scripts/openpyxl-ops.py` with its test; the catalogue and limits; the openpyxl fixture; P1's corpus run rerun byte-identical | DONE 2026-10-23 (bf07f86; record d4d9eca local) |
 | P3 | the probe's gradient and named style; the size record (the budget against part 4's 438960, the estimate, the 15000 line and the ceiling 458752; `read`, `images`, `comments` and `charts` each judged); the API record; the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | DONE 2026-10-23 (doc 693497c, test fd3c967, probe f4b249b, changelog fe280ff, record 738954e, local; the budget 451448, grown 12488 over part 4's 438960, inside the estimate 8000 to 15000 and 7304 under the ceiling, decision 3 not reached; `read` 976, `images` -484, `comments` 52, `charts` 488, each inside its band; five probes above the expected growth and under the accepted band (ruling BB), 0 findings; size record `records/size-m6p5-2026-10-23-fe280ff.md`; API record `records/api-review-m6p5-2026-10-23-fe280ff.md`, 844 rows, 3 gone and 13 new; the named-style and gradient samples rerun on the release binaries byte-identical to P2's and P1's runs, 27 of 27 on both labels (`records/m6p5-p3-*-2026-10-23-fe280ff.md` and `.txt`); open record `records/m6p5-open-2026-10-23-fe280ff.md` and `.txt`, 2237 pairs, lo_in 2225, lo 2226; scan PASS; rulings AN to BF during the phase, BG to BJ after verification (the gate's stale charts constant carried to the next part's gate, BI; the close-out's visibility check reads PUBLIC, BJ); verified by planning from primaries and its own privacy scan; `specs/0042` "Planning verification of P3") |
-| Close | close-out push after P3, carrying 7359783, base f630f67 by its subject, `PREV` `^M6 part 4 close-out record`, the pre driver passing HEAD, no Excel-record check | PLANNED |
+| Close | close-out push after P3, carrying 7359783, base f630f67 by its subject, `PREV` `^M6 part 4 close-out record`, the pre driver passing HEAD, the visibility check reading PUBLIC (ruling BJ), no Excel-record check | DONE 2026-10-23 (doc ee78ffa pushed, origin/main f630f67..ee78ffa, 17 commits, 2293 blobs, 0 findings, on "push 10/23/2026" typed in the implementing session after planning's word (ruling BK); CI run 40050087908 success; the post scan PASS; record f15a11b local, goes with part 6's push; check 1 yes, yes, yes with exceptions, ruled BL; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0042` "Planning verification of the close-out", BK and BL; part 5 DONE and PUSHED) |
 
-### Part 6: measurement and close (PLANNED)
+### Part 6: measurement and close (`specs/0043-measurement-and-close.md`, APPROVED 2026-10-23, decisions 1 to 3 A)
 
-The openpyxl comparison of Milestone 5 part 6 rerun with a chartsheet
-op and a chart-format op added; the size and API records; the README
-updated to cite the new record; the Unscoped list pruned of what this
-milestone delivered.
+The openpyxl comparison of Milestone 5 part 6 rerun at one commit with
+the five ops the parts added (`chartsheet`, `chart-format`,
+`chart-analytic`, `chart-text`, `named-style`, each already in
+`scripts/openpyxl-ops.py` as a fixture op); the size record as the
+milestone's closing figure, the `charts` cost read whole (`specs/0038`
+ruling M); the API record; the README brought to Milestone 6's records;
+the openpyxl `<sheet>` namespace refusal decided; the Unscoped list
+pruned of what this milestone delivered. Budget after part 5 451448,
+headroom 7304.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `scripts/compare-run.sh`, `scripts/compare-record.py` and its test gain the five ops and the `compare-m6p6-` stem; the gate generator drops the stale charts constants (`specs/0042` ruling BI); the negative log; no corpus run | PLANNED |
+| P2 | the corpus runs of decision 1 (emend both labels, openpyxl on the host, 27 workbooks, every output opened) and the scale tiers (a and b every op, c and d roundtrip); the record pairs; `records/compare-m6p6-...md`; the open record | PLANNED |
+| P3 | decision 3's `<sheet>` declaration (if A) with its tests and the catalogue; decision 2's regate (if B); the size record (the budget against 451448 and 458752; `charts`, `images`, `comments` and `read` against part 5's record); the API record; the reruns byte-identical; the CHANGELOG bullet | PLANNED |
+| P4 | the README (feature costs from P3's record, the `charts` line naming `specs/0038` to `specs/0041`, gradient fills and named styles named, Milestone 6's samples in the fidelity paragraph, the comparison paragraph citing `records/compare-m6p6-...md`); the run log's README check; planning's ROADMAP edits (Unscoped pruned, the part 6 rows) in the doc commit | PLANNED |
+| Close | close-out push after P4, carrying f15a11b, base ee78ffa by its subject, `PREV` `^M6 part 5 close-out record`, the visibility check reading PUBLIC (`specs/0042` ruling BJ), no Excel-record check; the Milestone 6 heading DONE and PUSHED | PLANNED |
 
 ## Unscoped
 

@@ -1050,6 +1050,84 @@ after the two renames (ruling G) turns the check into "PUBLIC, as the
 maintainer set it on 2026-10-22", read from the same command at the pre
 stage and after the push; a value other than PUBLIC refuses.
 
+## Planning verification of the close-out (2026-10-23)
+
+Verified from primaries after the implementing session's report, with
+HEAD f15a11b and the tree clean:
+
+- The push: origin/main read by `git ls-remote` is ee78ffa; the range
+  f630f67..ee78ffa counts 17 commits; the repository reads PUBLIC by
+  `gh repo view`.
+- push.log (sha256 9c5073e2): the pre half is the one planning's word
+  was given on, ending "pre checks all as expected: yes"; push mode
+  records "input: MAINTAINER_AUTH=push 10/23/2026" and "input:
+  MAINTAINER_AUTH_DATE=10/23/2026", the hook's "privacy: 17 commit(s),
+  2293 blob(s) scanned, 0 finding(s)", "f630f67..ee78ffa  main ->
+  main", "remote main equals local main: yes", `{"visibility":
+  "PUBLIC"}` with "PUBLIC, as the maintainer set it on 2026-10-22
+  (change 58): yes", "working tree clean: yes", and ends "push checks
+  all as expected: yes".
+- ci-run.log (5c559931): run 40050087908 on ee78ffa, the only ci.yml
+  run on the commit, "status completed; conclusion success", steps
+  with another conclusion 0, PASS host, i686, fmt, clippy, doc,
+  native, licences and hygiene, SKIP privacy --ci, the Actions
+  settings unchanged; ends "ci-run log checks all as expected: yes".
+  `gh run view`, read by planning, gives the same head, status and
+  conclusion.
+- scan.log (af2a3bc9): post, the range f630f67..ee78ffa, HEAD ee78ffa;
+  total hits 0, read or counting errors 0, structural checks failed
+  0, RESULT: PASS.
+- Each log has one "/home/" line, the scripts' own pattern text
+  (PATH_RE in push and ci-run, the planted control's printf in scan),
+  and no non-ASCII byte. The three committed logs are byte-equal to
+  the phase directory's copies.
+- The record commit f15a11b, parent ee78ffa, the three logs only,
+  5099 insertions; its message ASCII, ending with the Co-Authored-By
+  line alone; the counts it states (17 commits, run 40050087908) are
+  printed in push.log and ci-run.log.
+- Planning's own privacy scan of ee78ffa..f15a11b: 1 commit, 2209
+  blobs, 0 findings, PASS.
+- Check 1: the brief 83222857 with the frozen draft bac7e51b inline,
+  no absolute path (its one "/home/" is the draft's quoted word); the
+  answer 2ada5181, quoted verbatim in the final report 3e1c09d0;
+  verdicts yes, yes, yes with exceptions (ruling BL).
+
+The close-out is DONE and PUSHED, and with it part 5. The record
+f15a11b is local and goes with part 6's push.
+
+BK. (Planning's word, given 2026-10-23 on the pre log and moved from
+planning's scratch into the spec after the push.) The word covered:
+the doc commit ee78ffa (parent 738954e, blobs bb6b5e72 and 18abb081,
+the tree clean, the message carrying both hashes and no count);
+push.log (pre) 9c8db5dd ending "pre checks all as expected: yes", the
+base pattern matching f630f67 alone, 17 commits to push, the part 4
+close-out record 7359783 in the range once, the visibility read
+PUBLIC with its control refusing PRIVATE (change 58, ruling BJ),
+privacy 17 commits 2293 blobs 0 findings, the Excel-record check
+absent, the tree clean before and after the gate, CARGO_TARGET_DIR
+<home>/.cache/emend-build/m6p5-close/target; scan-pre.log 2ce86965
+RESULT: PASS, total hits 0, structural 0; one "/home/" line in each
+log, the scripts' own pattern text, no non-ASCII byte; the generator
+9e3f469b with changes 56 to 60 (push ab88b11b, ci 6dc06903, scan
+c34a5119), 56 and 57 the renames of ruling G, 59 and 60 part 4's 54
+and 55 renumbered after 58; planning's own privacy scan of
+f630f67..ee78ffa: 17 commits, 2293 blobs, 0 findings, PASS. The
+numbering 56 to 60 as the session chose it stands.
+
+BL. (The check's exceptions.) The check takes four items on the
+session's word because no log carries them: the drivers' outer exit
+codes and outer standard error, planning's word, where the
+authorisation was typed, and the post driver's sed count. Accepted.
+Planning read the drivers' exit files (push-push, ci-run, scan-post)
+as 0 and the outer stderr files as 0 bytes in the phase directory;
+planning's word is its own message and ruling BK; the place the
+authorisation was typed is the implementing session, as the record
+commit's message says, and the spec never required a log to carry
+it; the sed count is cited nowhere but the report, and its outcome,
+the range, is scan.log line 2. The check's note that the carried
+excel-check-m2 stray count (0, with a control) is the form of changes
+20 and 56 and not an Excel-record gate is right; no change made.
+
 ## Decisions for the maintainer
 
 1. The gradient's place in the API: A (recommended), `Fill` gains
