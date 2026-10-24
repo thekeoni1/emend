@@ -5688,8 +5688,11 @@ fn a_prefixed_workbook_takes_a_rename_and_a_move_and_refuses_an_add() {
     assert_eq!(replacement_temporaries(), before, "no temporary is left");
 }
 
+/// A workbook root binding no relationships prefix takes an add: the new
+/// `<sheet>` declares `r` itself, in the root's form, and the file's own
+/// `<sheet>` is kept byte for byte (`specs/0043` decision 3 A, ruling M).
 #[test]
-fn a_workbook_root_binding_no_relationships_prefix_refuses_an_add() {
+fn a_workbook_root_binding_no_relationships_prefix_takes_an_add() {
     let mut parts = sheeted(1, "", "");
     let workbook = format!(
         "{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\"><sheets>\
@@ -5697,12 +5700,25 @@ fn a_workbook_root_binding_no_relationships_prefix_refuses_an_add() {
     );
     set(&mut parts, b"xl/workbook.xml", workbook);
     let (_, mut package) = opened(parts);
-    package.add_sheet("Two").expect("recorded");
-    let _guard = TEMPORARY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    assert_package(
-        package.write_to(Vec::new()).expect_err("refused"),
-        "the workbook root binds no prefix for the relationships namespace",
+    let part = package.add_sheet("Two").expect("recorded");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &format!(
+            "{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\"><sheets>\
+             <sheet name=\"S1\" sheetId=\"1\" xmlns:q=\"{ATTR_NS}\" q:id=\"rId1\"/>\
+             <sheet name=\"Two\" sheetId=\"2\" xmlns:r=\"{ATTR_NS}\" r:id=\"rId3\"/></sheets></workbook>"
+        ),
     );
+    let mut back = Package::open(Cursor::new(out)).expect("the output opens");
+    assert_eq!(sheet_names(&mut back), ["S1", "Two"]);
+    let sheets = back.sheets().expect("sheets");
+    assert_eq!(
+        sheets[1].part, part,
+        "the new sheet's part, through its relationship"
+    );
+    assert_eq!(sheets[1].kind, SheetKind::Worksheet);
 }
 
 #[test]

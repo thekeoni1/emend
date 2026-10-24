@@ -268,8 +268,6 @@
 //!   (`the_last_visible_sheet_cannot_be_removed`).
 //! - "a sheet position is past the end"
 //!   (`moves_to_the_front_to_the_end_to_its_own_place_and_past_the_end`).
-//! - "the workbook root binds no prefix for the relationships namespace"
-//!   (`a_workbook_root_binding_no_relationships_prefix_refuses_an_add`).
 //! - "a sheets element holds something other than sheet elements"
 //!   (`a_sheets_element_holding_anything_but_sheets_is_refused`).
 //! - "a sheet cannot be added to a prefixed workbook"
@@ -2308,10 +2306,6 @@
 //!   removed as any sheet added and not yet written, a removal dropping
 //!   its four other parts with it (`specs/0016-new-workbook-and-sheets.md`
 //!   P4 ruling 4; P1 verification ruling E).
-//! - A workbook whose root binds no prefix for the relationships namespace,
-//!   as openpyxl writes it, refuses the addition as it refuses
-//!   `Package::add_sheet` (`specs/0016-new-workbook-and-sheets.md`; P2
-//!   ruling J).
 //! - Images and comments still take a worksheet alone: on a chartsheet
 //!   they are refused with "the worksheet part's root is not worksheet".
 //! - None of this has been through an Excel check yet.
@@ -13026,8 +13020,6 @@ const NO_SUCH_SHEET: Error = Error::Package("no sheet of that name");
 const SHEET_PAST_END: Error = Error::Package("a sheet position is past the end");
 const LAST_SHEET: Error = Error::Package("the last sheet cannot be removed");
 const LAST_VISIBLE_SHEET: Error = Error::Package("the last visible sheet cannot be removed");
-const NO_RELATIONSHIPS_PREFIX: Error =
-    Error::Package("the workbook root binds no prefix for the relationships namespace");
 const SHEETS_NOT_SHEETS: Error =
     Error::Package("a sheets element holds something other than sheet elements");
 const SHEET_ADDED_TO_PREFIXED: Error =
@@ -14070,8 +14062,11 @@ fn rewrite_workbook(
 ///   existing `<sheet>` element copied byte for byte with a renamed sheet's
 ///   `name` value replaced between its own quotes, a new one written as
 ///   `<sheet name=".." sheetId=".." r:id=".."/>` with the prefix the root
-///   binds to the relationships namespace. Anything in `<sheets>` other than
-///   `<sheet>` elements and whitespace is refused.
+///   binds to the relationships namespace, or, when it binds none, as
+///   openpyxl writes it, `<sheet name=".." sheetId=".." xmlns:r=".."
+///   r:id=".."/>` declaring it in the root's form (`specs/0043` ruling M).
+///   Anything in `<sheets>` other than `<sheet>` elements and whitespace is
+///   refused.
 /// - `<definedNames>`, when a sheet moved or was removed: a `<definedName>`'s
 ///   `localSheetId` is remapped between its own quotes, or the element
 ///   dropped when its sheet was removed. With `names`, a `<definedName>`
@@ -14108,6 +14103,9 @@ fn rewrite_workbook_part(
     let mut depth = 0usize;
     let mut root_prefix: Vec<u8> = Vec::new();
     let mut rels_prefix: Option<Vec<u8>> = None;
+    // Whether the root is in the strict main namespace, for the form of a
+    // relationships declaration a new `<sheet>` carries (specs/0043 ruling M).
+    let mut strict = false;
     let mut calc_prs = 0usize;
     // The elements still to be created, in the table's order, and the bytes
     // held back since the last point they could go.
@@ -14175,15 +14173,12 @@ fn rewrite_workbook_part(
                 if depth == 1 {
                     root_prefix = prefix_of(start);
                     rels_prefix = relationships_prefix(start, index)?;
+                    strict = namespace == Some(MAIN[1]);
                     if let Some(plan) = plan
                         && plan.adds()
+                        && !root_prefix.is_empty()
                     {
-                        if !root_prefix.is_empty() {
-                            return Err(SHEET_ADDED_TO_PREFIXED);
-                        }
-                        if rels_prefix.is_none() {
-                            return Err(NO_RELATIONSHIPS_PREFIX);
-                        }
+                        return Err(SHEET_ADDED_TO_PREFIXED);
                     }
                 }
                 if depth == 3 && region == Some(b"sheets") {
@@ -14363,6 +14358,7 @@ fn rewrite_workbook_part(
                                 &file_sheets,
                                 &sheets_prefix,
                                 rels_prefix.as_deref(),
+                                strict,
                                 index,
                             )?;
                         }
@@ -14395,6 +14391,7 @@ fn rewrite_workbook_part(
                             &file_sheets,
                             &sheets_prefix,
                             rels_prefix.as_deref(),
+                            strict,
                             index,
                         )?;
                     }
@@ -14581,13 +14578,18 @@ fn write_region_start(
     Ok(())
 }
 
-/// Writes the projected list as `<sheets>`'s children, back to back.
+/// Writes the projected list as `<sheets>`'s children, back to back. A new
+/// `<sheet>` takes the prefix the root binds to the relationships namespace;
+/// when the root binds none, as openpyxl writes it, the element declares
+/// `r` itself, in the root's form, transitional or strict (specs/0043
+/// decision 3 A, ruling M).
 fn write_sheets(
     out: &mut impl Write,
     plan: &SheetPlan,
     file_sheets: &[Vec<u8>],
     prefix: &[u8],
     rels_prefix: Option<&[u8]>,
+    strict: bool,
     index: usize,
 ) -> Result<(), Error> {
     if file_sheets.len() != plan.file_count {
@@ -14609,7 +14611,6 @@ fn write_sheets(
                 }
             }
             None => {
-                let rels = rels_prefix.ok_or(NO_RELATIONSHIPS_PREFIX)?;
                 out.write_all(b"<")?;
                 out.write_all(prefix)?;
                 out.write_all(b"sheet name=\"")?;
@@ -14617,7 +14618,14 @@ fn write_sheets(
                 out.write_all(b"\" sheetId=\"")?;
                 out.write_all(entry.sheet.sheet_id.to_string().as_bytes())?;
                 out.write_all(b"\" ")?;
-                out.write_all(rels)?;
+                match rels_prefix {
+                    Some(rels) => out.write_all(rels)?,
+                    None => {
+                        out.write_all(b"xmlns:r=\"")?;
+                        out.write_all(RELATIONSHIPS_ATTRIBUTE[usize::from(strict)])?;
+                        out.write_all(b"\" r")?;
+                    }
+                }
                 out.write_all(b":id=\"")?;
                 out.write_all(&entry.sheet.rel_id)?;
                 out.write_all(b"\"/>")?;

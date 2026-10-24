@@ -116,6 +116,11 @@
   drawing and appends to it, where it refused before, "a drawing part or its
   relationship cannot be read" (`specs/0037-measurement-and-close.md`,
   decision 3 A).
+- A sheet or chartsheet added to a workbook whose root binds no prefix for the
+  relationships namespace, as openpyxl writes it: the new `<sheet>` element
+  declares the namespace itself, as openpyxl's do, where the add refused before,
+  "the workbook root binds no prefix for the relationships namespace"
+  (`specs/0043-measurement-and-close.md`, decision 3 A).
 
 ### Measured
 

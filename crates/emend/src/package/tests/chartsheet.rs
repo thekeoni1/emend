@@ -258,6 +258,52 @@ fn refused_after(output: &[u8], edit: impl FnOnce(&mut Package<Cursor<Vec<u8>>>)
 
 // ------------------------------------------------------------ add_chartsheet
 
+/// openpyxl's form, as Milestone 6 part 1 P2's fixture has it: the root
+/// binds no relationships prefix and every `<sheet>` declares `r` itself.
+/// `add_sheet` and `add_chartsheet` both succeed, each new `<sheet>`
+/// declaring `r` too, the file's kept byte for byte (`specs/0043` decision
+/// 3 A, ruling M), and the chartsheet's chart reads back.
+#[test]
+fn an_openpyxl_form_workbook_takes_a_sheet_and_a_chartsheet() {
+    let mut parts = smallest();
+    let kept = format!(
+        "<sheet xmlns:r=\"{ATTR_NS}\" name=\"Sheet1\" sheetId=\"1\" state=\"visible\" r:id=\"rId1\"/>"
+    );
+    set(
+        &mut parts,
+        b"xl/workbook.xml",
+        format!("{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\"><sheets>{kept}</sheets></workbook>"),
+    );
+    let (_, mut package) = opened(parts);
+    package.add_sheet("Two").expect("add_sheet");
+    let part = package
+        .add_chartsheet("Chart1", &column_chart())
+        .expect("add_chartsheet");
+    let out = written(package);
+    assert_eq!(
+        text_of(&out, b"xl/workbook.xml"),
+        format!(
+            "{DECLARATION}\n<workbook xmlns=\"{MAIN_NS}\"><sheets>{kept}\
+             <sheet name=\"Two\" sheetId=\"2\" xmlns:r=\"{ATTR_NS}\" r:id=\"rId3\"/>\
+             <sheet name=\"Chart1\" sheetId=\"3\" xmlns:r=\"{ATTR_NS}\" r:id=\"rId4\"/>\
+             </sheets></workbook>"
+        )
+    );
+    let mut back = Package::open(Cursor::new(out.clone())).expect("the output opens");
+    let sheets = back.sheets().expect("sheets");
+    let kinds: Vec<(&str, SheetKind)> = sheets.iter().map(|s| (s.name.as_str(), s.kind)).collect();
+    assert_eq!(
+        kinds,
+        [
+            ("Sheet1", SheetKind::Worksheet),
+            ("Two", SheetKind::Worksheet),
+            ("Chart1", SheetKind::Chartsheet),
+        ]
+    );
+    assert_eq!(sheets[2].part, part, "the chartsheet's part");
+    assert_one_chart(&charts_of(&out, &part), &column_chart());
+}
+
 #[test]
 fn a_chartsheet_added_to_a_workbook_with_one_worksheet() {
     let (parts, mut package) = opened(smallest());
