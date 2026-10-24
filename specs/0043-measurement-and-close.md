@@ -87,9 +87,10 @@ the five of this milestone, each one of emend's existing samples
 and the openpyxl op a part's P2 wrote to mirror it. The two tools
 are never compared with each other's output: each output is
 compared with the input by `xlsx-diff`. W, M and the placement rule
-are `specs/0037`'s. Nothing in `scripts/openpyxl-ops.py` changes;
-the pairing below is read from its docstring, and a pairing the
-implementing session reads otherwise is a ruling before P1's code.
+are `specs/0037`'s. Nothing in `scripts/openpyxl-ops.py` changes.
+The eleven pairings are the docstring's own; the five below are
+planning's reading off the sample lists its docstring cites for
+each op, the one sample whose request the op mirrors (ruling A).
 
 | op | emend | openpyxl (`scripts/openpyxl-ops.py <op> <in> <out>`, as the docstring says) |
 | --- | --- | --- |
@@ -302,6 +303,23 @@ carries f15a11b and this part's commits, on planning's word and
 the maintainer's authorisation typed in the implementing session.
 `ROADMAP.md`'s Milestone 6 heading then reads DONE and PUSHED, and
 the close-out's verification says what the next milestone carries.
+
+## Planning rulings during P1 (2026-10-23)
+
+A. (The ops table's pairing, R1 and R2.) The docstring of
+`scripts/openpyxl-ops.py` names the eleven ops' samples one to one
+and, for the five of this milestone, lists the samples of the
+"Harness runs" each op's fixture served; it states no one-to-one
+pairing for the five. "The operations" is corrected to say so: the
+five pairings are planning's reading off those lists, each the one
+sample whose request the op mirrors, and the table is the
+authority for the comparison's record. The table's openpyxl column
+is a summary of the docstring, which governs the op's content
+(the trendline's equation, the x axis's `tickLblSkip`, the
+chartsheet's `absoluteAnchor` of ext 0 by 0 are the op's, left out
+of the table); "the first sheet" in the chart-analytic entry is W,
+`wb.worksheets[0]` of kind `Worksheet`, as the docstring defines
+it. No code change; `scripts/openpyxl-ops.py` stays unchanged.
 
 ## Decisions for the maintainer
 
