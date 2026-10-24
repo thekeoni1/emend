@@ -321,6 +321,144 @@ of the table); "the first sheet" in the chart-analytic entry is W,
 `wb.worksheets[0]` of kind `Worksheet`, as the docstring defines
 it. No code change; `scripts/openpyxl-ops.py` stays unchanged.
 
+B. (P1's four readings, Q1 to Q4.) Q1: the runner's refusal
+message "one of the eleven ops" reads "sixteen"; that line and
+`OPS_LIST` are the runner's only changes, and "nothing else in it
+changes" is read with this correction. Q2: the record script's
+header is its module docstring (citing this spec beside
+`specs/0037`, the default stem `compare-m6p6-`), the record's title
+("Milestone 6 part 6 P2") and the record's intro paragraph (this
+spec beside `specs/0037`); all three change. Q3: the record script
+takes no op, so its half of the first negative case is a
+`run.openpyxl.tsv` whose op lies outside the sixteen, refused as
+"names another op"; the second case is a row naming another of the
+sixteen; no new refusal code. Q4: the gate, test, negative and scan
+generators take part 5 P3's as the templates for shape; the test
+log carries the ops test block from part 5 P2 and the record
+script's test from Milestone 5 part 6 P2 with its expected lines
+moved to sixteen ops, and drops the crate-test and API blocks; the
+negative log holds the four cases the spec lists and no binary
+case, since P1 touches no crate source or tool; the scan covers the
+four logs, no record, and code paths under `scripts/` only.
+`scripts/compare-record-test.py` changes its `OPS`, stem, counts
+and its docstring's "eleven"; no new assertion, the Q3 refusal
+being the negative log's. The gate's change dropping the two stale
+constants is numbered as the generator numbers its changes.
+
+C. (G1, the prune; the stray `rm` line.) P1's gate prunes
+Milestone 6 part 5's two remaining target roots, `m6p5-p3/target`
+and `m6p5-close/target`, in part 5 P1's multi-root form (each
+listed with `du -sb` before, removed with `rm -r "${var:?}"`, the
+kept names read at generation), as the standing rule that each
+part's first gate prunes the previous part's roots; the spec's
+"Phases" is read with it. The code commit 99b671d is verified: the
+three scripts alone, the diff ruling B's and nothing else. The
+session's stray `rm -rf /dev/null 2>/dev/null; true` in a model-copy
+command, which failed without root and removed nothing, is recorded
+here and in the phase's README as the session reported it: an `rm`
+is written only inside a generated, logged script, only on a
+directory that script created, in the `"${var:?}"` form; a dev
+command copies with `cp` and removes nothing. Nothing in the
+repository or the phase directory was touched by it.
+
+D. (P1's scan, S1 and S2.) S1 (a): the scan's range starts at
+part 5's close-out record f15a11b and holds three commits; the
+part's first doc commit 9c62247, whose subject carries the part's
+prefix and no phase's, is classed a doc commit, as every part's
+first doc commit has been. S2: the scan generator dropped the
+template's code-path controls that named older phases' commits as
+redundant, keeping the verdicts it computes from git and asserts
+(5e52758 and 8593ba0 accepted; 1e29c4e, ab00735 and part 5 P3's
+test and CHANGELOG commits refused); accepted as a departure the
+phase README records. For the record, with no ruling needed: block
+P hashes the two scripts it does not print; T1's expected lines are
+fixed at generation; the gate generator removes nothing. Written to
+planning's scratch while the dry run d1 ran, and moved into the
+spec before the logged run started.
+
+E. (Dry run d1's finding F1.) The gate's check that the script runs
+neither test nor the container tool counts three lines of its own
+that write `scripts/compare-record-test.py` as fixture data (the
+code commit's area list, the Python scripts in the diff, the test
+file fixture); no earlier gate wrote that name, so the carried check
+found it. The gate does not run either test or podman; the check is
+right on the script as written. Fix (a): the generator writes the
+three lines with the name built from the script's existing piece
+variable, as the check builds its own words; the check and its
+control stay. A numbered generator change, a fresh dry run d2 of
+the three scripts, d1 kept and named in the README. Verified by
+planning: d1's gate.log holds one UNEXPECTED verdict at that check,
+and the gate script's only non-comment lines naming the two tests
+or podman are the three fixture lines.
+
+F. (The scan pre-check's finding F2.) The negative log prints
+`scripts/compare-record.py` whole for the record-script cases, and
+with it the docstring's `<corpus-runs>` and `<scale-runs>`, which
+no root line of that log declares; Milestone 5 part 6 P2's test
+log declared both (its change RB) and the negative fork carried the
+cases without the two lines. Verified by planning: the pre-check's
+scan.log reads structural checks failed 1, total hits 0, and the
+installed negative.log holds the two placeholders twice each and no
+root line for either. Fix (b): a numbered negative-generator change
+adds the two root lines in RB's wording, the case code unchanged; a
+dry rerun of the negative first; then the logged rerun in the
+template's carried form (`RERUN_NOTE` naming F2, `RERUN_FILES`
+naming the superseded log and script, both moved to the phase's
+superseded directory, every value given to the script written with
+placeholders and no absolute path); gate and test stand as logged;
+then the scan pre-check again, and on PASS the draft, the check,
+the final scan and the record commit. d1's and d2's outcomes and
+this rerun are named in the README.
+
+## Planning verification of P1 (2026-10-23)
+
+Verified from primaries after the implementing session's report:
+
+- Commits: doc 55e6363 (this spec with ruling A, blob ceed814e),
+  code 99b671d (the three scripts alone, the diff ruling B's),
+  record 65d4c5a (parent 99b671d, six files under
+  `records/logs/m6p6-p1/`, ASCII, the diff-alone sentence, the
+  Co-Authored-By line alone). origin/main read by `git ls-remote`
+  is ee78ffa; nothing pushed.
+- Logs, hashes equal to the report's: gate 3a242a7b, test
+  be7ac536, negative 530f3630 (the ruling F rerun, its "rerun:" line
+  naming F2, three superseded files hashed, the two root lines
+  present), scan 0dd83b52 (final; check answers present 1, hits 0,
+  structural 0, RESULT: PASS); each log ending "checks all as
+  expected: yes"; gate and test at PLANNING_SPEC 17adfe77, the
+  negative rerun and the scan at 38bd78f4; no "/home/" line but the
+  scan's planted control; no non-ASCII byte.
+- The gate: the prune removed part 5 P3's and close-out's target
+  roots (9583979959 and 2143316010 bytes) and found P1's and P2's
+  not there (ruling C); the self-check "lines: 0" (ruling E); the
+  charts probe 1151328 against part 5's record's 1151328,
+  difference 0, the budget 451448, no stale constant printed as a
+  figure (ruling BI, item 5).
+- The test: the ops test block 109 ok lines and PASS; the record
+  script's test 34 ok lines and PASS.
+- The negative: C0, R0, N1 (runner and record script), N2, N3, N4
+  as ruling B set them.
+- Check 1: the brief a4b702a3 with the frozen draft f3a9d08c inline,
+  no absolute path; the answer 67e4ccfd verbatim in
+  `independent-check-1.md` 6169768a and quoted in the final report
+  a9460cce; verdicts yes, yes, yes with exceptions (ruling G).
+- Planning's own privacy scan of 55e6363..65d4c5a: 2 commits, 2216
+  blobs, 0 findings, PASS.
+
+P1 is DONE.
+
+G. (Check 1's exceptions.) Accepted. (a) The second pre-check's
+path is the session's; planning read its hash as the check did.
+(b) The report's shortened quote of the stray `rm` line is a quote
+of the spec's full one. (c) The timing holds: rulings E and F were
+given in planning's messages before each fix, as this spec's
+rulings record them. (d) The dry runs, forks, models and generator
+hashes are the session's statements, as every phase's are. (e)
+origin/main is ee78ffa by `git ls-remote`, read by planning. (f)
+The local date is the session's; the logs' UTC times are the
+primaries. (g) As worded. The prune's visit to part 5 P1's and
+P2's directories is part 5 P1's form. No change.
+
 ## Decisions for the maintainer
 
 1. The comparison's reach: A (recommended), all sixteen ops rerun
