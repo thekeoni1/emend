@@ -5721,6 +5721,39 @@ fn a_workbook_root_binding_no_relationships_prefix_takes_an_add() {
     assert_eq!(sheets[1].kind, SheetKind::Worksheet);
 }
 
+/// The strict pairing of `specs/0043` ruling M (ruling R, finding F7): a
+/// strict root binding no relationships prefix gives the new `<sheet>` the
+/// strict relationships namespace.
+#[test]
+fn a_strict_workbook_root_binding_no_relationships_prefix_takes_an_add() {
+    let mut parts = sheeted(1, "", "");
+    let workbook = format!(
+        "{DECLARATION}\n<workbook xmlns=\"{MAIN_STRICT}\"><sheets>\
+         <sheet name=\"S1\" sheetId=\"1\" xmlns:q=\"{ATTR_STRICT}\" q:id=\"rId1\"/></sheets></workbook>"
+    );
+    set(&mut parts, b"xl/workbook.xml", workbook);
+    let (_, mut package) = opened(parts);
+    let part = package.add_sheet("Two").expect("recorded");
+    let out = written(package);
+    assert_part(
+        &out,
+        b"xl/workbook.xml",
+        &format!(
+            "{DECLARATION}\n<workbook xmlns=\"{MAIN_STRICT}\"><sheets>\
+             <sheet name=\"S1\" sheetId=\"1\" xmlns:q=\"{ATTR_STRICT}\" q:id=\"rId1\"/>\
+             <sheet name=\"Two\" sheetId=\"2\" xmlns:r=\"{ATTR_STRICT}\" r:id=\"rId3\"/></sheets></workbook>"
+        ),
+    );
+    let mut back = Package::open(Cursor::new(out)).expect("the output opens");
+    assert_eq!(sheet_names(&mut back), ["S1", "Two"]);
+    let sheets = back.sheets().expect("sheets");
+    assert_eq!(
+        sheets[1].part, part,
+        "the new sheet's part, through its relationship"
+    );
+    assert_eq!(sheets[1].kind, SheetKind::Worksheet);
+}
+
 #[test]
 fn a_sheet_edit_on_a_replaced_workbook_part_is_refused_at_the_write() {
     let (_, mut package) = opened(sheeted(2, "", ""));
