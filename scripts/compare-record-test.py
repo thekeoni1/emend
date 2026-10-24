@@ -6,7 +6,7 @@ usage: compare-record-test.py
 
 Builds fictional run directories in a temporary directory, in the forms
 scripts/passthrough-run.sh and scripts/compare-run.sh write (summary, run and
-empty-run files; one stdout file for an error row), for the eleven ops on a
+empty-run files; one stdout file for an error row), for the sixteen ops on a
 corpus of three made-up ids and for the scale tiers, runs compare-record.py
 on them, and asserts the record's rows: the outcome, entry and open-check
 counts, the medians, sums and maxima, the openpyxl row's lo_in taken from
@@ -33,7 +33,8 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 SCRIPT = os.path.join(HERE, "compare-record.py")
 STAMP = "2026-01-01-abcdef0"
 OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
-       "comment", "image", "add-chart", "copy")
+       "comment", "image", "add-chart", "copy", "chartsheet", "chart-format",
+       "chart-analytic", "chart-text", "named-style")
 IDS = ("aaaaaaaaaaa1", "aaaaaaaaaaa2", "aaaaaaaaaaa3")
 SUMMARY_HEADER = ("id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\t"
                   "diff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\t"
@@ -139,10 +140,10 @@ def main():
         common = ["--corpus-runs", corpus, "--scale-runs", scale, "--stamp", STAMP, "--image-record", record, "--out", out]
         rc, so, se = run(common)
         check(rc == 0 and se == "", "the record is written, exit 0, nothing on stderr")
-        check(so.strip() == "wrote compare-m5p6-%s.md: ops 11; scale rows 72" % STAMP, "the one line names the stem, 11 ops and 72 scale rows")
-        text = open(os.path.join(out, "compare-m5p6-%s.md" % STAMP), encoding="utf-8").read()
+        check(so.strip() == "wrote compare-m6p6-%s.md: ops 16; scale rows 102" % STAMP, "the one line names the stem, 16 ops and 102 scale rows")
+        text = open(os.path.join(out, "compare-m6p6-%s.md" % STAMP), encoding="utf-8").read()
         head, rows = table_rows(text, "## The corpus, per op")
-        check(len(rows) == 33, "the corpus table holds 33 rows, three per op")
+        check(len(rows) == 48, "the corpus table holds 48 rows, three per op")
         by = {(r[0], r[1], r[2]): dict(zip(head, r)) for r in rows}
         h = by[("edit", "emend", "host")]
         check(h["files"] == "3" and h["ok"] == "3" and h["error"] == "0", "emend host: 3 files, 3 ok")
@@ -162,13 +163,13 @@ def main():
               "openpyxl: wall median 3, sum 9.50; peak RSS median 40000, max 50000")
         dhead, drows = table_rows(text, "## The openpyxl runs: settings, container start and error classes")
         d = {r[0]: dict(zip(dhead, r)) for r in drows}
-        check(len(drows) == 11, "the openpyxl detail table holds 11 rows")
+        check(len(drows) == 16, "the openpyxl detail table holds 16 rows")
         check(d["edit"]["container start median s"] == "0.50", "the container start median of 0.40, 0.50, 0.70 is 0.50 (rulings K and P)")
         check(d["edit"]["settings"] == "timeout 600 s; memory 4096 MiB", "the settings named from run.openpyxl.tsv (ruling N)")
         check(d["edit"]["error rows by exception class"] == "KeyError 1", "the error row's class read from its stdout file")
         check(d["edit"]["lo_in from"] == "%s-edit" % STAMP, "the lo_in source directory named (ruling C)")
         shead, srows = table_rows(text, "## The scale tiers")
-        check(len(srows) == 72, "the scale table holds 72 rows: 24 ops over tiers a to d, three rows each")
+        check(len(srows) == 102, "the scale table holds 102 rows: 34 ops over tiers a to d, three rows each")
         s = {(r[0], r[1], r[2], r[3]): dict(zip(shead, r)) for r in srows}
         sc = s[("c", "roundtrip", "openpyxl", "openpyxl")]
         check(sc["outcome"] == "cap" and sc["identical"] == "-" and sc["container start median s"] == "0.50",
@@ -218,7 +219,7 @@ def main():
             os.makedirs(os.path.join(b3, "out"))
             rc, so, se = run(["--corpus-runs", c3, "--scale-runs", s3, "--stamp", STAMP, "--image-record", r3,
                               "--out", os.path.join(b3, "out")])
-            t3 = open(os.path.join(b3, "out", "compare-m5p6-%s.md" % STAMP), encoding="utf-8").read() if rc == 0 else ""
+            t3 = open(os.path.join(b3, "out", "compare-m6p6-%s.md" % STAMP), encoding="utf-8").read() if rc == 0 else ""
             check(rc == 0 and "openpyxl under --memory 16384, 8192 --timeout 3600, 600, emend" in t3,
                   "a scale run with other settings: the sentence names every value the runs hold (ruling U)")
         rc, so, se = run(["--corpus-runs", corpus, "--scale-runs", scale, "--stamp", "bad", "--image-record", record, "--out", out])

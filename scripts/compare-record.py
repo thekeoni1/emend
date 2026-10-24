@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """The openpyxl comparison record (specs/0037-measurement-and-close.md, "The
 comparison runner", "What is measured and how it is read", and the planning
-rulings C, K, L, N, O and P).
+rulings C, K, L, N, O and P; specs/0043-measurement-and-close.md, "The
+comparison runner and the record", the sixteen ops).
 
 usage: compare-record.py --corpus-runs <dir> --scale-runs <dir> --stamp <utc-date>-<shortsha>
                          --image-record <path> [--out <dir>] [--stem <stem>]
 
 Reads the run directories' summary, run and empty-run files, never a log,
-and writes <stem>.md (default compare-m5p6-<stamp>.md) into --out (default
+and writes <stem>.md (default compare-m6p6-<stamp>.md) into --out (default
 records/ in the repository):
 
 - per op, one row per tool and label (emend host, emend i686, openpyxl) from
@@ -46,7 +47,8 @@ import statistics
 import sys
 
 OPS = ("roundtrip", "read", "edit", "format", "insert-rows", "names", "table",
-       "comment", "image", "add-chart", "copy")
+       "comment", "image", "add-chart", "copy", "chartsheet", "chart-format",
+       "chart-analytic", "chart-text", "named-style")
 SCALE = (("a", OPS), ("b", OPS), ("c", ("roundtrip",)), ("d", ("roundtrip",)))
 SUMMARY_HEADER = [
     "id", "label", "producer", "tags", "outcome", "exit", "signal", "wall_s",
@@ -199,11 +201,12 @@ def heading(c):
 def build(args):
     out = []
     out += [
-        "# openpyxl comparison, Milestone 5 part 6 P2 (%s)" % args.stamp,
+        "# openpyxl comparison, Milestone 6 part 6 P2 (%s)" % args.stamp,
         "",
         "Written by `scripts/compare-record.py` from the run directories' summary, run and"
         " empty-run files (`specs/0037-measurement-and-close.md`, \"The comparison runner\";"
-        " rulings C, K, L, N, O and P). Counts, times and bytes only. Each tool's output is"
+        " rulings C, K, L, N, O and P; `specs/0043-measurement-and-close.md`, \"The comparison"
+        " runner and the record\"). Counts, times and bytes only. Each tool's output is"
         " compared with its input by `xlsx-diff`; the two tools' outputs are never compared"
         " with each other. emend's wall time is the process's own, as"
         " `scripts/passthrough-run.sh` measures it; openpyxl's wraps `podman run` and so"
@@ -318,7 +321,7 @@ def main(argv):
         raise Failure("--stamp is not <utc-date>-<shortsha>")
     if not re.fullmatch(r"openpyxl-image-\d{4}-\d{2}-\d{2}[.]md", os.path.basename(args.image_record)):
         raise Failure("--image-record is not an openpyxl image record")
-    stem = args.stem or "compare-m5p6-" + args.stamp
+    stem = args.stem or "compare-m6p6-" + args.stamp
     if not re.fullmatch(r"[A-Za-z0-9._-]+", stem):
         raise Failure("the stem may hold only letters, digits, dot, dash and underscore")
     out_dir = args.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "records")

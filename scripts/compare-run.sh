@@ -40,7 +40,7 @@ umask 077
 
 readonly USAGE="usage: scripts/compare-run.sh --op <op> --image <image> --xlsx-diff <path> [--corpus <dir>] [--out <dir>] [--timeout <secs>] [--memory <MiB>] [--ids <file>] [--libreoffice <image>] [--lo-timeout <secs>]"
 readonly LABEL=openpyxl
-readonly OPS_LIST=" roundtrip read edit format insert-rows names table comment image add-chart copy "
+readonly OPS_LIST=" roundtrip read edit format insert-rows names table comment image add-chart copy chartsheet chart-format chart-analytic chart-text named-style "
 readonly MANIFEST_HEADER=$'id\tsha256\tbytes\text\tproducer\tproducer_version\tapp\tsource\ttags\tadded\toriginal_name\tnote'
 readonly SUMMARY_HEADER=$'id\tlabel\tproducer\ttags\toutcome\texit\tsignal\twall_s\tpeak_rss_kb\tin_bytes\tout_bytes\tdiff_exit\tidentical\trecompressed\tchanged\tdropped\tadded\tflagged\torder_preserved\tcomment_equal\tfiles_identical\tleftover\tlo\tlo_in'
 readonly ENTRIES_HEADER=$'id\tlabel\trow\tname\tstatus\tindex_in\tindex_out\tmethod_in\tmethod_out\tuncompressed_in\tuncompressed_out\tcompressed_in\tcompressed_out\tcrc_in\tcrc_out\tfirst_difference\tdiffering_bytes\tlast_difference\tflags'
@@ -76,7 +76,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ -n "$OP" ] && [[ "$OPS_LIST" == *" $OP "* ]] || die "--op must name one of the eleven ops; $USAGE"
+[ -n "$OP" ] && [[ "$OPS_LIST" == *" $OP "* ]] || die "--op must name one of the sixteen ops; $USAGE"
 [[ "$IMAGE" =~ ^[A-Za-z0-9][A-Za-z0-9._:/@-]*$ ]] || die "--image must name an image"
 [ -n "$XD" ] && [ -f "$XD" ] && [ -x "$XD" ] || die "--xlsx-diff must name an executable file"
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--timeout must be a positive whole number of seconds"
