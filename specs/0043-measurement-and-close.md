@@ -776,6 +776,84 @@ and the budget from `records/size-m6p6-2026-10-24-7ac8b74.md`, the
 comparison from `records/compare-m6p6-2026-10-24-d88f735.md`, the
 samples from the parts' P3 records.
 
+## Planning rulings during P4 (2026-10-24)
+
+T. (The P4 generators' readings; the doc commit 92c6b38, the test
+commit bb0a29e and the README commit 37062b7 verified from their
+diffs and the records.) Accepted as read: the four roles with
+37062b7 the phase commit; the order gate, test, negative, run, the
+negative's N8 runs through the gate's debug binaries on both
+labels, each hash-checked against the gate log's lines; the four
+settable build roots set by the dry driver and the three fixed
+roots under `<phase>` shared as in P3, no `TEST_TARGET` added;
+nothing added under `records/logs/m6p6-p3` before the logged gate;
+the API blocks dropped as Milestone 5 part 6 P4 did, the gate's
+public-list check covering the test commit; every test figure P3's
+plus one; the transitional accepting test required to pass in every
+run (a guard beyond the spec, accepted); P3's binary cases carried
+whole beside the README plants; no record installed and no
+`-37062b7` record; the status patterns admitting this spec and not
+`ROADMAP.md`, the tree being clean; the fidelity readers'
+attribution by first cited record; the stale comments carried. This
+ruling moves the spec; the gate's generator takes the new hash. The
+dry run may start, every FINDING line listed (ruling R).
+
+U. (Finding F8, dry d1's gate.) The gate's check of the new test's
+name ended UNEXPECTED because the generator's change I88 emitted
+its Python concatenation as shell text, so the expected list held
+seven junk words and never the one name; the measurement was right
+and the expectation unfilled; a generator defect, not the tree's.
+The fix as proposed: the generator writes the name as one quoted
+literal from its pinned values; the generator gains an assertion
+refusing a concatenation token in any emitted shell line, with a
+planted control; the generator and script of d1 move aside to
+`<phase>/superseded/gate-gen2`; d1 stays under `<phase>/dry/d1`;
+dry d2 runs all four steps with the four roots under d2. No other
+script changes. The logs' README records F8 and the fix. This
+ruling moves the spec; the gate's generator takes the new hash.
+
+## Planning verification of P4 (2026-10-24)
+
+Verified from primaries: the doc commit 92c6b38 (parent 42cf079,
+the two blobs planning handed over); the test commit bb0a29e (one
+strict-root test, 33 lines in one file, read from its diff); the
+README commit 37062b7 (19/15 in `README.md` alone; every feature
+cost and the budget in the size record's figures table; the six
+Milestone 6 sample records each 27 of 27 on both labels with
+LibreOffice opening every input and output; the comparison figures
+in the per-op table, 0.10 and 0.81 on all sixteen ops, and in the
+tier table; every cited `records/` path present at HEAD; no
+Milestone 5 part 6 record cited; ASCII, no absolute path); the
+record commit c391b35 (parent 37062b7, 7 files under
+`records/logs/m6p6-p4`, no record file, ASCII message); the four
+logs at the hashes sent (gate 42f49b22, test cf4fe32d, negative
+da05769f, run 50b4d3d3), each ending "checks all as expected: yes"
+at `PLANNING_SPEC` 9c6c8dac with no UNEXPECTED result line; the
+gate's prune of P3's target and its sets 539 to 1201 on both
+targets, the new test named from the diff (ruling U's fix
+as-expected); the test log's 1450 and 1201 on both targets; the
+negative's 22 refused and N8's 6/4/4 through the gate's debug
+copies; the run log's README check, 27 digit-bearing sentences all
+cited, the planted sentence refused, every figure checked; README
+29aa8c14, check b17b29fb, scan dab3459e with "total hits: 0",
+"structural checks failed: 0", "RESULT: PASS" at 9c6c8dac; check
+1's six points answered in the README's after-check section.
+
+V. P4 DONE. Check 1's doubt: the comparison paragraph's identical
+and dropped counts for the roundtrip alone and its opened count
+for the set satisfy "per op or for the set"; the roundtrip is the
+op whose identical and dropped counts describe the tools, as
+Milestone 5 part 6's README had it and `specs/0037` accepted; no
+widening, no rerun. Its wording exceptions stand as the README's
+after-check section has them. The close-out as "Close-out push
+(after P4)": planning's doc commit first (this verification,
+rulings T to V and `ROADMAP.md`'s P4 row DONE), then the generated
+scripts with their readings before the pre run, pre mode on a clean
+tree, planning's word, the maintainer's authorisation typed in the
+implementing session, the push of ee78ffa..HEAD carrying f15a11b,
+the CI run, the post scan, the record commit with the three logs
+only, one independent check, the report; STOP.
+
 ## Decisions for the maintainer
 
 1. The comparison's reach: A (recommended), all sixteen ops rerun
