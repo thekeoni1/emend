@@ -20,18 +20,20 @@ with no dependency of its own. Each feature below is named with the spec
 that added it and with its size cost, in section bytes over the core
 probe it is measured against, from the size record.
 
-- `dates`, the date arithmetic of `specs/0012-styles.md`: 4840 over the styles probe (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `rowcol`, the row and column insertions and deletions of `specs/0018-rows-and-columns.md`: 58152 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `metadata`, the defined names, hyperlinks, document properties and protection of `specs/0019-names-links-properties-protection.md`: 50036 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `rules`, the data validations and conditional formats of `specs/0020-validation-and-conditional-formatting.md`: 48468 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `tables`, the tables of `specs/0021-tables.md`: 46536 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `comments`, the cell comments of `specs/0022-comments-and-images.md`: 63356 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `images`, the images of `specs/0022-comments-and-images.md`: 57620 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `richtext`, the rich text runs of `specs/0024-rich-text.md`: 13384 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `sheetprops`, the sheet and print settings of `specs/0025-sheet-and-print-settings.md`: 28284 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `read`, the typed reads of `specs/0027-read-back.md`, widened by `specs/0032-read-breadth-styles.md` and `specs/0033-read-breadth-survey.md`: 112600 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `copy`, the worksheet copy of `specs/0028-images-and-comments-second-half.md`: 13820 (`records/size-m5p6-2026-10-18-ef9da37.md`).
-- `charts`, the chart reads and writes of `specs/0034-charts-read.md`, `specs/0035-charts-write-first-set.md` and `specs/0036-charts-write-second-set.md`: 105916 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+- `dates`, the date arithmetic of `specs/0012-styles.md`: 4840 over the styles probe (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `rowcol`, the row and column insertions and deletions of `specs/0018-rows-and-columns.md`: 58260 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `metadata`, the defined names, hyperlinks, document properties and protection of `specs/0019-names-links-properties-protection.md`: 49748 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `rules`, the data validations and conditional formats of `specs/0020-validation-and-conditional-formatting.md`: 48888 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `tables`, the tables of `specs/0021-tables.md`: 46196 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `comments`, the cell comments of `specs/0022-comments-and-images.md`: 63424 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `images`, the images of `specs/0022-comments-and-images.md`: 56956 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `richtext`, the rich text runs of `specs/0024-rich-text.md`: 13704 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `sheetprops`, the sheet and print settings of `specs/0025-sheet-and-print-settings.md`: 27092 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `read`, the typed reads of `specs/0027-read-back.md`, widened by `specs/0032-read-breadth-styles.md` and `specs/0033-read-breadth-survey.md`: 113528 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `copy`, the worksheet copy of `specs/0028-images-and-comments-second-half.md`: 13452 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `charts`, the chart reads and writes of `specs/0034-charts-read.md`, `specs/0035-charts-write-first-set.md` and `specs/0036-charts-write-second-set.md`, with the chartsheets, chart kinds and formatting, analytic chart elements and chart text and in-place edits of `specs/0038-chartsheets.md`, `specs/0039-chart-kinds-and-formatting.md`, `specs/0040-analytic-chart-elements.md` and `specs/0041-chart-text-and-edits.md`: 166680 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+
+The core itself writes and reads gradient fills and named styles, `specs/0042-gradient-fills-and-named-styles.md`, with no feature; the size record's `probe-emend-fullstyles-write-xml` adds a gradient fill and a named style among its styles (`records/size-m6p6-2026-10-24-7ac8b74.md`).
 
 ## Building and testing
 
@@ -59,15 +61,17 @@ Fidelity: each of the four editing samples (copy a sheet, move an image's anchor
 
 Each of Milestone 5 part 5's five chart samples (read the charts, add more chart kinds, add the 3D kinds, add coloured and labelled charts, remove a chart) ran over the same 27 workbooks, and on the host and on the static target all 27 outputs were written and opened in LibreOffice, as were all 27 inputs (`records/m5p5-p4-charts-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartmore-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chart3d-2026-10-15-a8bfe71.md`, `records/m5p5-p4-chartlabels-2026-10-15-a8bfe71.md`, `records/m5p5-p4-removechart-2026-10-15-a8bfe71.md`).
 
+Each of Milestone 6's six samples (add a chartsheet, format chart series, set chart axes, give chart text its properties, give cells gradient fills, add a named style) ran over the same 27 workbooks, and on the host and on the static target all 27 outputs were written and opened in LibreOffice, as were all 27 inputs (`records/m6p1-p3-chartsheet-2026-10-19-4cc4f2e.md`, `records/m6p2-p3-chartformat-2026-10-20-50a3989.md`, `records/m6p3-p3-chartaxis-2026-10-21-0707236.md`, `records/m6p4-p3-charttext-2026-10-22-1cc0de4.md`, `records/m6p5-p3-gradient-2026-10-23-fe280ff.md`, `records/m6p5-p3-namedstyle-2026-10-23-fe280ff.md`).
+
 In the copy sample, 784 of the 917 zip entries on the host came back byte for byte: the entries the copy did not touch (`records/m3p6-p4-copy-2026-10-08-9cfd92e.md`).
 
 Of the 1093 output files the crate's and the copy tool's tests keep, LibreOffice opened 1082; the record's own sections explain the eleven it did not (`records/m3p6-open-2026-10-08-9cfd92e.md`).
 
-Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 436992 section bytes, 21760 under the ceiling of 458752 (`records/size-m5p6-2026-10-18-ef9da37.md`).
+Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 451528 section bytes, 7224 under the ceiling of 458752 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
 
-Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`). In Milestone 5's rerun of the tiers, emend's roundtrip of the tier c workbook, 1159829654 bytes, took 2.10 s at a peak of 7896 kB on the host (`records/compare-m5p6-2026-10-16-5e52758.md`).
+Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`). In Milestone 6's rerun of the tiers, emend's roundtrip of the tier c workbook, 1159829654 bytes, took 2.30 s at a peak of 7872 kB on the host and 3.60 s at a peak of 7560 kB on the static target, and of the tier d workbook, 201769244 bytes, 0.40 s on each (`records/compare-m6p6-2026-10-24-d88f735.md`).
 
-Comparison with openpyxl: over the 27 workbooks and the eleven ops of the comparison, each tool's output compared with its input, emend on the host and on the static target and openpyxl each wrote 27 of 27 outputs for every op, and LibreOffice opened every one (`records/compare-m5p6-2026-10-16-5e52758.md`). On the roundtrip emend left 870 zip entries byte-identical and dropped none, where openpyxl left 28 identical and dropped 533 (`records/compare-m5p6-2026-10-16-5e52758.md`). The median wall time per workbook was 0.10 s for emend on the host and 0.81 s for openpyxl on every op, openpyxl's including its container's start, and the roundtrip's largest peak RSS was 8012 kB for emend on the host and 673976 kB for openpyxl (`records/compare-m5p6-2026-10-16-5e52758.md`). On the scale tiers emend completed every run, and openpyxl ended at its memory cap on the tier c roundtrip, exit 137 after 320.13 s at a peak of 16576384 kB (`records/compare-m5p6-2026-10-16-5e52758.md`).
+Comparison with openpyxl: over the 27 workbooks and the sixteen ops of the comparison, each tool's output compared with its input, emend on the host and on the static target and openpyxl each wrote 27 of 27 outputs for every op, and LibreOffice opened every one (`records/compare-m6p6-2026-10-24-d88f735.md`). On the roundtrip emend left 870 zip entries byte-identical and dropped none, where openpyxl left 28 identical and dropped 533 (`records/compare-m6p6-2026-10-24-d88f735.md`). The median wall time per workbook was 0.10 s for emend on the host and 0.81 s for openpyxl on every op, openpyxl's including its container's start, and the roundtrip's largest peak RSS was 7992 kB for emend on the host and 674516 kB for openpyxl (`records/compare-m6p6-2026-10-24-d88f735.md`). On the scale tiers emend completed every run, and openpyxl ended at its memory cap on the tier c roundtrip, exit 137 after 290.83 s at a peak of 16554684 kB (`records/compare-m6p6-2026-10-24-d88f735.md`).
 
 ## Out of scope by design
 
