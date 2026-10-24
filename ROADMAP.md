@@ -1222,7 +1222,7 @@ headroom 7304.
 | --- | --- | --- |
 | P1 | `scripts/compare-run.sh`, `scripts/compare-record.py` and its test gain the five ops and the `compare-m6p6-` stem; the gate generator drops the stale charts constants (`specs/0042` ruling BI); the negative log; no corpus run | DONE 2026-10-23 (doc 9c62247 and 55e6363, code 99b671d, record 65d4c5a, local; the three scripts alone changed; the gate pruned part 5's two target roots and printed the charts probe against part 5's record alone, difference 0, budget 451448; the record script's test at sixteen ops; the negative log rerun once for the scan's finding F2, ruling F; first dry run's gate finding F1, ruling E; check 1 yes, yes, yes with exceptions, ruled G; rulings A to G; verified by planning from primaries and its own privacy scan; `specs/0043` "Planning verification of P1") |
 | P2 | the corpus runs of decision 1 (emend both labels, openpyxl on the host, 27 workbooks, every output opened) and the scale tiers (a and b every op, c and d roundtrip); the record pairs; `records/compare-m6p6-...md`; the open record | DONE 2026-10-24 (doc d88f735, record 3102354, local, 210 files; sixteen ops, every corpus row 27 of 27 for both tools and every output opened; the tier c openpyxl roundtrip at its memory cap as in Milestone 5; `records/compare-m6p6-2026-10-24-d88f735.md`; open record 2237 pairs unchanged; the logged run refused once at its pre-flight on a dry run's staged files, ruling J, and the scan once on a word in the rerun note, ruling K; check 1 yes with exceptions, yes, yes with exceptions, ruled L; rulings H to L; verified by planning from primaries and its own privacy scan; `specs/0043` "Planning verification of P2") |
-| P3 | decision 3's `<sheet>` declaration (if A) with its tests and the catalogue; decision 2's regate (if B); the size record (the budget against 451448 and 458752; `charts`, `images`, `comments` and `read` against part 5's record); the API record; the reruns byte-identical; the CHANGELOG bullet | PLANNED |
+| P3 | decision 3's `<sheet>` declaration (if A) with its tests and the catalogue; decision 2's regate (if B); the size record (the budget against 451448 and 458752; `charts`, `images`, `comments` and `read` against part 5's record); the API record; the reruns byte-identical; the CHANGELOG bullet | DONE 2026-10-24 (doc 7f3b43c, code 7ac8b74, record 42cf079; the new `<sheet>` declares `r` itself when the root binds no relationships prefix, transitional or strict as the root is (ruling M); budget 451528, the core grown 80, 7224 under the ceiling; `charts` costs 166680, moved 16, the 1968 of part 1 named against `specs/0038` ruling O (ruling N); API 844 items, 0 gone, 0 new; the tables probe's shrink of 32 a recorded FINDING, F6; the three samples byte-identical to their earlier runs on both labels; the openpyxl-form sheet and chartsheet adds exit 0 and open on both targets; rulings M to R mid-phase, the strict-pairing test F7 carried into P4; verified by planning from primaries; `specs/0043` "Planning verification of P3") |
 | P4 | the README (feature costs from P3's record, the `charts` line naming `specs/0038` to `specs/0041`, gradient fills and named styles named, Milestone 6's samples in the fidelity paragraph, the comparison paragraph citing `records/compare-m6p6-...md`); the run log's README check; planning's ROADMAP edits (Unscoped pruned, the part 6 rows) in the doc commit | PLANNED |
 | Close | close-out push after P4, carrying f15a11b, base ee78ffa by its subject, `PREV` `^M6 part 5 close-out record`, the visibility check reading PUBLIC (`specs/0042` ruling BJ), no Excel-record check; the Milestone 6 heading DONE and PUSHED | PLANNED |
 
@@ -1230,13 +1230,6 @@ headroom 7304.
 
 Listed so they are not lost. Scoping any of them needs the maintainer's
 approval.
-
-- A sheet add on a workbook whose root binds no prefix for the
-  relationships namespace: openpyxl declares it on each `<sheet>`
-  element, so `add_sheet` and `add_chartsheet` refuse every
-  openpyxl-written workbook (`specs/0016`'s rule; found 2026-10-19 on
-  Milestone 6 part 1 P2's fixture, `specs/0038` ruling J). The fix
-  is a `<sheet>` carrying its own declaration, as openpyxl writes it.
 
 - Size-measurement consumer: scoped into Milestone 1 part 1 P3 as
   `probe-emend-copy` (2026-09-16).
@@ -1300,12 +1293,4 @@ approval.
   publish` typed by the maintainer in the implementing session; the
   registry's page and its validation of the keywords and categories
   read back (`specs/0031` P2 rulings 1, 4 and 7).
-- Charts: Milestone 5 delivered the `charts` feature, a DrawingML
-  chart reader and writer (`specs/0034` to `specs/0036`), measured
-  against openpyxl in part 6. What openpyxl writes that emend does
-  not (chartsheets; surface and of-pie kinds, markers, lines and
-  per-point formatting; trendlines, error bars and axis scaling;
-  text properties, chart styles and in-place edits) is Milestone
-  6's scope, approved 2026-10-16. Nothing of charts stays unscoped
-  beyond that milestone; a second crate is no longer considered.
 - README, where every fidelity, speed or size sentence cites a record.
