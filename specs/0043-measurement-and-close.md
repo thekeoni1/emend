@@ -459,6 +459,144 @@ The local date is the session's; the logs' UTC times are the
 primaries. (g) As worded. The prune's visit to part 5 P1's and
 P2's directories is part 5 P1's form. No change.
 
+## Planning rulings during P2 (2026-10-23)
+
+H. (The generators' readings R1 to R9.) R1 (a): five logs, gate,
+test, negative, run and scan, the test and negative P1's carried
+unchanged but for names and roles; roles base 65d4c5a and doc
+d88f735, the doc commit the phase commit since P2 expects no code
+commit; no check log. R2 (a): the run log's template is Milestone 5
+part 6 P2's regenerated run script, pinned by hash 7c32179e, its
+generator showing it equal to that log's printed run-script-3 plus
+the RK and RL replacements of `specs/0037` rulings Q and R; the
+part's numbered changes then make the names, the sixteen ops, the
+m6p6 stems and the settings. R3, each confirmed against `specs/0037`
+rulings M, N and O and the Milestone 5 records: corpus openpyxl
+`--memory 4096 --timeout 600` with the open check; corpus emend by
+`scripts/passthrough-run.sh`, the release `emend-copy`, both labels,
+the open check, runner defaults; scale openpyxl `--memory 16384
+--timeout 3600`; scale emend as `specs/0023`, both labels on every
+tier, `--memory 2048 --timeout 3600`, the host `xlsx-diff` for both
+labels on tier c; the open check on tier a only for both tools; the
+order corpus runs, records, keep and open record, then the tiers a
+to d one at a time, openpyxl then emend per op, then the comparison
+record. R4 (a): the ops table governs; `chart-analytic` runs
+`--chart-axis-sample` and `named-style` runs `--namedstyle-sample`,
+the other three by `specs/0037` ruling O's rule; the run log prints
+the pairing. R5 confirmed from the spec's names: 32 corpus pairs, 34
+emend and 34 openpyxl scale pairs, the open pair, the comparison
+record, 203 files. R6: the keep against part 5 P3's open record,
+0 new pairs expected, any new or gone pair a finding. R7: the gate
+prunes P1's target root in the single-root form. R8 (a): the
+restricted dry run as Milestone 5 part 6 P2's, two ids, roundtrip
+and three of the five new ops, tier a only, no keep, stand-in
+directories. R9: the wall-time estimate is the session's; a cap or
+timeout is an outcome and nothing is rerun for it.
+
+I. (P2's generators, G-R1 and the departures.) G-R1 (a): the gate's
+structure check takes Milestone 4 part 1 P3's form for a phase of
+doc commits only (its change A44), with its four controls, and the
+carried check that requires a code commit is kept as a control that
+refuses this range. Departure NC59 accepted: the control that read
+the runner's "eleven" at the base now reads the runner at P1's doc
+commit 55e6363, the base naming "sixteen". The run fork added no
+exemption for the new ops; a record-check trip in the dry run is a
+finding. RUN-R1 noted: the comparison record's row check first runs
+at the end of the logged run; a failure there is a finding, the runs
+and records standing and the check alone redone with the fix named,
+in Milestone 5 part 6 P2's check-log form (`specs/0037` rulings Q
+and R). Written to planning's scratch while dry run d1 ran, moved
+into the spec before the logged run.
+
+J. (The logged run's refusal, finding F3.) The run script stages
+each record pair under its scripts directory before installing it
+into the records destination it is given; dry run d1 staged its 32
+files there and left them, and the logged run, with the same date
+and sha in its stems, refused at its pre-flight as it is built to,
+writing no run log and measuring nothing. Verified by planning: the
+run log empty, the script's own standard error one line naming the
+staged roundtrip record, 32 staged files, no run directory and no
+record naming d88f735, the tree holding the working spec alone, no
+script running. Fix (a), no script or generator change: d1's staged
+files move to the dry run's directory; the refused attempt's three
+files (the empty run log, the empty outer stderr, the script's
+stderr) move to the phase's superseded directory; the run step
+alone reruns into the phase's logs at the same PLANNING_SPEC with
+`RERUN_NOTE` naming F3 and `RERUN_FILES` naming the three, in the
+carried form; gate, test and negative stand as logged (the prune
+ran once); the README names d1's staged records and the refused
+attempt. A dry run's staged files are cleared before a logged run
+from here on, and the next part's run generator makes the staging
+directory per invocation.
+
+K. (The scan pre-check's finding F4.) The run log prints
+`<superseded>` twice, in the `RERUN_NOTE` the session wrote for the
+ruling J rerun (its input line and its "rerun:" line), and the run
+script declares no root line for that token; the session's authoring
+slip in the note, not a script or generator defect. Verified by
+planning: the two lines, no root line, the pre-check's structural
+checks failed 1 with total hits 0, the run log ending yes, 203
+records installed, the open record 2237 pairs with none new, gone or
+changed. The measurements stand; the run log is not rerun for a
+word. Fix: a numbered scan-generator change by which a placeholder a
+log prints may be declared by a root line in the logs' README as
+well as in the log, with a control planting a token declared in
+neither and shown refused; the README declares `<superseded>` as the
+phase's superseded directory; the scan regenerated and the pre-check
+rerun; the README names F4 and this ruling. Standing from K: a
+`RERUN_NOTE` or `RERUN_FILES` value uses only tokens the script it
+is given to declares.
+
+## Planning verification of P2 (2026-10-24)
+
+Verified from primaries after the implementing session's report:
+
+- Commits: doc d88f735 (this spec with rulings B to G and the P1
+  verification, `ROADMAP.md`'s P1 row), record 3102354 (parent
+  d88f735, 210 files: the seven under `records/logs/m6p6-p2/` and
+  the 203 records ruling H R5 counted; ASCII; the diff-alone
+  sentence; the Co-Authored-By line alone). origin/main by `git
+  ls-remote` is ee78ffa; nothing pushed.
+- Logs, hashes equal to the report's: gate 64cb2e15 (the prune of
+  P1's target root, 6167760653 bytes, one directory; the docs-only
+  structure form of ruling I), test 6c23f337, negative f9cbfb2a,
+  run af820041 (the ruling J rerun; 203 records installed; the open
+  record 2237 pairs, none new, gone or changed; every row of the
+  comparison record derived again), scan 0643057e (final; check
+  answers present 1, hits 0, structural 0, RESULT: PASS); each
+  ending "checks all as expected: yes"; the README 39fe654a with its
+  root line for `<superseded>` (ruling K); no "/home/" line but the
+  scripts' pattern text and the scan's planted control; no non-ASCII
+  byte. PLANNING_SPEC d761db90 for gate, test and negative, 4a971987
+  for the run, ad36059f for the scan.
+- The comparison record `records/compare-m6p6-2026-10-24-d88f735.md`
+  (56673747): 48 corpus rows, every one 27 files and 27 ok for both
+  tools on every op; 102 scale rows; the one outcome not ok the tier
+  c openpyxl roundtrip, `cap` at exit 137, as Milestone 5's was.
+- Check 1: the brief be64f4d6 with the frozen draft 79ff8dc5 inline,
+  no absolute path; the answer 75e72493 verbatim in
+  `independent-check-1.md` a8df0c39 and quoted in the final report
+  ad01c372; verdicts yes with exceptions, yes, yes with exceptions
+  (ruling L).
+- Planning's own privacy scan of d88f735..3102354: 1 commit, 2425
+  blobs, 0 findings, PASS.
+
+P2 is DONE.
+
+L. (Check 1's exceptions and the prune's form.) The gate pruned
+P1's one target root through P1's multi-root helper rather than the
+single-root form ruling H R7 named; the same checks (bytes listed
+before, `rm -r` without `-f`, kept and gone), one directory:
+accepted, the README's departure now ruled. Change LC's second
+control, an acceptance case, is of the same change and accepted.
+The self-source line's label naming the README's root lines, where
+the code checks the source against its own alone, is a label and
+stands. The F4 quotes live in the superseded pre-check; the run's
+exit 2 at its pre-flight and the timing of rulings J and K are the
+session's statements, the timing confirmed by planning's own
+messages; the README's "H to J" in its first paragraph predates K,
+which the same paragraph names. No change.
+
 ## Decisions for the maintainer
 
 1. The comparison's reach: A (recommended), all sixteen ops rerun
