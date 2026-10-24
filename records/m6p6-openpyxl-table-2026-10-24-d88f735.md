@@ -1,0 +1,101 @@
+# openpyxl comparison run 2026-10-24-d88f735-openpyxl-table
+
+Written by `scripts/passthrough-record.py` from the run directory `2026-10-24-d88f735-openpyxl-table` (raw outputs stay under the corpus directory's `runs/`). Workbooks are cited by id, producer and tags only (`specs/0005-corpus.md`). The machine-readable companion to this file is `m6p6-openpyxl-table-2026-10-24-d88f735.txt`, the same tab-separated tables and the tool's xml rows (the kind's columns in column_1 onward, `specs/0014-xml-comparison.md` "Output"); it is written as `.txt` because the hygiene gate refuses a tracked spreadsheet extension.
+
+- Record written: 2026-10-24T04:39:09Z
+- Commit: d88f7359f323da40da287d8f16ad9e1a8b8b9bd1
+- Runs: 1, from 2026-10-24T04:36:31Z to 2026-10-24T04:39:07Z
+- Targets: openpyxl
+- Settings: timeout 600 s; open-check timeout 600 s; memory 4096 MiB
+- openpyxl: version 3.1.5; op table
+- Container start: an empty run of the image (python3 -I -B -c pass, the same mounts and flags), three runs 0.55, 0.57, 0.51 s, median 0.55 s; the openpyxl wall times include it (specs/0037 rulings K and P)
+- Binaries (openpyxl): image id 894b239fc0d1cd90df5fd3e86d89d662adc9562504da38d1a4ea32666985cf63; ops script sha256 741b65937554743d09366e10c6ca9346f66aaffbc785003b9373b8cd63befbc8; xlsx-diff sha256 1445523df9522bff56d4f0e03d7bde2ab333bac294020da256de42c01ef71f6b
+
+## Files by outcome
+
+| label | files | ok | error | timeout | cap | no-output | leftover | lo ok | lo fail | lo error | lo not-run | lo_in ok | lo_in fail | lo_in error | lo_in not-run |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| openpyxl | 27 | 27 | 0 | 0 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 0 | 0 | 0 | 27 |
+
+## Entries by part family: openpyxl
+
+| family | entries | identical | recompressed | changed | dropped | added | flagged | mtime | extra | gpflags | descriptor | attrs | comment | local |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| content-types | 27 | 0 | 0 | 27 | 0 | 0 | 27 | 27 | 10 | 17 | 17 | 27 | 0 | 0 |
+| rels | 290 | 0 | 0 | 92 | 124 | 74 | 92 | 92 | 24 | 68 | 68 | 92 | 0 | 0 |
+| workbook | 27 | 0 | 0 | 27 | 0 | 0 | 27 | 27 | 10 | 17 | 17 | 27 | 0 | 0 |
+| worksheet | 145 | 0 | 0 | 45 | 50 | 50 | 45 | 45 | 0 | 45 | 45 | 45 | 0 | 0 |
+| sharedStrings | 27 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| styles | 27 | 0 | 0 | 27 | 0 | 0 | 27 | 27 | 10 | 17 | 17 | 27 | 0 | 0 |
+| theme | 37 | 17 | 0 | 0 | 10 | 10 | 17 | 17 | 0 | 17 | 17 | 17 | 0 | 17 |
+| calcChain | 9 | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| drawing | 52 | 0 | 0 | 12 | 26 | 14 | 12 | 12 | 0 | 12 | 12 | 12 | 0 | 0 |
+| chart | 72 | 0 | 0 | 10 | 46 | 16 | 10 | 10 | 0 | 10 | 10 | 10 | 0 | 0 |
+| pivotTable | 13 | 0 | 0 | 4 | 5 | 4 | 4 | 4 | 4 | 0 | 0 | 4 | 0 | 0 |
+| pivotCache | 19 | 0 | 0 | 0 | 10 | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| table | 126 | 0 | 0 | 3 | 48 | 75 | 3 | 3 | 1 | 2 | 2 | 3 | 0 | 0 |
+| connections | 2 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| comments | 9 | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| vml | 20 | 0 | 0 | 0 | 11 | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| media | 36 | 11 | 0 | 0 | 15 | 10 | 11 | 11 | 3 | 8 | 8 | 11 | 0 | 8 |
+| customXml | 60 | 0 | 0 | 0 | 60 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| docProps | 72 | 0 | 0 | 64 | 8 | 0 | 64 | 64 | 30 | 34 | 34 | 64 | 0 | 0 |
+| printerSettings | 50 | 0 | 0 | 0 | 50 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| slicer | 5 | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| timeline | 2 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| other | 23 | 0 | 0 | 0 | 14 | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| total | 1150 | 28 | 0 | 311 | 531 | 280 | 339 | 339 | 92 | 247 | 247 | 339 | 0 | 25 |
+
+## XML comparison of changed entries: openpyxl
+
+| family | compared | parse_errors | names_equal | values_equal | in_only | out_only |
+| --- | --- | --- | --- | --- | --- | --- |
+| content-types | 27 | 0 | 0 | 0 | 774 | 254 |
+| rels | 92 | 0 | 37 | 9 | 516 | 258 |
+| workbook | 27 | 0 | 0 | 0 | 513 | 415 |
+| worksheet | 45 | 0 | 0 | 0 | 5761282 | 4194556 |
+| styles | 27 | 0 | 0 | 0 | 11903 | 6236 |
+| drawing | 12 | 0 | 0 | 0 | 282 | 26 |
+| chart | 10 | 0 | 0 | 0 | 174 | 83 |
+| pivotTable | 4 | 0 | 0 | 0 | 219 | 2979 |
+| table | 3 | 0 | 2 | 2 | 75 | 53 |
+| docProps | 64 | 0 | 27 | 10 | 345 | 150 |
+| total | 311 | 0 | 66 | 21 | 5776083 | 4205010 |
+
+## Files not ok, with a diff exit other than 0, with a leftover temporary file, or failing the LibreOffice open check
+
+| id | label | producer | tags | outcome | exit | signal | diff_exit | leftover | lo | lo_in | differs from the expectation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| d8245b84086f | openpyxl | libreoffice | plain,strings,formulas,names,merge,autofilter,freeze | ok | 0 | - | 1 | no | ok | - | changed=12, dropped=2, added=1, flagged=13, order_preserved=no, files_identical=no |
+| f56906d42e0a | openpyxl | libreoffice | plain,strings,merge,validation,hyperlinks,comments | ok | 0 | - | 1 | no | ok | - | changed=12, dropped=5, added=5, flagged=13, order_preserved=no, files_identical=no |
+| 0fbf4e5e3be9 | openpyxl | libreoffice | plain,strings,formulas,cf,charts | ok | 0 | - | 1 | no | ok | - | changed=19, dropped=1, added=1, flagged=20, order_preserved=no, files_identical=no |
+| bdfe649d5b97 | openpyxl | libreoffice | plain,strings,merge,images | ok | 0 | - | 1 | no | ok | - | changed=15, dropped=2, added=2, flagged=19, order_preserved=no, files_identical=no |
+| ae7e17525a35 | openpyxl | libreoffice | plain,strings,formulas,names,protection | ok | 0 | - | 1 | no | ok | - | changed=10, dropped=1, added=2, flagged=11, order_preserved=no, files_identical=no |
+| 63e820d98612 | openpyxl | libreoffice | plain,strings,formulas,freeze,date1904 | ok | 0 | - | 1 | no | ok | - | changed=9, dropped=1, added=2, flagged=10, order_preserved=no, files_identical=no |
+| 054df34b1472 | openpyxl | libreoffice | plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,freeze,cf,tables,charts,comments,images,protection | ok | 0 | - | 1 | no | ok | - | changed=20, dropped=3, added=3, flagged=22, order_preserved=no, files_identical=no |
+| 9132ce5303d8 | openpyxl | libreoffice | plain,strings,formulas,large | ok | 0 | - | 1 | no | ok | - | changed=8, dropped=1, added=2, flagged=9, order_preserved=no, files_identical=no |
+| ed2fbd304d51 | openpyxl | libreoffice | plain,strings,merge,validation,hyperlinks,comments | ok | 0 | - | 1 | no | ok | - | changed=12, dropped=5, added=5, flagged=13, order_preserved=no, files_identical=no |
+| 80adab651c77 | openpyxl | libreoffice | plain,strings,formulas,names,merge,autofilter,freeze | ok | 0 | - | 1 | no | ok | - | changed=12, dropped=3, added=1, flagged=13, order_preserved=no, files_identical=no |
+| 9ada43d71c80 | openpyxl | libreoffice | plain,strings,merge,validation,hyperlinks,comments | ok | 0 | - | 1 | no | ok | - | changed=12, dropped=6, added=5, flagged=13, order_preserved=no, files_identical=no |
+| 885819a9642e | openpyxl | libreoffice | plain,strings,formulas,cf,charts | ok | 0 | - | 1 | no | ok | - | changed=19, dropped=2, added=1, flagged=20, order_preserved=no, files_identical=no |
+| f2ba081da509 | openpyxl | libreoffice | plain,strings,merge,images | ok | 0 | - | 1 | no | ok | - | changed=15, dropped=3, added=2, flagged=19, order_preserved=no, files_identical=no |
+| 16c3be622455 | openpyxl | libreoffice | plain,strings,formulas,names,protection | ok | 0 | - | 1 | no | ok | - | changed=10, dropped=2, added=2, flagged=11, order_preserved=no, files_identical=no |
+| a72460f992a8 | openpyxl | libreoffice | plain,strings,formulas,freeze,date1904 | ok | 0 | - | 1 | no | ok | - | changed=9, dropped=2, added=2, flagged=10, order_preserved=no, files_identical=no |
+| f8459281d739 | openpyxl | libreoffice | plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,freeze,cf,tables,charts,comments,images,protection | ok | 0 | - | 1 | no | ok | - | changed=20, dropped=4, added=3, flagged=22, order_preserved=no, files_identical=no |
+| ab0e6a529465 | openpyxl | libreoffice | plain,strings,formulas,large | ok | 0 | - | 1 | no | ok | - | changed=8, dropped=2, added=2, flagged=9, order_preserved=no, files_identical=no |
+| f9efcac9808f | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,autofilter,cf,tables,charts,pivots,slicers,timelines,sparklines | ok | 0 | - | 1 | no | ok | - | changed=10, dropped=64, added=30, flagged=10, order_preserved=no, files_identical=no |
+| 8aaebea134fb | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,hyperlinks,tables,charts,pivots,external,sparklines | ok | 0 | - | 1 | no | ok | - | changed=10, dropped=88, added=41, flagged=10, order_preserved=no, files_identical=no |
+| 6778a242d1f9 | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,cf,tables,charts,slicers,images | ok | 0 | - | 1 | no | ok | - | changed=8, dropped=34, added=15, flagged=9, order_preserved=no, files_identical=no |
+| 75387404b8af | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,autofilter,cf,tables,pivots,comments,images | ok | 0 | - | 1 | no | ok | - | changed=10, dropped=49, added=25, flagged=10, order_preserved=no, files_identical=no |
+| 40d747fb5d9e | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,autofilter,freeze,cf,tables | ok | 0 | - | 1 | no | ok | - | changed=8, dropped=20, added=8, flagged=8, order_preserved=no, files_identical=no |
+| 3084c0591814 | openpyxl | excel-win | plain,strings,formulas,names,validation,cf,charts,sparklines,protection | ok | 0 | - | 1 | no | ok | - | changed=8, dropped=40, added=13, flagged=8, order_preserved=no, files_identical=no |
+| f3a462783621 | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,autofilter,cf,tables,charts,images | ok | 0 | - | 1 | no | ok | - | changed=9, dropped=61, added=40, flagged=10, order_preserved=no, files_identical=no |
+| ed4c55f07c69 | openpyxl | excel-win | plain,strings,names,merge,validation,hyperlinks,freeze,tables | ok | 0 | - | 1 | no | ok | - | changed=8, dropped=16, added=5, flagged=8, order_preserved=no, files_identical=no |
+| 7935c5119065 | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,cf,tables,charts,pivots,images,external | ok | 0 | - | 1 | no | ok | - | changed=10, dropped=40, added=16, flagged=11, order_preserved=no, files_identical=no |
+| 18d1e8ba72b5 | openpyxl | excel-win | plain,strings,formulas,names,merge,validation,hyperlinks,autofilter,tables,charts,sparklines | ok | 0 | - | 1 | no | ok | - | changed=8, dropped=74, added=46, flagged=8, order_preserved=no, files_identical=no |
+
+## Files whose open check could not run
+
+| id | label | lo | lo_in |
+| --- | --- | --- | --- |
+| none |  |  |  |
