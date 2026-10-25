@@ -80,8 +80,8 @@ implementing session does P1 and P7.
 | P2 | Corpus session: LibreOffice container pinned by image digest, version recorded, headless conversion smoke test on a generated fictional file | DONE (verified 2026-09-15; image `localhost/emend-lo:25.2.3-2-deb13u6`) |
 | P3 | Corpus session: LibreOffice exports with fictional content, generated as flat ODS by a script and converted headless, covering the tags LibreOffice can produce | DONE (17 files, verified 2026-09-15) |
 | P4 | Corpus session: Microsoft's public Excel templates added, with sources noted in the private manifest | DONE (10 files, verified 2026-09-15) |
-| P5 | Maintainer: a few Google Sheets exports, so the single-producer tags gain a second producer | PLANNED |
-| P6 | Maintainer: one .xlsm with a macro (`macros`, the only uncovered tag), a desktop Excel file with threaded comments and one with a chartex chart, plus any own workbooks | PLANNED |
+| P5 | Maintainer: a few Google Sheets exports, so the single-producer tags gain a second producer | PLANNED; scoped into Milestone 7 part 3 (2026-10-25) |
+| P6 | Maintainer: one .xlsm with a macro (`macros`, the only uncovered tag), a desktop Excel file with threaded comments and one with a chartex chart, plus any own workbooks | PLANNED; scoped into Milestone 7 part 3 (2026-10-25) |
 | P7 | P1 follow-ups (docstring, temporary-file order in `corpus-add.py`, UTF-8 cases), then the coverage record over the real corpus and the LibreOffice pins record | DONE (58063fb to 7b9350a; `records/corpus-coverage-2026-09-16.md`: 27 files, 22 of 23 tags, 7 single-producer) |
 | Close | Push everything since 29b0bad (T3 P3, T0 P6d, T3 P4, T2 P1, T2 P7 and their records) with the pending doc updates; record the CI run (`specs/0005-corpus.md`, "Close-out push (after P7)") | DONE (pushed d1868a7, 48 commits; run 35106637754 success; record 731d6ff local) |
 
@@ -1089,7 +1089,7 @@ records, with a comparison paragraph citing the comparison record.
 | P4 | the README (the `charts` and `read` lines, the measured sentences, the comparison paragraph), the run log's README check; planning's ROADMAP edits in the doc commit | DONE 2026-10-18 (doc aad0b35, README 7355d98 and 9e171da, record b821213; the doc and README commits reworded for the count rule before any log (ruling AG), FINDING: three comparison sentences cited no record, amended (ruling AH); the first four logs superseded by ruling AI (every feature line cites `records/size-m5p6-2026-10-18-ef9da37.md`, images 57620; the samples named as part 5's); FINDING, change RRO: the second run log's undeclared placeholder, caught by the scan's pre-check, the run log run a third time (ruling AJ); two independent checks, the second's gaps ruled AK; verified by planning from primaries, its own privacy scan and its own per-sentence README citation check; `specs/0037` "Planning verification of P4") |
 | Close | close-out push after P4, carrying 543c418, base c4a01cf by its subject, `PREV` `^M5 part 5 close-out record`, no Excel-record check; the Milestone 5 heading DONE and PUSHED | DONE 2026-10-18 (doc c970940 pushed, origin/main c4a01cf..c970940, 20 commits, 2014 blobs, 0 findings; CI run 39175897896 success; the post-push scan PASS; record 67c9144 local, goes with Milestone 6 part 1's push; the maintainer's authorisation typed 2026-10-18 in the implementing session after planning's word the same day; one independent check at the pre stage, blocking 0; the first pre-stage scan a recorded finding on a fixture archive read as text, ruling AO; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0037` "Planning verification of the close-out", AN to AQ) |
 
-## Milestone 6: chart parity and named styles (APPROVED 2026-10-16)
+## Milestone 6: chart parity and named styles (APPROVED 2026-10-16; parts 1 to 3 DONE and PUSHED 2026-10-19 to 2026-10-21; part 4 DONE and PUSHED 2026-10-22; part 5 DONE and PUSHED 2026-10-23; part 6 DONE and PUSHED 2026-10-24; milestone DONE and PUSHED 2026-10-24)
 
 Theme chosen by the maintainer 2026-10-16 during Milestone 5 part 6's
 P2 runs, from planning's list of what openpyxl can do that emend
@@ -1206,7 +1206,7 @@ to 15000. openpyxl's `GradientFill`, `NamedStyle`,
 | P3 | the probe's gradient and named style; the size record (the budget against part 4's 438960, the estimate, the 15000 line and the ceiling 458752; `read`, `images`, `comments` and `charts` each judged); the API record; the CHANGELOG bullet; the negative log through the binary; the P1 and P2 runs rerun on the release binaries; the open record | DONE 2026-10-23 (doc 693497c, test fd3c967, probe f4b249b, changelog fe280ff, record 738954e, local; the budget 451448, grown 12488 over part 4's 438960, inside the estimate 8000 to 15000 and 7304 under the ceiling, decision 3 not reached; `read` 976, `images` -484, `comments` 52, `charts` 488, each inside its band; five probes above the expected growth and under the accepted band (ruling BB), 0 findings; size record `records/size-m6p5-2026-10-23-fe280ff.md`; API record `records/api-review-m6p5-2026-10-23-fe280ff.md`, 844 rows, 3 gone and 13 new; the named-style and gradient samples rerun on the release binaries byte-identical to P2's and P1's runs, 27 of 27 on both labels (`records/m6p5-p3-*-2026-10-23-fe280ff.md` and `.txt`); open record `records/m6p5-open-2026-10-23-fe280ff.md` and `.txt`, 2237 pairs, lo_in 2225, lo 2226; scan PASS; rulings AN to BF during the phase, BG to BJ after verification (the gate's stale charts constant carried to the next part's gate, BI; the close-out's visibility check reads PUBLIC, BJ); verified by planning from primaries and its own privacy scan; `specs/0042` "Planning verification of P3") |
 | Close | close-out push after P3, carrying 7359783, base f630f67 by its subject, `PREV` `^M6 part 4 close-out record`, the pre driver passing HEAD, the visibility check reading PUBLIC (ruling BJ), no Excel-record check | DONE 2026-10-23 (doc ee78ffa pushed, origin/main f630f67..ee78ffa, 17 commits, 2293 blobs, 0 findings, on "push 10/23/2026" typed in the implementing session after planning's word (ruling BK); CI run 40050087908 success; the post scan PASS; record f15a11b local, goes with part 6's push; check 1 yes, yes, yes with exceptions, ruled BL; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0042` "Planning verification of the close-out", BK and BL; part 5 DONE and PUSHED) |
 
-### Part 6: measurement and close (`specs/0043-measurement-and-close.md`, APPROVED 2026-10-23, decisions 1 to 3 A)
+### Part 6: measurement and close (`specs/0043-measurement-and-close.md`, APPROVED 2026-10-23, decisions 1 to 3 A; DONE and PUSHED 2026-10-24)
 
 The openpyxl comparison of Milestone 5 part 6 rerun at one commit with
 the five ops the parts added (`chartsheet`, `chart-format`,
@@ -1224,7 +1224,67 @@ headroom 7304.
 | P2 | the corpus runs of decision 1 (emend both labels, openpyxl on the host, 27 workbooks, every output opened) and the scale tiers (a and b every op, c and d roundtrip); the record pairs; `records/compare-m6p6-...md`; the open record | DONE 2026-10-24 (doc d88f735, record 3102354, local, 210 files; sixteen ops, every corpus row 27 of 27 for both tools and every output opened; the tier c openpyxl roundtrip at its memory cap as in Milestone 5; `records/compare-m6p6-2026-10-24-d88f735.md`; open record 2237 pairs unchanged; the logged run refused once at its pre-flight on a dry run's staged files, ruling J, and the scan once on a word in the rerun note, ruling K; check 1 yes with exceptions, yes, yes with exceptions, ruled L; rulings H to L; verified by planning from primaries and its own privacy scan; `specs/0043` "Planning verification of P2") |
 | P3 | decision 3's `<sheet>` declaration (if A) with its tests and the catalogue; decision 2's regate (if B); the size record (the budget against 451448 and 458752; `charts`, `images`, `comments` and `read` against part 5's record); the API record; the reruns byte-identical; the CHANGELOG bullet | DONE 2026-10-24 (doc 7f3b43c, code 7ac8b74, record 42cf079; the new `<sheet>` declares `r` itself when the root binds no relationships prefix, transitional or strict as the root is (ruling M); budget 451528, the core grown 80, 7224 under the ceiling; `charts` costs 166680, moved 16, the 1968 of part 1 named against `specs/0038` ruling O (ruling N); API 844 items, 0 gone, 0 new; the tables probe's shrink of 32 a recorded FINDING, F6; the three samples byte-identical to their earlier runs on both labels; the openpyxl-form sheet and chartsheet adds exit 0 and open on both targets; rulings M to R mid-phase, the strict-pairing test F7 carried into P4; verified by planning from primaries; `specs/0043` "Planning verification of P3") |
 | P4 | the README (feature costs from P3's record, the `charts` line naming `specs/0038` to `specs/0041`, gradient fills and named styles named, Milestone 6's samples in the fidelity paragraph, the comparison paragraph citing `records/compare-m6p6-...md`); the run log's README check; planning's ROADMAP edits (Unscoped pruned, the part 6 rows) in the doc commit | DONE 2026-10-24 (doc 92c6b38, test bb0a29e, README 37062b7, record c391b35; the strict-pairing test F7 of P3 added; the README's twelve feature costs and the budget 451528 from `records/size-m6p6-2026-10-24-7ac8b74.md`, the six Milestone 6 samples, the sixteen-op comparison from `records/compare-m6p6-2026-10-24-d88f735.md`; the run log's check 27 digit-bearing sentences, 27 cited, the planted control refused; sets 539 to 1201 on both targets; F8 a gate-generator defect fixed by ruling U before the logged run; rulings T to V; verified by planning from primaries; `specs/0043` "Planning verification of P4") |
-| Close | close-out push after P4, carrying f15a11b, base ee78ffa by its subject, `PREV` `^M6 part 5 close-out record`, the visibility check reading PUBLIC (`specs/0042` ruling BJ), no Excel-record check; the Milestone 6 heading DONE and PUSHED | PLANNED |
+| Close | close-out push after P4, carrying f15a11b, base ee78ffa by its subject, `PREV` `^M6 part 5 close-out record`, the visibility check reading PUBLIC (`specs/0042` ruling BJ), no Excel-record check; the Milestone 6 heading DONE and PUSHED | DONE 2026-10-24 (doc 42ddf3b pushed, origin/main ee78ffa..42ddf3b, 15 commits, 2470 blobs, 0 findings, on "push 10/24/2026" typed in the implementing session after planning's word (ruling W); CI run 40137660611 success; the post scan PASS; record 3f68f3b local, goes with the next push; check 1 yes, yes and yes with exceptions, ruled X; verified by planning from git, `gh`, the three logs and its own blob scan; `specs/0043` "Planning verification of the close-out", W and X; part 6 and Milestone 6 DONE and PUSHED) |
+
+## Milestone 7: release (APPROVED 2026-10-25)
+
+Theme chosen by the maintainer 2026-10-25 after Milestone 6's close-out,
+from planning's recommendation ("great, lets go"): no feature is added;
+the crate goes out. Decisions typed in the planning session 2026-10-25:
+the Excel check runs before anything is published, over Milestones 2 to
+6's samples, and the publish gates on its record existing, not on every
+row passing (decision 1); the Milestone 2 ceiling question (budget
+451528 section bytes against 458752 at Milestone 6's close,
+`records/size-m6p6-2026-10-24-7ac8b74.md`) is decided at the next
+milestone that touches the core, as that milestone's first decision,
+and this milestone adds no core code (decision 2); the corpus's
+maintainer items, T2 P5 and P6, are supplied by the maintainer and
+taken as a part after the publish (decision 3); the version published
+is 0.1.0 (decision 4). Three parts, each with its own spec before it
+starts, scoped into phases as before; the first doc commit carries
+Milestone 6's close-out record 3f68f3b and the close-out edits of
+`specs/0043` and this file:
+
+1. Part 1, the Excel check (`specs/0044-excel-check.md`): every
+   sample rerun on the host at one commit, the host keep reopened into
+   an open record, the list written and staged, carried by the
+   maintainer to the machine with Excel; the record assembled by
+   planning from what comes back, each row checked by hash, committed;
+   the push script's Excel-record check restored for this part's push
+   and the next.
+2. Part 2, publish 0.1.0 (`specs/0045`): the manifest's `include`
+   list proven by the `git archive` dry run and `publish = false`
+   lifted (`specs/0031` P2 verification ruling 5); the CHANGELOG's
+   0.1.0 heading dated; the README's open-check sentences citing part
+   1's record; the tag, carried by the close-out push. The maintainer
+   publishes from a clean clone of the pushed tag on a machine of
+   their own: no registry token is ever set in a session's environment
+   or written to a file (`CLAUDE.md`, "Secrets and boundaries"). The
+   sessions then verify the publication against the tag: the
+   registry's page and checksum read back, the published package
+   downloaded and compared file by file with the tag's tree. The
+   publication is the one deliberate, recorded copy-out of this
+   repository's code.
+3. Part 3, the corpus's maintainer items (`specs/0046`): T2 P5 and
+   P6's files added by `scripts/corpus-add.py`, the coverage record
+   rerun, the passthrough and every sample run over the grown corpus
+   with every output opened, findings recorded and carried to the next
+   milestone, not fixed in this one.
+
+### Part 1: the Excel check (`specs/0044-excel-check.md`, APPROVED 2026-10-25, decisions 1 to 3 A)
+
+The check `specs/0015` "The Excel check" defines, grown by every part
+since and skipped since 2026-10-09 (`specs/0029` "Planning rulings
+before the close-out"), run over every sample at one commit: the
+reruns, the keep and its open record, the list and its stage; the
+maintainer's run on the Excel machine; the record. No code the probes
+link changes.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | every sample flag of `emend-copy` rerun on the host at the phase commit with records, the host keep regenerated and opened into an open record, the list written from them all and staged under `<corpus>/work` with the opener script and the files, the zip; the negative log; one independent check on the run log's directory list against the tool's flag list | IN PROGRESS (doc commit pending) |
+| P2 | the maintainer's Excel run on the stage; the record `records/excel-check-m7-<date>.md` assembled by planning from the opener's results file, every row checked by hash against the stage, committed by the implementing session with the scan; the close-out generator's Excel-record check restored with the record's pattern | PLANNED |
+| Close | close-out push after P2, carrying 3f68f3b and this part's commits, base 42ddf3b by its subject, `PREV` `^M6 part 6 close-out record`, the Excel-record check in pre mode (exactly one file at the tip), the visibility check reading PUBLIC, one independent check | PLANNED |
 
 ## Unscoped
 
@@ -1234,7 +1294,8 @@ approval.
 - Size-measurement consumer: scoped into Milestone 1 part 1 P3 as
   `probe-emend-copy` (2026-09-16).
 - A machine with desktop Excel for the per-milestone check. Milestone 1
-  cannot be accepted without it.
+  cannot be accepted without it. Scoped into Milestone 7 part 1
+  (2026-10-25): the check over Milestones 2 to 6's samples.
 - xlsx-diff backlog: harness findings raised after T1 P6 that do not
   concern a real data flow (a corpus file in T3, or an emend output).
   - The `descriptor` flag compares the bytes after the data raw, so a
@@ -1286,7 +1347,8 @@ approval.
     print the path (T2 P0 finding 2).
   - Both fit the gate self-test script task.
 - MSRV policy (Milestone 3 part 7).
-- The publish step (Milestone 4 part 2, decision 1 held 2026-10-10):
+- The publish step (Milestone 4 part 2, decision 1 held 2026-10-10;
+  scoped into Milestone 7 part 2, 2026-10-25):
   an `include` list in the crate manifest so a package built outside
   a git checkout holds `template/_rels/.rels`, tested by a `git
   archive` dry run; `publish = false` lifted; the tag; `cargo
@@ -1294,3 +1356,8 @@ approval.
   registry's page and its validation of the keywords and categories
   read back (`specs/0031` P2 rulings 1, 4 and 7).
 - README, where every fidelity, speed or size sentence cites a record.
+- The Milestone 2 ceiling (458752 section bytes; the budget 451528 at
+  Milestone 6's close, headroom 7224): kept, raised with a recorded
+  reason, or a size-trim part. Decided at the next milestone that
+  touches the core, as its first decision (Milestone 7 decision 2,
+  2026-10-25); Milestone 7 adds no core code.

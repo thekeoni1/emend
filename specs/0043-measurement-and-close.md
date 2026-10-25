@@ -854,6 +854,45 @@ implementing session, the push of ee78ffa..HEAD carrying f15a11b,
 the CI run, the post scan, the record commit with the three logs
 only, one independent check, the report; STOP.
 
+## Planning verification of the close-out (2026-10-24)
+
+Verified from git, `gh` and the three logs: the push of
+ee78ffa..42ddf3b (15 commits, f15a11b once), origin/main and the
+remote's main 42ddf3b, the tree clean at the record commit 3f68f3b
+(parent 42ddf3b, the three logs of `records/logs/m6p6-close` only,
+ASCII); push.log 999562f3 holding pre mode then push mode, the
+maintainer's authorisation "push 10/24/2026" with its date recorded
+as input lines, the hook's PASS privacy over the range, "main ->
+main", the PUBLIC read after the push, ending "push checks all as
+expected: yes"; ci-run.log 5022332f, run 40137660611 on 42ddf3b,
+event push, conclusion success, no step other than success or
+skipped, `gh` agreeing; scan.log ee019eef, post, 0 hits, 0 read
+errors, 0 structural failures, PASS; planning's own privacy scan of
+the range before the word: 15 commits, 2470 blobs, 0 findings;
+check 1's answer 84abd99f, 1 yes, 2 and 3 yes with exceptions.
+
+W. Planning's word for the push of ee78ffa..42ddf3b was given on
+2026-10-24 after the pre log 31af9aed ("pre checks all as expected:
+yes"), the pre-stage scan a654a65c (PASS) and planning's own privacy
+scan of the range; the maintainer's authorisation "push 10/24/2026"
+was typed in the implementing session after it, and push mode ran
+on both. Recorded here after the push, the tree having to be clean
+for the close-out.
+
+X. The close-out is DONE: Milestone 6 part 6 DONE and PUSHED, and
+Milestone 6 DONE and PUSHED, 2026-10-24. Check 1's exceptions
+accepted: planning's word and the place of the authorisation are
+carried by this verification and ruling W, no log; the carried
+scripts' cmp-equality is the generator's assertion, printed by no
+log, as in part 5; the post-push visibility read keeps part 5's
+form (`specs/0042` ruling BJ); the ROADMAP heading is planning's
+step, done with this ruling. The next milestone's first push
+carries the record commit 3f68f3b and the commit holding this
+verification and `ROADMAP.md`'s headings. Findings of this part
+carried forward, none requiring code: F6 (the tables probe's shrink
+of 32, recorded) and the standing rules of rulings Q and R for the
+next dry driver and report.
+
 ## Decisions for the maintainer
 
 1. The comparison's reach: A (recommended), all sixteen ops rerun
