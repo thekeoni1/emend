@@ -340,6 +340,330 @@ maintainer's authorisation typed in the implementing session.
 close-out's verification says what part 2 carries: the FINDING list
 for decision 2's per-finding choices.
 
+## Planning rulings during P1 (2026-10-25)
+
+Asked by the implementing session after the doc commit 82c07fb
+(three files, the blobs' sha256 equal to the hashes the brief sent,
+the parent 3f68f3b, the message ASCII with the one trailer; planning
+read it from git; first made as 31841f7 and rebuilt on the same tree
+60b98e0 and parent by ruling L, planning reading both from git),
+before any dry run. With no code commit, 82c07fb is P1's phase
+commit.
+
+A. R1: `--lo-timeout 600`, the value of Milestone 3 part 7 P5's
+   reruns and Milestone 6 part 6 P2's corpus runs (23 and 97 command
+   lines in their run logs). "The reruns (P1)" reads with it.
+B. R2: modes. The stage's directories 700, every staged file 600,
+   the list 600 (the script's umask), the zip 600 as a file. "The
+   list and the stage (P1)"'s "600 and 700" reads that way.
+C. R3: the zip is stored (`zipfile.ZIP_STORED`), as the brief says;
+   the run log prints the departure from Milestone 3 part 7 P5's
+   deflated zip in one line. The staged outputs are zip archives
+   already.
+D. R4: the gate prunes `<home>/.cache/emend-build/m6p6-p4/target`
+   and `m6p6-close/target`, each with a `du -sb` line before and the
+   `cargo clean --target-dir` form (`specs/0028` P2 ruling 8, ruling
+   C's form), both carrying `CACHEDIR.TAG`; no record cites a target
+   root. Nothing else is pruned.
+E. R5: accepted. The flag list is the `USAGE` constant of
+   `tools/emend-copy/src/main.rs` at 82c07fb, read by the gate's
+   release binary's own usage output (the stale binary of 2026-10-11
+   is not used, and the log says so); the comparison record for each
+   sample is the committed record whose "- Tool arguments:" line is
+   exactly the sample's flag and whose "Record written" time is the
+   greatest, its path printed beside the sample's counts.
+F. R6: accepted. No test log: the keep step is the gate's workspace
+   host test command run again by the run log with `EMEND_KEEP_DIR`
+   set on that command alone, the keep directory created by the run
+   script and empty at entry. The logs are gate, negative, run, the
+   README, one check, the scan.
+G. The brief's "370 lines" was the spec's count before the approval
+   edits (the status paragraph and the decisions' preamble, seven
+   lines); 377 is right, and the sha256 is what binds. The brief's
+   number is corrected here, not there.
+
+H. N1, a spec claim not checked against the code: P1's negative
+   case (c) says the list script refuses a `--run` directory that is
+   not the formula sample's; `scripts/excel-check-list.py` at
+   82c07fb never reads `run.host.tsv`'s `tool_args` (planning read
+   lines 244 to 250 and grepped the script: the flag's name appears
+   in two docstrings only). Ruling: option (b). No script change.
+   The run script, before it calls the list, reads the `--run`
+   directory's `run.host.tsv` and refuses unless its `tool_args` is
+   exactly `--formula-sample` (it already asserts every directory's
+   flag, "The reruns (P1)"); the negative log extracts that function
+   by a printed line range, prints the extract's sha256 equal to the
+   script's lines, and shows it refusing another sample's directory.
+   Case (c) is the run script's refusal, and the negative log's
+   README says so. The list script's own check of its `--run`
+   directory is a carried item for part 3's spec, which reruns the
+   list over the grown corpus. Case (c)'s sentence in "P1: the
+   reruns, the keep, the list, the stage" reads with this ruling.
+I. The dry run's layout, as proposed: the restricted dry run writes
+   its run directories under `<dry>/croot/runs`, where
+   `<dry>/croot/manifest.tsv` and `<dry>/croot/corpus` are symbolic
+   links to the corpus's own, so the list script's grandparent rule
+   holds; no corpus file is copied; nothing is written under
+   `<corpus>/runs` or `<corpus>/work` by a dry run; the dry stage,
+   its zip and the dry run's record files are written under `<dry>`,
+   never under `records/` (`specs/0043` ruling Q's standing rule).
+   The dry run's report prints the links' targets by placeholder.
+
+J. N2: ruling E's rule, applied by the implementing session over
+   the 58 samples, picks a scale-tier record (`records/m6p6-scale-b-
+   <op>-2026-10-24-d88f735.md`, one generated workbook, timeout
+   3600 s) for 13 of them, which would print 13 FINDINGs on the
+   files count alone (planning read one such record: host row files
+   1, settings timeout 3600 s). Ruling: E with one exclusion. A
+   record whose file name carries `-scale-<tier>-` is not a
+   candidate; the name, not the result, selects. With it every
+   sample's chosen record has a host row of 27 files and the reruns'
+   settings line. When the record E alone would have picked differs,
+   the run log prints it beside the chosen one, as information, not
+   a FINDING.
+K. The keep: Milestone 6 part 6 P4's test (bb0a29e) writes a pair
+   through `written` and no open record has been made since
+   `records/m6p6-open-2026-10-24-7ac8b74` (2240 pairs), so the keep
+   is expected to grow by one pair. "The keep and its open record
+   (P1)"'s rule stands: a difference in the totals is printed as a
+   FINDING and recorded; the README names the test as the cause
+   when the dry run shows the growth is that one pair, and the pair
+   is on the list as every pair is. Nothing is fixed.
+
+L. D1: the doc commit 31841f7's message, written to the brief's
+   form, breaks the carried message rules GN (a doc commit names
+   each file it holds as "<path> sha256 <hash>"; every doc commit
+   since 266c410 does, 42ddf3b and 92c6b38 read by planning) and AD
+   (`specs/0037` change AD: a count in a message needs the
+   diff-alone sentence). The brief asked for a paragraph no doc
+   commit carries; the error is planning's brief first and the
+   commit second. Ruling: option (a). The local, unpushed commit
+   (no remote branch contains it) is rebuilt with `git commit-tree`
+   on the same tree and the same parent 3f68f3b; the message is the
+   briefed subject, a blank line, the three lines
+   "specs/0043-measurement-and-close.md sha256 <blob sha256>",
+   "ROADMAP.md sha256 <blob sha256>" and "specs/0044-excel-check.md
+   sha256 <blob sha256>", each hash by command substitution from
+   `git show HEAD:<path>`, a blank line, "No log prints a count for
+   this commit; the diff alone carries what it changes.", a blank
+   line and the Co-Authored-By line; the paragraph is dropped, as
+   no doc commit carries one (the spec and `ROADMAP.md` say what the
+   commit carries). The implementing session prints the old and the
+   new hash, the two trees equal, the parent, and the diff of the
+   two messages; `main` is moved to the new commit by `git reset
+   --soft`, nothing else changing, the tree clean before and after.
+   The old hash is named in FACTS and the report, and every "31841f7"
+   above was amended to the new hash, 82c07fb, by planning when it
+   arrived (2026-10-25; tree 60b98e0 on both, parent 3f68f3b, the
+   message's two added blocks read from git), with the new
+   PLANNING_SPEC. No exemption (option b).
+
+M. The generator readings (gate G1 to G4, negative N1 to N3, run
+   R1 to R7, scan S1 to S3, the dry driver), sent before any run:
+   accepted as read. In particular: the gate builds the two release
+   binaries host-only and prints their sha256 and byte lines for
+   the run to check (change Y89); the gate's doc-only form is
+   Milestone 6 part 6 P2's; the negative log's three extra cases
+   (L3, F2, S2) are kept; the open check writes under `<work>/
+   records` and its pair is installed into `records/` before the
+   list, Milestone 3 part 7 P5's form, which "The keep and its open
+   record (P1)" reads with; the open check's own exit 1 is a FINDING
+   and its exit 2 fails the log; a rerun outcome other than ok or
+   error is a FINDING and the directory stays off the list; the
+   printarea sample's comparison record is `records/m4p1-p3-
+   printarea-*` (21 ok of 27); the scan derives the 118 record file
+   names from the phase commit's `USAGE` constant and the open
+   record's stem. The dry run as designed (ruling I's layout, three
+   corpus ids by their manifest ids, three flags, the keep made, the
+   scan pre-check in `<dry>`) has planning's word.
+
+N. Dry run d1 (PLANNING_SPEC 0ca0630c, phase commit 82c07fb): the
+   gate and the negative exit 0, all as expected; the run exits 1
+   on two controls alone, "outcome_counts reads a fixture by its
+   header" and "other_rows counts no row of the fixture". Planning
+   reproduced the cause from the run script's lines: the control
+   fixture `c-summary.tsv` is two tables parted by a blank line,
+   written for `host_counts`, which exits at the blank; the two
+   other helpers do not, and count the blank line and the second
+   table's two rows as an empty outcome (" 3 error 1 ok 3 ", and
+   3). On the fixture's first five lines they print "error 1 ok 3 "
+   and 0. The three real `summary.host.tsv` files hold no blank
+   line. Ruling: change TA (proposed as SA; the run generator
+   refused that label, M3 part 7 P5's run script in its carried
+   history naming an SA at its line 747, which planning read; no
+   carried run script names a TA). The two controls read a
+   one-table fixture, the two-table fixture's first five lines as a
+   file of their own; the `host_counts` control keeps the two-table
+   fixture; nothing else in the run script changes, and the d2
+   report prints the diff of the two run scripts' line counts and
+   the new script's sha256. The real-input helpers were right, so
+   the three reruns, the three record pairs, the keep, the open
+   check, the stage (0 differing, modes as ruled) and the zip
+   (stored, every entry byte-equal, testzip ok, mode 600) stand as
+   read from d1's log by planning; they are re-made by d2 all the
+   same. The one FINDING line of d1 is the keep growth ruling K
+   expects (pairs 2241, lo_in ok 2229, lo ok 2230 against the
+   m6p6-open record's 2240, 2228, 2229); the gate, the negative and
+   the scan print none.
+
+O. The scan pre-check in a dry run. The dry driver read by planning
+   (sha256 28ccda25) requires PLANNING_SPEC as its second argument
+   and exports it, so d2's scan step runs inside the driver; d1's
+   scan was run by hand with it after the driver stopped at the
+   run, and with it the pin and the planning-file checks pass. The
+   four "no" lines that remain are the dry layout's and are
+   accepted for a dry run only: LOGDIR and RECDIR not the defaults
+   (change AK); 3 of 58 names with a run directory (change LK); 8
+   of 118 records scanned; and the home-directory line, every hit
+   a dry LOGDIR or RECDIR path. A dry scan's RESULT: FAIL with
+   exactly those four lines (the planted controls inside c-defined
+   aside) is the expected dry result; any fifth line is a stop and
+   a question. The logged run's scan pre-check prints none of them
+   and RESULT: PASS.
+
+P. Planning's word. d2 runs by the same driver into `<dry>/d2`;
+   d1 stays in place until P1's report is sent (planning verifies
+   from it), and both dry directories are named in the report as
+   disk the maintainer reclaims by a method they name. Planning's
+   word for the logged run is given now on these conditions, each
+   read from d2's own logs: the run log ends "all as expected: yes"
+   and exits 0; its only FINDING line is ruling K's keep growth with
+   d1's totals; the gate and the negative pass as in d1; the scan
+   pre-check prints the four lines of ruling O and no other. If d2
+   meets them all, the logged run starts without a further message,
+   the d2 report sent at its start with the four scan lines and the
+   FINDING line grepped out; if any condition fails, nothing starts
+   and the report comes first.
+
+## Planning verification of P1 (2026-10-26)
+
+Read from the primaries, not the report: the record commit a72467d
+(parent 82c07fb, 124 files added, 118 records and the six files
+under `records/logs/m7p1-p1/`, the message ASCII with the
+Co-Authored-By line only, the count sentence carried); the gate,
+negative and run logs each ending "checks all as expected: yes", the
+only non-comment "no" line in each the API-key line; the one
+FINDING line (run.log 5898) ruling K's keep growth, pairs 2241 and
+lo_in ok 2229 and lo ok 2230 against the m6p6-open record's 2240,
+2228 and 2229; 118 record files named `-2026-10-25-82c07fb.`, the
+open pair among them; 58 run directories `-82c07fb-` under
+`<corpus>/runs`; the stage 6020 files, directory 700, every file
+600, the list 6018 rows (corpus 1560, fixture 2229, input 2229,
+printarea's 6 error rows left out) at sha256 46cb9453; the zip
+1075262198 bytes, mode 600, sha256 d32483dd, 6020 entries all
+stored, testzip clean; the final scan PASS with 0 hits over 118
+records and the pre-check PASS; no committed file holds the home
+path, the maintainer's address or U+2014; check 1's answer verbatim
+in the report but for its title line, which the report sets as a
+heading. The old Milestone 2 stage and zip stand untouched beside
+the new ones.
+
+Rulings. Q. Check 1's wording point: ruling R's "every FINDING line"
+means the lines the logs emit beginning FINDING, the scripts' own
+comment and echo source lines aside, as both reports read it. R.
+P1 is DONE. Dry d1 and d2 under `<phase>/dry` (160334494 and
+159893566 bytes by the check's du) are the maintainer's to reclaim
+with the old Milestone 2 stage and zip, by a method they name in
+the implementing session after the new zip is copied (decision 3).
+S. P2 waits on the maintainer: the zip to the Excel machine, the
+opener run, `open-results.txt` and the machine section back, as
+"The maintainer's check (P2)" says. The implementing session does
+nothing until then.
+
+## Planning rulings on the P2 results (2026-10-26)
+
+Facts, from `open-results.txt` in the stage (sha256 9bf8bc30, 6018
+rows, every row matched to the list in order, no non-ASCII byte, no
+read-error or close-error cell) and the machine section the
+maintainer gave (Microsoft Excel LTSC MSO, Version 2408 Build
+16.0.17932.21056, 64-bit; Microsoft Windows 11 Home 10.0.26300;
+2026-10-26): corpus 1528 pass and 32 fail; fixture 1864 pass and
+365 fail; input 1874 pass and 355 fail; every fail with the one
+generic open error; no repair prompt appeared. Identical files far
+apart in the run always share an outcome (105 such hashes, none
+mixed), so the refusals follow the file. The 32 corpus refusals:
+the chart-surface sample on all 27 workbooks, the edit sample on 2,
+protect on 2, remove on 1; every host row and every other sample on
+those workbooks passes. None of the 32 rows carries a reference.
+The 53 `seen` values compared all equal their `expect`. Fixture
+pairs by (input, output): pass/pass 1842, refused/refused 333,
+refused/pass 22, pass/refused 32; four of the 32 are the pairs
+`specs/0015` Excel-check ruling 4 ruled. By hand (ruling T), the
+maintainer reported the 32 refused corpus rows on 2026-10-26: Excel
+offered a repair on every one; on the two protect rows the repair
+then failed and the file did not open.
+
+T. The template's by-hand fallback applies to the 32 refused corpus
+   rows before the record is assembled. Opening each by the shell
+   (a double-click, or `Invoke-Item` on the path) is the dialog's
+   equivalent: both go through Excel's own open with its prompts.
+   The outcome per file is `pass`, `repair` or `fail` as the
+   template says, the row marked `(by hand)`; no value is read,
+   since none of the 32 rows carries a reference; Excel's message
+   stays out of the record. The maintainer reports the outcomes in
+   the planning session, which carries them into the record.
+U. A corpus row Excel offered to repair reads `repair`, the
+   template's first clause, whether or not the repair succeeded;
+   the two whose repair failed read `repair (by hand; repair
+   failed)`, the others `repair (by hand)`. A result cell is read by
+   its first word; the restored check (and any check on a result
+   cell) matches a cell that begins with `pass`, `repair` or
+   `fail`.
+V. The record. Planning assembled it by a script,
+   `assemble-excel-record.py` (sha256 54f344a7), from the stage's
+   list and results file, the by-hand file `byhand-2026-10-26.tsv`
+   (sha256 95a69b8a, 32 rows, columns `id_or_test`, `label`,
+   `cell`) and the machine lines as `--excel`, `--os` and `--date`
+   arguments; the record is 3845 lines, 844290 bytes, sha256
+   47e6f360 (the full hashes in planning's brief), ASCII, no home
+   path, no U+2014; planning read it for the maintainer's name, address,
+   machine names and the laptop's address (none). The three files
+   sit in `<home>/.cache/emend-build/m7p1-p2/record-from-planning/`
+   (the phase directory exists with that directory alone in it; the
+   driver tolerates it). The script stops with exit 2 and a line
+   beginning `STOP:` on a results row that names no list row, a
+   list row with no results row, a repeated results row, or a
+   by-hand row that is not a refused corpus row. The script is not
+   committed; the run log and the README print its sha256.
+W. P2's logs, as "P2: the record" with these readings. The run log
+   copies the record to `records/excel-check-m7-2026-10-26.md`,
+   prints its sha256 equal to ruling V's; then runs the script with
+   the stage's list and results file, the by-hand file and the same
+   three arguments into a scratch file and prints that file's
+   sha256 equal to the record's (the totals recomputed and every
+   row's `bytes` and `sha256` shown to be the list's, in one); and,
+   as the spec asks, a command that counts the record's table rows
+   whose `bytes` and `sha256` pair is found in the list (3789 of
+   3789 corpus and fixture rows; the fixture rows' input pairs 2229
+   of 2229) and the totals line recomputed from the results file by
+   `awk` equal to the record's. The negative log: the two assembly
+   stops on scratch copies of the results file (a planted row,
+   exit 2 "names no list row"; a removed row, exit 2 "list row with
+   no result"); the restored check's two cases as ruling X. The
+   record is written in the run log step only, so the driver's
+   dirty-tree allowance stays " M specs/0044-excel-check.md" at its
+   start; the record commit holds the record and the logs. No
+   FINDING line is printed for the record's five findings: they are
+   the record's content, carried to part 2; a FINDING line is for a
+   stop, a mismatch or a count that differs.
+X. The restored Excel-record check at P2: the close-out generator
+   is written now (its numbered changes continuing from part 6's
+   last), its push script generated into the close-out's directory
+   and not run; P2's negative log extracts the check's function by
+   a printed line range, prints the extract's sha256 equal to the
+   script's lines, and runs it against a scratch clone of the tip
+   with the record added and committed in the clone alone
+   (accepted) and against a scratch clone of the tip without it
+   (refused). Neither clone commit enters the repository. The
+   close-out's pre mode then runs the check against the real tip
+   once the record commit is in.
+Y. The P2 doc commit holds this spec and `ROADMAP.md` (the P2 row
+   IN PROGRESS), on a72467d, in the doc commit's form (rule GN).
+   The independent check's two questions are the spec's; the report
+   under `<phase>` prints the record's sha256, the totals line and
+   the five findings' headings by sample or count, never a cell
+   reference.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-25: 1, 2 and 3 as recommended (A
