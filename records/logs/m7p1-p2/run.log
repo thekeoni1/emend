@@ -1,0 +1,2300 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m7p1-p2-run.sh ad139c3e0cc9b6cff545ffaf7bfe1f0c26e8643f
+about: M7 part 1 P2 phase commit ad139c3e0cc9b6cff545ffaf7bfe1f0c26e8643f; HEAD at run: ad139c3e0cc9b6cff545ffaf7bfe1f0c26e8643f
+input: RERUN_NOTE=unset
+input: RERUN_FILES=unset
+input: PLANNING_SPEC=9de4dd8e569bfd0a383ec303d74c8b40387887b40fcf9d15c2bf5912f59b71e6
+input: RECORDS_DEST=unset
+input: RUN_WORK=unset
+input: EMEND_CORPUS_DIR=unset
+input: EMEND_KEEP_DIR=unset
+input: HOME=<home>
+input (as exported by this script): PYTHONDONTWRITEBYTECODE=1 CARGO_NET_OFFLINE=true
+input: TMPDIR=<phase>/tmp
+  (TMPDIR set, made and exported by this script before any mktemp; <work> is made under it)
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+mode: the logged run: none of the dry run's overrides is set (RECORDS_DEST RUN_WORK); the record is copied into <repo>/records (change TB)
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+command: pyb_count <this script>, and the same over a fixture of five lines: a call with -c, one with -I -B -c, a comment, a command -v, a call of a .py path
+  shape PYB: in this script 0; in the fixture 2
+  PYB: this script holds none (change NTJ): yes
+  control: PYB: the same form finds the fixture's two calls without -I -B and not its other three lines: yes
+
+## the phase's commits by role, read from git
+command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role
+  M7 part 1 P1's record commit (the base): a72467d8f506bf535c5f6b00e66333c2d366b3b7
+  the doc commit, the phase commit (no code commit; specs/0044 "P2: the record"): ad139c3e0cc9b6cff545ffaf7bfe1f0c26e8643f
+command: git rev-parse <phase commit>~0 and <phase commit>~1
+    ad139c3e0cc9b6cff545ffaf7bfe1f0c26e8643f
+    a72467d8f506bf535c5f6b00e66333c2d366b3b7
+  the doc commit and the base, the first the second's child, the doc commit the phase commit (change TB): yes
+  control: roles_in_order refuses the base named as the phase commit: yes
+  control: roles_in_order refuses the doc commit named as the base: yes
+  control: roles_in_order refuses a role that resolved to nothing: yes
+  the phase commit given to this script: ad139c3e0cc9b6cff545ffaf7bfe1f0c26e8643f
+  git rev-parse HEAD at this run:        ad139c3e0cc9b6cff545ffaf7bfe1f0c26e8643f
+  the controls' commits: the null commit 0000000000000000000000000000000000000000; the fabricated commit ad139c3e0cc9b6cff545ffaf7bfe1f0c26e86430 (the given one, its last hex digit changed); the short sha ad139c3
+  the phase commit given to this script is a full sha: yes
+  the phase commit given to this script is HEAD: yes
+  the phase commit is the doc commit, by its subject (change TB): yes
+  control: the same comparison refuses the base: yes
+  control: the same comparison refuses the null commit: yes
+  control: the same comparison refuses a fabricated commit: yes
+  control: the same comparison refuses a short sha of the real commit: yes
+  control: the short sha is the real commit's, so only its form is refused: yes
+phase: Milestone 7 part 1 P2 (specs/0044-excel-check.md) run.log; run at 2026-10-26T17:52:54Z
+SERIALIZED: no other log run was in flight; cargo processes at entry: 0; rustc processes at entry: 0; this run builds nothing
+  no cargo or rustc process was running at entry: yes
+DETACHED: no interactive call waits on this run; stdout and stderr go to a file, polled from later calls.
+SETTINGS CHOSEN BEFORE THE RUN, never tuned during it: the five inputs' hashes and ruling V's three arguments, typed into the generator from planning's P2 brief and checked there against the files
+root: <repo> stands for the repository's top level (inside <home>, scrubbed after the corpus's paths); scripts/counting.sh and the spec at the phase commit are read from it by git show; the record is copied into its records/ unless RECORDS_DEST names a directory outside it for a dry run
+root: <home> stands for the home directory of the account that ran this script
+root: <phase> stands for <home>/.cache/emend-build/m7p1-p2 on the disk, the phase's directory; <phase>/record-from-planning holds planning's record, its assembly script and the by-hand file (ruling V), read and never written; <phase>/gen holds the generator that wrote this script and <phase>/model the template it was written from
+root: <scripts> stands for <phase>/scripts on the disk, this script's own directory; this script's own standard error goes to <scripts>/out/run.stderr (specs/0017 P1 verification ruling 7)
+root: <work> stands for this run's working directory, made by mktemp -d under TMPDIR (<phase>/tmp unless RUN_WORK names another for a dry run), on the disk (the counting library, the assembly's output and standard error, the awk programs and their outputs, the controls' copies), kept after the run and never removed
+root: <corpus> stands for the private corpus directory; nothing under it is written by this run
+root: <stage> stands for <corpus>/work/excel-check-m7-2026-10-25, P1's stage, holding the list (excel-check-list.txt) and the maintainer's results file (open-results.txt); read, never written; neither is committed
+root: <runs> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)
+root: <scratch> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)
+root: <source> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)
+root: <target> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)
+  the roots <scripts>, <repo>, <corpus>, <phase>/record-from-planning and TMPDIR are distinct, none inside another: yes
+  <work>, the directory mktemp -d made, is under TMPDIR: yes
+  control: the same test refuses a working directory under /tmp: yes
+command: count_tempcalls <this script>, and the same over a fixture of three lines: a directory call, a file call, a comment
+  mktemp calls in this script outside comments: 1 (the one that makes <work>, checked under TMPDIR above); in the fixture: 2
+  this script makes one mktemp call, <work>'s, and no plain temporary file: yes
+  control: the same count finds the fixture's two calls and not its comment: yes
+  the record's destination lies outside <corpus>: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 2; of them admitted by the phase's pattern (this phase's logs, the record, planning's modified specs/0044) 2; the lines:
+     M specs/0044-excel-check.md
+    ?? records/logs/m7p1-p2/
+  control: the phase's status pattern refuses a modified gate file: yes
+  control: the phase's status pattern admits this phase's log, the record and planning's specs/0044 alone; it refuses another phase's log, a record of another date or milestone, a modified record, ROADMAP.md, specs/0043 and a source file (change TB): yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 7 part 1 P2 run.log (specs/0044-excel-check.md, "The record
+    # (P2)", "P2: the record" and "Planning rulings on the P2 results
+    # (2026-10-26)", rulings W, AA and AB, held in the working spec;
+    # specs/0043 rulings Q and R as standing rules). No build, no sample, no
+    # LibreOffice:
+    #   1. the inputs pinned: planning's record, its assembly script and the
+    #      by-hand file under <phase>/record-from-planning, and the stage's
+    #      list and results file under <stage>, each sha256 shown equal to the
+    #      hash ruling V and planning's P2 brief give; the stage read, never
+    #      written (its top-level listing equal before and after);
+    #   2. the record copied byte for byte to records/excel-check-m7-
+    #      2026-10-26.md, its sha256 shown equal (ruling W);
+    #   3. the assembly run again with the stage's list and results file, the
+    #      by-hand file and the three machine arguments into a file under
+    #      <work>: exit 0, nothing on its standard error, its sha256 equal to
+    #      the record's (ruling W);
+    #   4. the record's table rows whose bytes and sha256 pair is found among
+    #      the list's rows of the same source, and the fixture rows' input
+    #      pairs among the list's input rows, by an awk program that prints
+    #      counts (ruling AB), with a planted control;
+    #   5. the totals line recomputed by awk from the results file and the
+    #      by-hand file (a by-hand row's cell's first word replacing that row's
+    #      result), equal to the record's; the results file's counts alone
+    #      printed beside as information (ruling AA), with a control.
+    # A FINDING line is printed only for a stop, a mismatch or a count that
+    # differs; the record's own five findings are its content, carried to
+    # part 2, and print no FINDING here (ruling W). No list or results row, no
+    # reference, expect or seen value and no message cell is printed; counts
+    # and hashes only. Nothing under <corpus> is written.
+    #
+    # GENERATED by <phase>/gen/run.py from M7 part 1 P1's run script
+    # (<phase>/model/m7p1-p1/scripts/m7p1-p1-run.sh, sha256 asserted and shown
+    # equal to the script printed in records/logs/m7p1-p1/run.log at the base);
+    # its conventions (the environment inputs, TMPDIR and the one mktemp, the
+    # four shapes, the roles by subject, the spec and PLANNING_SPEC, the scrub,
+    # the status pattern, the standard-error block) are carried, the generator
+    # asserting each carried line verbatim in P1's code. P1's comment text
+    # follows below as the carried history. The changes continue P1's run
+    # series (its last, TA):
+    #  TB. The names: Milestone 7 part 1 P2, the phase directory m7p1-p2, the
+    #      log directory records/logs/m7p1-p2; the roles, by subject: P1's
+    #      record commit (the base) and P2's doc commit, the phase commit (no
+    #      code commit, specs/0044 "P2: the record"); specs/0044 pinned at the
+    #      doc commit's blob and the working file checked against
+    #      PLANNING_SPEC; the status pattern takes this phase's log directory,
+    #      the record records/excel-check-m7-2026-10-26.md and planning's
+    #      specs/0044. One argument, the phase commit (no gate log: no binary
+    #      is run). The dry run's overrides (specs/0043 ruling Q): RECORDS_DEST
+    #      (where the record is copied) and RUN_WORK (the parent under which
+    #      <work> is made, <phase>/tmp by default); a run that sets neither is
+    #      the logged run.
+    #  TC. P1's reruns, comparison, keep, open check, list, stage and zip
+    #      blocks are not carried (P2 runs none of them). New: the five inputs
+    #      pinned by full sha256, their row counts checked, and the stage's
+    #      top-level listing taken before and after, shown equal.
+    #  TD. NEW: the record copied to RECORDS_DEST, refused at entry when there,
+    #      its sha256 equal to the pin and cmp-equal to its source (ruling W).
+    #  TE. NEW: the assembly run again (python3 -I -B) with the stage's list
+    #      and results file, the by-hand file and the three arguments ruling V
+    #      gives; exit 0, empty standard error, output equal to the record
+    #      (ruling W); a STOP line or a difference is a FINDING.
+    #  TF. NEW: the pair counts per source (ruling AB: 1560 and 2229, 3789 of
+    #      3789; the input pairs 2229 of 2229), each record count equal to the
+    #      list's count for its source, with a control planting one unknown
+    #      sha256 in a corpus row and one in a fixture row's input; the totals
+    #      by awk over the results file and the by-hand file (ruling AA) equal
+    #      to the record's totals line, the results-alone counts printed as
+    #      information, with a control changing one number.
+    #
+    # M7 part 1 P1's text:
+    # Milestone 7 part 1 P1 run.log (specs/0044-excel-check.md, "The reruns
+    # (P1)", "The keep and its open record (P1)", "The list and the stage
+    # (P1)", "Harness runs" and "P1: the reruns, the keep, the list, the
+    # stage"; specs/0044's planning rulings during P1, A to K, held in the
+    # working spec; specs/0043 rulings Q and R as standing rules). On the host
+    # only, with the gate's release emend-copy and xlsx-diff (no build here):
+    #   1. the binaries: the gate's release builds read from <target>/main/
+    #      release, copied into <work>/bin, each copy's sha256 shown equal to
+    #      the line the gate log (the second argument) prints for it;
+    #   2. the flag list: every flag ending in -sample that the copy's own
+    #      usage text names, in its order, with the count, shown equal to the
+    #      USAGE constant of tools/emend-copy/src/main.rs at the phase commit;
+    #      --new-sample excluded (specs/0016, P2), --drop-calc-chain not a
+    #      sample (specs/0029 P5 verification ruling 1), both printed;
+    #   3. the reruns: each flag once over the corpus by
+    #      scripts/passthrough-run.sh --label host, --timeout 300, the pinned
+    #      image, --lo-timeout 600 (ruling A), TMPDIR <work>/tmp-run on the
+    #      disk, into <runs>/<utc-date>-<shortsha>-<name>, <name> the flag
+    #      less -- and -sample; each directory's outcome counts (ok, error and
+    #      any other) and its run.host.tsv's commit and tool_args asserted;
+    #      each recorded by scripts/passthrough-record.py as
+    #      m7p1-<name>-<utc-date>-<shortsha>.md and .txt;
+    #   4. each sample's host row (files, ok, lo ok, lo_in ok) and its
+    #      summary's identical count compared with its latest committed record
+    #      (rulings E and J), a difference printed as a FINDING, not fixed;
+    #   5. the host keep regenerated (cargo test --workspace with
+    #      EMEND_KEEP_DIR on that command alone; ruling F) and opened by
+    #      scripts/edit-open-check.sh into m7p1-open-<utc-date>-<shortsha>;
+    #      its totals compared with records/m6p6-open-2026-10-24-7ac8b74's
+    #      (pairs, lo_in ok, lo ok), a difference a FINDING (ruling K);
+    #   6. the record pairs installed into records/;
+    #   7. the formula check (ruling H): the --run directory's run.host.tsv
+    #      names --formula-sample and no other tool argument, by a named
+    #      function whose line range this log prints for the negative log;
+    #   8. the list, scripts/excel-check-list.py, --run the formula directory,
+    #      --run-plain every other rerun directory in the usage text's order,
+    #      the keep and the open record, into <stage>/excel-check-list.txt,
+    #      <stage> = <corpus>/work/excel-check-m7-<utc-date> made mode 700;
+    #      its stderr notes, row count, counts by source and by label, sha256
+    #      and mode, never a row;
+    #   9. the stage (specs/0016 P1 ruling 4; ruling B): the opener script
+    #      beside the list, every listed file at files/<source>/<file>, each
+    #      files/ directory's count its source's row count, every staged
+    #      file's bytes and sha256 the list's by a named function (a mismatch
+    #      stops the script before the zip); the zip, stored (ruling C), at
+    #      <stage>.zip, its bytes and sha256, read back.
+    # Corpus content is never printed: workbook ids, counts, hashes and
+    # directory names only. The list, the stage and the zip are never
+    # committed. The Milestone 2 stage under <corpus>/work and its zip are
+    # never read, moved or removed by this script (decision 3 A).
+    #
+    # GENERATED by <phase>/gen/run.py. The code is this phase's, written from
+    # Milestone 3 part 7 P5's run script (the last Excel list's: its reruns,
+    # keep, open check, list, stage and zip blocks; copied to
+    # <phase>/model/m3p7-p5/scripts/m3p7-p5-run.sh, sha256 asserted and shown
+    # equal to the script printed in records/logs/m3p7-p5/run.log) in the
+    # conventions of Milestone 6 part 6 P2's run script (its environment
+    # inputs, TMPDIR, PYB and mktemp checks, roles, spec and PLANNING_SPEC
+    # forms; <phase>/model/m6p6-p2/scripts/m6p6-p2-run.sh, sha256 asserted and
+    # shown equal to the script printed in records/logs/m6p6-p2/run.log); the
+    # generator asserts each line it carries from either template verbatim.
+    # M3 part 7 P5's comment text follows below as the carried history. The
+    # changes continue Milestone 6 part 6 P2's run series (its last, RT):
+    #  RU. The names: Milestone 7 part 1 P1, the phase directory m7p1-p1, the
+    #      log directory records/logs/m7p1-p1, the record stems m7p1-<name>-
+    #      and m7p1-open-; the roles, by subject: Milestone 6 part 6's
+    #      close-out record commit (the base) and the doc commit, the phase
+    #      commit (no code commit, specs/0044 "P1"); the spec specs/0044 pinned
+    #      at the doc commit's blob and the working file checked against
+    #      PLANNING_SPEC (M6 part 6 P2's change RO); the status pattern takes
+    #      this phase's log directory, its record files at this date and
+    #      commit and planning's specs/0044. The environment inputs, printed as
+    #      set before any is unset (M6 part 6 P2's form); the dry run's
+    #      overrides (ruling I): RUN_RELEASE_DIR, RUN_OUT_ROOT (the corpus root
+    #      for the list is its parent, which must hold manifest.tsv), RUN_IDS,
+    #      RUN_FLAGS (a subset holding --formula-sample), RUN_KEEP,
+    #      RUN_SKIP_KEEP with RUN_OPEN_RECORD (a committed open record, read at
+    #      the phase commit), RECORDS_DEST and STAGE_ROOT; a run that sets none
+    #      is the logged run and judges the whole set's counts; nothing is
+    #      removed by this script, dry or logged.
+    #  RV. The binaries are the gate's (planning's P1 brief: the run reads the
+    #      gate's release binaries): no build here; the stale build under
+    #      <repo>/target/release is named and not used (ruling E).
+    #  RW. The flags from the binary's usage text (ruling E), not a typed
+    #      table; every flag rerun (decision 1 A): M3 part 7 P5's R2 (the
+    #      samples found on the disk), its DRY=yes mode and its R5 (the README
+    #      check) go; the run.host.tsv assertions and the outcome counts by
+    #      outcome are new; a directory with an outcome other than ok or error
+    #      is a FINDING and left off the list (the list refuses it), error rows
+    #      are the list script's to leave out (specs/0030 item 1).
+    #  RX. NEW: the comparison with each sample's latest committed record
+    #      (rulings E and J): the records at the phase commit indexed by their
+    #      "- Tool arguments:" and "- Record written:" lines; a file name
+    #      carrying -scale-<tier>- is not a candidate; the one ruling E alone
+    #      would pick, when it differs, printed as information.
+    #  RY. The keep (ruling F: made by this script, refused when there at
+    #      entry) and the open check (its exit 1, a finding of the check, is a
+    #      FINDING here, its exit 2 a failure); the totals compared with
+    #      records/m6p6-open-2026-10-24-7ac8b74, shown to be the newest open
+    #      record at the phase commit (ruling K).
+    #  RZ. The list after the formula check (ruling H), its stderr notes read
+    #      as notes; the stage's modes (ruling B), the per-source counts, the
+    #      named stage check; the zip stored (ruling C), one line naming the
+    #      departure from M3 part 7 P5's deflated zip; the record pairs
+    #      installed before the list, so --record names records/.
+    #  TA. The outcome_counts and other_rows controls read a one-table
+    #      fixture, the two-table fixture's first five lines as a file of
+    #      their own; the host_counts control keeps the two-table fixture
+    #      (ruling N: dry run d1's two failing controls; proposed as SA, a
+    #      label the carried history holds).
+    #
+    # M3 part 7 P5's text:
+    # Milestone 3 part 7 P5 run.log (specs/0029-engineering-close.md, "P5: the
+    # Excel list" as amended 2026-10-09; "The Excel check"; "Harness runs" as
+    # amended; "Planning rulings during P4 (2026-10-09)" ruling 2; "Planning
+    # verification and rulings on P4 (2026-10-09)" ruling 2; "Planning rulings
+    # during P5 (2026-10-09)" ruling 1). On the host only, with the phase
+    # commit's release emend-copy and xlsx-diff built in <target>/main:
+    #   R0. the release build, both binaries hashed;
+    #   R1. the corpus samples whose run directories are gone, rerun one run per
+    #       sample flag into <runs>/<utc-date>-<shortsha>-<name>, each recorded
+    #       by scripts/passthrough-record.py as
+    #       records/m3p7-p5-<name>-<utc-date>-<shortsha>.md and .txt: edit and
+    #       edit-formula (specs/0011), style and date (specs/0012), formula
+    #       (specs/0013, the list's --run), sheet and remove (specs/0016), font
+    #       and border (specs/0017), format and the four row and column samples
+    #       (specs/0018), names, link, props and protect (specs/0019), validate,
+    #       cf and scale (specs/0020), table (specs/0021), and printarea
+    #       (specs/0025, rerun by P4 ruling 2 since its directories hold error
+    #       rows); before each, the flag's directories are surveyed by the
+    #       tool-argument column of every run.host.tsv; error rows are findings
+    #       printed, nothing is rerun to make them pass;
+    #   R2. the samples found on the disk, each the newest directory whose
+    #       run.host.tsv names its flag (by the started column, not the name):
+    #       comment and image (specs/0022, in specs/0023's rerun directories)
+    #       and every Milestone 3 sample (specs/0024 to specs/0028), each
+    #       compared with the directory P5's facts expect; a directory with a
+    #       row that is not ok is left out of the list, the count printed;
+    #   R3. the host keep regenerated (cargo test --workspace with
+    #       EMEND_KEEP_DIR) and opened by scripts/edit-open-check.sh into
+    #       records/m3p7-open-<utc-date>-<shortsha>.md and .txt;
+    #   R4. the list, scripts/excel-check-list.py with --run the formula
+    #       directory, --run-plain every other directory in spec order from
+    #       specs/0011 to specs/0028, --keep the keep and --record the open
+    #       record's .txt, into a new stage <corpus>/work/excel-check-m2-<utc-date>
+    #       laid out as specs/0016 P1 ruling 4 says, zipped beside it; the log
+    #       prints the command, the stage's path, the row counts by source and
+    #       the total, the list's and the zip's sha256, never a row;
+    #   R5. the README check repeated with P4's program (its sha256 shown equal
+    #       to the one P4's run log printed) over the phase commit's README, the
+    #       two changed lines shown;
+    #   R6. the records installed into <repo>/records, the status after, and this
+    #       script's own standard error counted (specs/0017 P1 verification
+    #       ruling 7).
+    # Corpus content is never printed: workbook ids, counts, hashes and
+    # directory names only. The list and the stage are never committed.
+    #
+    # DRY=yes, the dry run (P5's instruction: a dry corpus run of one sample is
+    # allowed, into a dry directory the run removes): R1 runs the formula sample
+    # alone, into <runs>/dry-<utc-date>-<shortsha>-formula; R3 is skipped and the
+    # list takes <home>/.cache/emend-build/m3p1-p3/keep-host with
+    # records/m3p1-open-2026-10-02-6578925.txt (read at the phase commit), the
+    # newest keep on the disk that matches its record; R4 writes
+    # <corpus>/work/dry-excel-check-m2-<utc-date> and its zip; nothing is
+    # installed in <repo>; at the end this script removes the dry run directory,
+    # the dry stage and the dry zip it made in that run.
+    #
+    # CARRIED TO M3 part 7 P5 from M3 part 7 P4's run script (printed in
+    # records/logs/m3p7-p4/run.log), generated by
+    # <home>/.cache/emend-build/m3p7-p5/gen/run.py; the sample-run, record, keep
+    # and open-check blocks take their forms from M3 part 6 P4's run script
+    # (records/logs/m3p6-p4/run.log) and the list and stage block from M2 part 1
+    # P1's (records/logs/m2p1-p1/run.log). P4's comment text follows below as
+    # the carried history; the code is this phase's. What differs, and why:
+    #  XLA. The phase, the log directory, the subjects and the script directory
+    #       (<scripts>, <home>/.cache/emend-build/m3p7-p5/scripts) are P5's; the
+    #       base is P4's record commit ("M3 part 7 P4 record:"), the doc commit
+    #       and the code commit (the README's two sentences, the phase commit)
+    #       resolved by their subjects; the spec's blob at the phase commit is
+    #       pinned at the doc commit's; planning's working spec, holding the
+    #       rulings during P5, is the one uncommitted file the status allows.
+    #  XLB. P4's README checks 2 to 5 go: P5's run log repeats the README check
+    #       alone (P4 verification ruling 2), with P4's program, its hash shown
+    #       equal to P4's run log's.
+    #  XLC. NEW, R0: the release build of emend-copy and xlsx-diff in
+    #       <target>/main (as M3 part 7 P3's size log built the release
+    #       emend-copy), host only.
+    #  XLD. NEW, R1 and R2: the sample table in spec order, each flag's
+    #       directories surveyed by run.host.tsv's tool_args column, newest by
+    #       its started column; the reruns in part 6 P4's command form, host
+    #       only, each recorded with --allow-single (M2 part 1 P1's form).
+    #  XLE. NEW, R3: the keep and the open check in part 6 P4's form, host only
+    #       (no i686 keep: the list takes the host keep alone).
+    #  XLF. NEW, R4: the list and the stage in M2 part 1 P1's form, the stage
+    #       under <corpus>/work (P5's text), the list script run from a git show
+    #       copy at the phase commit; the counts printed by source, never a row.
+    #  XLG. NEW, R6: the record pairs are written into <work>/records, a
+    #       directory this run makes, and installed from there, so no earlier
+    #       attempt's staged records can stand in the way (the dry-run gotcha of
+    #       M2 part 4c).
+    #  XLH. NEW: DRY=yes, the dry run, as described above.
+    #  XLI. The status pattern takes this phase's log directory, planning's
+    #       working spec and the phase's record files by their stems.
+    #
+    # P4's text:
+    # Milestone 3 part 7 P4 run.log (specs/0029-engineering-close.md, "P4: the
+    # README and the list" as amended 2026-10-09: "The run log: the README
+    # check"; "The README (decision 4)": "every sentence holding a digit cites a
+    # path under `records/` that exists at HEAD (a command the log prints, with
+    # a control on a planted sentence), and the file holds no U+2014, no
+    # absolute path and no corpus content"; "Planning rulings during P4
+    # (2026-10-09)" ruling 1: each figure read from the record it cites by a
+    # command the log prints). Over the phase commit's README.md, read by git
+    # show, and the records it cites, read at the phase commit by git show:
+    #   1. the README check (<scripts>/readme_check.py, printed with its
+    #      sha256): every sentence holding a digit cites a records/ path the
+    #      phase commit's tree holds; a planted uncited sentence refused;
+    #   2. every figure read from its record by a printed command (the size
+    #      record's figures table and sentences, part 6 P4's four sample
+    #      records' "Files by outcome" host row and the copy record's host
+    #      family total row, the open record's totals, the scale record's
+    #      sentence and throughput table), the figures ruling 1 names compared
+    #      with the ruling's values, and each figure found in its README
+    #      sentence once, with a control changing the value;
+    #   3. the README's number tokens outside paths and the target name, as a
+    #      set, equal to the figures checked, with a control planting one more;
+    #   4. the README's features equal to crates/emend/Cargo.toml's [features]
+    #      at the phase commit, each named with a specs/ path the tree holds;
+    #   5. no U+2014, no non-ASCII byte, no absolute path, no corpus directory
+    #      name and no private-denylist word in README.md, counts only, each
+    #      with a control;
+    #   6. this script's own standard error counted (specs/0017 P1 verification
+    #      ruling 7).
+    # No corpus is read and nothing from the corpus is printed.
+    #
+    # CARRIED TO M3 part 7 P4 from M3 part 7 P3's run script (printed in
+    # records/logs/m3p7-p3/run.log), generated by
+    # <home>/.cache/emend-build/m3p7-p4/gen/run.py. P3's runs (part 6's four
+    # samples over the corpus) are P3's and are not rerun: "Harness runs" gives
+    # P4 no corpus run, and the Excel list is P5's (P4 ruling 2). P3's comment
+    # text follows below as the carried history; the code is this phase's. What
+    # differs, and why:
+    #  FA. The phase, the log directory and the subjects are M3 part 7 P4's.
+    #      The base is P3's record commit ("M3 part 7 P3 record:"); the doc
+    #      commit and the code commit, the phase commit, by their full
+    #      subjects. The spec is specs/0029, pinned at its blob at the doc
+    #      commit, 2ddd2b06 (FACTS.md); the working file, planning's rulings
+    #      during P4, is printed and not asserted. The status pattern allows
+    #      this phase's logs and planning's two uncommitted files, specs/0029
+    #      and ROADMAP.md (the phase writes no record).
+    #  FB. No corpus run, no build and no binary: no size log, release binary,
+    #      run directory, TMPDIR or corpus device is read or printed. The
+    #      library scripts/counting.sh, README.md, the cited records and
+    #      crates/emend/Cargo.toml are read at the phase commit by git show
+    #      into <scratch>/w; the README check program is read from <scripts>.
+    #  FC. The README check of item 1, its control a copy with one planted
+    #      paragraph.
+    #  FD. The figures of item 2: each read by md_cell (a table's cell by its
+    #      section heading, its row label and its column header's name) or by
+    #      grep -o over the record's text with its line ends joined, the
+    #      command printed beside the value; ruling 1's values written in this
+    #      script as the expectations the records are compared with.
+    #  FE. Items 3 to 5, each with its control; the private denylist is read
+    #      from <home>/.config/emend/private-denylist.txt, its comment and
+    #      blank lines dropped, its entries counted and never printed; the
+    #      absolute-path and corpus-name patterns are built by concatenation so
+    #      this script holds neither shape.
+    #  FF. Root lines for the placeholders the carried history prints before a
+    #      slash and this log never uses, each saying so, as P3's negative
+    #      change XD did.
+    #
+    # P3's text:
+    # Milestone 3 part 7 P3 run.log (specs/0029-engineering-close.md, "Harness
+    # runs" and "P3: the record, the size and the review"):
+    #   1. the release binaries size.log built and hashed at the phase commit on
+    #      both targets, run where it built them, <target>/main, each checked
+    #      against its "hash:" line in the size.log given, none built here;
+    #   2. before the run, the survey of the corpus (copysurvey.py, part 6's,
+    #      byte for byte), its forms checked and its counts later checked against
+    #      every copy line and the comparison's parts;
+    #   3. the corpus's workbooks holding xl/calcChain.xml counted, and TMPDIR
+    #      for the corpus runs made on the disk under <work>, its device and the
+    #      corpus directory's printed and compared;
+    #   4. part 6's four samples on both targets, --copy-sample with part 6's own
+    #      checks (copycmp.py, byte for byte) and --anchor-sample,
+    #      --remove-image-sample and --commentbox-sample with every row ok and
+    #      every input and output opening; each sample's every output, line and
+    #      diff table byte for byte part 6 P4's run's, its run directories named
+    #      by part 6 P4's record commit; each sample recorded as
+    #      m3p7-p3-<sample>-<utc-date>-<shortsha>.md and .txt, the record
+    #      checked against its run directory table by table and its header's
+    #      binaries lines against the binaries run (specs/0029 item 5);
+    #   5. no keep and no open check: "Harness runs" names the four samples
+    #      alone;
+    #   6. this script's own standard error counted (specs/0017 P1 verification
+    #      ruling 7).
+    # No text, reference, sheet name or part name from the corpus is printed.
+    #
+    # CARRIED TO M2 part 4c P1 from part 4b P3's run script (at the phase commit
+    # 631c719, printed in records/logs/m2p4b-p3/run.log; its change list BW to CA
+    # is there, with P2's, P1's and part 4a's before it), generated by
+    # <home>/.cache/emend-build/m2p4c-p1/gen/run.py, every replacement asserted
+    # to occur once, and grepped for P3's names, subjects, stems, hashes, labels
+    # and the tokens p3, scale-sample, scalecmp, visual, extended and the fourth
+    # code commit in every form. What differs, and why:
+    #  CB. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m2p4c-p1/scripts, on the disk),
+    #      the build directory (m2p4c-p1/run) and the keep (m2p4c-p1/keep-host)
+    #      are this phase's; the base is part 4b's close-out record commit ("M2
+    #      part 4b close-out record:"); the phase commit is P1's tool commit by
+    #      its subject, P3's fourth-commit checks (its change CA) dropped; the
+    #      record stems are m2p4c-p1- and m2p4c-open-.
+    #  CC. specs/0020 P4 verification ruling 4: the committed open-check record
+    #      the keep is compared with is named by its record commit, part 4b P4's
+    #      2f7933bd..., typed here as planning's record, and checked to be a
+    #      record commit that added exactly one open-check .txt with no later
+    #      commit adding another; no phase directory is found by a search of
+    #      subjects. This run compares against no earlier phase's run directory.
+    #  CD. The comparison is tblcmp.py, written for this phase; the checks, the
+    #      line's keys and the entry expectation are --table-sample's
+    #      (specs/0021 "Harness runs"): W changed, W's rels part changed, or
+    #      added where the input has none, [Content_Types].xml changed, each
+    #      flagged descriptor at most; the table part added, unflagged; every
+    #      other entry identical and unflagged; nothing recompressed or dropped.
+    #      The line's relations are the spec's: tables_after, parts_after and
+    #      rels_after one more than before, cells_after two more; the tool's
+    #      counts equal the comparison's (tables, parts, relationships,
+    #      container, relationships prefix, id and cells). The record's changed
+    #      families are content-types, worksheet and rels where some input has
+    #      W's rels part; its added families table and rels where some input
+    #      has none, derived from the comparison's --parts lines.
+    #  CE. The spec pin: planning's rulings during P1 stand uncommitted in the
+    #      working tree's specs/0021 and the logs pin the committed spec at P1's
+    #      doc commit (planning's word).
+    #  CF. The shapes the comparison finds for the header row (appended,
+    #      inserted, filled, opened) are printed per workbook and totalled; the
+    #      spec's "exactly one appended <row>" reads a row the input already
+    #      holds, empty, as the row the cells go into, which the design's cell
+    #      pass does, and the log counts each shape.
+    #
+    # CARRIED TO M2 part 4d P1 from part 4c P1's run script (at the phase commit
+    # 40ae039, printed in records/logs/m2p4c-p1/run.log; its change list CB to CF
+    # is above), generated by <home>/.cache/emend-build/m2p4d-p1/gen/run.py,
+    # every replacement asserted to occur once, and grepped for P1's names,
+    # subjects, stems, hashes, labels and the tokens m2p4c-p1, 4c P1, 2f7933b,
+    # m2p4b-open, tblcmp, table-sample and the header row's shapes in every form.
+    # Part 4c P2's and P3's run scripts (records/logs/m2p4c-p2/run.log and
+    # m2p4c-p3/run.log, changes CG to DF) are not carried: CH and CI are the table
+    # removal's; DB to DF the size log's binaries and the comparison against the
+    # previous phase's run directory, which a phase introducing a sample does not
+    # have; their naming rule, change CC's form, stands here for the open-check
+    # record. What differs, and why:
+    #  EA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m2p4d-p1/scripts, on the disk),
+    #      the build directory (m2p4d-p1/run) and the keep (m2p4d-p1/keep-host)
+    #      are this phase's; the base is part 4c's close-out record commit ("M2
+    #      part 4c close-out record:"); the phase commit is P1's tool commit by
+    #      its subject; the record stems are m2p4d-p1- and m2p4d-open-; the spec
+    #      is specs/0022, its committed blob pinned through SPEC_SHA, planning's
+    #      rulings during P1 standing uncommitted in the working tree's copy.
+    #  EB. Change CC's form: the committed open-check record the keep is
+    #      compared with is M3 part 1 P3's, named by its record commit e1f37363...,
+    #      typed here as planning's record, and checked to be a record commit
+    #      that added exactly one open-check .txt with no later commit adding
+    #      another. This run compares against no earlier phase's run directory.
+    #  EC. The comparison is cmtcmp.py, written for this phase from tblcmp.py's
+    #      readers; the checks, the line's keys and the entry expectation are
+    #      --comment-sample's (specs/0022 "Harness runs"): where W has no
+    #      legacyDrawing, W changed, W's rels part changed, or added where the
+    #      input has none, [Content_Types].xml changed, each flagged descriptor
+    #      at most, and the comments and VML parts added, unflagged; where W has
+    #      both parts, the comments and VML parts changed and nothing else;
+    #      where W has the VML part alone, it, W's rels part and the content
+    #      types changed and the comments part added; every other entry
+    #      identical and unflagged; nothing recompressed or dropped. The line's
+    #      relations are the spec's: comments_after and shapes_after one more
+    #      than before, parts_after two, one or no more as W had neither part,
+    #      the VML part alone or both, authors_after one more or the same; the
+    #      tool's counts equal the comparison's (comments, parts, legacyDrawing,
+    #      comments relationship, relationships prefix, note shapes, authors).
+    #      The record's changed and added families are derived from the
+    #      comparison's --parts lines.
+    #  ED. The shapes of the edit the comparison finds (created=2, both parts
+    #      created; 0, both appended to; 1, the comments part created beside a
+    #      kept VML part) are printed per workbook and totalled, as change CF's
+    #      header-row shapes were.
+    #
+    # CARRIED TO M3 part 2 P1 from part 4d P1's run script (at the phase commit
+    # f7d6a7d, printed in records/logs/m2p4d-p1/run.log; its change list EA to ED
+    # is above), generated by <home>/.cache/emend-build/m3p2-p1/gen/run.py, every
+    # replacement asserted to occur once, and grepped for 4d P1's names,
+    # subjects, stems and the tokens m2p4d, 4d P1, 4c P3, m2p4c-open, e1f37363,
+    # cmtcmp, comment-sample and specs/0022 in every form. Part 4d P2 to P4's and
+    # M3 part 1's run scripts are not carried as a base: 4d P2's FC is the
+    # comment removal's, 4d P3's GC and GD the image sample's, 4d P4's HB to HD
+    # the size log's binaries and a comparison with the previous phase's runs,
+    # and M3 part 1 P3's IE and IF the scale runs, none of which this phase has.
+    # M3 part 1 P3's ID and IC are carried (JE, JF). What differs, and why:
+    #  JA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p2-p1/scripts, on the disk),
+    #      the build directory (m3p2-p1/run) and the keep (m3p2-p1/keep-host) are
+    #      this phase's; the base is M3 part 1's close-out record commit ("M3
+    #      part 1 close-out record:"); the phase commit is P1's tool commit by
+    #      its subject; the record stems are m3p2-p1- and m3p2-open-; the spec is
+    #      specs/0024-rich-text.md, its committed blob pinned through SPEC_SHA,
+    #      planning's rulings during P1 standing uncommitted in the working
+    #      tree's copy.
+    #  JB. Change CC's form: the committed open-check record the keep is
+    #      compared with is M3 part 1 P3's, the last committed, named by its
+    #      record commit, which is resolved here by its subject ("M3 part 1 P3
+    #      record:"; no hash is typed into this script) and checked to be a
+    #      record commit that added exactly one open-check .txt with no later
+    #      commit adding another, an ancestor of the base and not the base. The
+    #      control names the base, whose subject is not M3 part 1 P3's record's.
+    #  JC. The comparison is richcmp.py, written for this phase on cmtcmp.py's
+    #      readers; the checks, the line's keys and the entry expectation are
+    #      --richtext-sample's (specs/0024 "Harness runs"): W changed, flagged
+    #      descriptor at most; every other entry identical and unflagged, the
+    #      shared strings part among them; nothing added, recompressed or
+    #      dropped. The line's relations are the spec's: sst_rich_after equal to
+    #      sst_rich_before, inline_rich_after one more than inline_rich_before,
+    #      runs_after 2, text_after and bold_first 1; the tool's counts equal the
+    #      comparison's (rich items in, rich items out, rich cells in, rich cells
+    #      out, runs, text, fonts, relationships prefix). The record's changed
+    #      family is W's, derived from the comparison's --parts lines through the
+    #      record script's own family rule; no family is added.
+    #  JD. The shapes of the edit the comparison finds (created, a row N added;
+    #      opened, an empty row N opened; filled, a row N with content given the
+    #      cell) are printed per workbook and totalled, as change ED's were.
+    #  JE. M3 part 1 P3's change ID: RUN_OUT_ROOT (the corpus run directories'
+    #      parent, <corpus>/runs by default) and RUN_SKIP_KEEP (yes skips the
+    #      keep and the open check, a dry run's way past cargo) are inputs for a
+    #      dry run, printed; the logged run sets neither. The record-path check
+    #      reads the list of the record files this run installed, so a skipped
+    #      section names none.
+    #  JF. M3 part 1 P3's change IC: the tests the phase adds or edits, which may
+    #      account for new or changed keep pairs, are read from the named record
+    #      commit (JB) to the phase commit, since the open-check record compared
+    #      with is that commit's.
+    #  JG. NEW, specs/0024 P1 ruling 2: before the run, the shape survey of the
+    #      corpus's <rPr> children, rpr_survey.py (<home>/.cache/emend-build/
+    #      m3p2-p1/gen/rpr_survey.py, copied in and printed), its output printed
+    #      (kind, child, attribute shapes and counts; no text and no font name),
+    #      and checked: every child one the reader takes or drops, none outside
+    #      the main namespace, every rgb of 8 digits, with a control on a planted
+    #      line of each kind.
+    #  JH. NEW: an independent count of each corpus workbook's rich shared
+    #      strings items (main <si> holding a main <r>, ElementTree), ids and
+    #      counts only, beside the tool's sst_rich_before on both targets, each
+    #      equal; the spec's "Facts planning checked" figure ("22 rich items in
+    #      all", and the workbooks it names, read from the committed spec) beside
+    #      the measured total, the difference and the ids it does not name
+    #      printed as a FINDING for planning, not a check.
+    #  JI. No `rm -rf` anywhere (the maintainer's rule, 2026-09-27): this run's
+    #      working directory is <work>, made by mktemp -d under <scripts>/out on
+    #      the disk and kept, never removed; the i686 keep is kept beside the
+    #      host keep under <build>, not removed; Python writes no bytecode
+    #      (PYTHONDONTWRITEBYTECODE=1, so no scripts/__pycache__ arises to be
+    #      removed), checked.
+    #  JJ. Found by this script's own dry run, before any logged run: the
+    #      changed family read W's part from every parts-* file, the control
+    #      fixture parts-ctl among them, and expected a family "other" no
+    #      workbook has; every read of the per-workbook parts files now goes by
+    #      the manifest order, with a count check.
+    #
+    #
+    # CARRIED TO M3 part 3 P1 from M3 part 2 P1's run script (at the phase
+    # commit 7d2f40d, printed in records/logs/m3p2-p1/run.log; its change list
+    # JA to JJ is above), generated by <home>/.cache/emend-build/m3p3-p1/gen/
+    # run.py, every replacement asserted to occur as often as it says, four
+    # blocks replaced whole by their anchor lines, and grepped afterwards for
+    # P1's names, subjects, stems and the tokens m3p2-p1, m3p2-open, m3p1-open,
+    # "M3 part 1", richcmp, rpr_survey, richcount, richtext, sst_rich, inline_rich
+    # and specs/0024 in every form. M3 part 2 P2's run script (records/logs/
+    # m3p2-p2/run.log, changes KA to KI) gives KD, KE and KF's forms, here LE and
+    # LF; its comment-sample checks are not this sample's. What differs, and
+    # why:
+    #  LA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p3-p1/scripts, on the disk),
+    #      the build directory (m3p3-p1/run) and the keep (m3p3-p1/keep-host) are
+    #      this phase's; the base is M3 part 2's close-out record commit ("M3
+    #      part 2 close-out record:"); the phase commit is P1's tool commit by its
+    #      subject; the record stems are m3p3-p1- and m3p3-open-; the spec is
+    #      specs/0025-sheet-and-print-settings.md, its committed blob at P1's doc
+    #      commit pinned through SPEC_SHA, planning's rulings during P1 standing
+    #      uncommitted in the working tree's copy.
+    #  LB. Change JB's form: the committed open-check record the keep is
+    #      compared with is M3 part 2 P3's, the last committed, named by its
+    #      record commit, resolved here by its subject ("M3 part 2 P3 record:";
+    #      no hash is typed into this script) and checked to be a record commit
+    #      that added exactly one open-check .txt with no later commit adding
+    #      another, an ancestor of the base and not the base. The control names
+    #      the base, whose subject is not M3 part 2 P3's record's.
+    #  LC. The comparison is svcmp.py, written for this phase on richcmp.py's
+    #      readers; the checks are --sheetview-sample's (specs/0025 "Harness
+    #      runs" and "The pass"), its flags listed in its docstring, printed
+    #      below; --parts gives W's part and whether the input's entry sets
+    #      general purpose bit 3. The line's relations are the spec's:
+    #      sheetpr_after 1, tabcolor_after 1, views_after equal to views_before
+    #      or 1 where W had none, zoom_ok, grid_ok and headings_ok 1; the tool's
+    #      counts equal the comparison's (sheetPr, tabColor and sheetView before
+    #      and after, the kept attributes, the relationships prefix). The
+    #      entries: W changed, every other entry identical; nothing added,
+    #      recompressed or dropped. The record's changed family is W's, derived
+    #      from the --parts lines through the record script's own family rule;
+    #      no family is added. The edit's shapes (created_pr, created_views) are
+    #      printed per workbook and totalled, as JD's were.
+    #  LD. NEW, the survey (svsurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces JG's <rPr> survey and JH's independent count: it
+    #      takes <corpus> as its parameter, lists <corpus>/corpus (every regular
+    #      file, no extension glob; the count checked against the manifest's
+    #      rows), and prints per workbook W's <sheetPr> count, attribute names
+    #      and child names, its <tabColor> count and attribute forms, its
+    #      <sheetView> count and the first view's attribute names, and the count
+    #      of those the sample keeps; the log checks the forms (at most one
+    #      <sheetPr>, its children in 18.3.1.82's order, each tab colour a form
+    #      styles::Color has, each view attribute one 18.3.1.87 names, or a
+    #      namespace declaration), each with a control, and checks every tool
+    #      line's sheetpr_before, tabcolor_before, views_before and kept_attrs
+    #      against it.
+    #  LE. specs/0024 P1 verification ruling 6 (P2's KD): every row ok; a
+    #      refusal by the layer is still counted by row and message, and fails
+    #      the summary.
+    #  LF. specs/0024 P1 verification ruling 6 (P2's KE and KF): the entries
+    #      table wants the flag descriptor on W's changed row exactly when the
+    #      input's local header sets bit 3 and no flag elsewhere, the summary's
+    #      flagged total checked against the sum the --parts lines give; the
+    #      comparison checks the pair's xml values rows are W's alone, with
+    #      in_only and out_only the one-sided counts of the values the design
+    #      removes and writes, keyed by resolved element and attribute names as
+    #      xlsx-diff keys them (xml_values), and the descriptor flags (flagged);
+    #      the totals over the ok workbooks are printed and checked, out_only at
+    #      least one.
+    #  LG. NEW, specs/0024 P3 verification ruling 5 (carried by its close-out
+    #      ruling 3) as specs/0025 "Harness runs" words it: the corpus runs take
+    #      TMPDIR=<work>/tmp-run, made by this script on the disk; the device of
+    #      it and of <corpus>/corpus are printed and checked equal, with a
+    #      control (/proc's device differs); after each label's run the
+    #      directory is checked empty (the runner's own temporary is removed by
+    #      its own trap).
+    #  LH. NEW, specs/0024 P2 verification ruling 6: every flag's planted control
+    #      runs twice, on the first ok workbook in manifest order whose <sheetPr>
+    #      is created and on the first whose <sheetPr> is kept, each on its own
+    #      check line; a case the corpus does not hold fails its line.
+    #  LI. specs/0024 "Planning rulings during P2" ruling 1, as P2's KI reads JI:
+    #      this script runs no `rm -rf`; the sourced scripts/counting.sh, a
+    #      committed script, runs one on the directory its counting controls make
+    #      (allowed: a directory the script created in that run). JI's sentence
+    #      "No `rm -rf` anywhere" above is that history; the working directory
+    #      and the keeps stand, kept, and Python writes no bytecode.
+    #
+    #
+    # CARRIED TO M3 part 3 P2 from M3 part 3 P1's run script (at the phase
+    # commit 9db5f4f, printed in records/logs/m3p3-p1/run.log; its change list
+    # LA to LI is above), generated by <home>/.cache/emend-build/m3p3-p2/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary and four blocks of the body replaced whole by their anchor lines,
+    # and the body grepped afterwards for P1's names, subjects, stems and the
+    # tokens svcmp, svsurvey, sheetview, m3p3-p1 and "M3 part 2 P3". What
+    # differs, and why:
+    #  MA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p3-p2/scripts, on the disk),
+    #      the build directory (m3p3-p2/run) and the keep (m3p3-p2/keep-host) are
+    #      this phase's; the base is M3 part 3 P1's record commit ("M3 part 3 P1
+    #      record:"); the phase commit is P2's tool commit by its subject; the
+    #      record stems are m3p3-p2- and m3p3-open-; the spec's committed blob
+    #      at P2's doc commit is pinned through SPEC_SHA, planning's rulings
+    #      during P2 standing uncommitted in the working tree's copy.
+    #  MB. Change LB's form, as M3 part 2 P2's KB read JB: the committed
+    #      open-check record the keep is compared with is P1's, named by its
+    #      record commit, resolved by its subject ("M3 part 3 P1 record:"; no
+    #      hash is typed here), checked to be a record commit that added exactly
+    #      one open-check .txt with no later commit adding another; it is this
+    #      phase's base itself, the parent of P2's doc commit, which the check
+    #      asserts in place of LB's "an ancestor of the base, not the base"; the
+    #      control names P2's doc commit, whose subject is not a record's.
+    #  MC. The comparison is pscmp.py, written for this phase on svcmp.py's
+    #      readers; the checks are --pagesetup-sample's (specs/0025 "Harness
+    #      runs", "The pass", rulings 1 to 3 during P2), its flags listed in its
+    #      docstring, printed below; --parts as LC's. The line's relations are
+    #      the spec's: each of printOptions, pageMargins, pageSetup and
+    #      headerFooter 1 after, rid_kept, fit_ok, margin_ok, orient_ok,
+    #      header_ok and footer_ok 1; the tool's counts equal the comparison's
+    #      (the four before and after, the other headerFooter children, the
+    #      relationships prefix). The entries: W changed, every other entry
+    #      identical; nothing added, recompressed or dropped. The edit's shapes
+    #      (which of the five and the pageSetUpPr are created) are printed per
+    #      workbook and totalled. The comparison's xml values expectation is the
+    #      one-sided count of the input W's values against the design's W's,
+    #      keyed as xlsx-diff keys a value (LF's rule, derived from both sides
+    #      whole rather than from the edited elements).
+    #  MD. NEW, the survey (pssurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces LD's: it takes <corpus> as its parameter, lists
+    #      <corpus>/corpus (every regular file, no extension glob; the count
+    #      checked against the manifest's rows) and prints, for EVERY worksheet
+    #      part of every workbook (ruling 3 of "Planning rulings during P2": the
+    #      written order is the order the corpus's parts carry, read from this
+    #      survey), the attribute names of the first <printOptions>,
+    #      <pageMargins>, <pageSetup>, <headerFooter> and <sheetPr>'s
+    #      <pageSetUpPr>, and the <headerFooter> child names; then for W the
+    #      counts the tool's before-figures are checked against. The log prints
+    #      each element's sequences with their counts, checks the forms (every
+    #      attribute one the schema names for its element, or a namespace
+    #      declaration, or a relationship id on <pageSetup>; the <headerFooter>
+    #      children in 18.3.1.46's order; at most one of each of the four and of
+    #      <sheetPr> on W), and checks that no surveyed sequence orders two of
+    #      the attributes this part writes otherwise than the order the crate
+    #      writes them in (ruling 3), each with a control.
+    #  ME. Change LE (every row ok), LF (the descriptor flags and the derived
+    #      values) and LG (TMPDIR on the disk for the corpus runs, its device
+    #      against the corpus directory's) stand, unchanged.
+    #  MF. NEW, specs/0025 P1 verification ruling 3 (L2): the open check's own
+    #      TMPDIR, <work>/tmp, has its device printed beside the runs' and the
+    #      corpus directory's and checked equal to the corpus directory's, with
+    #      /proc's as the control, as LG's.
+    #  MG. The plants: every flag's planted control runs on the first ok
+    #      workbook in manifest order whose <printOptions> or <headerFooter> is
+    #      created and on the first where both are kept, as LH's, each on its own
+    #      check line; a case the corpus does not hold fails its line.
+    #  MH. The run loop, the record pair, the keep and the open check are LC's
+    #      to LH's with this phase's names; nothing else changes in them.
+    #  MI. LI stands: this script runs no `rm -rf`; the sourced
+    #      scripts/counting.sh, a committed script, runs one on the directory its
+    #      counting controls make (allowed: a directory the script created in
+    #      that run); the working directory and the keeps stand, kept, and
+    #      Python writes no bytecode.
+    #
+    #
+    # CARRIED TO M3 part 3 P3 from M3 part 3 P2's run script (at the phase
+    # commit a6cf46f, printed in records/logs/m3p3-p2/run.log; its change lists
+    # LA to LI and MA to MI are above), generated by <home>/.cache/emend-build/
+    # m3p3-p3/gen/run.py, every replacement asserted to occur as often as it
+    # says, the top summary and four blocks of the body replaced whole by their
+    # anchor lines, and the body grepped afterwards for P2's names, subjects,
+    # stems and the tokens pscmp, pssurvey, pagesetup and m3p3-p2. What differs,
+    # and why:
+    #  NA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p3-p3/scripts, on the disk),
+    #      the build directory (m3p3-p3/run) and the keep (m3p3-p3/keep-host) are
+    #      this phase's; the base is M3 part 3 P2's record commit ("M3 part 3 P2
+    #      record:"); the phase commit is P3's tool commit by its subject; the
+    #      record stems are m3p3-p3- and m3p3-open-; the spec's committed blob at
+    #      P3's doc commit is pinned through SPEC_SHA, planning's rulings during
+    #      P3 standing uncommitted in the working tree's copy.
+    #  NB. Change MB's form: the committed open-check record the keep is
+    #      compared with is P2's, named by its record commit, resolved by its
+    #      subject ("M3 part 3 P2 record:"), checked to be a record commit that
+    #      added exactly one open-check .txt with no later commit adding another,
+    #      and to be this phase's base, the parent of P3's doc commit; the
+    #      control names P3's doc commit, whose subject is not a record's.
+    #  NC. The comparison is pacmp.py, written for this phase on pscmp.py's
+    #      readers (copied verbatim by <home>/.cache/emend-build/m3p3-p3/gen/
+    #      pacmp.py); the checks are --printarea-sample's (specs/0025 "Harness
+    #      runs", "The calls", rulings 1 to 6 during P3), its flags listed in its
+    #      docstring, printed below; --parts prints W's part and bit 3 and the
+    #      workbook part's. The line's relations are the spec's: area_ok,
+    #      titles_ok, filterdb_ok and hidden_ok 1, autofilter_after 1,
+    #      names_after the names before plus three less those of the three W
+    #      already had; the tool's counts equal the comparison's (the names and
+    #      the autofilters before and after, the relationships prefix). The
+    #      entries: W and xl/workbook.xml changed, every other entry identical
+    #      (the calculation chain, [Content_Types].xml and the workbook's
+    #      relationships among them, ruling 2); nothing added, recompressed or
+    #      dropped; descriptor on each of the two exactly when its input entry
+    #      sets bit 3. The edit's shapes (the autoFilter created or kept, the
+    #      container created or kept, W's name bare or quoted) are printed per
+    #      workbook and totalled.
+    #  ND. NEW, the survey (pasurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces MD's: it takes <corpus> as its parameter, lists
+    #      <corpus>/corpus (every regular file, no extension glob; the count
+    #      checked against the manifest's rows) and prints one line per workbook
+    #      (ids, counts and the class word bare or quoted; no name, reference or
+    #      text): W's name class, M, W's autoFilter count, W's built-in names
+    #      among the three, the workbook's names, W's tables, the overlap of a
+    #      table of W with A1:H(M + 1), the calculation chain and W's
+    #      relationships prefix. The log checks its forms, prints the
+    #      distributions, takes the overlaps as the predicted refusals, and
+    #      checks every ok line's before-figures against it.
+    #  NE. Change LE (every row ok) reads, for this sample, every row ok but
+    #      exactly the predicted refusals (P3: a corpus sheet whose table
+    #      overlaps the area is a finding recorded with its id, not a failure):
+    #      the refused ids, on each label, are the survey's overlaps, each
+    #      refused with the overlap message alone; LF (the descriptor flags and
+    #      the derived values, over both changed parts) and LG (TMPDIR on the
+    #      disk) stand.
+    #  NF. Change MF (the open check's own TMPDIR device) stands, unchanged.
+    #  NG. The plants: every flag's planted control runs on the first ok
+    #      workbook in manifest order whose <autoFilter> is created and on the
+    #      first whose <autoFilter> is kept, as MG's, each on its own check line;
+    #      a case the corpus does not hold fails its line.
+    #  NH. The run loop, the record pair, the keep and the open check are MH's
+    #      with this phase's names; the record is also checked to name every
+    #      refused id (the record shows the refusal, P3).
+    #  NI. MI stands: this script runs no `rm -rf`; the sourced
+    #      scripts/counting.sh, a committed script, runs one on the directory its
+    #      counting controls make (allowed: a directory the script created in
+    #      that run); the working directory and the keeps stand, kept, and
+    #      Python writes no bytecode.
+    #
+    #
+    # CARRIED TO M3 part 4 P1 from M3 part 3 P3's run script (at the phase
+    # commit 5c1a6b3, printed in records/logs/m3p3-p3/run.log; its change lists
+    # LA to LI, MA to MI and NA to NI are above), generated by <home>/.cache/
+    # emend-build/m3p4-p1/gen/run.py, every replacement asserted to occur as
+    # often as it says, the top summary and five blocks of the body replaced
+    # whole by their anchor lines, and the body grepped afterwards for P3's
+    # names, subjects, stems and the tokens pacmp, pasurvey, printarea,
+    # autoFilter, OVERLAP, predicted and m3p3-p3, with M3 part 3 P4's change OF
+    # (records/logs/m3p3-p4/run.log). What differs, and why:
+    #  PA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p4-p1/scripts, on the disk),
+    #      the build directory (m3p4-p1/run) and the keep (m3p4-p1/keep-host) are
+    #      this phase's; the base is M3 part 3's close-out record commit ("M3
+    #      part 3 close-out record:"); the phase commit is P1's rows_present
+    #      commit by its subject (ruling 6); the record stems are m3p4-p1- and
+    #      m3p4-open-; the spec is specs/0026-grouping-and-line-styles.md, its
+    #      committed blob at P1's doc commit pinned through SPEC_SHA, planning's
+    #      rulings during P1 standing uncommitted in the working tree's copy.
+    #  PB. Change LB's form: the committed open-check record the keep is
+    #      compared with is M3 part 3 P4's, the last committed, named by its
+    #      record commit, resolved by its subject ("M3 part 3 P4 record:"; no
+    #      hash is typed into this script), checked to be a record commit that
+    #      added exactly one open-check .txt with no later commit adding
+    #      another, an ancestor of the base and not the base (part 3's
+    #      close-out commits came after it). The control names the base, whose
+    #      subject is not P4's record's.
+    #  PC. The comparison is gpcmp.py, written for this phase on pacmp.py's
+    #      readers (copied); the checks are --group-sample's (specs/0026
+    #      "Harness runs" and "The calls", rulings 1 to 6 during P1), its flags
+    #      listed in its docstring, printed below; --parts prints W's part and
+    #      its bit 3. The line's relations are the spec's (ruling 6):
+    #      rows_after = rows_before + 3 - rows_present, level_rows 2,
+    #      hidden_rows 2, collapsed_rows 1, max_row_ok, max_col_ok and
+    #      summary_ok 1, level_cols 1 or 2; the tool's counts equal the
+    #      comparison's (rows, present rows, cols, level_cols, kept_cols, the
+    #      relationships prefix). The entries: W changed, every other entry
+    #      identical (the calculation chain among them); nothing added,
+    #      recompressed or dropped; descriptor on W exactly when its input
+    #      entry sets bit 3. The edit's shapes (<sheetPr>, <sheetFormatPr>,
+    #      <cols> created or kept, rows created and edited in place) are
+    #      printed per workbook and totalled.
+    #  PD. NEW, the survey (gpsurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces ND's: it takes <corpus> as its parameter, lists
+    #      <corpus>/corpus (every regular file, no extension glob; the count
+    #      checked against the manifest's rows) and prints one line per
+    #      workbook (ids, counts and class words) and one of schema names per
+    #      workbook (the shapes FACTS asks for). The log checks its forms,
+    #      prints the distributions, and checks every line's before-figures
+    #      against it.
+    #  PE. Change LE (every row ok) stands for this sample, as it read before
+    #      P3's NE: no refusal is accepted; the refusal machinery (change BK)
+    #      stays to print any. LF (the descriptor flags and the derived values,
+    #      over W alone) and LG (TMPDIR on the disk) stand.
+    #  PF. NEW, M3 part 3 P4's change OF (specs/0025 P3 verification ruling 4):
+    #      the corpus's workbooks holding xl/calcChain.xml counted by manifest
+    #      order (the survey's chain column, checked against a direct zipfile
+    #      count), and on each label each of their calcChain entry rows
+    #      identical and unflagged, the rule that keeps the chain named in one
+    #      line.
+    #  PG. NEW, ruling 3: the input <col> elements covering column 2 or 3 that
+    #      carry hidden="1", which the group removes, counted per workbook by
+    #      the comparison and totalled per label, checked against the survey's;
+    #      and those carrying a hidden attribute of any value (LibreOffice
+    #      writes hidden="false"), which the write drops as well, since it
+    #      removes the attribute whatever its value, counted the same way.
+    #  PH. Change MF (the open check's own TMPDIR device) stands, unchanged.
+    #  PI. The plants: every flag's planted control runs on the first ok
+    #      workbook in manifest order whose <sheetPr> is created and on the
+    #      first whose <sheetPr> is kept, as NG's, each on its own check line;
+    #      a case the corpus does not hold fails its line.
+    #  PJ. The run loop, the record pair, the keep and the open check are NH's
+    #      with this phase's names; NH's check that the record names every
+    #      refused id is dropped with the refusals (PE).
+    #  PK. NI stands: this script runs no `rm -rf`; the sourced
+    #      scripts/counting.sh, a committed script, runs one on the directory its
+    #      counting controls make (allowed: a directory the script created in
+    #      that run); the working directory and the keeps stand, kept, and
+    #      Python writes no bytecode.
+    #
+    #
+    # CARRIED TO M3 part 4 P2 from M3 part 4 P1's run script (at the phase
+    # commit 93a92d5, printed in records/logs/m3p4-p1/run.log; its change lists
+    # up to PK are above), generated by <home>/.cache/emend-build/m3p4-p2/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary and four blocks of the body replaced whole by their anchor lines,
+    # and the body grepped afterwards for P1's names, subjects, stems and the
+    # tokens gpcmp, gpsurvey, group, hidden, m3p4-p1 and M3 part 3 P4. What
+    # differs, and why:
+    #  QA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p4-p2/scripts, on the disk),
+    #      the build directory (m3p4-p2/run) and the keep (m3p4-p2/keep-host) are
+    #      this phase's; the base is M3 part 4 P1's record commit ("M3 part 4 P1
+    #      record:"); the phase commit is P2's tool commit by its subject; the
+    #      record stems are m3p4-p2- and m3p4-open-; the spec's committed blob at
+    #      P2's doc commit is pinned through SPEC_SHA, planning's rulings during
+    #      P2 standing uncommitted in the working tree's copy.
+    #  QB. Change PB's form: the committed open-check record the keep is
+    #      compared with is M3 part 4 P1's, the last committed, named by its
+    #      record commit, resolved by its subject ("M3 part 4 P1 record:"; no
+    #      hash is typed into this script), checked to be a record commit that
+    #      added exactly one open-check .txt with no later commit adding
+    #      another. It IS the base this time (no close-out lies between), and
+    #      the base is the parent of P2's doc commit; the control names P2's doc
+    #      commit instead, whose subject is not P1's record's.
+    #  QC. The comparison is lscmp.py, written for this phase on gpcmp.py's
+    #      readers (copied by line range); the checks are --linestyle-sample's
+    #      (specs/0026 "Harness runs" and "The calls", P2 rulings 1 and 2, P1
+    #      verification ruling 2), its flags listed in its docstring, printed
+    #      below; --parts prints W's part and its bit 3, then the styles part's
+    #      and its bit 3. The line's relations are the spec's (ruling 1):
+    #      rows_after = rows_before + 1 - rows_present, row_style_ok and
+    #      col_style_ok 1, col_split 1 to 3, xfs_after = xfs_before + 1; the
+    #      tool's counts equal the comparison's (rows, the present row, cols,
+    #      col_split, kept_cols, xfs, the relationships prefix). The entries: W
+    #      and the styles part changed, every other entry identical (the
+    #      calculation chain among them); nothing added, recompressed or
+    #      dropped; descriptor on each changed entry exactly when its input
+    #      entry sets bit 3. The edit's shapes (the column 9 case, <cols>
+    #      created or kept, the row created or edited in place) are printed per
+    #      workbook and totalled.
+    #  QD. NEW, the survey (lssurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces PD's, in PD's form: <corpus> its parameter, every
+    #      regular file of <corpus>/corpus listed, one wb line of twelve fields
+    #      and one names line per workbook; the log checks its forms, prints the
+    #      distributions, and checks every line's before-figures against it.
+    #  QE. Change PE (every row ok) stands; LF (the descriptor flags and the
+    #      derived values, now over W and the styles part) and LG (TMPDIR on the
+    #      disk) stand.
+    #  QF. Change PF (the calculation chain) stands, the entries rule now naming
+    #      W and the styles part as the changed entries.
+    #  QG. Change PG (the hidden covering columns) is dropped with the group:
+    #      the style sample removes no attribute but the row's s and
+    #      customFormat and the <col>'s style it replaces.
+    #  QH. Change PH (the open check's own TMPDIR device) stands, unchanged.
+    #  QI. The plants: every flag's planted control runs on the first ok
+    #      workbook in manifest order whose column 9 <col> is created (no input
+    #      <col> covers it) and on the first whose covering <col> is split (it
+    #      covers more than column 9), each on its own check line; a case the
+    #      corpus does not hold fails its line.
+    #  QJ. The run loop, the record pair, the keep and the open check are PJ's
+    #      with this phase's names; the families the record's check derives are
+    #      W's and the styles part's.
+    #  QK. PK stands: this script runs no `rm -rf`; the sourced
+    #      scripts/counting.sh, a committed script, runs one on the directory its
+    #      counting controls make (allowed: a directory the script created in
+    #      that run); the working directory and the keeps stand, kept, and
+    #      Python writes no bytecode.
+    #
+    #
+    # CARRIED TO M3 part 5 P1 from M3 part 4 P2's run script (at the phase
+    # commit 8416a1e, printed in records/logs/m3p4-p2/run.log; its change lists
+    # up to QK are above), generated by <home>/.cache/emend-build/m3p5-p1/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary and three blocks of the body replaced whole by their anchor lines,
+    # the run loop edited, and the body grepped afterwards for part 4 P2's names,
+    # subjects, stems and the tokens lscmp, lssurvey, linestyle, column 9 and
+    # m3p4-p2. What differs, and why:
+    #  SA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p5-p1/scripts, on the disk),
+    #      the build directory (m3p5-p1/run) and the keep (m3p5-p1/keep-host) are
+    #      this phase's; the base is M3 part 4's close-out record commit ("M3
+    #      part 4 close-out record:"); the phase commit is P1's catalogue commit
+    #      by its subject ("M3 part 5 P1: the read's message catalogued"); the
+    #      record stems are m3p5-p1- and m3p5-open-; the spec is
+    #      specs/0027-read-back.md, its committed blob at P1's doc commit pinned
+    #      through SPEC_SHA, planning's rulings during P1 standing uncommitted in
+    #      the working tree's copy.
+    #  SB. Change PB's form (M3 part 4 P1's, after a close-out): the committed
+    #      open-check record the keep is compared with is M3 part 4 P3's, the
+    #      last committed, named by its record commit, resolved by its subject
+    #      ("M3 part 4 P3 record:"; no hash is typed into this script), checked
+    #      to be a record commit that added exactly one open-check .txt with no
+    #      later commit adding another; it is an ancestor of the base, not the
+    #      base, and the base is the parent of P1's doc commit; the control
+    #      names the base instead.
+    #  SC. The comparison is rtcmp.py, written for this phase on lscmp.py's
+    #      readers (copied by name); the checks are --roundtrip-sample's
+    #      (specs/0027 "Harness runs", "Cell formats", decision 3), its flags
+    #      listed in its docstring, printed below; --parts prints the styles
+    #      part and its bit 3. The line's relations are the spec's:
+    #      styles_added and equal equal to styles_in, xfs_after = xfs_before +
+    #      styles_in, each collection not shrinking; the tool's counts equal the
+    #      comparison's (styles_in, equal, the four collections before and
+    #      after). The entries: the styles part changed, every other entry
+    #      identical (W and the calculation chain among them); nothing added,
+    #      recompressed or dropped; descriptor on the changed entry exactly when
+    #      its input entry sets bit 3. The shapes (the case, the new codes) are
+    #      printed per workbook and totalled.
+    #  SD. NEW, the survey (rtsurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces QD's, in QD's form: <corpus> its parameter, every
+    #      regular file of <corpus>/corpus listed, one wb line of fifteen fields
+    #      per workbook (no names lines); the log checks its forms, prints the
+    #      distributions, checks that no used format reaches a gradient or an
+    #      empty fill and that no code is new, and checks every line's
+    #      before-figures and growths against it.
+    #  SE. Changes PE and QE (every row ok) stand; LF (the descriptor flags and
+    #      the derived values, now over the styles part alone) and LG (TMPDIR on
+    #      the disk) stand.
+    #  SF. Change PF (the calculation chain) stands, the entries rule naming the
+    #      styles part as the one changed entry.
+    #  SG. Ruling 1 of specs/0026 P2 (the row edited in place) does not arise:
+    #      no row is written, so QC's present-row count and its survey column
+    #      are dropped.
+    #  SH. Change PH (the open check's own TMPDIR device) stands, unchanged.
+    #  SI. The plants: every flag's planted control runs on the first ok
+    #      workbook in manifest order whose first appended font the writer spelt
+    #      otherwise than the input's (created, case 1) and on the first whose
+    #      first appended font is byte for byte the input's (kept, case 0), each
+    #      on its own check line; a case the corpus does not hold fails its line.
+    #  SJ. The run loop, the record pair, the keep and the open check are QJ's
+    #      with this phase's names; the family the record's check derives is the
+    #      styles part's.
+    #  SK. QK stands: this script runs no `rm -rf`; the sourced
+    #      scripts/counting.sh, a committed script, runs one on the directory its
+    #      counting controls make (allowed: a directory the script created in
+    #      that run); the working directory and the keeps stand, kept, and
+    #      Python writes no bytecode.
+    #
+    #
+    # CARRIED TO M3 part 6 P1 from M3 part 5 P1's run script (at the phase
+    # commit e727b25, printed in records/logs/m3p5-p1/run.log; its change lists
+    # up to SK are above), generated by <home>/.cache/emend-build/m3p6-p1/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary and four blocks of the body replaced whole by their anchor lines,
+    # and the body grepped afterwards for part 5 P1's names, subjects, stems and
+    # the tokens rtcmp, rtsurvey, roundtrip and m3p5-p1. Part 5 P1's run script
+    # is the template, not P2's: P2's carried P1's whole and changed only what
+    # its read sample (no comparison, every entry identical) and tier d's
+    # --items needed, none of which arises here; a sample that writes parts,
+    # with a comparison and a survey, is P1's shape. What differs, and why:
+    #  UA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p6-p1/scripts, on the disk),
+    #      the build directory (m3p6-p1/run) and the keep (m3p6-p1/keep-host) are
+    #      this phase's; the base is M3 part 5's close-out record commit ("M3
+    #      part 5 close-out record:"); the phase commit is P1's tool commit by
+    #      its subject ("M3 part 6 P1: emend-copy --commentbox-sample"); the
+    #      record stems are m3p6-p1- and m3p6-open-; the spec is
+    #      specs/0028-images-and-comments-second-half.md, its committed blob at
+    #      P1's doc commit pinned through SPEC_SHA, a ruling of planning's
+    #      standing uncommitted in the working tree's copy should one come.
+    #  UB. Change SB's form (after a close-out): the committed open-check record
+    #      the keep is compared with is M3 part 5 P3's, the last committed, named
+    #      by its record commit, resolved by its subject ("M3 part 5 P3
+    #      record:"; no hash is typed into this script), checked to be a record
+    #      commit that added exactly one open-check .txt with no later commit
+    #      adding another; it is an ancestor of the base, not the base, and the
+    #      base is the parent of P1's doc commit; the control names the base
+    #      instead.
+    #  UC. The comparison is cbcmp.py, built for this phase from M2 part 4d P1's
+    #      cmtcmp.py (<home>/.cache/emend-build/m3p6-p1/gen/cbcmp_build.py,
+    #      each replacement asserted): its ten flags stand with the sample's
+    #      text emend box and the note the shown box's, and five are added:
+    #      box_style, visible_child and kept_shapes (the spec's commentbox
+    #      checks), xml_values and flagged (specs/0024 P1 verification ruling 6,
+    #      rtcmp.py's form over every changed .xml, .rels and .vml entry);
+    #      --parts prints part 4d's seven lines. The line's relations are the
+    #      spec's: comments_after and shapes_after one more than before,
+    #      sized_before no more than comments_before, box_equal and
+    #      visible_after 1; the tool's counts equal the comparison's (comments
+    #      and note shapes in and out, the sized comments in, box_ok and
+    #      visible_out). The entries are part 4d P1's rule (its change EC), by
+    #      W's legacyDrawing and comments relationship: where W has neither, W
+    #      and the content types changed, W's rels part changed or added where
+    #      the input has none, the comments and VML parts added; where W has
+    #      both, the comments and VML parts changed; where W has the VML part
+    #      alone, the VML part, the rels part and the content types changed and
+    #      the comments part added; every other row identical and unflagged,
+    #      nothing recompressed or dropped; a changed row flagged descriptor at
+    #      most, and exactly when its input entry sets bit 3 by the
+    #      comparison's flagged. The created parts (2, 1 or 0) are printed per
+    #      workbook and totalled.
+    #  UD. NEW, the survey (cbsurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces SD's, in SD's form: <corpus> its parameter, every
+    #      regular file of <corpus>/corpus listed, one wb line of nine fields
+    #      per workbook; the log checks its forms, prints the distributions and
+    #      checks every line's comments_before, shapes_before and sized_before
+    #      against it.
+    #  UE. Changes PE, QE and SE (every row ok) stand; LF (the descriptor flags
+    #      and the derived values, now over every changed .xml, .rels and .vml
+    #      entry) and LG (TMPDIR on the disk) stand.
+    #  UF. Change SF (the calculation chain) stands, the entries rule (UC)
+    #      leaving the chain identical: no cell or formula is written.
+    #  UG. Change SG (no row written) stands: the comment goes on (M + 1, 1)
+    #      in the comments and VML parts; W gains at most a legacyDrawing.
+    #  UH. Change PH (the open check's own TMPDIR device) stands, unchanged.
+    #  UI. The plants: every flag's planted control runs on the first ok
+    #      workbook in manifest order whose comments and VML parts the sample
+    #      creates (created 2) and on the first whose it keeps (created 0), each
+    #      on its own check line, the plant turning its own flag; kept_shapes on
+    #      the created case has no kept shape to change, and its line checks the
+    #      plant reports planted=no there and the flag stays yes; a case the
+    #      corpus does not hold fails its line.
+    #  UJ. The run loop, the record pair, the keep and the open check are SJ's
+    #      with this phase's names; the families the record's check derives are
+    #      the ones UC's rule changes and adds, by the record script's own
+    #      family rule.
+    #  UK. SK stands: this script runs no `rm -rf`; the sourced
+    #      scripts/counting.sh, a committed script, runs one on the directory its
+    #      counting controls make (allowed: a directory the script created in
+    #      that run); the working directory and the keeps stand, kept, and
+    #      Python writes no bytecode.
+    #
+    #
+    #
+    # CARRIED TO M3 part 6 P2 from M3 part 6 P1's run script (at the phase
+    # commit 2adf953, printed in records/logs/m3p6-p1/run.log; its change lists
+    # up to UK are above), generated by <home>/.cache/emend-build/m3p6-p2/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary and the body from the survey to the corpus record pair's
+    # installation replaced whole (gen/run_block.sh, by its anchor lines), and
+    # the body grepped afterwards for P1's names, subjects, stems and the tokens
+    # cbcmp, cbsurvey, m3p6-p1 and STEM_RUN. What differs, and why:
+    #  VA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p6-p2/scripts, on the disk),
+    #      the build directory (m3p6-p2/run) and the keep (m3p6-p2/keep-host) are
+    #      this phase's; the base is P1's record commit ("M3 part 6 P1
+    #      record:"); the phase commit is P2's tool commit by its subject ("M3
+    #      part 6 P2: emend-copy --anchor-sample and --remove-image-sample"); two
+    #      samples, anchor and removeimage, each with its run directory
+    #      <runs>/<date>-<sha>-<sample> and its record stem
+    #      m3p6-p2-<sample>-<date>-<sha> (M3 part 5 P3's form), and a third run
+    #      directory <runs>/<date>-<sha>-commentbox for the comment box sample's
+    #      rerun; SUPERSEDED_RUN names the three by their common stem; the spec
+    #      pinned through SPEC_SHA at P2's doc commit, planning's rulings during
+    #      P2 standing uncommitted in the working tree's copy, printed.
+    #  VB. Change UB's form: the committed open-check record the keep is
+    #      compared with is P1's, the last committed, named by its record
+    #      commit, resolved by its subject ("M3 part 6 P1 record:"; no hash is
+    #      typed here); it is the base itself, the parent of P2's doc commit; the
+    #      control names the doc commit instead.
+    #  VC. The comparison is imgcmp.py, built for this phase (<home>/.cache/
+    #      emend-build/m3p6-p2/gen/imgcmp_build.py) from M2 part 4d P3's
+    #      imgcmp.py and P1's cbcmp.py readers, one program with a mode per
+    #      sample: anchor carries part 4d's ten flags for two anchors and adds
+    #      two_form, absolute_form and kept_children (the spec's anchor check),
+    #      xml_values and flagged; removeimage has sheet_same, drawing_children,
+    #      drawing_rels_set, media_dropped (the spec's removeimage checks),
+    #      types_set, wrels_set, added_empty (ruling 2), images_read, xml_values
+    #      and flagged. flagged reads every rewritten entry (changed or
+    #      recompressed, ruling 1) and wants descriptor exactly when bit 3 or
+    #      the bytes after the data differ, xlsx-diff's rule computed through
+    #      the local headers: for a changed entry whose bit 3 both sides keep,
+    #      that is P1's "when the input sets bit 3", and a recompressed one's
+    #      descriptor carries its new compressed size. The lines' relations are
+    #      the spec's: anchor two images, anchors and media entries more, one
+    #      image of each anchor kind more; removeimage images_after the images
+    #      less kept_removed, media_dropped the entries gone, 0 with nothing kept
+    #      removed. The tool's counts equal the comparison's.
+    #  VD. NEW, the survey (imgsurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces UD's, in its form: <corpus> its parameter, every
+    #      regular file of <corpus>/corpus listed, one wb line of thirteen
+    #      fields per workbook, one drawings line (decision 8: the drawing parts
+    #      and the largest drawing's anchor count, printed); the log checks its
+    #      forms, prints the distributions and checks every line's figures
+    #      against it, and the comparison's parts against it.
+    #  VE. Changes PE, QE and SE (every row ok) stand. The entries rules: anchor
+    #      is M2 part 4d P3's image rule with two media entries; removeimage is
+    #      the planning rulings during P2: with nothing kept removed, W, W's rels
+    #      part, the content types and a drawing that stays identical or
+    #      recompressed, its rels part changed with the same relationships
+    #      allowed (ruling 1); at most one added row, W's rels part or the
+    #      drawing's where the input has none, its root childless (ruling 2);
+    #      an empty input drawing dropped with W, W's rels part and the content
+    #      types changed or recompressed (ruling 3); with the first image
+    #      removed, the spec's: the drawing and its rels part changed, the media
+    #      entries the count rule drops dropped, the content types changed where
+    #      an Override went. Each allowance has a control that accepts it where
+    #      it applies and one that refuses it where it does not. The removal's
+    #      summary totals are checked against its entries table, every row by
+    #      the rule.
+    #  VF. NEW, the comment box sample once more on both targets, its outputs
+    #      by sha256, its lines and its diff tables P1's run's byte for byte, the
+    #      run directory named by P1's record commit through the run record it
+    #      added (M3 part 5 P3's change WC form); no record pair is written for
+    #      the rerun.
+    #  VG. Change UG's no-row rule stands: neither sample writes a cell, so the
+    #      calculation chain's entry stays identical (change UF).
+    #  VH. Change PH (the open check's own TMPDIR device) stands, unchanged.
+    #  VI. The plants: every flag's planted control runs, for each sample, on
+    #      the first ok workbook in manifest order of its created case (anchor:
+    #      W has no drawing; removeimage: no image is kept and W has no drawing)
+    #      and of its kept case (anchor: W has a drawing; removeimage: the first
+    #      image is removed), each on its own check line, the plant turning its
+    #      own flag; kept_children on the anchor's created case has no kept
+    #      child to change, and its line checks the plant reports planted=no
+    #      there and the flag stays yes; the anchor's kept case is a drawing
+    #      with a root child (an empty drawing gives the case other). The xml
+    #      values check wants some value written by the anchor sample and some
+    #      removed by the removal, which writes none (change LF's form).
+    #  VJ. The run loop, the record pairs, the keep and the open check are SJ's
+    #      and WJ's with this phase's names; reccheck.py takes the dropped
+    #      families as an input beside the changed and added ones; the anchor
+    #      record's families are derived from the --parts lines, the removal
+    #      record's from its entries table, which the rule checked row by row
+    #      (the rulings allow a row recompressed or changed); six record files
+    #      installed, four when the keep is skipped.
+    #  VK. UK stands: this script runs no `rm -rf`; the sourced
+    #      scripts/counting.sh, a committed script, runs one on the directory its
+    #      counting controls make (allowed: a directory the script created in
+    #      that run); the working directory and the keeps stand, kept, and
+    #      Python writes no bytecode.
+    #
+    #
+    #
+    # CARRIED TO M3 part 6 P3 from M3 part 6 P2's run script (at the phase
+    # commit d3c4a9c, printed in records/logs/m3p6-p2/run.log; its change lists
+    # up to VK are above), generated by <home>/.cache/emend-build/m3p6-p3/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary and the body from the survey to the corpus record pairs'
+    # installation replaced whole (gen/run_block.sh, by its anchor lines, P2's
+    # record check carried into it unchanged), and the body grepped afterwards
+    # for P2's names, subjects, stems and the tokens imgcmp, imgsurvey,
+    # m3p6-p2-, P1_REC and PREV_CB. What differs, and why:
+    #  XA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p6-p3/scripts, on the disk)
+    #      and the keep (m3p6-p3/keep-host) are this phase's; the base is P2's
+    #      record commit ("M3 part 6 P2 record:"); the phase commit is P3's tool
+    #      commit by its subject ("M3 part 6 P3: emend-copy --copy-sample"); one
+    #      sample, copy, with its run directory <runs>/<date>-<sha>-copy and its
+    #      record stem m3p6-p3-<date>-<sha> (the spec's name), and three rerun
+    #      directories <runs>/<date>-<sha>-anchor, -removeimage and -commentbox
+    #      (RERUNS); SUPERSEDED_RUN names the four by their common stem; the
+    #      spec pinned through SPEC_SHA at P3's doc commit, planning's rulings
+    #      during P3 standing uncommitted in the working tree's copy, printed.
+    #  XB. Change VB's form: the committed open-check record the keep is
+    #      compared with is P2's, the last committed, named by its record
+    #      commit, resolved by its subject ("M3 part 6 P2 record:"; no hash is
+    #      typed here); it is the base itself, the parent of P3's doc commit; the
+    #      control names the doc commit instead. P2_REC names the same commit, the
+    #      one whose run directories the reruns are compared with (change XF).
+    #  XC. The comparison is copycmp.py, built for this phase (<home>/.cache/
+    #      emend-build/m3p6-p3/gen/copycmp_build.py) with P2's imgcmp.py
+    #      readers copied by name, one mode, copy, fifteen flags: whole_bytes,
+    #      data_same, kept_same, views_same, setup_same, dropped_gone (the
+    #      spec's copy check, and the copy built from S byte for byte),
+    #      rels_set (ruling 1), comments_same and notes_placed (the spec's
+    #      carried checks), workbook_sheet, types_set, chain_rule, rest_same,
+    #      xml_values and flagged (P2's). The lines' relations are the spec's:
+    #      one sheet more, the copy's counts its source's, no chain after a
+    #      formula. The tool's counts equal the comparison's.
+    #  XD. NEW, the survey (copysurvey.py, <scripts>, copied into <work> and
+    #      printed) replaces VD's, in its form: <corpus> its parameter, every
+    #      regular file of <corpus>/corpus listed, one wb line of twenty fields
+    #      per workbook; the log checks its forms, prints the distributions and
+    #      checks every line's figures against it, and the comparison's parts
+    #      against it. No drawings line (no decision rests on one here).
+    #  XE. Changes PE, QE, SE and VE (every row ok) stand. The entries rule is
+    #      the rulings during P3's: the copy's entry added; its rels part added
+    #      exactly when S has a hyperlink or a comments relationship (ruling 1);
+    #      the comments and VML parts added when carried; the workbook part, its
+    #      rels part and the content types changed, flagged descriptor at most;
+    #      the chain's entry dropped exactly when S holds a formula and the
+    #      workbook a chain; every other row identical and unflagged; nothing
+    #      recompressed. Each allowance has a control that accepts it where it
+    #      applies and one that refuses it where it does not. The summary's
+    #      totals are checked against what the rows imply and against the
+    #      entries table.
+    #  XF. NEW, the three earlier samples once more on both targets, their
+    #      outputs by sha256, their lines and their diff tables P2's runs' byte
+    #      for byte (change VF's form for three samples), the run directories
+    #      read from the "the run directories:" line of P2's run log at P2's
+    #      record commit and checked against the run directory P2's committed
+    #      anchor record names; no record pair is written for the reruns.
+    #  XG. Change UG's no-row rule gives way: the copy makes the write a formula
+    #      change when S holds a formula (specs/0013's rule, "The copy"), so
+    #      each chain workbook's calcChain row is dropped exactly there, and is
+    #      identical and unflagged elsewhere; some row is dropped.
+    #  XH. Change PH (the open check's own TMPDIR device) stands, unchanged.
+    #  XI. The plants: every flag's planted control runs on the first ok
+    #      workbook in manifest order of the plain case (S's comments not
+    #      carried) and of the carried case, each on its own check line, the
+    #      plant turning its own flag; every flag has a plant on both cases.
+    #      The xml values check wants some value written (the workbook's new
+    #      sheet; change LF's form).
+    #  XJ. The run loop, the record pair, the keep and the open check are VJ's
+    #      with this phase's names; the record's families are derived from its
+    #      entries table, which the rule checked row by row; four record files
+    #      installed, two when the keep is skipped.
+    #  XK. Ruling 8 of the planning rulings during P2 (build pruning) and
+    #      ruling 10 of the planning rulings during P3 (one target root per
+    #      phase, one subdirectory per source tree): the phase's target root is
+    #      <target>, <home>/.cache/emend-build/m3p6-p3/target, and every build
+    #      of <repo> by this script, dry or logged, goes into <target>/main
+    #      (CARGO_TARGET_DIR), the subdirectory ruling 10 gives the main tree;
+    #      this script builds from no other tree. P2's <build> placeholder (a
+    #      run directory holding its own target) is gone with the input
+    #      RUN_BUILD_ROOT, so no run moves the builds, and nothing here cleans
+    #      them; the i686 keep is <work>/keep-i686, kept, not under the target.
+    #      VK stands: this script runs no `rm -rf`.
+    #
+    #
+    #
+    # CARRIED TO M3 part 6 P4 from M3 part 6 P3's run script (at the phase
+    # commit 6a90674, printed in records/logs/m3p6-p3/run.log; its change lists
+    # up to XK are above), generated by <home>/.cache/emend-build/m3p6-p4/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary replaced, the build section replaced by the size log's binaries,
+    # the copy sample's record pair carried into the earlier samples' loop by
+    # its anchor lines, and the body grepped afterwards for P3's names,
+    # subjects and tokens. copycmp.py and copysurvey.py are P3's, copied beside
+    # this script byte for byte. What differs, and why:
+    #  YA. The phase, the log directory, the subjects, the script directory
+    #      (<scripts>, <home>/.cache/emend-build/m3p6-p4/scripts, on the disk)
+    #      and the keep (m3p6-p4/keep-host) are this phase's; the base is P3's
+    #      record commit ("M3 part 6 P3 record:"); the phase commit is P4's
+    #      catalogue and probes commit by its subject ("M3 part 6 P4: the
+    #      catalogue and limits, the probes"); the four samples each have a run
+    #      directory <runs>/<date>-<sha>-<sample> and a record stem
+    #      m3p6-p4-<sample>-<date>-<sha> (the spec's names, "P4"); SAMPLES is
+    #      still the copy sample, whose checks are P3's, and RERUNS the three
+    #      earlier samples; SUPERSEDED_RUN names the four by their common stem;
+    #      the spec pinned through SPEC_SHA at P4's doc commit, planning's
+    #      rulings during P4 standing uncommitted in the working tree's copy,
+    #      printed. The usage takes the size.log as its third argument.
+    #  YB. Change XB's form: the committed open-check record the keep is
+    #      compared with is P3's, the last committed, named by its record
+    #      commit, resolved by its subject ("M3 part 6 P3 record:"; no hash is
+    #      typed here); it is the base itself, the parent of P4's doc commit; the
+    #      control names the doc commit instead. P3_REC names the same commit,
+    #      the one whose run directories the four samples are compared with
+    #      (change YF).
+    #  YC. Part 5 P3's change RC: the release binaries are the size log's, run
+    #      where it built them (<target>/main/release and
+    #      <target>/main/i686-unknown-linux-musl/release, the main tree's subdirectory, ruling 10
+    #      of the planning rulings during P3), each hashed here and compared with
+    #      its "hash: <name> <target> <sha256>" line in the size.log given, none
+    #      built here; the size.log checked to be this phase's at this phase
+    #      commit and to end all as expected. The run row's binaries are checked
+    #      against the same hashes as before.
+    #  YD. The survey (change XD) and the comparison (change XC) are P3's, byte
+    #      for byte, run over the copy sample as P3's run did.
+    #  YE. The earlier samples' rows: every row ok, every input and output
+    #      opening in LibreOffice with no leftover, and the summary's status
+    #      totals the entries table's; their entry rules are P2's and P1's, and
+    #      hold here because every diff table is P3's run's byte for byte
+    #      (change YF), whose run log checked them against P2's runs, which
+    #      checked the rules.
+    #  YF. Change XF's form for four samples: every sample, the copy sample
+    #      included, compared on both targets with P3's run directory for it,
+    #      its outputs by sha256, its lines and its diff tables byte for byte,
+    #      every workbook's outcome and exit equal; the run directories read
+    #      from the "the run directories:" line of P3's run log at P3's record
+    #      commit and checked against the run directory P3's committed copy
+    #      record names.
+    #  YJ. Change XJ's record pair for each of the four samples: the copy
+    #      sample's as P3's, and the three earlier samples' through the same
+    #      record script and record check, their families derived from their
+    #      entries tables; ten record files installed, eight when the keep is
+    #      skipped.
+    #  YK. Ruling 8 of the planning rulings during P2 and ruling 10 of those
+    #      during P3: the phase's target root is <target>, <home>/.cache/
+    #      emend-build/m3p6-p4/target; the keep's tests build into <target>/main
+    #      (CARGO_TARGET_DIR), where size.log built the release binaries this
+    #      log runs; nothing here cleans it. VK stands: this script runs no
+    #      `rm -rf`.
+    #
+    #
+    #
+    # CARRIED TO M3 part 7 P3 from M3 part 6 P4's run script (at the phase
+    # commit 9cfd92e, printed in records/logs/m3p6-p4/run.log; its change lists
+    # up to YK are above), generated by <home>/.cache/emend-build/m3p7-p3/gen/
+    # run.py, every replacement asserted to occur as often as it says, the top
+    # summary replaced, the keep and open-check sections removed, and the body
+    # grepped afterwards for part 6 P4's names, subjects and tokens.
+    # copycmp.py and copysurvey.py are part 6 P4's, copied beside this script
+    # byte for byte. What differs, and why:
+    #  RNA. The phase, the log directory, the subjects and the script directory
+    #       (<scripts>, <home>/.cache/emend-build/m3p7-p3/scripts, on the disk)
+    #       are this phase's; the base is part 7 P2's record commit ("M3 part 7
+    #       P2 record:"); the phase commit is P3's code commit by its subject
+    #       ("M3 part 7 P3: rust-version equal to the pin, and the gate checks
+    #       the pins agree"); the four samples each have a run directory
+    #       <runs>/<date>-<sha>-<sample> and a record stem
+    #       m3p7-p3-<sample>-<date>-<sha> (specs/0029 "Harness runs"); the spec
+    #       is specs/0029, pinned through SPEC_SHA at this phase's doc commit. The usage
+    #       takes the size.log as its second argument, and no test.log.
+    #  RNB. The run directories the four samples are compared with are part 6
+    #       P4's, named by its record commit, resolved by its subject ("M3 part 6
+    #       P4 record:"; no hash is typed here), an ancestor of the phase commit,
+    #       read from the "the run directories:" line of part 6 P4's run log at
+    #       that commit and checked against the run directory its committed copy
+    #       record names.
+    #  RNC. The keep and the open check go, with their inputs (RUN_KEEP,
+    #       RUN_SKIP_KEEP, SUPERSEDED_KEEP), the test.log argument, the <keep>
+    #       root and the open record's stem: specs/0029 "Harness runs" names the
+    #       four samples alone. The record files installed are the four pairs,
+    #       eight.
+    #  RND. Each sample's record header names its binaries (specs/0029 item 5):
+    #       the .md holds one "- Binaries (host)" and one "- Binaries (i686)"
+    #       line whose two hashes are the binaries this log ran, with a control.
+    #  RNE. The size.log is this phase's (its "about:" line names P3's phase
+    #       commit).
+    #  RNF. The phase's target root is <target>, <home>/.cache/emend-build/
+    #       m3p7-p3/target (specs/0001 "Rules for every phase", one target root
+    #       per phase); this log builds nothing and runs the release binaries
+    #       size.log built in <target>/main.
+    #  RNG. The runner gives each child its own TMPDIR under its own work
+    #       directory, under <work>/tmp-run here (specs/0029 P1 ruling 2); the
+    #       check that <work>/tmp-run is empty after each run stands.
+    #
+    # Usage: m7p1-p2-run.sh <phase commit> > <file outside the tree>; the
+    # caller moves the output to records/logs/m7p1-p2/run.log (change TB).
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/run.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    
+    C=${1:?phase commit required}
+    # Every environment input, as it was set, before any is unset (change TB).
+    INPUT_NAMES="RERUN_NOTE RERUN_FILES PLANNING_SPEC RECORDS_DEST RUN_WORK EMEND_CORPUS_DIR EMEND_KEEP_DIR HOME"
+    OVERRIDES="RECORDS_DEST RUN_WORK"
+    declare -A INPUT_SEEN
+    for v in $INPUT_NAMES; do
+      if [ -n "${!v+x}" ]; then INPUT_SEEN[$v]=${!v}; else INPUT_SEEN[$v]=unset; fi
+    done
+    LOGGED=yes
+    for v in $OVERRIDES; do
+      if [ "${INPUT_SEEN[$v]}" != unset ]; then LOGGED=no; fi
+    done
+    CORPUS=${EMEND_CORPUS_DIR:-$HOME/emend-testing}
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    # Python writes no bytecode, so nothing arises to be removed.
+    export PYTHONDONTWRITEBYTECODE=1
+    # No cargo command runs here; the setting is printed below as in every run log.
+    export CARGO_NET_OFFLINE=true
+    unset EMEND_KEEP_DIR EMEND_CORPUS_DIR RUSTDOCFLAGS RUSTFLAGS
+    SPEC=specs/0044-excel-check.md
+    # Change TB: the committed blob the doc commit (the phase commit) holds (the
+    # generator asserts it).
+    SPEC_WANT=5b32ead8fb72dba0880c5e82ed217f5e9bf85c2ebec8baa44a31e6991fafb8f9
+    PLANNING_SPEC=${PLANNING_SPEC:-}
+    PHASE_DIR=$HOME/.cache/emend-build/m7p1-p2
+    # Change TC: the five inputs and their pins (ruling V; planning's P2 brief).
+    PLAN_DIR=$PHASE_DIR/record-from-planning
+    REC_SRC=$PLAN_DIR/excel-check-m7-2026-10-26.md
+    ASM=$PLAN_DIR/assemble-excel-record.py
+    BYHAND=$PLAN_DIR/byhand-2026-10-26.tsv
+    STAGE=$CORPUS/work/excel-check-m7-2026-10-25
+    LIST=$STAGE/excel-check-list.txt
+    RESULTS=$STAGE/open-results.txt
+    REC_SHA=47e6f360966e03500419c665037add00712e5c1c9765c508403d6cd8c0000d25
+    ASM_SHA=54f344a7588640dd79095340640b1fa5440974e5324c5022f60ea61cc701ad45
+    BYHAND_SHA=95a69b8a0912cbc4f5e6f90921f90bdeae919b49c8d4b9f264348f79973fde01
+    LIST_SHA=46cb94535d01b7a437a06871be6e5f733c60ae91d65280424d5c80dd388d4ae4
+    RESULTS_SHA=9bf8bc30a2c9c074a5ad466b704cf20dd323e9a578f2d95effc46fdb9aef1261
+    # Ruling V's three machine arguments, exactly.
+    EXCEL_ARG="Microsoft Excel LTSC MSO (Version 2408 Build 16.0.17932.21056) 64-bit"
+    OS_ARG="Microsoft Windows 11 Home 10.0.26300"
+    DATE_ARG=2026-10-26
+    REC_NAME=excel-check-m7-$DATE_ARG.md
+    RECORDS_DEST=${RECORDS_DEST:-records}
+    DEST=$RECORDS_DEST/$REC_NAME
+    for p in "$REC_SRC" "$ASM" "$BYHAND" "$LIST" "$RESULTS"; do
+      if [ ! -f "$p" ]; then echo "an input is not there: $p" >&2; exit 2; fi
+    done
+    if [ ! -d "$RECORDS_DEST" ]; then echo "RECORDS_DEST is not a directory" >&2; exit 2; fi
+    # Change TD: the record is copied by this run alone.
+    if [ -e "$DEST" ]; then echo "$DEST is already there; move it aside first" >&2; exit 2; fi
+    # TMPDIR is <phase>/tmp unless RUN_WORK names another for a dry run, made
+    # and exported before any mktemp; the working directory is the one mktemp -d
+    # makes under it, on the disk, kept; nothing here is removed.
+    TMPDIR=${RUN_WORK:-$PHASE_DIR/tmp}
+    export TMPDIR
+    mkdir -p "$TMPDIR" || exit 2
+    B=$(mktemp -d) || exit 2
+    # The counting library is the phase commit's, by git show.
+    git show "$C:scripts/counting.sh" >"$B/counting.sh" || exit 2
+    . "$B/counting.sh"
+    fail=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    n_findings=0
+    
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    NULL_SHA=0000000000000000000000000000000000000000
+    case "${C: -1}" in 0) LAST=1 ;; *) LAST=0 ;; esac
+    FAKE_SHA=${C:0:39}$LAST
+    SHORT=$(git rev-parse --short=7 "$C")
+    # Change TB: what the status pattern admits: this phase's log directory, the
+    # record (untracked) and planning's modified specs/0044; nothing else.
+    OURS="^((\\?\\?| ?[MARCD]) records/logs/m7p1-p2/|\\?\\? records/excel-check-m7-2026-10-26[.]md\$| M specs/0044-excel-check[.]md\$)"
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs, the record and planning's spec" >&2
+      exit 2
+    fi
+    
+    # The stage first (it lies under the corpus), <work> before <phase>, the
+    # phase's directories before <phase>, and <home> last.
+    scrub() {
+      sed -e "s#$B#<work>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$STAGE#<stage>#g" -e "s#$CORPUS#<corpus>#g" \
+        -e "s#$MAIN#<repo>#g" -e "s#$PHASE_DIR#<phase>#g" -e "s#$HOME#<home>#g"
+    }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    echo "about: M7 part 1 P2 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    # The environment inputs, each on its labelled line.
+    for v in $INPUT_NAMES; do echo "input: $v=${INPUT_SEEN[$v]}"; done
+    echo "input (as exported by this script): PYTHONDONTWRITEBYTECODE=$PYTHONDONTWRITEBYTECODE CARGO_NET_OFFLINE=$CARGO_NET_OFFLINE"
+    echo "input: TMPDIR=$TMPDIR"
+    echo "  (TMPDIR set, made and exported by this script before any mktemp; <work> is made under it)"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    if [ "$LOGGED" = yes ]; then
+      echo "mode: the logged run: none of the dry run's overrides is set ($OVERRIDES); the record is copied into <repo>/records (change TB)"
+    else
+      echo "mode: a dry run (specs/0043 ruling Q): an override is set; the record is copied where RECORDS_DEST names and <work> made under RUN_WORK; every check is made as in the logged run"
+    fi
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    # Change NTJ: the fourth shape, PYB: a Python call without -I -B (the word
+    # followed by whitespace and an option or a .py path, outside a comment,
+    # and not by " -I -B"). The word is built from two halves, so that this
+    # form's own text is no call.
+    PYW=pyth
+    PYW=${PYW}on3
+    pyb_count() {
+      awk -v w="$PYW" '{ l = $0; sub(/^[ \t]+/, "", l); if (substr(l, 1, 1) == "#") next; s = l
+        while ((i = index(s, w)) > 0) { r = substr(s, i + length(w)); if (r ~ /^[ \t]+(-|[^ \t]*[.]py([ \t"]|$))/ && r !~ /^ -I -B( |$)/) { n++; break }; s = r }
+      } END { print n + 0 }' "$1"
+    }
+    printf '%s\n' "$PYW -c x" "$PYW -I -B -c x" "# $PYW -c x" "command -v $PYW" "$PYW tool.py" >"$B/pyb-fixture"
+    n_self=$(pyb_count "$SELF")
+    n_fix=$(pyb_count "$B/pyb-fixture")
+    echo "command: pyb_count <this script>, and the same over a fixture of five lines: a call with -c, one with -I -B -c, a comment, a command -v, a call of a .py path"
+    echo "  shape PYB: in this script $n_self; in the fixture $n_fix"
+    check "PYB: this script holds none (change NTJ)" "$(yn [ "$n_self" = 0 ])"
+    check "control: PYB: the same form finds the fixture's two calls without -I -B and not its other three lines" "$(yn [ "$n_fix" = 2 ])"
+    
+    echo
+    echo "## the phase's commits by role, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    REC=$(by_subject 'M7 part 1 P1 record: the logs, the records, the check, the scan')
+    DOC=$(by_subject 'M7 part 1 P2: commit planning docs (the P1 verification and rulings)')
+    echo "command: git log --format=%H -n 1 -F --grep=<the role's subject>, for each role"
+    echo "  M7 part 1 P1's record commit (the base): ${REC:-none}"
+    echo "  the doc commit, the phase commit (no code commit; specs/0044 \"P2: the record\"): ${DOC:-none}"
+    echo "command: git rev-parse <phase commit>~0 and <phase commit>~1"
+    for k in 0 1; do git rev-parse "$C~$k"; done | sed 's/^/    /'
+    roles_in_order() {
+      local r k=0
+      for r in "$DOC" "$REC"; do
+        [ -n "$r" ] || return 1
+        [ "$(git rev-parse "$C~$k")" = "$r" ] || return 1
+        k=$((k + 1))
+      done
+    }
+    check "the doc commit and the base, the first the second's child, the doc commit the phase commit (change TB)" "$(yn roles_in_order)"
+    roles_ctl() { local DOC=$REC; roles_in_order; }
+    check "control: roles_in_order refuses the base named as the phase commit" "$(ynnot roles_ctl)"
+    roles_ctl2() { local REC=$DOC; roles_in_order; }
+    check "control: roles_in_order refuses the doc commit named as the base" "$(ynnot roles_ctl2)"
+    roles_ctl3() { local REC=; roles_in_order; }
+    check "control: roles_in_order refuses a role that resolved to nothing" "$(ynnot roles_ctl3)"
+    echo "  the phase commit given to this script: $C"
+    echo "  git rev-parse HEAD at this run:        $(git rev-parse HEAD)"
+    echo "  the controls' commits: the null commit $NULL_SHA; the fabricated commit $FAKE_SHA (the given one, its last hex digit changed); the short sha $SHORT"
+    check "the phase commit given to this script is a full sha" "$(yn full_sha "$C")"
+    check "the phase commit given to this script is HEAD" "$(yn head_is "$C")"
+    check "the phase commit is the doc commit, by its subject (change TB)" "$(yn [ "$DOC" = "$C" ])"
+    check "control: the same comparison refuses the base" "$(ynnot [ "$REC" = "$C" ])"
+    check "control: the same comparison refuses the null commit" "$(ynnot given_ok "$NULL_SHA")"
+    check "control: the same comparison refuses a fabricated commit" "$(ynnot given_ok "$FAKE_SHA")"
+    check "control: the same comparison refuses a short sha of the real commit" "$(ynnot given_ok "$SHORT")"
+    short_names_head() { [ "$(git rev-parse "$SHORT")" = "$(git rev-parse HEAD)" ]; }
+    check "control: the short sha is the real commit's, so only its form is refused" "$(yn short_names_head)"
+    echo "phase: Milestone 7 part 1 P2 ($SPEC) run.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -n "${RERUN_NOTE:-}" ]; then
+      echo "rerun: $RERUN_NOTE"
+      echo "command: sha256sum and wc -c over each superseded attempt named above, with the directory it is kept in"
+      for sf in ${RERUN_FILES:-}; do
+        if [ -f "$sf" ]; then
+          printf '    %s  %s bytes  %s  kept in %s\n' "$(sha256sum "$sf" | cut -d' ' -f1)" "$(wc -c <"$sf")" "$(basename "$sf")" "$(dirname "$sf")"
+        else
+          printf '    NO HASH EXISTS for %s: the file is not there at run time (named in %s)\n' "$(basename "$sf")" "$(dirname "$sf")"
+        fi
+      done
+      if [ -z "${RERUN_FILES:-}" ]; then echo "    RERUN_FILES was not set, so no attempt above is hashed by this run"; fi
+    fi
+    n_cargo=$(pgrep -x cargo | wc -l)
+    n_rustc=$(pgrep -x rustc | wc -l)
+    echo "SERIALIZED: no other log run was in flight; cargo processes at entry: $n_cargo; rustc processes at entry: $n_rustc; this run builds nothing"
+    no_build_running() { [ "$((n_cargo + n_rustc))" = 0 ]; }
+    check "no cargo or rustc process was running at entry" "$(yn no_build_running)"
+    echo "DETACHED: no interactive call waits on this run; stdout and stderr go to a file, polled from later calls."
+    echo "SETTINGS CHOSEN BEFORE THE RUN, never tuned during it: the five inputs' hashes and ruling V's three arguments, typed into the generator from planning's P2 brief and checked there against the files"
+    echo "root: <repo> stands for the repository's top level (inside <home>, scrubbed after the corpus's paths); scripts/counting.sh and the spec at the phase commit are read from it by git show; the record is copied into its $RECORDS_DEST/ unless RECORDS_DEST names a directory outside it for a dry run"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <phase> stands for <home>/.cache/emend-build/m7p1-p2 on the disk, the phase's directory; <phase>/record-from-planning holds planning's record, its assembly script and the by-hand file (ruling V), read and never written; <phase>/gen holds the generator that wrote this script and <phase>/model the template it was written from"
+    echo "root: <scripts> stands for <phase>/scripts on the disk, this script's own directory; this script's own standard error goes to <scripts>/out/run.stderr (specs/0017 P1 verification ruling 7)"
+    echo "root: <work> stands for this run's working directory, made by mktemp -d under TMPDIR (<phase>/tmp unless RUN_WORK names another for a dry run), on the disk (the counting library, the assembly's output and standard error, the awk programs and their outputs, the controls' copies), kept after the run and never removed"
+    echo "root: <corpus> stands for the private corpus directory; nothing under it is written by this run"
+    echo "root: <stage> stands for <corpus>/work/excel-check-m7-2026-10-25, P1's stage, holding the list (excel-check-list.txt) and the maintainer's results file (open-results.txt); read, never written; neither is committed"
+    echo "root: <runs> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)"
+    echo "root: <scratch> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)"
+    echo "root: <source> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)"
+    echo "root: <target> stands for a directory of an earlier phase's log and appears in this log only in the printed script's carried history; this log reads and writes nothing under it (change TB)"
+    apart() { case "$1/" in "$2"/*) return 1 ;; esac; case "$2/" in "$1"/*) return 1 ;; esac; return 0; }
+    roots_distinct() {
+      local a b all=("$SELF_DIR" "$MAIN" "$CORPUS" "$PLAN_DIR" "$TMPDIR")
+      for a in "${all[@]}"; do for b in "${all[@]}"; do
+        [ "$a" = "$b" ] && continue
+        apart "$a" "$b" || return 1
+      done; done
+    }
+    check "the roots <scripts>, <repo>, <corpus>, <phase>/record-from-planning and TMPDIR are distinct, none inside another" "$(yn roots_distinct)"
+    work_in_tmpdir() { case "$B/" in "$TMPDIR/"*) return 0 ;; esac; return 1; }
+    check "<work>, the directory mktemp -d made, is under TMPDIR" "$(yn work_in_tmpdir)"
+    work_ctl() { local B=/tmp/x; work_in_tmpdir; }
+    check "control: the same test refuses a working directory under /tmp" "$(ynnot work_ctl)"
+    # Every mktemp call of this script is checked under TMPDIR, so the source is
+    # read for its calls outside comments; the call's text is built from
+    # pieces, so this form's own text is no call.
+    MKW='$('
+    MKW=${MKW}mkt
+    MKW=${MKW}emp
+    count_tempcalls() {
+      awk -v w="$MKW" '{ l = $0; sub(/^[ \t]+/, "", l); if (substr(l, 1, 1) == "#") next; s = l
+        while ((i = index(s, w)) > 0) { n++; s = substr(s, i + length(w)) }
+      } END { print n + 0 }' "$1"
+    }
+    printf '%s\n' "A=$MKW -d)" "F=$MKW)" "# $MKW -d)" >"$B/mktemp-fixture"
+    n_mk=$(count_tempcalls "$SELF")
+    n_mk_fix=$(count_tempcalls "$B/mktemp-fixture")
+    echo "command: count_tempcalls <this script>, and the same over a fixture of three lines: a directory call, a file call, a comment"
+    echo "  mktemp calls in this script outside comments: $n_mk (the one that makes <work>, checked under TMPDIR above); in the fixture: $n_mk_fix"
+    check "this script makes one mktemp call, <work>'s, and no plain temporary file" "$(yn [ "$n_mk" = 1 ])"
+    check "control: the same count finds the fixture's two calls and not its comment" "$(yn [ "$n_mk_fix" = 2 ])"
+    dest_outside_corpus() { apart "$RECORDS_DEST" "$CORPUS" && apart "$(cd "$RECORDS_DEST" && pwd)" "$CORPUS"; }
+    check "the record's destination lies outside <corpus>" "$(yn dest_outside_corpus)"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them admitted by the phase's pattern (this phase's logs, the record, planning's modified specs/0044) $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    ours_ctl() { printf ' M scripts/check.sh\n' | LC_ALL=C "$G" -qE "$OURS"; }
+    check "control: the phase's status pattern refuses a modified gate file" "$(ynnot ours_ctl)"
+    ours_rec_ctl() { printf '?? records/logs/m7p1-p2/run.log\n?? records/excel-check-m7-2026-10-26.md\n M specs/0044-excel-check.md\n?? records/logs/m7p1-p1/run.log\n?? records/excel-check-m7-2026-10-25.md\n?? records/excel-check-m2-2026-10-26.md\n M records/excel-check-m7-2026-10-26.md\n M ROADMAP.md\n M specs/0043-measurement-and-close.md\n M scripts/counting.sh\n' | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern admits this phase's log, the record and planning's specs/0044 alone; it refuses another phase's log, a record of another date or milestone, a modified record, ROADMAP.md, specs/0043 and a source file (change TB)" "$(yn [ "$(ours_rec_ctl)" = 3 ])"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources (the phase commit's, by git show)"
+    sed 's/^/    /' "$B/counting.sh"
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## the spec against the phase commit, and planning's uncommitted spec"
+    spec_now=$(sha_of "$SPEC")
+    spec_committed=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    echo "command: git show <phase commit>:$SPEC | sha256sum; sha256sum $SPEC (the working file, holding planning's rulings written during P2 and not yet committed, checked against PLANNING_SPEC; change TB)"
+    echo "  at the phase commit: $spec_committed; the pin: $SPEC_WANT"
+    echo "  the working tree's copy: sha256 $spec_now"
+    spec_ok() { [ "$spec_committed" = "$SPEC_WANT" ]; }
+    check "the spec at the phase commit is at the pinned hash, the doc commit's blob" "$(yn spec_ok)"
+    spec_ctl() { local spec_committed=1111111111111111111111111111111111111111111111111111111111111111; spec_ok; }
+    check "control: the same check refuses the spec against another hash" "$(ynnot spec_ctl)"
+    echo "input: PLANNING_SPEC: ${PLANNING_SPEC:-unset} (the working spec's sha256; change TB)"
+    working_ok() { [ -n "$PLANNING_SPEC" ] && [ "$spec_now" = "$PLANNING_SPEC" ]; }
+    check "the working spec is the file PLANNING_SPEC names (change TB, M6 part 6 P2's form)" "$(yn working_ok)"
+    working_ctl() { local PLANNING_SPEC=1111111111111111111111111111111111111111111111111111111111111111; working_ok; }
+    check "control: the same comparison refuses another hash named as PLANNING_SPEC" "$(ynnot working_ctl)"
+    working_unset_ctl() { local PLANNING_SPEC=; working_ok; }
+    check "control: the same comparison refuses an unset PLANNING_SPEC" "$(ynnot working_unset_ctl)"
+    
+    # ---------------------------------------------------------------------------
+    echo
+    echo "## 1. the inputs, pinned (ruling V; change TC)"
+    echo "command: sha256sum, wc -c and wc -l over each input; the pins are planning's P2 brief's full hashes"
+    pin_ok() { [ "$(sha_of "$1")" = "$2" ]; }
+    for pair in "REC_SRC REC_SHA" "ASM ASM_SHA" "BYHAND BYHAND_SHA" "LIST LIST_SHA" "RESULTS RESULTS_SHA"; do
+      set -- $pair
+      path=${!1}
+      want=${!2}
+      echo "  $path: sha256 $(sha_of "$path"), $(wc -c <"$path") bytes, $(wc -l <"$path") lines; the pin $want"
+      check "$(basename "$path") is at its pinned sha256" "$(yn pin_ok "$path" "$want")"
+    done
+    set --
+    pin_ctl() { pin_ok "$LIST" "$RESULTS_SHA"; }
+    check "control: the same comparison refuses the list against the results file's pin" "$(ynnot pin_ctl)"
+    n_rec_lines=$(count_lines "$REC_SRC")
+    n_rec_bytes=$(wc -c <"$REC_SRC")
+    echo "  the record: $n_rec_lines lines, $n_rec_bytes bytes (ruling V: 3845 lines, 844290 bytes)"
+    rec_size_ok() { [ "$n_rec_lines" = 3845 ] && [ "$n_rec_bytes" = 844290 ]; }
+    check "the record holds 3845 lines and 844290 bytes, as ruling V says" "$(yn rec_size_ok)"
+    n_list_rows=$(awk 'NR > 1' "$LIST" | wc -l)
+    n_res_rows=$(awk 'NR > 1' "$RESULTS" | wc -l)
+    n_hand_rows=$(awk 'NR > 1' "$BYHAND" | wc -l)
+    echo "  data rows under the header: the list $n_list_rows; the results file $n_res_rows; the by-hand file $n_hand_rows"
+    check "the list and the results file hold 6018 rows each (ruling V)" "$(yn [ "$n_list_rows$n_res_rows" = 60186018 ])"
+    check "the by-hand file holds 32 rows (ruling V)" "$(yn [ "$n_hand_rows" = 32 ])"
+    hdr_res=$(head -1 "$RESULTS" | tr -d '\r')
+    hdr_hand=$(head -1 "$BYHAND")
+    echo "  the results file's header: $hdr_res"
+    echo "  the by-hand file's header: $hdr_hand"
+    check "the results file's columns are source, id_or_test, label, result, seen1 to seen3, message" "$(yn [ "$hdr_res" = "source${TAB}id_or_test${TAB}label${TAB}result${TAB}seen1${TAB}seen2${TAB}seen3${TAB}message" ])"
+    check "the by-hand file's columns are id_or_test, label, cell" "$(yn [ "$hdr_hand" = "id_or_test${TAB}label${TAB}cell" ])"
+    nonascii_rec=$(count_matches -P '[^\x00-\x7F]' "$REC_SRC")
+    echo "  lines of the record holding a byte outside ASCII: $nonascii_rec"
+    check "the record is ASCII" "$(yn [ "$nonascii_rec" = 0 ])"
+    printf 'a\n\303\251\n' >"$B/c-nonascii"
+    check "control: the same form counts the one line of a fixture holding a byte outside ASCII" "$(yn [ "$(count_matches -P '[^\x00-\x7F]' "$B/c-nonascii")" = 1 ])"
+    home_rec=$(count_matches -F "$HOME" "$REC_SRC")
+    echo "  lines of the record naming the home directory: $home_rec"
+    check "the record names no home directory" "$(yn [ "$home_rec" = 0 ])"
+    printf 'x\n%s/y\n' "$HOME" >"$B/c-home"
+    check "control: the same form counts the one line of a fixture naming it" "$(yn [ "$(count_matches -F "$HOME" "$B/c-home")" = 1 ])"
+    # The stage is read, never written: its top-level listing (names, bytes,
+    # modification times) before and after.
+    stage_listing() { find "$STAGE" -maxdepth 2 -printf '%P %s %T@ %m\n' | LC_ALL=C sort; }
+    stage_listing >"$B/stage-before"
+    echo "command: find <stage> -maxdepth 2 -printf '%P %s %T@ %m' | sort (the stage's listing before this run reads it): $(count_lines "$B/stage-before") lines, sha256 $(sha_of "$B/stage-before")"
+    check "the stage's listing was read" "$(yn [ "$(count_lines "$B/stage-before")" -gt 0 ])"
+    
+    echo
+    echo "## 2. the record copied byte for byte (ruling W; change TD)"
+    echo "command: cp <phase>/record-from-planning/$REC_NAME $RECORDS_DEST/$REC_NAME; sha256sum; cmp with the source"
+    cp "$REC_SRC" "$DEST" || exit 2
+    echo "  $RECORDS_DEST/$REC_NAME: sha256 $(sha_of "$DEST"), $(wc -c <"$DEST") bytes"
+    check "the copy's sha256 is the record's, ruling V's (change TD)" "$(yn pin_ok "$DEST" "$REC_SHA")"
+    check "the copy is byte-equal to planning's file (cmp)" "$(yn cmp -s "$DEST" "$REC_SRC")"
+    cp "$REC_SRC" "$B/c-record-plus"; printf 'x' >>"$B/c-record-plus"
+    check "control: the same comparisons refuse a copy with one byte appended" "$(ynnot pin_ok "$B/c-record-plus" "$REC_SHA")"
+    
+    echo
+    echo "## 3. the assembly run again (ruling W; change TE)"
+    echo "command: python3 -I -B <phase>/record-from-planning/assemble-excel-record.py --list <stage>/excel-check-list.txt --results <stage>/open-results.txt --byhand <phase>/record-from-planning/byhand-2026-10-26.tsv --excel \"$EXCEL_ARG\" --os \"$OS_ARG\" --date $DATE_ARG > <work>/assembled.md 2> <work>/assembled.err"
+    python3 -I -B "$ASM" --list "$LIST" --results "$RESULTS" --byhand "$BYHAND" --excel "$EXCEL_ARG" --os "$OS_ARG" --date "$DATE_ARG" >"$B/assembled.md" 2>"$B/assembled.err" </dev/null
+    asm_rc=$?
+    n_asm_err=$(wc -c <"$B/assembled.err")
+    n_stop=$(count_matches -E '^STOP:' "$B/assembled.err")
+    echo "  exit: $asm_rc; standard error: $n_asm_err bytes, of them lines beginning STOP: $n_stop"
+    echo "  <work>/assembled.md: sha256 $(sha_of "$B/assembled.md"), $(wc -c <"$B/assembled.md") bytes, $(count_lines "$B/assembled.md") lines"
+    asm_ok() { [ "$asm_rc" = 0 ] && [ "$n_asm_err" = 0 ] && pin_ok "$B/assembled.md" "$REC_SHA" && cmp -s "$B/assembled.md" "$DEST"; }
+    if asm_ok; then asm_v=yes; else
+      asm_v=no
+      echo "  FINDING: the assembly run again did not write the record byte for byte (exit $asm_rc, standard error $n_asm_err bytes, STOP lines $n_stop)"
+      n_findings=$((n_findings + 1))
+    fi
+    check "the assembly exits 0, writes nothing to its standard error, and its output is the record, by sha256 and cmp (ruling W)" "$asm_v"
+    head -n -1 "$B/assembled.md" >"$B/c-assembled-short"
+    asm_ctl() { cmp -s "$B/c-assembled-short" "$DEST"; }
+    check "control: the same cmp refuses the output with its last line removed" "$(ynnot asm_ctl)"
+    
+    echo
+    echo "## 4. the record's rows found in the list, by bytes and sha256, per source (ruling W; ruling AB; change TF)"
+    # pair_counts <list> <record>: the list's rows by source, and the record's
+    # Results table rows (corpus and fixture) whose (bytes, sha256) pair is a
+    # list row's of the same source, and the fixture rows' input pairs found
+    # among the list's input rows. Prints one line of counts; no row.
+    cat >"$B/pairs.awk" <<'AWK'
+    FNR == 1 && FILENAME == ARGV[1] { next }
+    FILENAME == ARGV[1] { have[$1 SUBSEP $5 SUBSEP $6] = 1; lst[$1]++; next }
+    $0 == "## Results" { r = 1; next }
+    r && /^## / { r = 0 }
+    r && /^[|]/ {
+      n = split($0, a, "|")
+      for (i = 1; i <= n; i++) gsub(/^ +| +$/, "", a[i])
+      if (a[2] != "corpus" && a[2] != "fixture") next
+      rows[a[2]]++
+      if ((a[2] SUBSEP a[5] SUBSEP a[6]) in have) found[a[2]]++
+      if (a[2] == "fixture") { inp++; if (("input" SUBSEP a[8] SUBSEP a[9]) in have) infound++ }
+    }
+    END { printf "%d %d %d %d %d %d %d %d %d\n", lst["corpus"], lst["fixture"], lst["input"], rows["corpus"], found["corpus"], rows["fixture"], found["fixture"], inp, infound }
+    AWK
+    echo "command: awk -F'<tab>' -f <work>/pairs.awk <stage>/excel-check-list.txt $RECORDS_DEST/$REC_NAME (the program printed below)"
+    sed 's/^/    /' "$B/pairs.awk"
+    read -r l_c l_f l_i r_c f_c r_f f_f r_i f_i < <(awk -F"$TAB" -f "$B/pairs.awk" "$LIST" "$DEST")
+    echo "  the list's rows: corpus $l_c, fixture $l_f, input $l_i"
+    echo "  the record's corpus rows $r_c, found $f_c; fixture rows $r_f, found $f_f; together $((r_c + r_f)), found $((f_c + f_f)); the fixture rows' input pairs $r_i, found $f_i"
+    pairs_ok() { [ "$r_c" = "$l_c" ] && [ "$r_f" = "$l_f" ] && [ "$r_i" = "$l_i" ] && [ "$f_c" = "$r_c" ] && [ "$f_f" = "$r_f" ] && [ "$f_i" = "$r_i" ]; }
+    counts_ruled() { [ "$l_c $l_f $l_i" = "1560 2229 2229" ] && [ "$((f_c + f_f))" = 3789 ] && [ "$f_i" = 2229 ]; }
+    if pairs_ok; then pv=yes; else
+      pv=no
+      echo "  FINDING: a record row's bytes and sha256 pair is not found among the list's rows of its source, or a row count differs from the list's"
+      n_findings=$((n_findings + 1))
+    fi
+    check "every record row's pair is found among the list's rows of its source, and the record holds as many rows per source as the list (ruling AB)" "$pv"
+    if counts_ruled; then cv=yes; else
+      cv=no
+      echo "  FINDING: the counts differ from ruling AB's 1560, 2229 and 2229 (3789 of 3789; the input pairs 2229 of 2229)"
+      n_findings=$((n_findings + 1))
+    fi
+    check "the counts are ruling AB's: 1560 and 2229, 3789 of 3789, and the input pairs 2229 of 2229" "$cv"
+    # The control: a copy of the record with an unknown sha256 (64 zeros) planted
+    # in the first corpus row and in the first fixture row's input column.
+    awk -v z=0000000000000000000000000000000000000000000000000000000000000000 '
+      /^[|] corpus [|]/ && !c { n = split($0, a, "|"); a[6] = " " z " "; $0 = a[1]; for (i = 2; i <= n; i++) $0 = $0 "|" a[i]; c = 1 }
+      /^[|] fixture [|]/ && !f { n = split($0, a, "|"); a[9] = " " z " "; $0 = a[1]; for (i = 2; i <= n; i++) $0 = $0 "|" a[i]; f = 1 }
+      { print }' "$DEST" >"$B/c-record-planted"
+    n_planted_bytes=$(cmp -l "$DEST" "$B/c-record-planted" | wc -l)
+    read -r c_lc c_lf c_li c_rc c_fc c_rf c_ff c_ri c_fi < <(awk -F"$TAB" -f "$B/pairs.awk" "$LIST" "$B/c-record-planted")
+    echo "  control copy (<work>/c-record-planted, two sha256 cells planted, $n_planted_bytes bytes differing): corpus found $c_fc of $c_rc; fixture found $c_ff of $c_rf; input pairs found $c_fi of $c_ri"
+    ctl_pairs() { [ "$c_fc" = "$((f_c - 1))" ] && [ "$c_ff" = "$f_f" ] && [ "$c_fi" = "$((f_i - 1))" ] && [ "$c_rc$c_rf$c_ri" = "$r_c$r_f$r_i" ]; }
+    check "the planted copy differs from the record" "$(yn [ "$n_planted_bytes" -gt 0 ])"
+    check "control: the same program counts one corpus pair and one input pair fewer in the planted copy, and the fixture pairs unchanged" "$(yn ctl_pairs)"
+    
+    echo
+    echo "## 5. the totals recomputed by awk from the results file and the by-hand file (ruling W; ruling AA; change TF)"
+    # totals_line <by-hand file> <results file>: the record's totals row, from
+    # the results file with each by-hand row's cell's first word replacing that
+    # corpus row's result (ruling AA); then the results file's counts alone.
+    cat >"$B/totals.awk" <<'AWK'
+    FNR == 1 { next }
+    FILENAME == ARGV[1] { split($3, w, " "); hand[$1 SUBSEP $2] = w[1]; next }
+    {
+      r = $4
+      if ($1 == "corpus" && (($2 SUBSEP $3) in hand)) { r = hand[$2 SUBSEP $3]; used++ }
+      n[$1 SUBSEP r]++; a[$1 SUBSEP $4]++; rows++
+    }
+    END {
+      printf "| %d | %d | %d | %d | %d | %d | %d | %d | %d | %d |\n", rows, n["corpus", "pass"], n["corpus", "repair"], n["corpus", "fail"], n["fixture", "pass"], n["fixture", "repair"], n["fixture", "fail"], n["input", "pass"], n["input", "repair"], n["input", "fail"]
+      printf "| %d | %d | %d | %d | %d | %d | %d | %d | %d | %d |\n", rows, a["corpus", "pass"], a["corpus", "repair"], a["corpus", "fail"], a["fixture", "pass"], a["fixture", "repair"], a["fixture", "fail"], a["input", "pass"], a["input", "repair"], a["input", "fail"]
+      printf "%d\n", used
+    }
+    AWK
+    echo "command: awk -F'<tab>' -f <work>/totals.awk <phase>/record-from-planning/byhand-2026-10-26.tsv <stage>/open-results.txt (the program printed below); the record's totals line: the first table row under its \"## Totals\" heading"
+    sed 's/^/    /' "$B/totals.awk"
+    awk -F"$TAB" -f "$B/totals.awk" "$BYHAND" "$RESULTS" >"$B/totals.out"
+    tot_awk=$(sed -n 1p "$B/totals.out")
+    tot_alone=$(sed -n 2p "$B/totals.out")
+    n_hand_used=$(sed -n 3p "$B/totals.out")
+    tot_rec=$(awk '$0 == "## Totals" { t = 1; next } t && /^## / { exit } t && /^[|] [0-9]/ { print; exit }' "$DEST")
+    echo "  the record's header row for it: rows; corpus pass, repair, fail; fixture pass, repair, refused; input pass, repair, refused"
+    echo "  recomputed (results and by-hand): $tot_awk"
+    echo "  the record's totals line:         $tot_rec"
+    echo "  information (ruling AA), the results file's counts alone: $tot_alone"
+    echo "  results rows a by-hand row replaced: $n_hand_used (the by-hand file's rows: $n_hand_rows)"
+    check "every by-hand row named a results row (ruling AA)" "$(yn [ "$n_hand_used" = "$n_hand_rows" ])"
+    tot_eq() { [ -n "$tot_rec" ] && [ "$tot_awk" = "$tot_rec" ]; }
+    if tot_eq; then tv=yes; else
+      tv=no
+      echo "  FINDING: the totals recomputed from the results file and the by-hand file differ from the record's totals line"
+      n_findings=$((n_findings + 1))
+    fi
+    check "the totals recomputed by awk equal the record's totals line (ruling W; ruling AA)" "$tv"
+    tot_planted=$(printf '%s\n' "$tot_rec" | sed 's/^| \([0-9]*\) |/| \10 |/')
+    echo "  the control's line, the record's with a 0 appended to its rows count: $tot_planted"
+    check "control: the planted line differs from the record's" "$(yn [ "$tot_planted" != "$tot_rec" ])"
+    tot_ctl() { local tot_rec=$tot_planted; tot_eq; }
+    check "control: the same comparison refuses the planted line" "$(ynnot tot_ctl)"
+    tot_empty_ctl() { local tot_rec=; tot_eq; }
+    check "control: the same comparison refuses an empty totals line" "$(ynnot tot_empty_ctl)"
+    
+    echo
+    echo "## the stage, after"
+    stage_listing >"$B/stage-after"
+    echo "command: the same listing after: $(count_lines "$B/stage-after") lines, sha256 $(sha_of "$B/stage-after")"
+    check "the stage's listing is the same before and after: nothing under it was written" "$(yn cmp -s "$B/stage-before" "$B/stage-after")"
+    check "the list is still at its pin" "$(yn pin_ok "$LIST" "$LIST_SHA")"
+    check "the results file is still at its pin" "$(yn pin_ok "$RESULTS" "$RESULTS_SHA")"
+    
+    echo
+    echo "## the FINDING lines of this log (specs/0043 ruling R)"
+    echo "  FINDING lines printed above: $n_findings (a FINDING is printed only for a stop, a mismatch or a count that differs; the record's own five findings print none, ruling W)"
+    
+    echo
+    echo "## status after the run"
+    echo "command: git status --porcelain"
+    git status --porcelain | sed 's/^/    /'
+    st_all=$(run_lines git status --porcelain)
+    st_ours=$(run_matches -E "$OURS" git status --porcelain)
+    echo "  planning's uncommitted spec: $SPEC, sha256 $(sha_of "$SPEC")"
+    echo "status lines: $st_all; of them this phase's logs, the record or planning's uncommitted spec: $st_ours"
+    status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+    check "every change in the working tree is this phase's or planning's uncommitted spec" "$(yn status_accounted)"
+    echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/run.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+    echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "run log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+    exec 1>&3
+    wait "$SCRUB_PID" 2>/dev/null
+    exit "$fail"
+
+## the shared counting library this log sources (the phase commit's, by git show)
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "${d:?}"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the spec against the phase commit, and planning's uncommitted spec
+command: git show <phase commit>:specs/0044-excel-check.md | sha256sum; sha256sum specs/0044-excel-check.md (the working file, holding planning's rulings written during P2 and not yet committed, checked against PLANNING_SPEC; change TB)
+  at the phase commit: 5b32ead8fb72dba0880c5e82ed217f5e9bf85c2ebec8baa44a31e6991fafb8f9; the pin: 5b32ead8fb72dba0880c5e82ed217f5e9bf85c2ebec8baa44a31e6991fafb8f9
+  the working tree's copy: sha256 9de4dd8e569bfd0a383ec303d74c8b40387887b40fcf9d15c2bf5912f59b71e6
+  the spec at the phase commit is at the pinned hash, the doc commit's blob: yes
+  control: the same check refuses the spec against another hash: yes
+input: PLANNING_SPEC: 9de4dd8e569bfd0a383ec303d74c8b40387887b40fcf9d15c2bf5912f59b71e6 (the working spec's sha256; change TB)
+  the working spec is the file PLANNING_SPEC names (change TB, M6 part 6 P2's form): yes
+  control: the same comparison refuses another hash named as PLANNING_SPEC: yes
+  control: the same comparison refuses an unset PLANNING_SPEC: yes
+
+## 1. the inputs, pinned (ruling V; change TC)
+command: sha256sum, wc -c and wc -l over each input; the pins are planning's P2 brief's full hashes
+  <phase>/record-from-planning/excel-check-m7-2026-10-26.md: sha256 47e6f360966e03500419c665037add00712e5c1c9765c508403d6cd8c0000d25, 844290 bytes, 3845 lines; the pin 47e6f360966e03500419c665037add00712e5c1c9765c508403d6cd8c0000d25
+  excel-check-m7-2026-10-26.md is at its pinned sha256: yes
+  <phase>/record-from-planning/assemble-excel-record.py: sha256 54f344a7588640dd79095340640b1fa5440974e5324c5022f60ea61cc701ad45, 9489 bytes, 163 lines; the pin 54f344a7588640dd79095340640b1fa5440974e5324c5022f60ea61cc701ad45
+  assemble-excel-record.py is at its pinned sha256: yes
+  <phase>/record-from-planning/byhand-2026-10-26.tsv: sha256 95a69b8a0912cbc4f5e6f90921f90bdeae919b49c8d4b9f264348f79973fde01, 2031 bytes, 33 lines; the pin 95a69b8a0912cbc4f5e6f90921f90bdeae919b49c8d4b9f264348f79973fde01
+  byhand-2026-10-26.tsv is at its pinned sha256: yes
+  <stage>/excel-check-list.txt: sha256 46cb94535d01b7a437a06871be6e5f733c60ae91d65280424d5c80dd388d4ae4, 1496245 bytes, 6019 lines; the pin 46cb94535d01b7a437a06871be6e5f733c60ae91d65280424d5c80dd388d4ae4
+  excel-check-list.txt is at its pinned sha256: yes
+  <stage>/open-results.txt: sha256 9bf8bc30a2c9c074a5ad466b704cf20dd323e9a578f2d95effc46fdb9aef1261, 607685 bytes, 6019 lines; the pin 9bf8bc30a2c9c074a5ad466b704cf20dd323e9a578f2d95effc46fdb9aef1261
+  open-results.txt is at its pinned sha256: yes
+  control: the same comparison refuses the list against the results file's pin: yes
+  the record: 3845 lines, 844290 bytes (ruling V: 3845 lines, 844290 bytes)
+  the record holds 3845 lines and 844290 bytes, as ruling V says: yes
+  data rows under the header: the list 6018; the results file 6018; the by-hand file 32
+  the list and the results file hold 6018 rows each (ruling V): yes
+  the by-hand file holds 32 rows (ruling V): yes
+  the results file's header: source	id_or_test	label	result	seen1	seen2	seen3	message
+  the by-hand file's header: id_or_test	label	cell
+  the results file's columns are source, id_or_test, label, result, seen1 to seen3, message: yes
+  the by-hand file's columns are id_or_test, label, cell: yes
+  lines of the record holding a byte outside ASCII: 0
+  the record is ASCII: yes
+  control: the same form counts the one line of a fixture holding a byte outside ASCII: yes
+  lines of the record naming the home directory: 0
+  the record names no home directory: yes
+  control: the same form counts the one line of a fixture naming it: yes
+command: find <stage> -maxdepth 2 -printf '%P %s %T@ %m' | sort (the stage's listing before this run reads it): 8 lines, sha256 98175b45f2b53c3f2369133ccc1d9d8ccda02910aa39f1a2a38f310e98c3e24c
+  the stage's listing was read: yes
+
+## 2. the record copied byte for byte (ruling W; change TD)
+command: cp <phase>/record-from-planning/excel-check-m7-2026-10-26.md records/excel-check-m7-2026-10-26.md; sha256sum; cmp with the source
+  records/excel-check-m7-2026-10-26.md: sha256 47e6f360966e03500419c665037add00712e5c1c9765c508403d6cd8c0000d25, 844290 bytes
+  the copy's sha256 is the record's, ruling V's (change TD): yes
+  the copy is byte-equal to planning's file (cmp): yes
+  control: the same comparisons refuse a copy with one byte appended: yes
+
+## 3. the assembly run again (ruling W; change TE)
+command: python3 -I -B <phase>/record-from-planning/assemble-excel-record.py --list <stage>/excel-check-list.txt --results <stage>/open-results.txt --byhand <phase>/record-from-planning/byhand-2026-10-26.tsv --excel "Microsoft Excel LTSC MSO (Version 2408 Build 16.0.17932.21056) 64-bit" --os "Microsoft Windows 11 Home 10.0.26300" --date 2026-10-26 > <work>/assembled.md 2> <work>/assembled.err
+  exit: 0; standard error: 0 bytes, of them lines beginning STOP: 0
+  <work>/assembled.md: sha256 47e6f360966e03500419c665037add00712e5c1c9765c508403d6cd8c0000d25, 844290 bytes, 3845 lines
+  the assembly exits 0, writes nothing to its standard error, and its output is the record, by sha256 and cmp (ruling W): yes
+  control: the same cmp refuses the output with its last line removed: yes
+
+## 4. the record's rows found in the list, by bytes and sha256, per source (ruling W; ruling AB; change TF)
+command: awk -F'<tab>' -f <work>/pairs.awk <stage>/excel-check-list.txt records/excel-check-m7-2026-10-26.md (the program printed below)
+    FNR == 1 && FILENAME == ARGV[1] { next }
+    FILENAME == ARGV[1] { have[$1 SUBSEP $5 SUBSEP $6] = 1; lst[$1]++; next }
+    $0 == "## Results" { r = 1; next }
+    r && /^## / { r = 0 }
+    r && /^[|]/ {
+      n = split($0, a, "|")
+      for (i = 1; i <= n; i++) gsub(/^ +| +$/, "", a[i])
+      if (a[2] != "corpus" && a[2] != "fixture") next
+      rows[a[2]]++
+      if ((a[2] SUBSEP a[5] SUBSEP a[6]) in have) found[a[2]]++
+      if (a[2] == "fixture") { inp++; if (("input" SUBSEP a[8] SUBSEP a[9]) in have) infound++ }
+    }
+    END { printf "%d %d %d %d %d %d %d %d %d\n", lst["corpus"], lst["fixture"], lst["input"], rows["corpus"], found["corpus"], rows["fixture"], found["fixture"], inp, infound }
+  the list's rows: corpus 1560, fixture 2229, input 2229
+  the record's corpus rows 1560, found 1560; fixture rows 2229, found 2229; together 3789, found 3789; the fixture rows' input pairs 2229, found 2229
+  every record row's pair is found among the list's rows of its source, and the record holds as many rows per source as the list (ruling AB): yes
+  the counts are ruling AB's: 1560 and 2229, 3789 of 3789, and the input pairs 2229 of 2229: yes
+  control copy (<work>/c-record-planted, two sha256 cells planted, 123 bytes differing): corpus found 1559 of 1560; fixture found 2229 of 2229; input pairs found 2228 of 2229
+  the planted copy differs from the record: yes
+  control: the same program counts one corpus pair and one input pair fewer in the planted copy, and the fixture pairs unchanged: yes
+
+## 5. the totals recomputed by awk from the results file and the by-hand file (ruling W; ruling AA; change TF)
+command: awk -F'<tab>' -f <work>/totals.awk <phase>/record-from-planning/byhand-2026-10-26.tsv <stage>/open-results.txt (the program printed below); the record's totals line: the first table row under its "## Totals" heading
+    FNR == 1 { next }
+    FILENAME == ARGV[1] { split($3, w, " "); hand[$1 SUBSEP $2] = w[1]; next }
+    {
+      r = $4
+      if ($1 == "corpus" && (($2 SUBSEP $3) in hand)) { r = hand[$2 SUBSEP $3]; used++ }
+      n[$1 SUBSEP r]++; a[$1 SUBSEP $4]++; rows++
+    }
+    END {
+      printf "| %d | %d | %d | %d | %d | %d | %d | %d | %d | %d |\n", rows, n["corpus", "pass"], n["corpus", "repair"], n["corpus", "fail"], n["fixture", "pass"], n["fixture", "repair"], n["fixture", "fail"], n["input", "pass"], n["input", "repair"], n["input", "fail"]
+      printf "| %d | %d | %d | %d | %d | %d | %d | %d | %d | %d |\n", rows, a["corpus", "pass"], a["corpus", "repair"], a["corpus", "fail"], a["fixture", "pass"], a["fixture", "repair"], a["fixture", "fail"], a["input", "pass"], a["input", "repair"], a["input", "fail"]
+      printf "%d\n", used
+    }
+  the record's header row for it: rows; corpus pass, repair, fail; fixture pass, repair, refused; input pass, repair, refused
+  recomputed (results and by-hand): | 6018 | 1528 | 32 | 0 | 1864 | 0 | 365 | 1874 | 0 | 355 |
+  the record's totals line:         | 6018 | 1528 | 32 | 0 | 1864 | 0 | 365 | 1874 | 0 | 355 |
+  information (ruling AA), the results file's counts alone: | 6018 | 1528 | 0 | 32 | 1864 | 0 | 365 | 1874 | 0 | 355 |
+  results rows a by-hand row replaced: 32 (the by-hand file's rows: 32)
+  every by-hand row named a results row (ruling AA): yes
+  the totals recomputed by awk equal the record's totals line (ruling W; ruling AA): yes
+  the control's line, the record's with a 0 appended to its rows count: | 60180 | 1528 | 32 | 0 | 1864 | 0 | 365 | 1874 | 0 | 355 |
+  control: the planted line differs from the record's: yes
+  control: the same comparison refuses the planted line: yes
+  control: the same comparison refuses an empty totals line: yes
+
+## the stage, after
+command: the same listing after: 8 lines, sha256 98175b45f2b53c3f2369133ccc1d9d8ccda02910aa39f1a2a38f310e98c3e24c
+  the stage's listing is the same before and after: nothing under it was written: yes
+  the list is still at its pin: yes
+  the results file is still at its pin: yes
+
+## the FINDING lines of this log (specs/0043 ruling R)
+  FINDING lines printed above: 0 (a FINDING is printed only for a stop, a mismatch or a count that differs; the record's own five findings print none, ruling W)
+
+## status after the run
+command: git status --porcelain
+     M specs/0044-excel-check.md
+    ?? records/excel-check-m7-2026-10-26.md
+    ?? records/logs/m7p1-p2/
+  planning's uncommitted spec: specs/0044-excel-check.md, sha256 9de4dd8e569bfd0a383ec303d74c8b40387887b40fcf9d15c2bf5912f59b71e6
+status lines: 3; of them this phase's logs, the record or planning's uncommitted spec: 3
+  every change in the working tree is this phase's or planning's uncommitted spec: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/run.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-26T17:52:55Z
+run log checks all as expected: yes
