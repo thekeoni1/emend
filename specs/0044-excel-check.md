@@ -664,6 +664,114 @@ Y. The P2 doc commit holds this spec and `ROADMAP.md` (the P2 row
    the five findings' headings by sample or count, never a cell
    reference.
 
+Z. P1's target root `<home>/.cache/emend-build/m7p1-p1/target` is
+   pruned at P2's gate under the standing rule (`specs/0028` P2
+   ruling 8), the two cargo directories under it, `main` and
+   `consumer`, by `cargo clean --target-dir` from `<repo>`, `du -sb`
+   printed before each; the `CACHEDIR.TAG` condition is printed as
+   information for this prune, the root and those two directories
+   carrying no tag (only `main/i686-unknown-linux-musl` does), the
+   directories named here instead. Everything else under m7p1-p1
+   stays (dry d1 and d2 per ruling R, keep-host, logs, scripts,
+   superseded). The dry gate lists only (`PRUNE_PREVIOUS=list`).
+AA. Ruling W's totals by `awk`: the record's totals take the by-hand
+   file, so the `awk` reads the results file and the by-hand file,
+   a by-hand row's cell's first word replacing that row's result,
+   and prints the results-alone counts beside them as information
+   (corpus fail 32 there, repair 32 in the record).
+AB. Ruling W's pair counts are matched per source: the record's
+   corpus rows' (`bytes`, `sha256`) against the list's corpus rows,
+   its fixture rows against the list's fixture rows, and the fixture
+   rows' input pairs against the list's input rows: 1560 and 2229
+   (3789 of 3789), and 2229 of 2229.
+AC. The close-out generator's change 20 block heading reads "no
+   Milestone 2 Excel check record at the tip" where it read "no
+   Excel check record at the tip", since the restored block expects
+   this part's record there.
+
+AD. The first logged attempt stopped at the gate (17:28:10Z to
+   17:35:06Z): ruling Z's `cargo clean --target-dir` refused both
+   roots, exit 101, "missing or invalid CACHEDIR.TAG", so nothing
+   was removed (planning read the gate log, sha256 6bc56017, lines
+   244 to 252; `du -sb` of P1's target still 6215683243; the 35
+   names of m7p1-p1 all there; the tree " M specs/0044" alone). The
+   attempt's files stay under `<phase>/superseded/logged-attempt-1`;
+   the empty log directory the driver made was removed by `rmdir`,
+   disclosed. The dry gate lists only, so a dry run cannot show the
+   removal; the reading was planning's to check and it accepted
+   the proposal, so the slip is shared. Ruling: the prune of the two
+   names is by `rm -r "${PREV_DIR:?}/${n:?}"` in the generated gate
+   (`specs/0043` ruling C's form; the form `specs/0028` P2 ruling 8
+   names beside `cargo clean`), `du -sb` printed before, each name
+   gone after and every kept name still there; no `CACHEDIR.TAG` is
+   written and no `-f` is used. The gate gains a control that
+   builds a target-shaped directory of its own under its build
+   root and removes it by the same form, printed, so the dry gate
+   (still `PRUNE_PREVIOUS=list`) shows the form removes. A new
+   numbered change replaces change C90's clean. The four scripts
+   are regenerated at the moved PLANNING_SPEC; a third dry run
+   under `<phase>/dry/d3` is reported with every FINDING line;
+   planning's word for the second logged attempt is given here on
+   condition: d3's three logs "all as expected: yes" with exit 0,
+   its scan the two dry-layout lines only, 0 emitted FINDING lines,
+   the control's removal line printed; then the logged run starts
+   without a further message, from the start, with RERUN_NOTE
+   naming attempt 1 by its superseded path and RERUN_FILES its gate
+   log. The maintainer is told of the method in the planning
+   session.
+
+## Planning verification of P2 (2026-10-26)
+
+Read from the primaries, not the report: the doc commit ad139c3
+(parent a72467d, two files at the hashes ruling Y's commit names,
+the message ASCII with the Co-Authored-By line only); the record
+commit e538e0a (parent ad139c3, 7 files added: the record and the
+six under `records/logs/m7p1-p2/`, the message ASCII with the one
+trailer, the count sentence carried); the record in the tree at
+sha256 47e6f360; the gate, negative and run logs (8d21c89d, 7bd8e039,
+c23251d0) each ending "checks all as expected: yes", the prune
+lines "rm -r exit 0" for target/main and target/consumer (gate.log
+250 and 251) and the R90 control (192), P1's target 0 bytes and its
+35 names kept; 0 emitted FINDING lines (run.log 2284; gate and
+negative 0); the final scan RESULT: PASS, the privacy range of 2
+commits 0 findings; no committed file of the commit holds the home
+path, the maintainer's address, a machine name or U+2014 (the one
+`/home/` hit is the scan's own split control string, as in P1);
+check 1's 69 non-empty lines verbatim in the report but for its
+title line, set as a heading. Dry runs d1 to d3 and the stopped
+attempt 1 verified before the logged run (ruling AD; the d2 and d3
+readings: the three logs "yes", the scan's two dry-layout lines
+only, 0 emitted FINDING lines, the R90 control printed in d3).
+
+AE. Check 1's two points on the record's text, which stands as
+   committed: in findings 1 to 4, "whose host row and every other
+   sample pass" reads "every sample not named in findings 1 to 4":
+   five of the 27 chart-surface workbooks also carry an edit,
+   protect or remove repair (`054df34b1472`, `f8459281d739`,
+   `18d1e8ba72b5`, `40d747fb5d9e`, `f3a462783621`); and on the
+   record's line 39, "the list holds them" means the references,
+   not the `seen` values. Part 2's scoping reads the findings with
+   this ruling; the record is not amended.
+AF. P2 is DONE 2026-10-26 (ad139c3, record e538e0a, local, not
+   pushed). The dry directories d1 to d3 of P2 (about 117 MB each)
+   and attempt 1's superseded files are the maintainer's to reclaim
+   with P1's dry directories and the Milestone 2 stage and zip, by a
+   method the maintainer names in the implementing session
+   (ruling R). The close-out follows as "Close-out push (after P2)":
+   the doc commit (this spec and `ROADMAP.md`, the P2 row DONE and
+   the Close row IN PROGRESS), the generator regenerated at the
+   moved PLANNING_SPEC with its push script in pre mode on a clean
+   tree, the report to planning, planning's word, the maintainer's
+   authorisation typed in the implementing session, the push, the
+   CI run, the post scan, the record commit, one independent check,
+   the report; `ROADMAP.md`'s part 1 heading then DONE and PUSHED.
+   What part 2 carries: the record's findings 1 to 5 for decision
+   2's per-finding choices, the assembly script and the by-hand
+   file kept under the P2 phase directory (not committed), and the
+   prune rule's wording (`specs/0028` P2 ruling 8: `rm -r` in the
+   generated gate, `cargo clean` only where the root carries
+   `CACHEDIR.TAG`, as ruling AD found).
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-25: 1, 2 and 3 as recommended (A
