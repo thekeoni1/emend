@@ -4497,8 +4497,10 @@ fn a_present_calc_pr_gains_or_takes_the_attribute_and_keeps_every_other_byte() {
 #[test]
 fn an_absent_calc_pr_goes_after_the_last_of_the_nine() {
     // P1 ruling 1: after `definedNames`, after `sheets` alone, after
-    // `workbookPr` alone with no `sheets`, before whitespace and comments
-    // that follow, and past another namespace's children between the nine.
+    // `workbookPr` alone with no `sheets`, and past another namespace's
+    // children between the nine; the whitespace and comments that follow
+    // the last of the nine go before it, immediately before the next child
+    // or the root's end (`specs/0045-publish.md` ruling E).
     let new = "<calcPr fullCalcOnLoad=\"1\"/>";
     let cases = [
         (
@@ -4506,20 +4508,20 @@ fn an_absent_calc_pr_goes_after_the_last_of_the_nine() {
                 "{SHEETS}\n<definedNames><definedName name=\"a\">1</definedName></definedNames>\n<extLst/>"
             ),
             format!(
-                "{SHEETS}\n<definedNames><definedName name=\"a\">1</definedName></definedNames>{new}\n<extLst/>"
+                "{SHEETS}\n<definedNames><definedName name=\"a\">1</definedName></definedNames>\n{new}<extLst/>"
             ),
         ),
         (
             format!("<bookViews/>{SHEETS}\n  <oleSize ref=\"A1\"/>"),
-            format!("<bookViews/>{SHEETS}{new}\n  <oleSize ref=\"A1\"/>"),
+            format!("<bookViews/>{SHEETS}\n  {new}<oleSize ref=\"A1\"/>"),
         ),
         (
             "<workbookPr date1904=\"0\"/>\n".to_string(),
-            format!("<workbookPr date1904=\"0\"/>{new}\n"),
+            format!("<workbookPr date1904=\"0\"/>\n{new}"),
         ),
         (
             format!("{SHEETS}<!-- c --><definedNames/><!-- d -->"),
-            format!("{SHEETS}<!-- c --><definedNames/>{new}<!-- d -->"),
+            format!("{SHEETS}<!-- c --><definedNames/><!-- d -->{new}"),
         ),
         (
             format!(
@@ -4528,7 +4530,7 @@ fn an_absent_calc_pr_goes_after_the_last_of_the_nine() {
             ),
             format!(
                 "<workbookPr/>\n<mc:AlternateContent xmlns:mc=\"urn:mc\"><mc:Choice/></mc:AlternateContent>\n\
-                 <bookViews/>{SHEETS}{new}<q:x xmlns:q=\"urn:q\"/>\n<fileRecoveryPr/>"
+                 <bookViews/>{SHEETS}<q:x xmlns:q=\"urn:q\"/>\n{new}<fileRecoveryPr/>"
             ),
         ),
     ];

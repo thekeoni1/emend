@@ -200,12 +200,13 @@ fn a_created_container_goes_in_schema_position() {
     let created =
         "<definedNames><definedName name=\"n\">1</definedName></definedNames>".to_string();
     let add = |p: &mut Package<Cursor<Vec<u8>>>| p.add_defined_name("n", "1", None).expect("add");
-    // Before `extLst`, the new `calcPr` after it, the whitespace held.
+    // Before `extLst`, the new `calcPr` after it, the whitespace held and
+    // written before them (`specs/0045-publish.md` ruling E).
     assert_eq!(
         edited_book(1, "\n<extLst><ext uri=\"{x}\"/></extLst>", add),
         book_part(
             1,
-            &format!("{created}{NEW_CALC}\n<extLst><ext uri=\"{{x}}\"/></extLst>")
+            &format!("\n{created}{NEW_CALC}<extLst><ext uri=\"{{x}}\"/></extLst>")
         )
     );
     // Before a `calcPr` the file has, after `externalReferences`.
@@ -218,7 +219,7 @@ fn a_created_container_goes_in_schema_position() {
         book_part(
             1,
             &format!(
-                "<externalReferences/>{created}\n<calcPr calcId=\"1\" fullCalcOnLoad=\"1\"/>\
+                "<externalReferences/>\n{created}<calcPr calcId=\"1\" fullCalcOnLoad=\"1\"/>\
                  <pivotCaches/>"
             )
         )
@@ -232,7 +233,7 @@ fn a_created_container_goes_in_schema_position() {
         ),
         book_part(
             1,
-            &format!("{created}{NEW_CALC}<!-- c --><q:x xmlns:q=\"urn:q\"/><oleSize ref=\"A1\"/>")
+            &format!("<!-- c --><q:x xmlns:q=\"urn:q\"/>{created}{NEW_CALC}<oleSize ref=\"A1\"/>")
         )
     );
 }

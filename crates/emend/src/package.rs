@@ -14078,13 +14078,16 @@ fn rewrite_workbook(
 ///   0, and a present `firstSheet` follows P3 ruling 8.
 ///
 /// Creating an element in the workbook: an absent element the write needs
-/// goes, with the root's prefix, immediately after the end of the last root
-/// child of the main namespace that [`WORKBOOK_CHILDREN`] puts before it, or
-/// after the root start tag when there is none. The tokens that follow such
-/// an end at the root's level are held back until the next child of the
-/// root in the main namespace shows, by its place in the table, whether the
-/// element goes before it; a main-namespace name outside the table counts as
-/// after every name in it. Two created elements go in the table's order.
+/// goes, with the root's prefix, immediately before the first root child of
+/// the main namespace that [`WORKBOOK_CHILDREN`] puts after it, or before the
+/// root's end tag when there is none (`specs/0045-publish.md`, fix 2, ruling
+/// E, amending `specs/0019`). The tokens that follow the end of a root child
+/// of the main namespace at the root's level are held back until the next
+/// such child shows, by its place in the table, whether the element goes
+/// before it, and are written ahead of the element, so an element of another
+/// namespace between two main-namespace children stays before it; a
+/// main-namespace name outside the table counts as after every name in it.
+/// Two created elements go in the table's order.
 fn rewrite_workbook_part(
     archive: &mut Core,
     index: usize,
@@ -14244,15 +14247,16 @@ fn rewrite_workbook_part(
                         .find(|name| *name == local);
                 }
                 if depth == 2 && ours && inserting {
-                    // The elements that go before this child are written,
-                    // then what was held back since the last child.
+                    // What was held back since the last child is written,
+                    // then the elements that go before this child
+                    // (`specs/0045-publish.md`, fix 2, ruling E).
+                    out.write_all(&held)?;
+                    held.clear();
                     let at = book_position(local);
                     for which in pending.iter().filter(|which| book_position(which) < at) {
                         out.write_all(&created_book_element(which, &root_prefix, edits))?;
                     }
                     pending.retain(|which| book_position(which) >= at);
-                    out.write_all(&held)?;
-                    held.clear();
                 }
                 // The workbook's `<workbookProtection>`: replaced whole or
                 // dropped, a second refused
@@ -14397,12 +14401,12 @@ fn rewrite_workbook_part(
                     }
                     out.write_all(token.raw)?;
                 } else if depth == 1 && inserting {
+                    out.write_all(&held)?;
+                    held.clear();
                     for which in &pending {
                         out.write_all(&created_book_element(which, &root_prefix, edits))?;
                     }
                     pending.clear();
-                    out.write_all(&held)?;
-                    held.clear();
                     out.write_all(token.raw)?;
                 } else if inserting && !held.is_empty() {
                     held.extend_from_slice(token.raw);
@@ -14783,9 +14787,10 @@ fn skip_element<R: Read>(stream: &mut Stream<R>, scope: &mut Scope) -> Result<()
 
 /// The root children of a workbook in the order ECMA-376 Part 1, 18.2.27
 /// gives them: an element the workbook rewrite creates goes immediately
-/// after the last root child of the main namespace that comes before it
-/// here (`specs/0019-names-links-properties-protection.md`, "Creating an
-/// element in the workbook"). `calcPr`'s place is after the first nine,
+/// before the first root child of the main namespace that comes after it
+/// here, or at the root's end (`specs/0019-names-links-properties-
+/// protection.md`, "Creating an element in the workbook", amended by
+/// `specs/0045-publish.md` ruling E). `calcPr`'s place is after the first nine,
 /// which is where part 6 put it (`specs/0013-formulas.md`, P1 ruling 1).
 const WORKBOOK_CHILDREN: [&[u8]; 19] = [
     b"fileVersion",

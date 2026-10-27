@@ -298,6 +298,49 @@ fn the_workbook_element_replaces_an_empty_one_and_is_dropped_by_an_unprotect() {
     );
 }
 
+/// Fix 2 of `specs/0045-publish.md` (ruling E): the created element goes
+/// immediately before the next child of the main namespace in schema order,
+/// so an element of another namespace Excel writes after `workbookPr` stays
+/// before it.
+#[test]
+fn the_workbook_element_is_created_before_the_next_main_child_after_a_planted_one() {
+    let revision = "<xr:revisionPtr xmlns:xr=\"http://schemas.microsoft.com/office/spreadsheetml/\
+                    2014/revision\" revIDLastSave=\"0\"/>";
+    let alternate = "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/\
+                     markup-compatibility/2006\"><mc:Choice Requires=\"x15\"/>\
+                     </mc:AlternateContent>";
+    for planted in [
+        revision.to_owned(),
+        alternate.to_owned(),
+        format!("{alternate}{revision}"),
+    ] {
+        let output = protected_book(&format!("<workbookPr/>{planted}<bookViews/>"), "", |p| {
+            p.protect_workbook(None, true, false).expect("protect")
+        });
+        assert_eq!(
+            output,
+            book(
+                &format!(
+                    "<workbookPr/>{planted}<workbookProtection lockStructure=\"1\"/><bookViews/>"
+                ),
+                ""
+            )
+        );
+        // Read back: the element after the planted one and before bookViews.
+        let created = output.find("<workbookProtection").expect("created");
+        assert!(output.find(&planted).expect("kept") < created);
+        assert!(created < output.find("<bookViews/>").expect("kept"));
+    }
+    // With no main-namespace child after its place but the sheets, the
+    // planted element still goes first.
+    assert_eq!(
+        protected_book(&format!("<workbookPr/>{revision}"), "", |p| {
+            p.protect_workbook(None, false, false).expect("protect")
+        }),
+        book(&format!("<workbookPr/>{revision}<workbookProtection/>"), "")
+    );
+}
+
 #[test]
 fn a_second_workbook_protection_is_refused() {
     let parts = sheeted(1, "<workbookProtection/><workbookProtection/>", "");
