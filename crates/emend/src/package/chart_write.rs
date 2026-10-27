@@ -86,6 +86,11 @@ pub(crate) const CHART_VALUE_RANGE: Error = Error::Package("a chart value is out
 /// fix 3, decision 2 A, ruling D): Excel refuses the style written.
 pub(crate) const SCATTER_STYLE_NONE: Error =
     Error::Package("a new scatter plot takes a scatter style other than none");
+/// What a moving average's period outside 2 to 255 is refused with at the
+/// call (`specs/0045-publish.md`, fix 5, ruling B): Excel refuses a period
+/// past 255.
+pub(crate) const MOVING_AVERAGE_PERIOD: Error =
+    Error::Package("a moving-average period is 2 to 255");
 
 /// A chart part's content type (`specs/0035-charts-write-first-set.md`,
 /// "The parts").
@@ -547,7 +552,8 @@ pub enum TrendlineKind {
     Power,
     /// `poly`, of the order given, 2 to 6, `order`.
     Polynomial(u8),
-    /// `movingAvg`, over the period given, 2 or more, `period`.
+    /// `movingAvg`, over the period given, 2 to 255, `period`
+    /// (`specs/0045-publish.md`, fix 5).
     MovingAverage(u16),
 }
 
@@ -866,11 +872,13 @@ impl<R: Read + Seek> Package<R> {
     /// trendline's intercept, more than one set of error bars on a plot
     /// other than a scatter or a bubble, two sets of one direction or more
     /// than two, and a set's direction missing on a scatter or a bubble or
-    /// given on another plot, and "a chart value is out of its range" for a
-    /// polynomial's order outside 2 to 6, a moving average's period below
-    /// 2, a forecast that is not finite or is negative, an intercept that is
-    /// not finite, and a fixed, percentage or standard deviation length
-    /// that is not finite or is not positive; then each series' labels'
+    /// given on another plot, "a moving-average period is 2 to 255" for a
+    /// moving average's period outside it (`specs/0045-publish.md`, fix 5),
+    /// and "a chart value is out of its range" for a polynomial's order
+    /// outside 2 to 6, a forecast that is not finite or is negative, an
+    /// intercept that is not finite, and a fixed, percentage or standard
+    /// deviation length that is not finite or is not positive; then each
+    /// series' labels'
     /// text properties, after its error bars and checked as the chart's
     /// texts are below (`specs/0041-chart-text-and-edits.md`, ruling A);
     /// then the plot lines, "a chart
@@ -1576,19 +1584,21 @@ fn takes_analysis(plot: NewPlot) -> bool {
 /// (`specs/0040-analytic-chart-elements.md`, "Applicability"): the kind
 /// with its order or period, the forecasts, the intercept, then what it
 /// shows. A moving average takes no forecast, intercept, equation or
-/// R-squared; a logarithmic or power trendline no intercept.
+/// R-squared, and a period of 2 to 255 (`specs/0045-publish.md`, fix 5); a
+/// logarithmic or power trendline no intercept.
 fn trendline_options(plot: NewPlot, trendline: NewTrendline<'_>) -> Result<(), Error> {
     if !takes_analysis(plot) {
         return Err(CHART_OPTION_KIND);
     }
     let average = matches!(trendline.kind, TrendlineKind::MovingAverage(_));
-    let in_range = match trendline.kind {
-        TrendlineKind::Polynomial(order) => (2..=6).contains(&order),
-        TrendlineKind::MovingAverage(period) => period >= 2,
-        _ => true,
-    };
-    if !in_range {
-        return Err(CHART_VALUE_RANGE);
+    match trendline.kind {
+        TrendlineKind::Polynomial(order) if !(2..=6).contains(&order) => {
+            return Err(CHART_VALUE_RANGE);
+        }
+        TrendlineKind::MovingAverage(period) if !(2..=255).contains(&period) => {
+            return Err(MOVING_AVERAGE_PERIOD);
+        }
+        _ => {}
     }
     for forecast in [trendline.forward, trendline.backward]
         .into_iter()

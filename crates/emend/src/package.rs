@@ -976,6 +976,15 @@
 //! - "a new scatter plot takes a scatter style other than none"
 //!   (`chart_write::a_new_scatter_plot_of_the_style_none_is_refused`).
 //!
+//! A moving average's period adds one, the Cargo feature `charts`'s too
+//! (`specs/0045-publish.md`, fix 5, ruling B), raised by `Package::add_chart`
+//! and `Package::add_chartsheet` at the call, in the trendline's place of
+//! the series' checks, where a polynomial's order outside 2 to 6 is "a chart
+//! value is out of its range":
+//!
+//! - "a moving-average period is 2 to 255", for a period below 2 or above
+//!   255 (`chart_write::the_trendline_and_error_bar_field_rules_are_refused`).
+//!
 //! The text properties, the style and the in-place edits add one, the
 //! Cargo feature `charts`'s too (`specs/0041-chart-text-and-edits.md`,
 //! "Errors"). "a chart value is out of its range" also covers a text's
@@ -2251,8 +2260,8 @@
 //!   a symbol, size, width, dash or point is not read back.
 //! - Trendlines, error bars, plot lines and axes (`specs/0040-analytic-
 //!   chart-elements.md`): a trendline (linear, exponential, logarithmic,
-//!   power, a polynomial of order 2 to 6, a moving average of period 2 or
-//!   more; forecasts finite and not negative, an intercept finite, its
+//!   power, a polynomial of order 2 to 6, a moving average of period 2 to
+//!   255 (`specs/0045-publish.md`, fix 5); forecasts finite and not negative, an intercept finite, its
 //!   name an element) and error bars (both, plus or minus; a fixed,
 //!   percentage or standard deviation length finite and positive, the
 //!   standard error, or custom plus and minus references) on a bar's, a

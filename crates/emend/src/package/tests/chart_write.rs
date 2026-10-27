@@ -56,6 +56,9 @@ const ANCHOR: &str = "a chart anchor is out of range";
 const GRID: &str = "a row or column index or count is out of range";
 const DRAWING_UNREADABLE: &str = "a drawing part or its relationship cannot be read";
 const RANGE: &str = "a chart value is out of its range";
+/// A moving average's period outside 2 to 255 (`specs/0045-publish.md`,
+/// fix 5).
+const PERIOD: &str = "a moving-average period is 2 to 255";
 
 /// The worksheet body the drawing fixtures use.
 const BODY: &str = "<sheetData/><drawing r:id=\"rId1\"/>";
@@ -5470,9 +5473,9 @@ fn each_trendline_kind_writes_its_type_its_order_or_period_and_its_fields() {
         (
             NewTrendline {
                 name: Some("Average"),
-                ..trend(TrendlineKind::MovingAverage(u16::MAX))
+                ..trend(TrendlineKind::MovingAverage(255))
             },
-            trend_written("Average", "movingAvg", "<c:period val=\"65535\"/>", [0, 0]),
+            trend_written("Average", "movingAvg", "<c:period val=\"255\"/>", [0, 0]),
         ),
     ];
     for (trendline, written) in cases {
@@ -5711,10 +5714,25 @@ fn the_trendline_and_error_bar_field_rules_are_refused() {
         TrendlineKind::Polynomial(1),
         TrendlineKind::Polynomial(7),
         TrendlineKind::Polynomial(u8::MAX),
-        TrendlineKind::MovingAverage(0),
-        TrendlineKind::MovingAverage(1),
     ] {
         refused(LINE, trended(trend(kind)), RANGE);
+    }
+    // The period outside 2 to 255 (`specs/0045-publish.md`, fix 5); 2 and
+    // 255 are written (`each_trendline_kind_writes_its_type_its_order_or_period_and_its_fields`).
+    for period in [0, 1, 256, 1000, u16::MAX] {
+        refused(
+            LINE,
+            trended(trend(TrendlineKind::MovingAverage(period))),
+            PERIOD,
+        );
+    }
+    for period in [2, 255] {
+        let one = [trended(trend(TrendlineKind::MovingAverage(period)))];
+        let chart = NewChart {
+            series: &one,
+            ..bare(LINE)
+        };
+        call(box_anchor(), &chart).expect("taken");
     }
     for number in [-0.5, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         let linear = trend(TrendlineKind::Linear);
@@ -5890,7 +5908,7 @@ fn the_trendline_and_error_bars_follow_the_check_order() {
         }),
         ..ONE_NAMED[0]
     }];
-    refused(LINE, &order_first, RANGE);
+    refused(LINE, &order_first, PERIOD);
     let forecast_first = [NewSeries {
         trendline: Some(NewTrendline {
             forward: Some(-1.0),
