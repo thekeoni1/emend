@@ -1271,7 +1271,7 @@ Milestone 6's close-out record 3f68f3b and the close-out edits of
    with every output opened, findings recorded and carried to the next
    milestone, not fixed in this one.
 
-### Part 1: the Excel check (`specs/0044-excel-check.md`, APPROVED 2026-10-25, decisions 1 to 3 A)
+### Part 1: the Excel check (`specs/0044-excel-check.md`, APPROVED 2026-10-25, decisions 1 to 3 A; DONE and PUSHED 2026-10-26)
 
 The check `specs/0015` "The Excel check" defines, grown by every part
 since and skipped since 2026-10-09 (`specs/0029` "Planning rulings
@@ -1284,7 +1284,29 @@ link changes.
 | --- | --- | --- |
 | P1 | every sample flag of `emend-copy` rerun on the host at the phase commit with records, the host keep regenerated and opened into an open record, the list written from them all and staged under `<corpus>/work` with the opener script and the files, the zip; the negative log; one independent check on the run log's directory list against the tool's flag list | DONE 2026-10-25 (82c07fb, record a72467d; one FINDING, the keep growth ruling K expects) |
 | P2 | the maintainer's Excel run on the stage; the record `records/excel-check-m7-<date>.md` assembled by planning from the opener's results file, every row checked by hash against the stage, committed by the implementing session with the scan; the close-out generator's Excel-record check restored with the record's pattern | DONE 2026-10-26 (ad139c3, record e538e0a; the record sha256 47e6f360, 6018 rows; findings: the chart-surface sample on 27 of 27 workbooks, edit on 2, protect on 2, remove on 1, and 32 fixture pairs, carried to part 2; one logged attempt stopped at the gate's prune and reran, `specs/0044` rulings T to AF) |
-| Close | close-out push after P2, carrying 3f68f3b and this part's commits, base 42ddf3b by its subject, `PREV` `^M6 part 6 close-out record`, the Excel-record check in pre mode (exactly one file at the tip), the visibility check reading PUBLIC, one independent check | IN PROGRESS 2026-10-26 (doc commit pending) |
+| Close | close-out push after P2, carrying 3f68f3b and this part's commits, base 42ddf3b by its subject, `PREV` `^M6 part 6 close-out record`, the Excel-record check in pre mode (exactly one file at the tip), the visibility check reading PUBLIC, one independent check | DONE 2026-10-26 (doc aed8087 pushed, origin/main 42ddf3b..aed8087, 6 commits, 0 findings, on "push 10/26/2026" typed in the implementing session after planning's word; CI run 40380042923 success; the post scan PASS; record 658dbc0 local, goes with the next push; check 1 yes, yes with ruling X's exceptions, yes, yes; verified by planning from git, `gh` and the three logs; `specs/0044` "Planning verification of the close-out", AG; part 1 DONE and PUSHED) |
+
+### Part 2: the fixes and the publish of 0.1.0 (`specs/0045-publish.md`, APPROVED 2026-10-27, decisions 1 to 5 A)
+
+Part 1's record found five things; the maintainer decided per finding
+on 2026-10-26 (`specs/0044` ruling AG): fix the of-pie split, the
+workbook protection's place, the scatter style `none`, a chartsheet
+left without its chart and the trendline period's range; document a
+table header edited, a removed sheet's references and the
+skeletal-fixture precondition. This part makes the fixes, has the
+fixed outputs opened in Excel once more (gating the publish, decision
+3), prepares the manifest's `include` list and the texts, and pushes
+the tag `v0.1.0`; the maintainer publishes from a clean clone of the
+tag on the laptop (decision 4); the sessions verify the publication
+against the tag.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the five fixes with tests and the re-kept fixtures; the three limits written; the keep and its open record; the formula sample and the five samples part 1's record names rerun on the host; the milestone's size record (the insertion rule's movement against the 7224-byte headroom); the negative log's refusals and controls; one independent check | PLANNED |
+| P2 | the second Excel check: the stage of the fixed outputs under `<corpus>/work/excel-check-m7p2-<date>`, the maintainer's run, the record `records/excel-check-m7p2-<date>.md` assembled by planning, every row pass | PLANNED |
+| P3 | the manifest's `include` list proven by the `git archive` dry run and `publish = false` lifted; the CHANGELOG's "Fixed" and limits; the README's Excel sentences citing both records; the packaging dry run with no token | PLANNED |
+| Close | close-out push after P3, carrying 658dbc0, base aed8087 by its subject, `PREV` `^M7 part 1 close-out record`, both Excel-record checks in pre mode, the annotated tag `v0.1.0` pushed with the branch, the whole-history scan at the tag (decision 5), one independent check | PLANNED |
+| P4 | after the maintainer's publication: the crate file and the index checksum read back, every packaged file compared with the tag's tree, the registry's keywords and categories read; the record carried by part 3's push | PLANNED |
 
 ## Unscoped
 

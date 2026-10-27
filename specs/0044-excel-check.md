@@ -772,6 +772,44 @@ AF. P2 is DONE 2026-10-26 (ad139c3, record e538e0a, local, not
    generated gate, `cargo clean` only where the root carries
    `CACHEDIR.TAG`, as ruling AD found).
 
+## Planning verification of the close-out (2026-10-26)
+
+Read from the primaries: origin/main aed8087 by `git ls-remote` and
+the local ref; the CI run 40380042923 on aed8087 success by `gh`;
+the record commit 658dbc0 (parent aed8087, the three logs under
+`records/logs/m7p1-close/` only, ASCII, the one trailer); the push
+log 9c5c89db ending "push checks all as expected: yes", the
+maintainer's words "push 10/26/2026" typed in the implementing
+session (1769), the range 42ddf3b..aed8087 (1786), remote equal to
+local (1797), PUBLIC after (1804); the ci-run log 1c31e182 ending
+"yes" with the run success (778); the post scan 4a86c8af RESULT:
+PASS; the tree clean; no emitted FINDING line. The pre-mode run
+was verified before the word (push.log lines 13 to 1734 as
+reported, scan-pre 0dce8c31 PASS). Check 1's exceptions are the
+ones `specs/0043` ruling X accepts.
+
+AG. Part 1 is DONE and PUSHED 2026-10-26. The record commit 658dbc0
+   goes with part 2's push. What part 2 carries, beyond ruling AF:
+   planning's structural reading of the findings' causes
+   (2026-10-26, values never printed): the chart-surface refusal is
+   the of-pie chart's `splitType` "auto" (every other split
+   accepted on the fixtures, surface charts accepted); the two
+   protect refusals are `workbookProtection` inserted before
+   `xr:revisionPtr` or `mc:AlternateContent` (every accepted
+   addition had `bookViews` next); the two edit refusals are the
+   two workbooks whose first sheet carries a table from row 1, the
+   sample rewriting its header cells; the remove refusal is the
+   removed sheet's table name left in other sheets' formulas and a
+   defined name; the fixtures: `scatterStyle` "none", a trendline
+   period of 65535, a chartsheet's only chart removed (2), the rest
+   the skeletal-fixture precondition of `specs/0015` Excel-check
+   ruling 4. The maintainer decided in the planning session
+   (2026-10-26): fix before the publish the of-pie split, the
+   protection placement, the scatter style, the chartsheet's only
+   chart (refused) and the period range; document as limits the
+   table-header edit, the sheet removal's references and the
+   fixture precondition. `specs/0045` scopes them.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-25: 1, 2 and 3 as recommended (A
