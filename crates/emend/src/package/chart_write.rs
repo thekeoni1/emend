@@ -72,6 +72,10 @@ pub(crate) const CHARTSHEET_ANCHOR: Error =
 /// What a second chart on a chartsheet is refused with at the write
 /// (decision 2 A, P1 ruling A).
 pub(crate) const ONE_CHART: Error = Error::Package("a chartsheet holds one chart");
+/// What a write that would leave a chartsheet's drawing with no chart frame
+/// is refused with (`specs/0045-publish.md`, fix 4, ruling A): a removal
+/// alone; a removal with an addition in the same write replaces the chart.
+pub(crate) const CHARTSHEET_KEEPS_CHART: Error = Error::Package("a chartsheet keeps its chart");
 /// What a chart number outside its range is refused with
 /// (`specs/0039-chart-kinds-and-formatting.md`, "Errors"): an of-pie's
 /// position below 1, a split value that is not finite or is negative, a
@@ -921,10 +925,11 @@ impl<R: Read + Seek> Package<R> {
     /// `part` may be a chartsheet's (`specs/0038-chartsheets.md`, "`add_chart`
     /// and `remove_chart` on a chartsheet"): the write then refuses an anchor
     /// other than [`ImageAnchor::Absolute`], "a chartsheet's chart takes an
-    /// absolute anchor"; a chart beside a chart frame its drawing holds, or
-    /// a second added in the same write, "a chartsheet holds one chart"
-    /// (replacing a chart takes two writes, `remove_chart` then this call:
-    /// P1 ruling A); a chartsheet without a `drawing` element, "a drawing
+    /// absolute anchor"; a chart beside a chart frame its drawing holds that
+    /// the same write does not remove, or a second added in the same write,
+    /// "a chartsheet holds one chart" (replacing a chart is `remove_chart`
+    /// and this call in one write: `specs/0045-publish.md` ruling A,
+    /// amending P1 ruling A); a chartsheet without a `drawing` element, "a drawing
     /// part or its relationship cannot be read"; and a part whose root is
     /// neither a worksheet nor a chartsheet, "the sheet part's root is not
     /// worksheet or chartsheet".
@@ -956,12 +961,18 @@ impl<R: Read + Seek> Package<R> {
     ///
     /// None at the call. The write refuses an index past the list, an index
     /// named twice, and a part this write also adds an image or a chart to,
-    /// "no chart at that position" (the caller writes twice); a frame whose
+    /// "no chart at that position" (the caller writes twice), but a
+    /// chartsheet whose chart this write's chart addition replaces; a
+    /// removal that would leave a chartsheet's drawing with no chart frame
+    /// and none added, "a chartsheet keeps its chart"
+    /// (`specs/0045-publish.md`, fix 4, ruling A: `Package::remove_sheet`
+    /// drops the chart with its sheet); a frame whose
     /// relationship names no chart part, or a part whose root is not
     /// `chartSpace`, "a chart part cannot be read"; and what
     /// [`Package::add_image`](super::Package) says it refuses of the part,
-    /// as an image removal does. On a chartsheet the drawing stays, empty,
-    /// its `drawing` element required (`specs/0038-chartsheets.md`); a part
+    /// as an image removal does. On a chartsheet the drawing stays, its
+    /// `drawing` element required (`specs/0038-chartsheets.md`), and takes
+    /// the chart added in the same write; a part
     /// whose root is neither a worksheet nor a chartsheet is refused with
     /// "the sheet part's root is not worksheet or chartsheet".
     pub fn remove_chart(&mut self, part: &[u8], index: usize) -> Result<(), Error> {

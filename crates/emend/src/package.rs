@@ -911,7 +911,8 @@
 //!
 //! - "no chart at that position", for an index past the list `charts`
 //!   gives, an index named twice, or a part the same write adds an image or
-//!   a chart to
+//!   a chart to, but a chartsheet whose chart the same write's chart
+//!   addition replaces (`specs/0045-publish.md` ruling A)
 //!   (`chart_write::an_index_past_the_list_named_twice_or_with_an_addition_is_refused`,
 //!   and with `images`
 //!   `chart_write::a_chart_removal_on_a_part_the_same_write_adds_an_image_to_is_refused`).
@@ -932,8 +933,22 @@
 //!   two-cell anchor on a chartsheet (decision 1 A;
 //!   `chartsheet::a_chart_on_a_chartsheet_in_a_one_cell_or_two_cell_anchor_is_refused`).
 //! - "a chartsheet holds one chart", for a chart added to a chartsheet whose
-//!   drawing holds a chart frame, or two added in one write (decision 2 A,
-//!   P1 ruling A; `chartsheet::a_second_chart_on_a_chartsheet_is_refused`).
+//!   drawing holds a chart frame the same write does not remove, or two
+//!   added in one write (decision 2 A, P1 ruling A as amended by
+//!   `specs/0045-publish.md` ruling A;
+//!   `chartsheet::a_second_chart_on_a_chartsheet_is_refused`).
+//!
+//! A chartsheet keeping its chart adds one, the Cargo feature `charts`'s too
+//! (`specs/0045-publish.md`, fix 4, ruling A), raised by the write after
+//! `remove_chart` on a chartsheet, after an index past the list and before
+//! a removed frame naming no chart part:
+//!
+//! - "a chartsheet keeps its chart", for a removal that would leave the
+//!   chartsheet's drawing with no chart frame and no chart added in the same
+//!   write (`chartsheet::a_removal_alone_on_a_chartsheet_is_refused`); a
+//!   removal and an addition in one write replace the chart
+//!   (`chartsheet::a_chart_is_replaced_by_a_removal_and_an_addition_in_one_write`),
+//!   and `Package::remove_sheet` drops the chart with its sheet.
 //!
 //! The surface and of-pie plots and the series' markers, lines and points
 //! add one, the Cargo feature `charts`'s too
@@ -2305,11 +2320,13 @@
 //!   drawing is. Nothing else of a chartsheet is written: no `sheetPr`, no
 //!   protection, no page setup.
 //! - A chart on a chartsheet: `add_chart` takes an absolute anchor alone,
-//!   and a chartsheet holds one chart, so a replacement takes two writes,
-//!   `remove_chart` then `add_chart` (decision 2 A, P1 ruling A); a removal
-//!   leaves the chartsheet's drawing in place with no anchor, never drops
-//!   it; a chartsheet with no `drawing` element takes no chart ("a drawing
-//!   part or its relationship cannot be read").
+//!   and a chartsheet holds one chart and keeps it, so a replacement is
+//!   `remove_chart` and `add_chart` in one write, and a removal alone is
+//!   refused, "a chartsheet keeps its chart" (decision 2 A; P1 ruling A as
+//!   amended by `specs/0045-publish.md`, fix 4, ruling A); the drawing
+//!   stays in place and is never dropped; `remove_sheet` drops the chart
+//!   with its sheet; a chartsheet with no `drawing` element takes no chart
+//!   ("a drawing part or its relationship cannot be read").
 //! - A chartsheet added in a write: the chart calls on it are "no such
 //!   part" in that write (P1 ruling C); it may be renamed, moved or
 //!   removed as any sheet added and not yet written, a removal dropping
@@ -4831,6 +4848,11 @@ impl NewDrawing {
 /// anchor.
 #[cfg(any(feature = "images", feature = "charts"))]
 type PartDrawings = Vec<(ImageAnchor, NewDrawing)>;
+
+/// The drawing parts a removal left for an addition of the same write to
+/// append to, each name with its bytes (`specs/0045-publish.md`, ruling A).
+#[cfg(any(feature = "images", feature = "charts"))]
+type LeftDrawings = Vec<(Vec<u8>, Vec<u8>)>;
 
 /// What a worksheet rewrite does with `<drawing>` for the images and charts:
 /// creates it naming the drawing relationship `create`, in the worksheet's
@@ -10594,7 +10616,7 @@ impl<'a> Parts<'a> {
             }
         }
         let mut works: Vec<(Vec<u8>, DrawingWork)> = Vec::new();
-        self.record_removals(&parts, &mut works)?;
+        let rewritten = self.record_removals(&parts, &mut works)?;
         let mut entries = self.taken_entries();
         for (part, additions) in parts {
             if self.edits.part_removals.contains(&part) {
@@ -10630,11 +10652,24 @@ impl<'a> Parts<'a> {
             let chartsheet = _chartsheet;
             // A drawing part this write removes, replaces or adds through the
             // part calls is not read for the edit, as a comment's parts are.
-            self.edited_part_untouched(drawing.as_deref())?;
+            // A chartsheet's drawing a chart removal of this write left is
+            // read as the removal left it (`specs/0045-publish.md`, ruling A).
+            let left = drawing
+                .as_ref()
+                .and_then(|target| rewritten.iter().find(|(have, _)| have == target));
+            if left.is_none() {
+                self.edited_part_untouched(drawing.as_deref())?;
+            }
             let strict = self.sheet_is_strict(&part)?;
             // The kept drawing, read before any part is added: a chart part
             // takes the drawing's form (P1 ruling E).
             let kept = match &drawing {
+                Some(target) if left.is_some() => {
+                    let at = self.archive.index_of(target).ok_or(DRAWING_UNREADABLE)?;
+                    let bytes = left.map(|(_, bytes)| bytes.clone()).unwrap_or_default();
+                    let read = read_drawing(&bytes, at)?;
+                    Some((bytes, read))
+                }
                 Some(target) => {
                     let at = self.archive.index_of(target).ok_or(DRAWING_UNREADABLE)?;
                     let mut bytes = Vec::new();
@@ -10821,13 +10856,18 @@ impl<'a> Parts<'a> {
     /// order: an index named twice or on a part `additions` also adds to,
     /// then the refusals of a removed, replaced, absent or shifted part,
     /// then what the drawing cannot be read for, then an index past the
-    /// list, then a removed frame naming no chart part.
+    /// list, then a chartsheet left with no chart frame, then a removed
+    /// frame naming no chart part. A chartsheet's chart removed and a chart
+    /// added in the same write replace it (`specs/0045-publish.md`, fix 4,
+    /// ruling A): the drawing's bytes after the removal are returned by
+    /// part name for the addition to append to, not recorded.
     #[cfg(any(feature = "images", feature = "charts"))]
     fn record_removals(
         &mut self,
         additions: &[(Vec<u8>, PartDrawings)],
         works: &mut Vec<(Vec<u8>, DrawingWork)>,
-    ) -> Result<(), Error> {
+    ) -> Result<LeftDrawings, Error> {
+        let mut rewritten: LeftDrawings = Vec::new();
         let mut parts: Vec<(Vec<u8>, Vec<Removal>)> = Vec::new();
         for (part, removal) in self.edits.drawing_removals.clone() {
             let at = match parts.iter().position(|(have, _)| *have == part) {
@@ -10838,9 +10878,19 @@ impl<'a> Parts<'a> {
                 }
             };
             // Named twice, or on a part this write adds to: the caller
-            // writes twice.
+            // writes twice, but for a chartsheet's chart replaced by a chart
+            // removal and chart additions (`specs/0045-publish.md` ruling A).
             let (part, removals) = &mut parts[at];
-            if removals.contains(&removal) || additions.iter().any(|(have, _)| have == part) {
+            let added = additions.iter().find(|(have, _)| have == part);
+            #[cfg(feature = "charts")]
+            let added = added.filter(|(_, drawings)| {
+                !(matches!(removal, Removal::Chart(_))
+                    && drawings
+                        .iter()
+                        .all(|(_, addition)| matches!(addition, NewDrawing::Chart(_)))
+                    && is_chartsheet(self.archive, part))
+            });
+            if removals.contains(&removal) || added.is_some() {
                 return Err(removal.missing());
             }
             removals.push(removal);
@@ -10921,6 +10971,16 @@ impl<'a> Parts<'a> {
                 if indexes.iter().any(|index| *index >= frames.len()) {
                     return Err(chart_write::NO_CHART_AT);
                 }
+                // A chartsheet keeps a chart: a removal that leaves its
+                // drawing no frame needs an addition in the same write
+                // (`specs/0045-publish.md`, fix 4, ruling A).
+                let added = additions
+                    .iter()
+                    .find(|(have, _)| *have == part)
+                    .map_or(0, |(_, drawings)| drawings.len());
+                if chartsheet && frames.len() - indexes.len() + added == 0 {
+                    return Err(chart_write::CHARTSHEET_KEEPS_CHART);
+                }
                 for index in indexes {
                     let (_, id, root) = &frames[index];
                     let chart_part = {
@@ -10981,14 +11041,20 @@ impl<'a> Parts<'a> {
             for id in &removed {
                 skipped.push((target.clone(), id.clone()));
             }
-            // A chartsheet's drawing stays, empty, its `<drawing>` required
-            // by the schema (`specs/0038-chartsheets.md`, "`add_chart` and
-            // `remove_chart` on a chartsheet").
+            // A chartsheet's drawing stays, its `<drawing>` required by the
+            // schema (`specs/0038-chartsheets.md`, "`add_chart` and
+            // `remove_chart` on a chartsheet"), the chart added in the same
+            // write appended to the bytes left (`specs/0045-publish.md`,
+            // ruling A).
             if anchors_left || chartsheet {
                 for id in &removed {
                     self.remove_relationship(&target, id);
                 }
-                self.replace_part(&target, replacement_from_reader(Cursor::new(out)));
+                if chartsheet && additions.iter().any(|(have, _)| *have == part) {
+                    rewritten.push((target, out));
+                } else {
+                    self.replace_part(&target, replacement_from_reader(Cursor::new(out)));
+                }
             } else {
                 // No anchor left: the drawing goes, with its rels part, and
                 // nothing reaches through it.
@@ -11006,7 +11072,7 @@ impl<'a> Parts<'a> {
             }
         }
         if named_entries.is_empty() {
-            return Ok(());
+            return Ok(rewritten);
         }
         let reached = self.reachable(b"", &skipped, &[])?;
         // Each entry no kept relationship reaches goes; with its rels part,
@@ -11043,7 +11109,7 @@ impl<'a> Parts<'a> {
                 }
             }
         }
-        Ok(())
+        Ok(rewritten)
     }
 
     /// Drops the drawing part `target` of the worksheet part `part`, the
@@ -19961,6 +20027,27 @@ fn element_rel_id(
     unreadable: Error,
 ) -> Result<Option<Vec<u8>>, Error> {
     Ok(sheet_element_rel_id(input, index, name, two, unreadable, false)?.0)
+}
+
+/// Whether the archive's part `part` is a chartsheet, read as the chart
+/// calls read a sheet's root; a part absent or not read as a sheet is not
+/// one, its refusal left to the part's own checks.
+#[cfg(feature = "charts")]
+fn is_chartsheet(archive: &mut Core, part: &[u8]) -> bool {
+    let Some(index) = archive.index_of(part) else {
+        return false;
+    };
+    archive.read(index).is_ok_and(|input| {
+        sheet_element_rel_id(
+            input,
+            index,
+            DRAWING_ELEMENT,
+            TWO_DRAWINGS,
+            DRAWING_UNREADABLE,
+            true,
+        )
+        .is_ok_and(|(_, met)| met)
+    })
 }
 
 /// [`element_rel_id`] for a caller that also takes a chartsheet when

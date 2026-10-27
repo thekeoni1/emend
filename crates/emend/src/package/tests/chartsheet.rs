@@ -821,59 +821,82 @@ fn a_second_chart_on_a_chartsheet_is_refused() {
 }
 
 #[test]
-fn a_chart_is_replaced_by_a_removal_and_an_addition_in_two_writes() {
-    // P1 ruling A: remove, write, add, write.
+fn a_chart_is_replaced_by_a_removal_and_an_addition_in_one_write() {
+    // `specs/0045-publish.md`, fix 4, ruling A (amending P1 ruling A): the
+    // removal and the addition in one write.
     let first = with_chartsheet();
+    let parts = parts_of(&first);
     let mut package = open_fixture(first.clone());
     package.remove_chart(CHARTSHEET, 0).expect("recorded");
-    let removed = written(package);
-    assert!(charts_of(&removed, CHARTSHEET).is_empty(), "removed");
-    let mut package = open_fixture(removed);
     package
         .add_chart(CHARTSHEET, ORIGIN, &other_chart())
         .expect("recorded");
     let replaced = written(package);
     let part = assert_one_chart(&charts_of(&replaced, CHARTSHEET), &other_chart());
-    // The second write sees the removed chart part's name free.
-    assert_eq!(part, CHART1, "the chart part");
+    // The removed chart part's name is still taken in this write.
+    assert_eq!(part, b"xl/charts/chart2.xml", "the chart part");
+    let names: Vec<Vec<u8>> = parts_of(&replaced)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    assert!(
+        !names.contains(&CHART1.to_vec()),
+        "the removed chart part goes"
+    );
+    // The drawing holds the new frame alone, under a new relationship; the
+    // chartsheet and its rels part are kept byte for byte.
+    assert_eq!(
+        text_of(&replaced, DRAWING),
+        absolute_drawing().replace(&frame(1, "rId1"), &frame(1, "rId2"))
+    );
+    let drawing_rels = text_of(&replaced, DRAWING_RELS);
+    assert!(
+        drawing_rels.contains("Id=\"rId2\"") && drawing_rels.contains("../charts/chart2.xml"),
+        "{drawing_rels}"
+    );
+    assert!(!drawing_rels.contains("Id=\"rId1\""), "{drawing_rels}");
     assert_eq!(text_of(&replaced, CHARTSHEET), chartsheet_form());
-    // Control: the removal and the addition in one write are refused with
-    // the worksheet's message.
+    assert_kept(
+        &replaced,
+        &parts,
+        &[b"[Content_Types].xml", DRAWING, DRAWING_RELS, CHART1],
+    );
+    // Control: a removal and two additions are still two charts.
     let error = refused_after(&first, |package| {
         package.remove_chart(CHARTSHEET, 0).expect("recorded");
         package
             .add_chart(CHARTSHEET, ORIGIN, &other_chart())
             .expect("recorded");
+        package
+            .add_chart(CHARTSHEET, ORIGIN, &column_chart())
+            .expect("recorded");
     });
-    assert_package(error, NO_CHART_AT);
+    assert_package(error, ONE);
 }
 
 #[test]
-fn a_removal_leaves_the_chartsheet_s_drawing_empty() {
+fn a_removal_alone_on_a_chartsheet_is_refused() {
+    // `specs/0045-publish.md`, fix 4, ruling A: the chartsheet keeps its
+    // chart; nothing is written.
     let first = with_chartsheet();
-    let parts = parts_of(&first);
+    let error = refused_after(&first, |package| {
+        package.remove_chart(CHARTSHEET, 0).expect("recorded");
+    });
+    assert_package(error, "a chartsheet keeps its chart");
+    // An index past the list is refused first.
+    let error = refused_after(&first, |package| {
+        package.remove_chart(CHARTSHEET, 1).expect("recorded");
+    });
+    assert_package(error, NO_CHART_AT);
+    // `remove_sheet` drops the chart with its sheet.
     let mut package = open_fixture(first);
-    package.remove_chart(CHARTSHEET, 0).expect("recorded");
-    let out = written(package);
-    // The chart part and its `Override` go; the drawing stays, empty, its
-    // rels part without the chart's relationship; the chartsheet and its
-    // rels part are kept byte for byte.
-    assert_names(&out, &names_without(&parts, &["xl/charts/chart1.xml"]));
-    assert_eq!(
-        text_of(&out, DRAWING),
-        format!("{DECLARATION}\n<xdr:wsDr xmlns:xdr=\"{XDR_NS}\" xmlns:a=\"{A_NS}\"></xdr:wsDr>")
-    );
-    assert_eq!(text_of(&out, DRAWING_RELS), rels(""));
-    assert_kept(
-        &out,
-        &parts,
-        &[b"[Content_Types].xml", DRAWING, DRAWING_RELS, CHART1],
-    );
-    assert_eq!(
-        text_of(&out, b"[Content_Types].xml"),
-        types_without(&parts, &["xl/charts/chart1.xml"])
-    );
-    assert!(charts_of(&out, CHARTSHEET).is_empty());
+    package.remove_sheet("Chart1").expect("removed");
+    let removed = written(package);
+    let names: Vec<Vec<u8>> = parts_of(&removed)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    assert!(!names.contains(&CHART1.to_vec()) && !names.contains(&CHARTSHEET.to_vec()));
 }
 
 #[test]
