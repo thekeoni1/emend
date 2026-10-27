@@ -4041,7 +4041,7 @@ fn a_surface_as_either_combined_plot_is_refused() {
 
 /// The of-pie plot's form around `ONE_NAMED`: `ofPieType` `kind` first,
 /// then `varyColors` 1, the series, and the options after it, the split's
-/// `split` (its `splitType`, then its `splitPos` when given).
+/// `split` (its `splitType` and `splitPos` when given, nothing when not).
 fn of_pie_written(kind: &str, split: &str) -> String {
     format!(
         "<c:ofPieChart><c:ofPieType val=\"{kind}\"/><c:varyColors val=\"1\"/>{}<c:gapWidth \
@@ -4054,7 +4054,7 @@ fn of_pie_written(kind: &str, split: &str) -> String {
 fn an_of_pie_of_each_type_and_each_split_writes_its_form() {
     for (kind, kind_value) in [(OfPieKind::Pie, "pie"), (OfPieKind::Bar, "bar")] {
         for (split, split_form) in [
-            (None, "<c:splitType val=\"auto\"/>"),
+            (None, ""),
             (
                 Some(OfPieSplit::Position(2)),
                 "<c:splitType val=\"pos\"/><c:splitPos val=\"2\"/>",
@@ -4135,7 +4135,7 @@ fn an_of_pie_takes_a_colour_the_percent_and_a_pie_s_positions() {
             "<c:ofPieChart><c:ofPieType val=\"bar\"/><c:varyColors val=\"1\"/><c:ser><c:idx \
              val=\"0\"/><c:order val=\"0\"/>{ONE_NAMED_TX}<c:spPr><a:solidFill><a:srgbClr \
              val=\"1234AB\"/></a:solidFill></c:spPr><c:cat>{}</c:cat><c:val>{}</c:val></c:ser>\
-             <c:gapWidth val=\"150\"/><c:splitType val=\"auto\"/><c:secondPieSize val=\"75\"/>\
+             <c:gapWidth val=\"150\"/><c:secondPieSize val=\"75\"/>\
              <c:serLines/></c:ofPieChart>",
             reference("strRef", "Sheet1!$A$2:$A$4"),
             reference("numRef", "Sheet1!$B$2:$B$4"),

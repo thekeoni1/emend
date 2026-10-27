@@ -321,8 +321,9 @@ pub enum NewPlot {
     OfPie {
         /// The second plot's form, `ofPieType`.
         kind: OfPieKind,
-        /// Which points go to the second plot; `None` writes `splitType`
-        /// `auto`.
+        /// Which points go to the second plot; `None` writes no
+        /// `splitType`, the schema's default `auto` (`specs/0045-publish.md`,
+        /// fix 1).
         split: Option<OfPieSplit>,
     },
 }
@@ -2161,14 +2162,16 @@ fn plot_bytes(
         }
         NewPlot::OfPie { split, .. } => {
             value_element(out, b"gapWidth", b"150");
-            let (split_type, position): (&[u8], Option<String>) = match split {
-                None => (b"auto", None),
-                Some(OfPieSplit::Position(points)) => (b"pos", Some(points.to_string())),
-                Some(OfPieSplit::Value(value)) => (b"val", Some(value.to_string())),
-                Some(OfPieSplit::Percent(percent)) => (b"percent", Some(percent.to_string())),
-            };
-            value_element(out, b"splitType", split_type);
-            if let Some(position) = position {
+            // No split writes no `splitType`: the schema's default is `auto`,
+            // and Excel refuses the element written (`specs/0045-publish.md`,
+            // fix 1).
+            if let Some(split) = split {
+                let (split_type, position): (&[u8], String) = match split {
+                    OfPieSplit::Position(points) => (b"pos", points.to_string()),
+                    OfPieSplit::Value(value) => (b"val", value.to_string()),
+                    OfPieSplit::Percent(percent) => (b"percent", percent.to_string()),
+                };
+                value_element(out, b"splitType", split_type);
                 value_element(out, b"splitPos", position.as_bytes());
             }
             value_element(out, b"secondPieSize", b"75");

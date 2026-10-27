@@ -6537,8 +6537,8 @@ fn the_chart_surface_sample_writes_each_plot_s_form() {
             b"xl/charts/chart3.xml",
             [
                 "<c:ofPieChart><c:ofPieType val=\"pie\"/><c:varyColors val=\"1\"/><c:ser>",
-                "<c:gapWidth val=\"150\"/><c:splitType val=\"auto\"/><c:secondPieSize \
-                 val=\"75\"/><c:serLines/></c:ofPieChart>",
+                "<c:gapWidth val=\"150\"/><c:secondPieSize val=\"75\"/><c:serLines/>\
+                 </c:ofPieChart>",
                 "<c:val><c:numRef><c:f>'Sheet1'!$B$2:$B$2</c:f></c:numRef></c:val>",
             ],
         ),
