@@ -153,3 +153,9 @@
 - emend does not evaluate formulas (it stores formula strings and reads cached
   values), does not render, does not autofit, and does not fix up references on
   row or column insertion.
+- A cell edit on a table's header row changes the cell and not the table's
+  column name; the two must be kept in step by the caller, or Excel repairs the
+  file (`specs/0045-publish.md`).
+- A sheet removed leaves every reference to it, and to its tables, in other
+  sheets' formulas and defined names as they were, as insertions and deletions
+  leave references (`specs/0045-publish.md`).

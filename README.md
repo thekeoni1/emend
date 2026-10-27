@@ -79,6 +79,15 @@ emend does not evaluate formulas, render, autofit, or fix up references
 when rows or columns are inserted or deleted. These are openpyxl's limits
 too, and they are kept on purpose.
 
+A cell edit on a table's header row changes the cell and not the table's
+column name; the two must be kept in step by the caller, or Excel repairs
+the file. A sheet removed leaves every reference to it, and to its tables,
+in other sheets' formulas and defined names as they were, as insertions and
+deletions leave references (`specs/0045-publish.md`). A style edit assumes
+the styles part carries the font, fill, border and cell-style collections
+and the `cellXfs` entries that name them (`specs/0012-styles.md`;
+`specs/0015-open-checks.md`, Excel-check ruling 4).
+
 ## Licence
 
 Licensed under either the MIT licence (`LICENSE-MIT`) or the Apache
