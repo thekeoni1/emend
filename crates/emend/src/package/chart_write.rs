@@ -77,6 +77,11 @@ pub(crate) const ONE_CHART: Error = Error::Package("a chartsheet holds one chart
 /// position below 1, a split value that is not finite or is negative, a
 /// percent above 100.
 pub(crate) const CHART_VALUE_RANGE: Error = Error::Package("a chart value is out of its range");
+/// What a new scatter plot of the style `none`, a first plot or a combined
+/// chart's second, is refused with at the call (`specs/0045-publish.md`,
+/// fix 3, decision 2 A, ruling D): Excel refuses the style written.
+pub(crate) const SCATTER_STYLE_NONE: Error =
+    Error::Package("a new scatter plot takes a scatter style other than none");
 
 /// A chart part's content type (`specs/0035-charts-write-first-set.md`,
 /// "The parts").
@@ -254,7 +259,8 @@ pub enum NewPlot {
     Pie,
     /// `scatterChart`: its style; two value axes.
     Scatter {
-        /// The `scatterStyle`, any of the six.
+        /// The `scatterStyle`, any of the six but [`ScatterStyle::None`],
+        /// which a new plot is refused (`specs/0045-publish.md`, fix 3).
         style: ScatterStyle,
     },
     /// `areaChart`: its grouping, `Standard`, `Stacked` or
@@ -831,7 +837,9 @@ impl<R: Read + Seek> Package<R> {
     /// a stock plot's series, a label's percentage on a plot other than a
     /// pie, a 3D pie, a doughnut or an of-pie, a label position the plot
     /// does not take, a colour or labels on a surface's series, an of-pie
-    /// with more than one series or an axis title or format; "a chart value
+    /// with more than one series or an axis title or format; "a new scatter
+    /// plot takes a scatter style other than none" for a scatter of
+    /// [`ScatterStyle::None`] (`specs/0045-publish.md`, fix 3); "a chart value
     /// is out of its range" for an of-pie's split position below 1, a split
     /// value that is not finite or is negative, or a percent above 100
     /// (`specs/0039-chart-kinds-and-formatting.md`, "Applicability"); then
@@ -894,7 +902,9 @@ impl<R: Read + Seek> Package<R> {
     /// series or that breaks its own kind's rules, a scatter second or a
     /// secondary title or format without `secondary_axis` (`specs/0036-
     /// charts-write-second-set.md`,
-    /// "Applicability", P2 rulings G, H and J, P3 ruling L), then its
+    /// "Applicability", P2 rulings G, H and J, P3 ruling L), and "a new
+    /// scatter plot takes a scatter style other than none" for a scatter
+    /// second of [`ScatterStyle::None`], then its
     /// series' marker, line and points by its kind as the first plot's; "a
     /// chart text is empty or holds a control character" for a title, axis
     /// title, axis format, secondary axis title, secondary axis format,
@@ -1076,6 +1086,9 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
         if !plot_applies(chart.plot, chart.series, axes) {
             return Err(CHART_OPTION_KIND);
         }
+        if is_scatter_none(chart.plot) {
+            return Err(SCATTER_STYLE_NONE);
+        }
         if let NewPlot::OfPie {
             split: Some(split), ..
         } = chart.plot
@@ -1154,6 +1167,9 @@ pub(super) fn chart_work(anchor: ImageAnchor, chart: &NewChart<'_>) -> Result<Ch
             if !applies {
                 return Err(CHART_OPTION_KIND);
             }
+            if is_scatter_none(combined.plot) {
+                return Err(SCATTER_STYLE_NONE);
+            }
             series_options(combined.plot, combined.series)?;
         }
         let title = chart.title.map(text).transpose()?;
@@ -1219,6 +1235,17 @@ impl AxisOptions {
         category_format: false,
         value_format: false,
     };
+}
+
+/// Whether `plot` is a scatter of the style `none`, which a new plot is
+/// refused (`specs/0045-publish.md`, fix 3; the reader keeps the style).
+fn is_scatter_none(plot: NewPlot) -> bool {
+    matches!(
+        plot,
+        NewPlot::Scatter {
+            style: ScatterStyle::None
+        }
+    )
 }
 
 /// Whether `plot` takes `series` and the axis options given (`specs/0036-

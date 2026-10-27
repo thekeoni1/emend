@@ -1423,10 +1423,61 @@ fn scatter_read_axes(x_title: Option<&str>, y_title: Option<&str>) -> Vec<ChartA
     axes
 }
 
+/// Fix 3 of `specs/0045-publish.md` (decision 2 A, ruling D): a new scatter
+/// plot of the style `none`, a first plot or a combined chart's second, is
+/// refused at the call by `add_chart` and `add_chartsheet`, nothing
+/// recorded; the style `marker` is taken in each place.
+#[test]
+fn a_new_scatter_plot_of_the_style_none_is_refused() {
+    const NONE_STYLE: &str = "a new scatter plot takes a scatter style other than none";
+    let first = |style| titled(NewPlot::Scatter { style }, &ONE_NAMED, (None, None));
+    let second_of = |style| {
+        combined(NewCombined {
+            secondary_axis: true,
+            ..second(NewPlot::Scatter { style })
+        })
+    };
+    for chart in [first(ScatterStyle::None), second_of(ScatterStyle::None)] {
+        assert_package(call(box_anchor(), &chart).expect_err("refused"), NONE_STYLE);
+        // A chartsheet's chart takes a size.
+        let sheet_chart = NewChart {
+            size: Some((960, 640)),
+            ..chart
+        };
+        let (_, mut package) = opened(smallest());
+        assert_package(
+            package
+                .add_chartsheet("Chart1", &sheet_chart)
+                .expect_err("refused"),
+            NONE_STYLE,
+        );
+        assert!(charts_of(&written(package)).is_empty());
+    }
+    for chart in [first(ScatterStyle::Marker), second_of(ScatterStyle::Marker)] {
+        call(box_anchor(), &chart).expect("taken");
+        let sheet_chart = NewChart {
+            size: Some((960, 640)),
+            ..chart
+        };
+        let (_, mut package) = opened(smallest());
+        package
+            .add_chartsheet("Chart1", &sheet_chart)
+            .expect("taken");
+    }
+    // The style is checked after the plot's kind rules: a scatter of the
+    // style `none` with a category axis format breaks them first.
+    let formatted = NewChart {
+        category_axis_format: Some("0"),
+        ..first(ScatterStyle::None)
+    };
+    assert_package(call(box_anchor(), &formatted).expect_err("refused"), OPTION);
+}
+
 #[test]
 fn a_scatter_chart_takes_each_style_with_x_and_y_values() {
+    // `ScatterStyle::None` is refused (`specs/0045-publish.md`, fix 3;
+    // `a_new_scatter_plot_of_the_style_none_is_refused`).
     for (style, value) in [
-        (ScatterStyle::None, "none"),
         (ScatterStyle::Line, "line"),
         (ScatterStyle::LineMarker, "lineMarker"),
         (ScatterStyle::Marker, "marker"),

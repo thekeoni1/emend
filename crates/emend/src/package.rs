@@ -952,6 +952,15 @@
 //!   (`chart_write::a_line_takes_a_width_a_dash_or_both_with_and_without_the_series_colour`;
 //!   the order, `chart_write::the_series_options_follow_the_check_order`).
 //!
+//! A new scatter plot of the style `none` adds one, the Cargo feature
+//! `charts`'s too (`specs/0045-publish.md`, fix 3, decision 2 A, ruling D),
+//! raised by `Package::add_chart` and `Package::add_chartsheet` at the call,
+//! right after the first plot's kind rules, and for a combined chart's
+//! scatter second right after its kind rules:
+//!
+//! - "a new scatter plot takes a scatter style other than none"
+//!   (`chart_write::a_new_scatter_plot_of_the_style_none_is_refused`).
+//!
 //! The text properties, the style and the in-place edits add one, the
 //! Cargo feature `charts`'s too (`specs/0041-chart-text-and-edits.md`,
 //! "Errors"). "a chart value is out of its range" also covers a text's
