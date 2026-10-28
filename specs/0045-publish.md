@@ -359,6 +359,352 @@ record commit (the logs, the check); the scan.
 After the maintainer's publication. The doc commit (the close-out's
 verification; the P4 row IN PROGRESS). The record commit; the scan.
 
+## Planning rulings during P1 (2026-10-27)
+
+Asked by the implementing session after the doc commit bb7c35f
+(parent 658dbc0, the three files at their hashes, ASCII, the one
+trailer; planning read it from git), before any code or dry run.
+
+A. R1, fix 4. Today a chartsheet's chart is replaced in two writes
+   (`specs/0038` P1 ruling A: the removal alone, then the addition;
+   `remove_chart` refuses a part the same write adds a chart to).
+   Ruling: on a chartsheet alone, a removal and an addition in one
+   write replace the chart: the one-chart count leaves the removed
+   frame out, and "no chart at that position" does not apply to a
+   chartsheet; a removal alone on a chartsheet is refused at the
+   write with "a chartsheet keeps its chart". Worksheets are
+   unchanged. `specs/0038` P1 ruling A and its empty-drawing
+   sentence are amended by this ruling, not rewritten. The two
+   fixture tests are renamed to what they now show, `a_chart_is_
+   replaced_by_a_removal_and_an_addition_in_one_write` and
+   `a_removal_alone_on_a_chartsheet_is_refused` (the second keeps
+   no output); the open record's comparison with part 1's prints
+   the pairs gone and the pairs new by name, the old two names'
+   instances gone and the one-write test's new, which is expected
+   and no FINDING; any other difference is a FINDING.
+B. R2, fix 5. The lower bounds are already refused with "a chart
+   value is out of its range" (`chart_write.rs` 1547 and 1548;
+   the variant at 540). Ruling: a new constant "a moving-average
+   period is 2 to 255" for a period below 2 or above 255 (periods
+   0 and 1 change message, their tests updated); `Polynomial`
+   keeps the generic message; the field doc reads "2 to 255". The
+   spec's "written unchecked" reads "the upper bound unchecked".
+C. R3, the re-kept fixtures. Ruling: "re-kept" means the 8 pairs
+   the fixes reach (the scatter style .1, the of-pie type-and-split
+   .1 and .10, the of-pie colour .1, the trendline kinds .9, the
+   points .22, and the two chartsheet tests of ruling A). The other
+   24 of part 1's pass/refused pairs (the three style tests, 16
+   conditional, 4 linestyle, `several_edits` .1) stay refused under
+   the documented precondition; P1's run log names them as allowed.
+   P2's stage takes the whole keep, as the list script writes it
+   (it has no filter): about 162 corpus outputs and the keep's
+   pairs; P2's fixture acceptance is the 8 pairs `pass` on the
+   output and the record's totals otherwise part 1's, the
+   difference printed by the assembly's totals beside part 1's.
+D. R4, fix 3. Refused at the write, in the plot's own checks, the
+   `Errors` doc list updated in place. Amended (R4b, the same day):
+   the plot's own checks run at the call, in `Package::add_chart`
+   and `Package::add_chartsheet` (the of-pie split range at
+   `chart_write.rs` 1078 to 1090; the catalogue, `package.rs` 939
+   to 950, says "at the call"); only the chartsheet's anchor and
+   one-chart refusals are raised at the write. Ruling:
+   `ScatterStyle::None` is refused at the call, in the plot's own
+   checks straight after `plot_applies` beside the of-pie split
+   check, with "a new scatter plot takes a scatter style other
+   than none", for a first plot and for a combined chart's scatter
+   second plot alike, through `add_chart` and `add_chartsheet`;
+   one catalogue entry; the `add_chart` Errors list updated in
+   place. Fix 5's message is raised at the call too, where
+   `trendline_options` runs (ruling B).
+E. R5, fix 2. `specs/0019`'s "Creating an element in the workbook"
+   and the doc comments at `package.rs` 14080 and 14785 are
+   amended by this ruling: a created element goes immediately
+   before the first root child of the main namespace that follows
+   it in `WORKBOOK_CHILDREN`, or at the root's end. The held-bytes
+   mechanism stays; held tokens are written before the created
+   element.
+F. The committed `ROADMAP.md` reads PLANNED on part 2's P1 row
+   where the spec said IN PROGRESS: planning's slip, accepted as
+   committed; the working copy now reads IN PROGRESS and goes in
+   P2's doc commit.
+
+G. The six P1 commits (4a2582b, f79e447, 64f9062, 35e3d1d, 5d14c89,
+   43471ed) read by planning from git: ASCII, the one trailer, the
+   count sentence in each; the limit sentences in the README and
+   the CHANGELOG as "The fixes (P1)" words them, the styles
+   precondition sentence added since it was absent. Two readings
+   for the dry run: (a) fix 2 moves held whitespace, comments and
+   foreign children ahead of a created element, so the formula
+   sample's outputs (`calcPr`) and the protect sample's
+   (`workbookProtection`) change bytes; their host counts are
+   expected unchanged, a count that moves a FINDING; (b) the open
+   record's comparison with part 1's: pairs new from the tests
+   this part adds (fix 2's protection test, fix 3's, any other
+   named in the report) are expected and no FINDING, as ruling A's
+   renamings are; a pair gone other than ruling A's two, or a pair
+   whose open result changes from ok, is a FINDING.
+
+H. Dry run d1 stopped at the gate's environment line (`specs/0029`
+   item 1): the root's mount propagation read `private` after the
+   WSL restart of 2026-10-27 (part 1's gates read `shared`) and no
+   keepalive process ran. The implementing session restarted the
+   host's keepalive task (`Start-ScheduledTask`, no elevation;
+   `pgrep` counts 1 now) and disclosed it; `mount --make-rshared /`
+   needs root, which neither session has, and the maintainer runs
+   it from the host (`wsl -d Ubuntu -u root mount --make-rshared
+   /`). The check stands as written; d1 stays under
+   `<phase>/dry/d1`; d2 runs from the start once `findmnt` reads
+   `shared`. Readings for d2: (1) the scatter-style test's `None`
+   row is gone with fix 3, so part 1's pair `a_scatter_chart_takes_
+   each_style_with_x_and_y_values.6` is gone: expected, named, no
+   FINDING. (2) `a_removal_alone_on_a_chartsheet_is_refused` keeps
+   two pairs, the fixture write (.1) and the `remove_sheet` control
+   (.2); ruling A's "keeps no output" reads "the refused removal
+   keeps nothing". (3) `each_trendline_kind_writes_its_type_its_
+   order_or_period_and_its_fields` gains three refused periods, so
+   its pairs after them renumber: its new keys and its changed
+   same-key outputs are expected and no FINDING when every open
+   result is ok; the report names the shifted keys. (4) The new
+   gate input `PLANNING_ROADMAP` (change J91) pins the working
+   `ROADMAP.md` in the gate, negative, run and scan scripts; the
+   size script admits " M ROADMAP.md" by pattern as its template
+   does: accepted. (5) Size: the `metadata` cost has no file of its
+   own, so fix 2's `package.rs` change moves the core budget, which
+   "Size" expects (0 to 300, accepted to 1500, the ceiling a stop);
+   Milestone 7 decision 2's "adds no core code" is superseded for
+   fix 2 by the maintainer's choices of 2026-10-26 and decision 1 A,
+   recorded here; a shrink is a FINDING as the template says;
+   `SIZE_TARGET` and `SIZE_TMP` (change SE) accepted for ruling Q.
+   (6) The carried classifier counts the docs commit 43471ed as
+   code, so the range reads one doc and six code commits: accepted
+   as carried. (7) The gate fork ran `cargo test -p emend` per
+   feature set into dev-target to confirm its expected counts,
+   against FACTS' "forks do not run cargo": disclosed, accepted,
+   named in the README's disclosures; no log was affected.
+
+I. Dry run d3 (2026-10-27; gate yes, negative yes, run no): planning
+   read the three logs, the three emitted FINDING lines and the
+   records. (1) Ruling H (3) named the wrong test. Fix 5 (5d14c89)
+   put its three added refused periods (256, 1000, 65535) and its
+   two taken ones (2, 255) in `the_trendline_and_error_bar_field_
+   rules_are_refused`, whose pairs go from 45 to 48; the write test
+   `each_trendline_kind_writes_its_type_its_order_or_period_and_
+   its_fields` gains no key and changes one output (.9, the period
+   65535 written as 255). Ruling: the refused test's new keys .46,
+   .47 and .48 are expected by key, as the gone keys of ruling A
+   are, when each one's open result is ok; any other new key of
+   that test stays a FINDING; the write test's .9 is expected as H
+   (3) reads, its new-key count 0 accepted. d3's three FINDING lines
+   are these three keys, each ok ok in d3's record: read, closed by
+   this ruling, not fixed. (2) The two NO lines ("each of the six
+   samples is named once by the binary's usage text", "the 8
+   re-kept pairs of ruling C are each one of finding 5's names")
+   came from `count_matches -xF -- <key> <file>`: the committed
+   `scripts/counting.sh` takes (mode, pattern, file...), so the
+   `--` was the pattern. Change TI (drop the `--`, two positive
+   controls) accepted; the data read right by planning from the
+   log's own lists (6 flags of 59, 8 names of 32). (3) d3 stays
+   under `<phase>/dry/d3`; d4 runs from the start under
+   `<phase>/dry/d4` on the regenerated scripts and reaches the size
+   budget and the scan pre-check. Nothing logged before d4 reads
+   yes in all and planning gives the word.
+
+J. Dry run d4 (2026-10-27; gate, negative and run yes; size no):
+   planning read the four logs, every emitted FINDING line (gate 0,
+   negative 0, run 0, size 8) and the size budget lines. (1) The
+   run: ruling I's three keys read "new, expected by key, open ok
+   ok"; gone 7, new 17, none otherwise; FINDING lines 0. (2) The
+   size NO line ("TMPDIR is exported as <scratch>/tmp") is change
+   SE's miss: `tmpdir_set` compared with the default
+   `$PHASE_DIR/tmp`, not `SIZE_TMP`. Change SF (the comparison
+   reads `${SIZE_TMP:-$PHASE_DIR/tmp}`, nothing else) accepted.
+   (3) The budget figure is 451512, 16 section bytes under M6 part
+   6's 451528, 7240 under the ceiling; the core moved -16 section
+   bytes, .text -16, file 0; every core probe moved -16 (rowcol
+   -32). The eight FINDING lines (seven probes, the core movement)
+   are the shrink "Size" did not expect (0 to 300). Planning's
+   reading of the five fix commits' `package.rs` changes: fix 2
+   (f79e447) is the one change to code the core links, and it
+   merges the two sites that wrote the held tokens into one ahead
+   of the branch, so less code; fixes 3 and 5 change doc comments
+   alone there; fix 4's code is in the drawing removal path behind
+   the `images` and `charts` features, which the core probes do not
+   link. Ruling: the shrink is attributed to fix 2 by this reading,
+   not by a measurement; the eight lines are recorded, not fixed,
+   and closed by this ruling; the record and the report name the
+   figure, the movement and this attribution; "Size" above stands
+   as written, its expectation read as a growth that did not come.
+   (4) The feature costs moved within their bands (charts +1784,
+   images +884, comments +16, read +16): not judged, as "Size"
+   says. (5) d4 stays under `<phase>/dry/d4`; d5 runs from the
+   start under `<phase>/dry/d5` with SF and reaches the scan
+   pre-check. Nothing logged before d5 reads yes in all and
+   planning gives the word.
+
+K. Dry run d5 (2026-10-27): planning read the five logs. Gate,
+   negative, run and size read yes; the run's pairs gone 7 and new
+   17 all as expected, its FINDING lines 0; the size figures are
+   d4's (451512, -16, 7240 under the ceiling) and its eight FINDING
+   lines are ruling J's, no others in any log. The scan pre-check
+   reads FAIL on four structural checks, each from the dry layout
+   (not the default log and record directories; 2 of 6 run
+   directories, the dry run's two reruns; 7 records of 15; 52
+   output lines holding the home directory, every one under
+   `<phase>/dry/d5`, none elsewhere); total hits 0, read or
+   counting errors 0: the pre-check passes as a dry run passes
+   (`specs/0043` ruling R). Ruling: planning's word for the logged
+   run is given. It runs from `logged.sh` modelled on part 1 P2's,
+   gate, negative, run (the six samples, the whole keep) and size,
+   `PRUNE_PREVIOUS=yes` (`specs/0044` ruling AD: `rm -r
+   "${PREV_DIR:?}/${n:?}"` in the generated gate with a control);
+   the logs README discloses the keepalive restart and the root
+   mount (ruling H), the forks' cargo runs (H (7)), and d1 to d4
+   with their changes (NI64, TI, TJ, SF); then the scan pre-check,
+   the one independent check, the final scan, ONE record commit,
+   the report under `<phase>`. The eight size FINDING lines are
+   expected in the logged run as ruling J closes them; any other
+   FINDING line is reported before the record commit. The scripts
+   regenerate for this spec's hash and no other change; the
+   report names each script's sha256. No push.
+
+L. The logged run (2026-10-27/28; gate, negative, run and size yes,
+   scan pre-check PASS, hits 0) and the first independent check:
+   planning read the four logs, the size record and the check's
+   answer. The check's three gaps hold against the primaries, read
+   by planning: (a) the negative log shows fixes 3 to 5's refusals
+   as the seven tests passing by name and the kept outputs (K3 to
+   K5) alone; "P1's logs" above asks for each refusal with its
+   control; (b) K3 has no control line; (c) the size record does
+   not carry ruling J's attribution, and one sentence of it names
+   four commits as the five fix commits. A failing run is a finding
+   recorded, then fixed, then run again with the fix named (the
+   working rules). Ruling: (1) the negative generator gains, for
+   each of fixes 3, 4 and 5, a section reading the refusal at the
+   phase commit: the message text, the test's refusing and
+   accepting calls read from the test file at that commit (`None`
+   refused and `Marker` accepted; the removal alone refused and the
+   removal with an addition accepted; the periods 0, 1, 256, 1000
+   and 65535 refused and 2 and 255 taken), the exact test's pass
+   line, and a control each; K3 gains a control (an accepted
+   scatter pair holds its chart part). (2) The size template gains,
+   after the core movement, "attributed by planning's reading to
+   fix 2 (f79e447), the one change to code the core links
+   (`specs/0045` ruling J), not by a measurement", and the sentence
+   that calls four commits five keeps the two lists apart as the
+   size log does. (3) The negative and the size run again, logged,
+   under this spec's hash; the gate and run logs stand under the
+   hash they pinned. The first negative log, the first size log and
+   the first size record go to `<phase>/logged/superseded/` as
+   attempt 1, named in the README with their sha256 and the cause
+   (this ruling), with the changes' names. (4) The report carries
+   the check's answer verbatim and its minor points as the
+   implementing session listed them (both gate times; "M6 part 6's
+   record's 451528"; d5's "RESULT: FAIL on its four dry-layout
+   checks alone"; the driver's figures marked as the session's
+   statements). (5) The phase's second and last independent check
+   reads the regenerated negative and size logs, the size record
+   and the revised report alone; then the final scan, ONE record
+   commit, the report under `<phase>`. No push.
+
+## Planning verification of P1 (2026-10-28)
+
+Read from the primaries, not the report: the record commit 58c4f51
+(parent 43471ed, 23 files added: the eight files under
+`records/logs/m7p2-p1/`, the six samples' record pairs and the open
+pair named `-2026-10-27-43471ed.`, the size record
+`size-m7p2-2026-10-28-43471ed.md`; the message ASCII with the
+Co-Authored-By line only, the count sentence carried, its form the
+part 1 P2 record's); nine commits ahead of origin/main aed8087, no
+push; the tree after it " M ROADMAP.md" and " M specs/0045" alone.
+The gate (sha256 f5d7ee38) and run (30be6ead) logs stand under the
+spec hash cf085c08 as ruling K read them; the negative (e8054745)
+and size (872d5eda) logs under 866c16ce, the working spec's hash at
+645 lines, each ending "checks all as expected: yes"; the lines
+ending ": no" outside the printed scripts are the API-key line in
+each, and in the size log the "same section layout" and override
+lines, informational as in d5. FINDING lines emitted: gate 0, run 0
+(the run's, read under ruling K), negative 0, size 8 at 11195 to
+11202, ruling J's seven probes and the core movement, repeated in
+the record at 13618 to 13625, no others; the word appears besides
+in the "judged:" lines that restate the same eight. The budget
+451512 at size.log 11056, 7240 under the ceiling 458752, -16 against
+M6 part 6's 451528. The size record (f63dc6ac, 398 lines) carries
+ruling L (2)'s sentence at line 142 after the core movement, checked
+at 13828 with a control, and the two commit lists apart at line 340.
+The negative log's K3 control (5812 to 5822: the scatter style test
+alone with its own keep, the marker pair's `xl/charts/chart1.xml`
+present) and the R3, R4 and R5 sections (5860 to 5908: each
+message; `None` refused and `Marker` taken read at lines 1435 to
+1468 of the test file at 43471ed; the removal alone inside
+`refused_after` with no `add_chart` and the removal with an addition
+at 830 to 834; `PERIOD` once, periods 0, 1, 256, 1000 and `u16::MAX`
+refused and 2 and 255 taken at 5722 to 5735; each exact test's pass
+line counted 1; a control each, refusing a planted copy). Attempt
+1's negative log (6727ff5b), size log (627f5141) and size record
+(56c7ae20) under `<phase>/logged/superseded/` with 0-byte outer
+stderr files, named in the README with the cause and changes NJ64
+and SG; the README (291 lines) discloses the keepalive restart and
+root mount, the gate fork's cargo runs, d1 to d6 with changes NI64,
+TI, TJ, SF, and the final scan's first run. Check 2's committed copy
+differs from the answer as given (574f8977) by its heading line and
+the `<home>` and `<session>` substitutions the heading names, the
+same edit named in check 1's heading; check 2 reads yes with
+exceptions, yes, yes with exceptions. The final scan's first run
+(scan-final-1.log, 4f0bd14e) read FAIL on 2 hits of form f_p6, the
+harness session path quoted in both check answers; the committed
+scan.log (f09b3ae1) is the second run after the `<session>` edit:
+hits 0, errors 0, structural checks failed 0, RESULT: PASS. No
+committed file of the commit holds a home path, a session id or
+U+2014 outside pattern text in the printed scripts. Six run
+directories `-43471ed-` under `<corpus>/runs`; the host keep 4502
+files under `<phase>/keep-host`.
+
+Rulings. M. Check 2's exceptions E1 to E5 (K3's control by another
+   reading than K3's own; R3's `add_chartsheet` refusal read through
+   its `.expect_err` line; R5's `refused(` line unread; R4's accepted
+   half without a control of its own; the pass line printed as a
+   count) are recorded, not fixed: each is a strictness point on a
+   reading whose claim check 2 confirmed from the source, ruling L
+   (5) makes check 2 the phase's last, and a change would need a
+   third logged negative run and a third check. The size template's
+   opening wording that names the `metadata` feature (check 2's side
+   note) is template text, recorded here. Check 2's report points i
+   to iii are carried in the report as the session listed them.
+N. The `<session>` edit to both committed check files is accepted:
+   the harness session directory is neither a primary nor the
+   maintainer's, and each heading names the edit and the answer's
+   sha256 as given. The final scan's first run is a finding recorded,
+   the fix named (the edit), the run again named (scan.log), as
+   CLAUDE.md asks; no further check.
+O. P1 is DONE. Its dry runs d1 to d6 under `<phase>/dry`, the
+   superseded generators and attempt 1 under `<phase>/superseded`
+   and `<phase>/logged/superseded`, and `<phase>/target` are the
+   maintainer's to reclaim by a method they name in the implementing
+   session, after P2's zip is copied, with the part 1 items ruling R
+   of `specs/0044` listed.
+P. P2 as "The second Excel check (P2)" and "P2: the second Excel
+   check": the doc commit holds this spec and `ROADMAP.md` (the P1
+   row DONE, the P2 row IN PROGRESS), each file named by path and
+   blob sha256 in the message; the stage
+   `<corpus>/work/excel-check-m7p2-<utc-date>/` by
+   `scripts/excel-check-list.py` over P1's six run directories
+   (`--run` the formula sample's, `--run-plain` the five others, in
+   the usage text's order), `--keep <phase>/keep-host`, `--record`
+   the open record `.txt` of 58c4f51; the zip beside it by
+   `zipfile`, stored; the logs and the independent check as part 1's
+   P1 ran them, the stage's counts asserted against the list; the
+   Milestone 2 and part 1 stages and zips not read, moved or
+   removed. The maintainer carries the zip by the laptop route,
+   runs the opener, brings `open-results.txt` back under the stage
+   and gives the machine section in the implementing session.
+   Planning assembles the record by part 1's script
+   (`assemble-excel-record.py`, sha256 54f344a7, unchanged unless a
+   ruling names a change) as `records/excel-check-m7p2-<utc-date>.md`;
+   the by-hand file is empty when nothing is refused. Acceptance as
+   decision 3 A: every corpus row of the five samples and every
+   fixture pair `pass`; a refusal returns the part to P1 for that
+   fix. Nothing of P2 runs until the P2 doc commit is in.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-27: 1 to 5 as recommended (A in
