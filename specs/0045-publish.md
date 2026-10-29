@@ -1344,6 +1344,134 @@ AJ. Finding C1, read by planning from `scripts/install-hooks.sh`
    for the pre mode. The hook's tag rule itself is left as it is; a
    change to it is a phase of its own, not this close-out's.
 
+AK. Planning's word on the close-out pre run (2026-10-29), given by
+   message before the push and written here after it, the tree
+   having to stay clean for push mode. Read from the phase directory:
+   the second close-out doc commit cf727f7 (this spec 4e159d2f,
+   aed8087's form); the range aed8087..cf727f7 of 18 commits, the
+   tree clean, origin/main aed8087; the tag `v0.1.0` local, a
+   lightweight tag whose object is cf727f7, of type commit, absent
+   on the remote. The pre log (11dbd916, gen.py bcb95be6, the push
+   script a2639258, exit 0, stderr 0): 81 check lines yes, 0 no,
+   "pre checks all as expected: yes"; the base and the part 1 record
+   commit found by subject, PUBLIC with its control, both Excel
+   records found with their clone controls (changes 65 and 68), the
+   CHANGELOG date 2026-10-29 equal to ebe6bc7's UTC committer date
+   with its control (change 69), the range scan 18 commits 0
+   findings, check.sh's nine PASS lines, the tag checks (change 70),
+   the whole-history scan at the tag 881 commits, 4100 blobs, 0
+   findings beside 825 / 3484 / 0; FINDING emitted 0, the word twice
+   in carried change 45's text. The pre-stage scan's first run
+   (d03e5149, kept under `<superseded>/pre1`) FAILED on nine
+   structural lines, all the trailer check, the carried scan taking
+   "(1M context)" alone while 8 of the 18 messages carry the
+   harness's plain line (P3's T95 and LY the same); change 72 in the
+   scan alone accepts the plain line beside the older one with a
+   control, the Opus 5 line, the 5.1 line and any session trailer
+   still refused; the second run (c1923d2c, scan script eee480a7,
+   gen.py 0222e738, the push and ci scripts unchanged by cmp) PASS,
+   hits 0, structural 0, 10 and 8 messages by the two forms. A
+   failing run recorded, fixed and run again with the fix named.
+   The implementing session's stray `rm -f /dev/null` in its shell,
+   refused by the OS, is recorded. Planning's word: push mode may
+   run on the maintainer's typed authorisation in the implementing
+   session naming the branch and the lightweight tag (decision 7 A);
+   the authorisation and its date go into the push log verbatim.
+
+AL. The push, finding C2 and change 73 (2026-10-29). Read after the
+   push from the phase directory and the repository: origin/main and
+   refs/tags/v0.1.0 both cf727f7 by ls-remote, the tag of type
+   commit, the tree clean, the repository PUBLIC. push.log 1154514f
+   (2063 lines): its first 1960 lines are the pre run of ruling AK
+   (11dbd916) and push mode is appended from line 1962, run at
+   2026-10-29T17:27:56Z by a driver (cbe3e5a6) that set the inputs
+   to the maintainer's words typed in the implementing session,
+   "great, go with a" (10/29/2026), decision 7's A; the push script
+   that ran is the copy under `<phase>/close`, cmp-equal to
+   a2639258; the outer stderr 0 bytes. git push exited 0; the hook
+   ran once per ref, each PASS privacy, with the summaries 18
+   commits, 2663 blobs, 0 findings (aed8087..cf727f7, the branch)
+   and 881, 4100, 0 (the tag's whole history, no fewer than
+   2026-10-22's 825 and 3484); git printed "aed8087..cf727f7
+   main -> main" and the new-tag line. FINDING appears on 2 lines of
+   push.log, both change 45's carried text. Push mode's checks: 37
+   yes, 2 no, the two no lines one defect.
+   Finding C2: the check "the hook printed PASS privacy" (push.log
+   line 2016), carried from part 1, wants the line exactly once; a
+   push of two refs runs the hook twice and prints it twice (lines
+   2005 and 2007, one after each ref's range line). Change 71 added
+   the tag's range line, the second summary line and the new-tag
+   line but left this check at one. The second no, "push checks all
+   as expected" (line 2063), and the push stage's exit 1 follow from
+   it alone. The push is not affected: the refs, the hook's two
+   scans and git's own lines all read as expected.
+   Change 73, accepted as the implementing session proposed: push
+   mode expects PASS privacy exactly twice, the first after the
+   branch's range line and the second after the tag's. Push mode
+   cannot run again, both refs being on the remote, so "run again
+   with the fix named" has no run to apply to; the fix is named
+   here, in the record's README and in the report, and part 3's
+   close-out dry runs prove it. push.log is committed as it stands
+   with its two no lines. Order: the CI run and the post scan first,
+   from gen.py 0222e738 unchanged; then change 73 into gen.py and
+   the scripts regenerated, nothing re-run; then the record commit
+   (push.log, ci-run.log, scan.log and a README; 658dbc0's form;
+   local, goes with part 3's push), one independent check, the
+   report.
+
+AM. The record names both generators (2026-10-29). The independent
+   check's E4: push.log's pre mode printed gen.py bcb95be6 and the
+   scan script d03e5149 (lines 44 and 47), the generator before
+   change 72, while the record's README and the message of the
+   first record commit 35e98d0 named gen.py 0222e738 alone. Both
+   generators ran: bcb95be6 (changes 66 to 71) for pre mode, whose
+   first pre-stage scan failed on nine structural lines about the
+   harness's Co-Authored-By form, and 0222e738 (changes 66 to 72)
+   for push mode, the CI run and the post scan; the push script
+   a2639258 and the ci script 4df18c1e are byte-identical under
+   both. The local record commit is amended so the README and the
+   message name both, with the first pre-stage scan's failure and
+   change 72; the pre-stage scan logs stay uncommitted, as part 1's
+   did. The check's E3 (the maintainer's words name neither ref) is
+   accepted: they answer the decision 7 message in the implementing
+   session, whose A names main and the lightweight tag. E1 and E2
+   are noted without change. The message keeps 658dbc0's
+   "aed8087..cf727f7, 18 commits" phrase; push.log prints the count
+   at its base..main line. No second independent check for the
+   amend, one per close-out.
+
+## Planning verification of the close-out (2026-10-29)
+
+Read from the primaries, not the report: origin/main and the remote
+tag `v0.1.0` both cf727f7 (ls-remote), the tag lightweight, the
+repository PUBLIC, the tree clean; the pushed range aed8087..cf727f7
+of 18 commits, the whole-history scan at the tag 881 commits, 4100
+blobs, 0 findings, printed by the hook in push.log and before it by
+the pre run. The record commit, amended under ruling AM, is 8f742d0
+(parent cf727f7; four files added under `records/logs/m7p2-close/`:
+README b21defd8, push.log 1154514f, ci-run.log 47727798, scan.log
+25ef451d; the message ASCII with the Co-Authored-By line only, its
+form 658dbc0's with the C2 paragraph and both generators; local,
+goes with part 3's push). ci-run.log: run 40922597765 on cf727f7,
+main, push, conclusion success, every step success, "ci-run log
+checks all as expected: yes", exit 0. scan.log, stage post over the
+range: 58 of 58 files read, 18 of 18 messages, total hits 0,
+RESULT: PASS, exit 0. Every stage's stderr file 0 bytes. The
+private-content grep over the four committed files matches only the
+scan's own pattern and control lines. FINDING emitted 0 (the word in
+push.log twice and scan.log once, all change 45's carried text).
+`<phase>/superseded/push1` holds the scripts as run (gen.py 0222e738,
+push a2639258, ci 4df18c1e, scan eee480a7) and `superseded/pre1` the
+pre-mode generator and scan script (bcb95be6, d03e5149); gen.py is
+now 03ad9a21 with change 73 and the push script 961c6139, the ci and
+scan scripts regenerated byte-identical, nothing re-run. The
+independent check (24065935, in the report 4594fef3) answered yes
+with exceptions on all three questions; its D1 to D5 are corrected in
+the report, E1 and E2 noted, E3 and E4 ruled in AM. Decision 7 is
+answered A by the maintainer's typed words. The close-out is DONE and
+PUSHED; the release tag is on the remote; P4 waits on the
+maintainer's publication from the laptop (decision 4).
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-27: 1 to 5 as recommended (A in
