@@ -4,12 +4,25 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-publish = false
 description = "Read-modify-write of Office Open XML spreadsheets: open an existing .xlsx, change what you were asked to change, and hand the file back with everything else intact."
 readme = "../../README.md"
 repository = "https://github.com/thekeoni1/emend"
 keywords = ["xlsx", "spreadsheet", "excel", "ooxml", "openpyxl"]
 categories = ["parser-implementations", "encoding"]
+# The packaged files by name (specs/0045, "The release texts and the
+# manifest (P3)"). Without this list a package built outside a git checkout
+# missed the template's _rels/.rels, which include_bytes! reads (specs/0031
+# P2 ruling 1). README.md is the readme above, which cargo puts at the
+# package's root.
+include = [
+    "src/**",
+    "template/**",
+    "template/_rels/.rels",
+    "Cargo.toml",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+    "README.md",
+]
 
 [package.metadata.docs.rs]
 all-features = true
