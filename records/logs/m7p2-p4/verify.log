@@ -1,0 +1,1334 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m7p2-p4-verify.sh 27da22856b973ae29fd715370550f9ffa20c1309
+about: M7 part 2 P4 phase commit 27da22856b973ae29fd715370550f9ffa20c1309; HEAD at run: 27da22856b973ae29fd715370550f9ffa20c1309
+input: P4_SOURCE=unset
+input: PLANNING_SPEC=e85e6c5cdb00f5c87f118f4b90672cb184f82b4e3972a7a40584c67e8bcbec08
+input: PLANNING_ROADMAP=c18006717449134c5bda86c337bc5fe266fb1828811b8891c8055d140b1137f7
+input: RUN_WORK=unset
+input: HOME=<home>
+input (as exported by this script): PYTHONDONTWRITEBYTECODE=1
+input: TMPDIR=<scratch>/tmp
+  (TMPDIR set, made and exported by this script before any mktemp; <work> is made under it)
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+mode: the logged run: RUN_WORK and P4_SOURCE are unset, so TMPDIR is <phase>/tmp and the three inputs are downloaded (change PV2)
+urls: crate https://static.crates.io/crates/emend/emend-0.1.0.crate; index https://index.crates.io/em/en/emend; page https://crates.io/api/v1/crates/emend; user agent "emend-p4-verify (https://github.com/thekeoni1/emend)"
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+command: pyb_count <this script>, and the same over a fixture of five lines: a call with -c, one with -I -B -c, a comment, a command -v, a call of a .py path
+  shape PYB: in this script 0; in the fixture 2
+  PYB: this script holds none (change NTJ): yes
+  control: PYB: the same form finds the fixture's two calls without -I -B and not its other three lines: yes
+
+## the phase's commits and the tag, read from git
+phase: Milestone 7 part 2 P4 (specs/0045-publish.md) verify.log; run at 2026-10-29T22:32:48Z
+  the phase commit by its subject "M7 part 2 P4: commit planning docs (the close-out verification and rulings)": 27da22856b973ae29fd715370550f9ffa20c1309
+  the phase commit given is the P4 doc commit, by its subject (change PV1): yes
+  git rev-parse refs/tags/v0.1.0 -> cf727f700f3ddae476f2a83243f0cb296f1e239b; git cat-file -t -> commit; the second close-out doc commit by its subject: cf727f700f3ddae476f2a83243f0cb296f1e239b
+  the tag v0.1.0 is a lightweight tag on the second close-out doc commit, of type commit (ruling AJ): yes
+  control: the same type reading refuses a tree: yes
+  the tag's commit is an ancestor of the phase commit: yes
+  specs/0045-publish.md at the phase commit: 617333f9943bc16ec264f760153a70156531308821e38f52ac786764206641ee (pinned 617333f9943bc16ec264f760153a70156531308821e38f52ac786764206641ee); in the working tree: e85e6c5cdb00f5c87f118f4b90672cb184f82b4e3972a7a40584c67e8bcbec08; PLANNING_SPEC: e85e6c5cdb00f5c87f118f4b90672cb184f82b4e3972a7a40584c67e8bcbec08
+  ROADMAP.md at the phase commit: c18006717449134c5bda86c337bc5fe266fb1828811b8891c8055d140b1137f7 (pinned c18006717449134c5bda86c337bc5fe266fb1828811b8891c8055d140b1137f7); in the working tree: c18006717449134c5bda86c337bc5fe266fb1828811b8891c8055d140b1137f7; PLANNING_ROADMAP: c18006717449134c5bda86c337bc5fe266fb1828811b8891c8055d140b1137f7
+  the phase commit's spec and ROADMAP.md are the pinned blobs (change PV1): yes
+  the working spec and ROADMAP.md are the phase commit's or planning's named copies: yes
+  control: the same check refuses a spec of another hash: yes
+root: <repo> stands for the repository's top level; scripts/counting.sh and records/logs/m7p2-p3/run.log are taken from it at the phase commit by git show, and the tag's tree by git archive
+root: <home> stands for the home directory of the account that ran this script
+root: <phase> stands for <home>/.cache/emend-build/m7p2-p4 on the disk, the phase's directory; <phase>/gen holds the generator that wrote this script and <phase>/model the script it carries its frame from
+root: <workroot> stands for the work root: <phase> in the logged run, the directory RUN_WORK names in a dry run; it holds TMPDIR (change PV2)
+root: <source> stands for the directory P4_SOURCE names in a dry run, holding the three inputs copied instead of downloaded (change PV2)
+root: <scratch> stands for <workroot>, named <scratch> where TMPDIR is concerned: TMPDIR is <scratch>/tmp, made and exported by this script before any mktemp, and <work> is made under it
+root: <scripts> stands for <phase>/scripts on the disk, this script's own directory; this script's own standard error goes to <scripts>/out/verify.stderr (specs/0017 P1 verification ruling 7)
+root: <work> stands for this run's working directory, made by mktemp -d under TMPDIR, <scratch>/tmp, on the disk (the counting library, the three inputs <work>/in, the crate's entries <work>/crate, the tag's tree <work>/tag, the checks' programs and outputs), kept after the run and never removed
+  <work>, the directory mktemp -d made, is under TMPDIR, <scratch>/tmp: yes
+  control: the same test refuses a working directory under /tmp: yes
+command: count_tempcalls <this script>, and the same over a fixture of three lines: a directory call, a file call, a comment
+  mktemp calls in this script outside comments: 1 (the one that makes <work>, checked under TMPDIR above); in the fixture: 2
+  this script makes one mktemp call, <work>'s, and no plain temporary file: yes
+  control: the same count finds the fixture's two calls and not its comment: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 1; of them admitted by the phase's pattern (this phase's logs, planning's modified specs/0045 and ROADMAP.md) 1; the lines:
+     M specs/0045-publish.md
+  control: the phase's status pattern admits this phase's log, specs/0045 and ROADMAP.md alone; it refuses another phase's log, a modified README and manifest: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 7 part 2 P4 verify.log (specs/0045-publish.md, "The
+    # publication and its verification (P4)" and "P4: the publication
+    # verified"; rulings AK to AM, planning's P4 brief of 2026-10-29). After
+    # the maintainer's `cargo publish -p emend` from a clean clone of the tag
+    # on their own machine (decision 4); no token, nothing published here:
+    #   1. the registry token variables printed absent (never a value), a set
+    #      one stopping the script; ANTHROPIC_API_KEY unset; the credentials
+    #      file named, opened and read by nothing here;
+    #   2. the tag v0.1.0 read from git: a lightweight tag whose object is the
+    #      second close-out doc commit (by its subject), of type commit;
+    #   3. the three downloads: the crate file
+    #      https://static.crates.io/crates/emend/emend-0.1.0.crate, the sparse
+    #      index entry https://index.crates.io/em/en/emend and the registry's
+    #      page https://crates.io/api/v1/crates/emend, each with its exit,
+    #      HTTP code, bytes and sha256;
+    #   4. the index's line for 0.1.0 (name, vers, cksum, yanked) and the crate
+    #      file's sha256 equal to its cksum;
+    #   5. the crate file's entries, every one under emend-0.1.0/, none
+    #      absolute, none with "..", none but files and directories; the
+    #      count of files P3's "Packaged 72 files" plus the one file cargo adds
+    #      in a git checkout, .cargo_vcs_info.json;
+    #   6. `git archive` of the tag extracted beside it, and every packaged
+    #      file compared with the tag's tree by sha256: README.md with the
+    #      repository's README.md (the manifest's readme), Cargo.toml.orig
+    #      with crates/emend/Cargo.toml, every other file with
+    #      crates/emend/<file>; every file of the tag's crates/emend in the
+    #      package; the files cargo writes (.cargo_vcs_info.json, the
+    #      normalised Cargo.toml, Cargo.lock) listed apart;
+    #   7. the files cargo writes and Cargo.toml.orig read in full;
+    #      .cargo_vcs_info.json naming the tag's commit and crates/emend;
+    #   8. the registry's page: the crate's keywords and categories equal to
+    #      the manifest's at the tag (specs/0031 ruling 4), version 0.1.0
+    #      there, not yanked, its checksum the index's cksum.
+    # A difference is a FINDING and a stop: the script prints the FINDING
+    # line, then a STOP: line, and ends with its summary and exit 1. Nothing
+    # is yanked on a script's word; planning rules.
+    #
+    # GENERATED by <phase>/gen/gen.py. The frame is M7 part 2 P3's run
+    # script's (<phase>/model/m7p2-p3-run.sh, asserted equal to the script
+    # printed in records/logs/m7p2-p3/run.log): its helpers, its three shape
+    # greps and the PYB shape, its mktemp count, its API-key check and its
+    # standard-error count are carried verbatim, each asserted by the
+    # generator; the rest is this phase's. The changes, a new series:
+    #  PV1. The names: Milestone 7 part 2 P4, the phase directory m7p2-p4,
+    #       the log directory records/logs/m7p2-p4; the phase commit is the
+    #       P4 doc commit by its subject; specs/0045 and ROADMAP.md pinned at
+    #       its blobs, or PLANNING_SPEC and PLANNING_ROADMAP for planning's
+    #       working copies; the status pattern this phase's.
+    #  PV2. The dry run (specs/0043 ruling Q; the P4 brief): RUN_WORK names
+    #       the work root and P4_SOURCE a directory holding the three inputs
+    #       (emend-0.1.0.crate, index-emend, api-emend.json), copied instead
+    #       of downloaded; the two are set together or not at all; a dry run
+    #       makes no network call (curl is never run, and the proxy
+    #       variables name a closed local port in case anything tried).
+    #  PV3. The downloads and the index's cksum (sections 3 and 4).
+    #  PV4. The entries, the count and the comparison with the tag's tree
+    #       (sections 5 and 6).
+    #  PV5. The files cargo writes, read in full (section 7).
+    #  PV6. The registry's page (section 8).
+    #  PV7. finding and stop_here: every difference prints one line
+    #       beginning FINDING and ends the run through one STOP: line.
+    #
+    # Usage: [RUN_WORK=<dir> P4_SOURCE=<dir>] [PLANNING_SPEC=<sha256>] [PLANNING_ROADMAP=<sha256>] m7p2-p4-verify.sh <phase commit> > <file outside the tree>;
+    # the caller moves the output to records/logs/m7p2-p4/verify.log.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/verify.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    
+    C=${1:?phase commit required}
+    # Every environment input, as it was set, before any is unset (change PV1).
+    INPUT_NAMES="P4_SOURCE PLANNING_SPEC PLANNING_ROADMAP RUN_WORK HOME"
+    declare -A INPUT_SEEN
+    for v in $INPUT_NAMES; do
+      if [ -n "${!v+x}" ]; then INPUT_SEEN[$v]=${!v}; else INPUT_SEEN[$v]=unset; fi
+    done
+    # Change PV2: RUN_WORK and P4_SOURCE together make a dry run; neither makes
+    # the logged run; one alone is refused.
+    if [ "${INPUT_SEEN[RUN_WORK]}" = unset ] && [ "${INPUT_SEEN[P4_SOURCE]}" = unset ]; then
+      LOGGED=yes
+    elif [ "${INPUT_SEEN[RUN_WORK]}" != unset ] && [ "${INPUT_SEEN[P4_SOURCE]}" != unset ]; then
+      LOGGED=no
+    else
+      echo "RUN_WORK and P4_SOURCE are set together (a dry run) or not at all (the logged run)" >&2; exit 2
+    fi
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    # Python writes no bytecode, so nothing arises to be removed.
+    export PYTHONDONTWRITEBYTECODE=1
+    unset EMEND_KEEP_DIR EMEND_CORPUS_DIR RUSTDOCFLAGS RUSTFLAGS
+    # No registry token is set; a set one stops the script, its value never
+    # printed (ruling AE's form).
+    if [ -n "${CARGO_REGISTRY_TOKEN+x}" ] || [ -n "${CARGO_REGISTRIES_CRATES_IO_TOKEN+x}" ]; then echo "a registry token variable is set; this log runs with none" >&2; exit 2; fi
+    if [ "$LOGGED" = no ]; then
+      # Change PV2: a dry run reaches no network.
+      export http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 ALL_PROXY=http://127.0.0.1:9
+    fi
+    SPEC=specs/0045-publish.md
+    # Change PV1: the blobs the P4 doc commit holds (the generator asserts both).
+    SPEC_WANT=617333f9943bc16ec264f760153a70156531308821e38f52ac786764206641ee
+    ROADMAP_WANT=c18006717449134c5bda86c337bc5fe266fb1828811b8891c8055d140b1137f7
+    PHASE_SUBJECT='M7 part 2 P4: commit planning docs (the close-out verification and rulings)'
+    TAG_SUBJECT='M7 part 2 close-out: commit planning docs (ruling AJ and decision 7)'
+    PLANNING_SPEC=${PLANNING_SPEC:-}
+    PLANNING_ROADMAP=${PLANNING_ROADMAP:-}
+    PHASE_DIR=$HOME/.cache/emend-build/m7p2-p4
+    WORK_ROOT=${RUN_WORK:-$PHASE_DIR}
+    SOURCE=${P4_SOURCE:-}
+    if [ ! -d "$WORK_ROOT" ]; then echo "the work root is not there" >&2; exit 2; fi
+    if [ "$LOGGED" = no ] && [ ! -d "$SOURCE" ]; then echo "P4_SOURCE is not a directory" >&2; exit 2; fi
+    CRATE_URL=https://static.crates.io/crates/emend/emend-0.1.0.crate
+    INDEX_URL=https://index.crates.io/em/en/emend
+    API_URL=https://crates.io/api/v1/crates/emend
+    UA='emend-p4-verify (https://github.com/thekeoni1/emend)'
+    # TMPDIR is <scratch>/tmp, the work root's, made and exported before any
+    # mktemp; the working directory is the one mktemp -d makes under it, on the
+    # disk, kept; nothing here is removed.
+    TMPDIR=$WORK_ROOT/tmp
+    export TMPDIR
+    mkdir -p "$TMPDIR" || exit 2
+    B=$(mktemp -d) || exit 2
+    # The counting library is the phase commit's, by git show.
+    git show "$C:scripts/counting.sh" >"$B/counting.sh" || exit 2
+    . "$B/counting.sh"
+    fail=0
+    n_findings=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    case "${C: -1}" in 0) LAST=1 ;; *) LAST=0 ;; esac
+    FAKE_SHA=${C:0:39}$LAST
+    # Change PV1: what the status pattern admits: this phase's log directory
+    # and planning's modified specs/0045 and ROADMAP.md; nothing else.
+    OURS="^((\\?\\?| ?[MARCD]) records/logs/m7p2-p4/| M specs/0045-publish[.]md\$| M ROADMAP[.]md\$)"
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs and planning's spec and ROADMAP.md" >&2
+      exit 2
+    fi
+    # <work> first (it lies under TMPDIR), then <source> (a dry run's), the
+    # work root (<workroot> in a dry run; <phase> itself in the logged run),
+    # <scripts>, <repo>, <phase>, and <home> last.
+    if [ "$LOGGED" = yes ]; then WR_TOKEN='<phase>'; else WR_TOKEN='<workroot>'; fi
+    SCRUB_ARGS=(-e "s#$B#<work>#g" -e "s#$TMPDIR#<scratch>/tmp#g")
+    if [ -n "$SOURCE" ]; then SCRUB_ARGS+=(-e "s#$SOURCE#<source>#g"); fi
+    SCRUB_ARGS+=(-e "s#$SELF_DIR#<scripts>#g" -e "s#$WORK_ROOT#$WR_TOKEN#g" -e "s#$MAIN#<repo>#g" -e "s#$PHASE_DIR#<phase>#g" -e "s#$HOME#<home>#g")
+    scrub() { sed "${SCRUB_ARGS[@]}"; }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    # Change PV7: a difference prints one FINDING line; stop_here ends the run
+    # through the summary, the status and the standard-error count, exit 1.
+    finding() { echo "FINDING: $1"; n_findings=$((n_findings + 1)); fail=1; }
+    finish() {
+      echo
+      echo "## the FINDING lines of this log (specs/0043 ruling R)"
+      echo "  FINDING lines printed above: $n_findings (each begins with the word FINDING; none is fixed)"
+      echo
+      echo "## status after the run"
+      echo "command: git status --porcelain"
+      git status --porcelain | sed 's/^/    /'
+      st_all=$(run_lines git status --porcelain)
+      st_ours=$(run_matches -E "$OURS" git status --porcelain)
+      echo "  the spec $SPEC, sha256 $(sha_of "$SPEC"); ROADMAP.md, sha256 $(sha_of ROADMAP.md)"
+      echo "status lines: $st_all; of them this phase's logs or planning's spec and ROADMAP.md: $st_ours"
+      status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+      check "every change in the working tree is this phase's or planning's spec and ROADMAP.md" "$(yn status_accounted)"
+      echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/verify.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+      echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo "verify log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+      exec 1>&3
+      wait "$SCRUB_PID" 2>/dev/null
+      exit "$fail"
+    }
+    stop_here() { echo "STOP: $1"; fail=1; finish; }
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    echo "about: M7 part 2 P4 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    for v in $INPUT_NAMES; do echo "input: $v=${INPUT_SEEN[$v]}"; done
+    echo "input (as exported by this script): PYTHONDONTWRITEBYTECODE=$PYTHONDONTWRITEBYTECODE"
+    echo "input: TMPDIR=$TMPDIR"
+    echo "  (TMPDIR set, made and exported by this script before any mktemp; <work> is made under it)"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    if [ "$LOGGED" = yes ]; then
+      echo "mode: the logged run: RUN_WORK and P4_SOURCE are unset, so TMPDIR is <phase>/tmp and the three inputs are downloaded (change PV2)"
+    else
+      echo "mode: a dry run (specs/0043 ruling Q; change PV2): RUN_WORK names the work root, <workroot>, and P4_SOURCE the inputs' directory, <source>; the three inputs are copied from it, no network call is made, and every check is made as in the logged run"
+    fi
+    echo "urls: crate $CRATE_URL; index $INDEX_URL; page $API_URL; user agent \"$UA\""
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    # Change NTJ: the fourth shape, PYB: a Python call without -I -B (the word
+    # followed by whitespace and an option or a .py path, outside a comment,
+    # and not by " -I -B"). The word is built from two halves, so that this
+    # form's own text is no call.
+    PYW=pyth
+    PYW=${PYW}on3
+    pyb_count() {
+      awk -v w="$PYW" '{ l = $0; sub(/^[ \t]+/, "", l); if (substr(l, 1, 1) == "#") next; s = l
+        while ((i = index(s, w)) > 0) { r = substr(s, i + length(w)); if (r ~ /^[ \t]+(-|[^ \t]*[.]py([ \t"]|$))/ && r !~ /^ -I -B( |$)/) { n++; break }; s = r }
+      } END { print n + 0 }' "$1"
+    }
+    printf '%s\n' "$PYW -c x" "$PYW -I -B -c x" "# $PYW -c x" "command -v $PYW" "$PYW tool.py" >"$B/pyb-fixture"
+    n_self=$(pyb_count "$SELF")
+    n_fix=$(pyb_count "$B/pyb-fixture")
+    echo "command: pyb_count <this script>, and the same over a fixture of five lines: a call with -c, one with -I -B -c, a comment, a command -v, a call of a .py path"
+    echo "  shape PYB: in this script $n_self; in the fixture $n_fix"
+    check "PYB: this script holds none (change NTJ)" "$(yn [ "$n_self" = 0 ])"
+    check "control: PYB: the same form finds the fixture's two calls without -I -B and not its other three lines" "$(yn [ "$n_fix" = 2 ])"
+    
+    echo
+    echo "## the phase's commits and the tag, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    echo "phase: Milestone 7 part 2 P4 ($SPEC) verify.log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    PC=$(by_subject "$PHASE_SUBJECT")
+    echo "  the phase commit by its subject \"$PHASE_SUBJECT\": ${PC:-none}"
+    check "the phase commit given is the P4 doc commit, by its subject (change PV1)" "$(yn [ "$PC" = "$C" ])"
+    TAGSUB=$(by_subject "$TAG_SUBJECT")
+    TAGC=$(git rev-parse -q --verify refs/tags/v0.1.0)
+    TAGT=$(git cat-file -t refs/tags/v0.1.0 2>/dev/null)
+    echo "  git rev-parse refs/tags/v0.1.0 -> ${TAGC:-none}; git cat-file -t -> ${TAGT:-none}; the second close-out doc commit by its subject: ${TAGSUB:-none}"
+    tag_ok() { [ -n "$TAGC" ] && [ "$TAGC" = "$TAGSUB" ] && [ "$TAGT" = commit ]; }
+    check "the tag v0.1.0 is a lightweight tag on the second close-out doc commit, of type commit (ruling AJ)" "$(yn tag_ok)"
+    tag_ctl() { [ "$(git cat-file -t "$C^{tree}")" = commit ]; }
+    check "control: the same type reading refuses a tree" "$(ynnot tag_ctl)"
+    check "the tag's commit is an ancestor of the phase commit" "$(yn git merge-base --is-ancestor "$TAGC" "$C")"
+    if [ -z "$TAGC" ] || [ "$TAGC" != "$TAGSUB" ]; then stop_here "the tag is not the second close-out doc commit"; fi
+    spec_committed=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    roadmap_committed=$(git show "$C:ROADMAP.md" | sha256sum | cut -d' ' -f1)
+    spec_now=$(sha_of "$SPEC")
+    roadmap_now=$(sha_of ROADMAP.md)
+    echo "  $SPEC at the phase commit: $spec_committed (pinned $SPEC_WANT); in the working tree: $spec_now; PLANNING_SPEC: ${PLANNING_SPEC:-unset}"
+    echo "  ROADMAP.md at the phase commit: $roadmap_committed (pinned $ROADMAP_WANT); in the working tree: $roadmap_now; PLANNING_ROADMAP: ${PLANNING_ROADMAP:-unset}"
+    pinned_ok() { [ "$spec_committed" = "$SPEC_WANT" ] && [ "$roadmap_committed" = "$ROADMAP_WANT" ]; }
+    check "the phase commit's spec and ROADMAP.md are the pinned blobs (change PV1)" "$(yn pinned_ok)"
+    working_ok() { { [ "$spec_now" = "$spec_committed" ] || { [ -n "$PLANNING_SPEC" ] && [ "$spec_now" = "$PLANNING_SPEC" ]; }; } && { [ "$roadmap_now" = "$roadmap_committed" ] || { [ -n "$PLANNING_ROADMAP" ] && [ "$roadmap_now" = "$PLANNING_ROADMAP" ]; }; }; }
+    check "the working spec and ROADMAP.md are the phase commit's or planning's named copies" "$(yn working_ok)"
+    working_ctl() { local spec_now=1111111111111111111111111111111111111111111111111111111111111111; working_ok; }
+    check "control: the same check refuses a spec of another hash" "$(ynnot working_ctl)"
+    echo "root: <repo> stands for the repository's top level; scripts/counting.sh and records/logs/m7p2-p3/run.log are taken from it at the phase commit by git show, and the tag's tree by git archive"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <phase> stands for <home>/.cache/emend-build/m7p2-p4 on the disk, the phase's directory; <phase>/gen holds the generator that wrote this script and <phase>/model the script it carries its frame from"
+    echo "root: <workroot> stands for the work root: <phase> in the logged run, the directory RUN_WORK names in a dry run; it holds TMPDIR (change PV2)"
+    echo "root: <source> stands for the directory P4_SOURCE names in a dry run, holding the three inputs copied instead of downloaded (change PV2)"
+    echo "root: <scratch> stands for <workroot>, named <scratch> where TMPDIR is concerned: TMPDIR is <scratch>/tmp, made and exported by this script before any mktemp, and <work> is made under it"
+    echo "root: <scripts> stands for <phase>/scripts on the disk, this script's own directory; this script's own standard error goes to <scripts>/out/verify.stderr (specs/0017 P1 verification ruling 7)"
+    echo "root: <work> stands for this run's working directory, made by mktemp -d under TMPDIR, <scratch>/tmp, on the disk (the counting library, the three inputs <work>/in, the crate's entries <work>/crate, the tag's tree <work>/tag, the checks' programs and outputs), kept after the run and never removed"
+    work_in_tmpdir() { case "$B/" in "$TMPDIR/"*) return 0 ;; esac; return 1; }
+    check "<work>, the directory mktemp -d made, is under TMPDIR, <scratch>/tmp" "$(yn work_in_tmpdir)"
+    work_ctl() { local B=/tmp/x; work_in_tmpdir; }
+    check "control: the same test refuses a working directory under /tmp" "$(ynnot work_ctl)"
+    # Every mktemp call of this script is checked under TMPDIR, so the source is
+    # read for its calls outside comments; the call's text is built from
+    # pieces, so this form's own text is no call.
+    MKW='$('
+    MKW=${MKW}mkt
+    MKW=${MKW}emp
+    count_tempcalls() {
+      awk -v w="$MKW" '{ l = $0; sub(/^[ \t]+/, "", l); if (substr(l, 1, 1) == "#") next; s = l
+        while ((i = index(s, w)) > 0) { n++; s = substr(s, i + length(w)) }
+      } END { print n + 0 }' "$1"
+    }
+    printf '%s\n' "A=$MKW -d)" "F=$MKW)" "# $MKW -d)" >"$B/mktemp-fixture"
+    n_mk=$(count_tempcalls "$SELF")
+    n_mk_fix=$(count_tempcalls "$B/mktemp-fixture")
+    echo "command: count_tempcalls <this script>, and the same over a fixture of three lines: a directory call, a file call, a comment"
+    echo "  mktemp calls in this script outside comments: $n_mk (the one that makes <work>, checked under TMPDIR above); in the fixture: $n_mk_fix"
+    check "this script makes one mktemp call, <work>'s, and no plain temporary file" "$(yn [ "$n_mk" = 1 ])"
+    check "control: the same count finds the fixture's two calls and not its comment" "$(yn [ "$n_mk_fix" = 2 ])"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them admitted by the phase's pattern (this phase's logs, planning's modified specs/0045 and ROADMAP.md) $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    ours_rec_ctl() { printf '?? records/logs/m7p2-p4/verify.log\n M specs/0045-publish.md\n M ROADMAP.md\n?? records/logs/m7p2-p3/run.log\n M README.md\n M crates/emend/Cargo.toml\n' | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern admits this phase's log, specs/0045 and ROADMAP.md alone; it refuses another phase's log, a modified README and manifest" "$(yn [ "$(ours_rec_ctl)" = 3 ])"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources (the phase commit's, by git show)"
+    sed 's/^/    /' "$B/counting.sh"
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    echo
+    echo "## 1. the registry token variables and the credentials file"
+    tok_state() { if [ -n "${!1+x}" ]; then echo set; else echo absent; fi; }
+    echo "  CARGO_REGISTRY_TOKEN: $(tok_state CARGO_REGISTRY_TOKEN); CARGO_REGISTRIES_CRATES_IO_TOKEN: $(tok_state CARGO_REGISTRIES_CRATES_IO_TOKEN) (values never printed)"
+    tokens_absent() { [ "$(tok_state CARGO_REGISTRY_TOKEN)" = absent ] && [ "$(tok_state CARGO_REGISTRIES_CRATES_IO_TOKEN)" = absent ]; }
+    check "the two registry token variables are absent" "$(yn tokens_absent)"
+    tok_ctl() { local CARGO_REGISTRY_TOKEN=planted; tokens_absent; }
+    check "control: the same check refuses a shell where one is set" "$(ynnot tok_ctl)"
+    echo "  <home>/.cargo/credentials.toml: named here and nowhere opened, listed or read by this script; no cargo command runs in this log"
+    
+    echo
+    echo "## 2. the three inputs (change PV3)"
+    mkdir -p "$B/in" || stop_here "<work>/in could not be made"
+    # fetch <name> <url>: the logged run downloads with curl over https alone;
+    # a dry run copies <source>/<name> (change PV2).
+    fetch() {
+      local name=$1 url=$2 rc code
+      if [ "$LOGGED" = yes ]; then
+        echo "command: curl -sS --fail --proto =https --tlsv1.2 --max-time 120 -A <user agent> -o <work>/in/$name -w %{http_code} $url"
+        code=$(curl -sS --fail --proto =https --tlsv1.2 --max-time 120 -A "$UA" -o "$B/in/$name" -w '%{http_code}' "$url" 2>"$B/in/$name.err" </dev/null); rc=$?
+        echo "  exit: $rc; HTTP code: ${code:-none}; curl's standard error: $(wc -c <"$B/in/$name.err") bytes"
+        sed 's/^/    /' "$B/in/$name.err"
+      else
+        echo "command (dry run, no network): cp <source>/$name <work>/in/$name"
+        cp "$SOURCE/$name" "$B/in/$name" 2>"$B/in/$name.err" </dev/null; rc=$?
+        code=dry
+        echo "  exit: $rc"
+      fi
+      if [ "$rc" != 0 ] || [ ! -s "$B/in/$name" ]; then finding "$name could not be fetched (exit $rc)"; stop_here "an input is missing"; fi
+      echo "  $name: $(wc -c <"$B/in/$name") bytes, sha256 $(sha_of "$B/in/$name")"
+    }
+    fetch emend-0.1.0.crate "$CRATE_URL"
+    fetch index-emend "$INDEX_URL"
+    fetch api-emend.json "$API_URL"
+    check "the three inputs are there and not empty" yes
+    
+    echo
+    echo "## 3. the index's line for 0.1.0 and the crate file's sha256 (change PV3)"
+    cat >"$B/index.py" <<'PYEOF'
+    import json, sys
+    rows = []
+    for line in open(sys.argv[1], encoding="utf-8"):
+        line = line.strip()
+        if not line:
+            continue
+        r = json.loads(line)
+        print("  index line: name %s, vers %s, yanked %s" % (r.get("name"), r.get("vers"), str(r.get("yanked")).lower()))
+        if r.get("vers") == "0.1.0":
+            rows.append(r)
+    print("  lines for 0.1.0: %d" % len(rows))
+    if len(rows) == 1:
+        r = rows[0]
+        print("FIELDS %s %s %s %s" % (r.get("name"), r.get("vers"), r.get("cksum"), str(r.get("yanked")).lower()))
+    PYEOF
+    python3 -I -B "$B/index.py" "$B/in/index-emend" >"$B/index.out" 2>"$B/index.err"; rc=$?
+    LC_ALL=C "$G" -v '^FIELDS ' "$B/index.out"
+    echo "  the index reader's exit: $rc; its standard error: $(wc -c <"$B/index.err") bytes"
+    read -r _ I_NAME I_VERS I_CKSUM I_YANKED <<<"$(LC_ALL=C "$G" '^FIELDS ' "$B/index.out")"
+    echo "  the line for 0.1.0: name ${I_NAME:-none}, vers ${I_VERS:-none}, cksum ${I_CKSUM:-none}, yanked ${I_YANKED:-none}"
+    index_ok() { [ "$rc" = 0 ] && [ "${I_NAME:-}" = emend ] && [ "${I_VERS:-}" = 0.1.0 ] && [ "${I_YANKED:-}" = false ] && printf '%s' "${I_CKSUM:-}" | LC_ALL=C "$G" -qxE '[0-9a-f]{64}'; }
+    check "the index holds one line for emend 0.1.0, not yanked, with a 64-hex cksum" "$(yn index_ok)"
+    if ! index_ok; then finding "the index's line for 0.1.0 is not as expected"; stop_here "the index"; fi
+    CRATE_SHA=$(sha_of "$B/in/emend-0.1.0.crate")
+    echo "  the crate file's sha256: $CRATE_SHA; the index's cksum: $I_CKSUM"
+    check "the crate file's sha256 is the index's cksum" "$(yn [ "$CRATE_SHA" = "$I_CKSUM" ])"
+    cp "$B/in/emend-0.1.0.crate" "$B/c-crate"; printf 'x' >>"$B/c-crate"
+    check "control: a copy of the crate file with one byte appended does not match the cksum" "$(yn [ "$(sha_of "$B/c-crate")" != "$I_CKSUM" ])"
+    if [ "$CRATE_SHA" != "$I_CKSUM" ]; then finding "the crate file's sha256 $CRATE_SHA is not the index's cksum $I_CKSUM"; stop_here "the cksum"; fi
+    
+    echo
+    echo "## 4. the crate file's entries and its count of files (change PV4)"
+    echo "command: tar -tvzf <work>/in/emend-0.1.0.crate"
+    tar -tvzf "$B/in/emend-0.1.0.crate" >"$B/entries-v" 2>"$B/entries.err"; rc=$?
+    tar -tzf "$B/in/emend-0.1.0.crate" >"$B/entries" 2>>"$B/entries.err" || rc=1
+    echo "  exit: $rc; entries: $(count_lines "$B/entries"); standard error: $(wc -c <"$B/entries.err") bytes"
+    n_out=$(awk '$0 !~ /^emend-0[.]1[.]0\// || $0 ~ /(^|\/)[.][.](\/|$)/' "$B/entries" | wc -l)
+    n_type=$(awk 'substr($1, 1, 1) != "-" && substr($1, 1, 1) != "d"' "$B/entries-v" | wc -l)
+    echo "  entries outside emend-0.1.0/ or holding \"..\": $n_out; entries neither a file nor a directory: $n_type"
+    entries_ok() { [ "$rc" = 0 ] && [ "$n_out" = 0 ] && [ "$n_type" = 0 ]; }
+    check "every entry is under emend-0.1.0/, none holding \"..\", each a file or a directory" "$(yn entries_ok)"
+    printf '%s\n' 'emend-0.1.0/src/lib.rs' '../x' 'emend-0.1.0/../y' '/etc/z' >"$B/c-entries"
+    bad_entries() { awk '$0 !~ /^emend-0[.]1[.]0\// || $0 ~ /(^|\/)[.][.](\/|$)/' "$1" | wc -l; }
+    check "control: the same reading finds the fixture's three bad entries" "$(yn [ "$(bad_entries "$B/c-entries")" = 3 ])"
+    if [ "$rc" != 0 ] || [ "$n_out" != 0 ] || [ "$n_type" != 0 ]; then finding "the crate file's entries are not all files and directories under emend-0.1.0/"; stop_here "the entries"; fi
+    mkdir -p "$B/crate" && tar -xzf "$B/in/emend-0.1.0.crate" -C "$B/crate" --no-same-owner --no-same-permissions 2>>"$B/entries.err" || { finding "the crate file did not extract"; stop_here "the extraction"; }
+    PK=$B/crate/emend-0.1.0
+    (cd "$PK" && find . -type f | sed 's#^[.]/##' | LC_ALL=C sort) >"$B/files"
+    n_files=$(count_lines "$B/files")
+    P3_PACKAGED=$(git show "$C:records/logs/m7p2-p3/run.log" | sed -n 's/.*"Packaged N files": \([0-9][0-9]*\) (the archive.s list: [0-9]*)$/\1/p' | head -n 1)
+    echo "  files in the package: $n_files; P3's \"Packaged N files\" in the archive (records/logs/m7p2-p3/run.log at the phase commit): ${P3_PACKAGED:-none}; .cargo_vcs_info.json in the package: $(count_matches -xF .cargo_vcs_info.json "$B/files")"
+    echo "  the package's files:"
+    sed 's/^/    /' "$B/files"
+    count_ok() { [ -n "$P3_PACKAGED" ] && [ "$(count_matches -xF .cargo_vcs_info.json "$1")" = 1 ] && [ "$(count_lines "$1")" = "$((P3_PACKAGED + 1))" ]; }
+    check "the count is P3's $P3_PACKAGED plus .cargo_vcs_info.json, which cargo adds in a git checkout and not in P3's archive" "$(yn count_ok "$B/files")"
+    { cat "$B/files"; echo extra.rs; } >"$B/c-files"
+    check "control: the same count refuses a list with one file more" "$(ynnot count_ok "$B/c-files")"
+    if ! count_ok "$B/files"; then finding "the package holds $n_files files, not P3's ${P3_PACKAGED:-none} plus one"; stop_here "the count"; fi
+    
+    echo
+    echo "## 5. every packaged file against the tag's tree (change PV4)"
+    echo "command: git archive $TAGC | tar -x -C <work>/tag"
+    mkdir -p "$B/tag" && git archive "$TAGC" | tar -x -C "$B/tag" 2>"$B/tag.err"; rc=$?
+    echo "  exit: $rc; files in the tag's tree: $(find "$B/tag" -type f | wc -l); in its crates/emend: $(find "$B/tag/crates/emend" -type f | wc -l)"
+    if [ "$rc" != 0 ]; then finding "git archive of the tag did not extract"; stop_here "the tag's tree"; fi
+    # tag_path <packaged file>: the tag's file it is to equal, or "cargo" for a
+    # file cargo writes.
+    tag_path() {
+      case "$1" in
+        Cargo.toml | .cargo_vcs_info.json | Cargo.lock) echo cargo ;;
+        README.md) echo README.md ;;
+        Cargo.toml.orig) echo crates/emend/Cargo.toml ;;
+        *) echo "crates/emend/$1" ;;
+      esac
+    }
+    same_file() { [ -f "$1" ] && [ -f "$2" ] && [ "$(sha_of "$1")" = "$(sha_of "$2")" ]; }
+    n_eq=0; n_diff=0; n_cargo=0
+    echo "  each packaged file: its sha256, its path, the tag's file and the result"
+    while IFS= read -r f; do
+      t=$(tag_path "$f")
+      if [ "$t" = cargo ]; then
+        printf '    %s  %s  written by cargo (section 6)\n' "$(sha_of "$PK/$f")" "$f"
+        n_cargo=$((n_cargo + 1))
+      elif same_file "$PK/$f" "$B/tag/$t"; then
+        printf '    %s  %s  = %s\n' "$(sha_of "$PK/$f")" "$f" "$t"
+        n_eq=$((n_eq + 1))
+      else
+        printf '    %s  %s  DIFFERS from %s\n' "$(sha_of "$PK/$f")" "$f" "$t"
+        finding "the packaged $f differs from the tag's $t"
+        n_diff=$((n_diff + 1))
+      fi
+    done <"$B/files"
+    # Every file of the tag's crates/emend is in the package (Cargo.toml as
+    # Cargo.toml.orig), and README.md beside them.
+    (cd "$B/tag/crates/emend" && find . -type f | sed 's#^[.]/##' | LC_ALL=C sort) >"$B/tag-files"
+    n_missing=0
+    while IFS= read -r f; do
+      p=$f; [ "$f" = Cargo.toml ] && p=Cargo.toml.orig
+      if [ "$(count_matches -xF "$p" "$B/files")" != 1 ]; then finding "the tag's crates/emend/$f is not in the package"; n_missing=$((n_missing + 1)); fi
+    done <"$B/tag-files"
+    echo "  packaged files equal to the tag's: $n_eq; differing: $n_diff; written by cargo: $n_cargo; the tag's crates/emend files: $(count_lines "$B/tag-files"), of them missing from the package: $n_missing"
+    compare_ok() { [ "$n_diff" = 0 ] && [ "$n_missing" = 0 ] && [ "$n_cargo" = 3 ] && [ "$((n_eq + n_cargo))" = "$n_files" ]; }
+    check "every packaged file but the three cargo writes equals the tag's, and every file of the tag's crates/emend is packaged" "$(yn compare_ok)"
+    cp "$B/tag/crates/emend/src/lib.rs" "$B/c-lib.rs"
+    check "control: the same comparison accepts a copy of the tag's src/lib.rs" "$(yn same_file "$B/c-lib.rs" "$B/tag/crates/emend/src/lib.rs")"
+    printf 'x' >>"$B/c-lib.rs"
+    check "control: the same comparison refuses that copy with one byte appended" "$(ynnot same_file "$B/c-lib.rs" "$B/tag/crates/emend/src/lib.rs")"
+    if [ "$n_diff" != 0 ] || [ "$n_missing" != 0 ] || [ "$n_cargo" != 3 ]; then stop_here "the package is not the tag's"; fi
+    
+    echo
+    echo "## 6. the files cargo writes, and Cargo.toml.orig, read in full (change PV5)"
+    for f in .cargo_vcs_info.json Cargo.toml Cargo.toml.orig Cargo.lock; do
+      if [ -n "$(tail -c 1 "$PK/$f")" ]; then nl="no final newline"; else nl="a final newline"; fi
+      echo "file $f ($(wc -c <"$PK/$f") bytes, sha256 $(sha_of "$PK/$f"), $nl):"
+      awk '{ print "    " $0 }' "$PK/$f"
+    done
+    cat >"$B/vcs.py" <<'PYEOF'
+    import json, sys
+    v = json.load(open(sys.argv[1], encoding="utf-8"))
+    g = v.get("git", {})
+    print("%s %s %s" % (g.get("sha1"), v.get("path_in_vcs"), str(g.get("dirty", False)).lower()))
+    PYEOF
+    read -r V_SHA V_PATH V_DIRTY <<<"$(python3 -I -B "$B/vcs.py" "$PK/.cargo_vcs_info.json" 2>>"$B/index.err")"
+    echo "  .cargo_vcs_info.json: git.sha1 ${V_SHA:-none}; path_in_vcs ${V_PATH:-none}; dirty ${V_DIRTY:-none}"
+    vcs_ok() { [ "${V_SHA:-}" = "$1" ] && [ "${V_PATH:-}" = crates/emend ] && [ "${V_DIRTY:-}" = false ]; }
+    check ".cargo_vcs_info.json names the tag's commit $TAGC, the path crates/emend, not dirty" "$(yn vcs_ok "$TAGC")"
+    check "control: the same check refuses another commit" "$(ynnot vcs_ok "$FAKE_SHA")"
+    if ! vcs_ok "$TAGC"; then finding ".cargo_vcs_info.json does not name the tag's commit and crates/emend, clean"; stop_here "the vcs file"; fi
+    cat >"$B/manifest.py" <<'PYEOF'
+    import sys, tomllib
+    m = tomllib.load(open(sys.argv[1], "rb"))
+    p = m.get("package", {})
+    print("name %s" % p.get("name"))
+    print("version %s" % p.get("version"))
+    print("keywords %s" % " ".join(sorted(p.get("keywords", []))))
+    print("categories %s" % " ".join(sorted(p.get("categories", []))))
+    PYEOF
+    python3 -I -B "$B/manifest.py" "$PK/Cargo.toml" >"$B/norm.out" 2>>"$B/index.err"
+    python3 -I -B "$B/manifest.py" "$B/tag/crates/emend/Cargo.toml" >"$B/orig.out" 2>>"$B/index.err"
+    echo "  the normalised Cargo.toml:"; sed 's/^/    /' "$B/norm.out"
+    echo "  the tag's crates/emend/Cargo.toml (keywords and categories are its own, not the workspace's):"; sed 's/^/    /' "$B/orig.out"
+    norm_ok() { LC_ALL=C "$G" -qx 'name emend' "$1" && LC_ALL=C "$G" -qx 'version 0.1.0' "$1" && [ "$(LC_ALL=C "$G" -E '^(keywords|categories) ' "$1")" = "$(LC_ALL=C "$G" -E '^(keywords|categories) ' "$B/orig.out")" ]; }
+    check "the normalised Cargo.toml names emend 0.1.0, with the tag's manifest's keywords and categories" "$(yn norm_ok "$B/norm.out")"
+    sed 's/^keywords .*/keywords xlsx/' "$B/norm.out" >"$B/c-norm.out"
+    check "control: the same check refuses a copy with one keyword" "$(ynnot norm_ok "$B/c-norm.out")"
+    if ! norm_ok "$B/norm.out"; then finding "the normalised Cargo.toml is not emend 0.1.0 with the manifest's keywords and categories"; stop_here "the normalised manifest"; fi
+    if same_file "$PK/Cargo.lock" "$B/tag/Cargo.lock"; then lock_rel="equals"; else lock_rel="differs from"; fi
+    echo "  Cargo.lock in the package $lock_rel the tag's workspace Cargo.lock; cargo writes the package's own lock file (information, not a check)"
+    
+    echo
+    echo "## 7. the registry's page (specs/0031 ruling 4; change PV6)"
+    cat >"$B/api.py" <<'PYEOF'
+    import json, sys
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+    c = d.get("crate", {})
+    print("name %s" % c.get("name"))
+    print("max_version %s" % c.get("max_version"))
+    print("keywords %s" % " ".join(sorted(c.get("keywords") or [])))
+    print("categories %s" % " ".join(sorted(c.get("categories") or [])))
+    kw = d.get("keywords")
+    ca = d.get("categories")
+    print("page_keywords %s" % ("absent" if kw is None else " ".join(sorted(k.get("id", "") for k in kw))))
+    print("page_categories %s" % ("absent" if ca is None else " ".join(sorted(k.get("slug", k.get("id", "")) for k in ca))))
+    vs = [v for v in d.get("versions", []) if v.get("num") == "0.1.0"]
+    print("versions_0_1_0 %d" % len(vs))
+    if vs:
+        print("yanked %s" % str(vs[0].get("yanked")).lower())
+        print("checksum %s" % vs[0].get("checksum"))
+    PYEOF
+    python3 -I -B "$B/api.py" "$B/in/api-emend.json" >"$B/api.out" 2>"$B/api.err"; rc=$?
+    echo "  the page reader's exit: $rc; its standard error: $(wc -c <"$B/api.err") bytes; what it read:"
+    sed 's/^/    /' "$B/api.out"
+    field() { sed -n "s/^$2 //p" "$1"; }
+    api_ok() {
+      [ "$(field "$1" name)" = emend ] && [ "$(field "$1" keywords)" = "$(field "$B/orig.out" keywords)" ] &&
+        [ "$(field "$1" categories)" = "$(field "$B/orig.out" categories)" ] && [ "$(field "$1" versions_0_1_0)" = 1 ] &&
+        [ "$(field "$1" yanked)" = false ] && [ "$(field "$1" checksum)" = "$I_CKSUM" ]
+    }
+    page_ok() { [ "$rc" = 0 ] && api_ok "$B/api.out"; }
+    check "the page names emend, the manifest's keywords and categories, version 0.1.0 once, not yanked, its checksum the index's cksum" "$(yn page_ok)"
+    sed 's/^categories .*/categories encoding/' "$B/api.out" >"$B/c-api.out"
+    check "control: the same check refuses a page lacking one category" "$(ynnot api_ok "$B/c-api.out")"
+    if [ "$rc" != 0 ] || ! api_ok "$B/api.out"; then finding "the registry's page does not read back as the manifest's keywords and categories and version 0.1.0"; stop_here "the registry's page"; fi
+    finish
+
+## the shared counting library this log sources (the phase commit's, by git show)
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "${d:?}"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## 1. the registry token variables and the credentials file
+  CARGO_REGISTRY_TOKEN: absent; CARGO_REGISTRIES_CRATES_IO_TOKEN: absent (values never printed)
+  the two registry token variables are absent: yes
+  control: the same check refuses a shell where one is set: yes
+  <home>/.cargo/credentials.toml: named here and nowhere opened, listed or read by this script; no cargo command runs in this log
+
+## 2. the three inputs (change PV3)
+command: curl -sS --fail --proto =https --tlsv1.2 --max-time 120 -A <user agent> -o <work>/in/emend-0.1.0.crate -w %{http_code} https://static.crates.io/crates/emend/emend-0.1.0.crate
+  exit: 0; HTTP code: 200; curl's standard error: 0 bytes
+  emend-0.1.0.crate: 710099 bytes, sha256 8e0aae29cb62627cf08ead813aa4280a77c4adc9aee4b820f87dd7e650fc74b2
+command: curl -sS --fail --proto =https --tlsv1.2 --max-time 120 -A <user agent> -o <work>/in/index-emend -w %{http_code} https://index.crates.io/em/en/emend
+  exit: 0; HTTP code: 200; curl's standard error: 0 bytes
+  index-emend: 612 bytes, sha256 c673830834826fbb6abbaf880160e5eebb80ee577cce7e140d6f2a5e3c453ff7
+command: curl -sS --fail --proto =https --tlsv1.2 --max-time 120 -A <user agent> -o <work>/in/api-emend.json -w %{http_code} https://crates.io/api/v1/crates/emend
+  exit: 0; HTTP code: 200; curl's standard error: 0 bytes
+  api-emend.json: 3795 bytes, sha256 25dbee43aa4dcb5a05720bc527f7026bdaab9d7f85d80fd8ac77f739e4f468ad
+  the three inputs are there and not empty: yes
+
+## 3. the index's line for 0.1.0 and the crate file's sha256 (change PV3)
+  index line: name emend, vers 0.1.0, yanked false
+  lines for 0.1.0: 1
+  the index reader's exit: 0; its standard error: 0 bytes
+  the line for 0.1.0: name emend, vers 0.1.0, cksum 8e0aae29cb62627cf08ead813aa4280a77c4adc9aee4b820f87dd7e650fc74b2, yanked false
+  the index holds one line for emend 0.1.0, not yanked, with a 64-hex cksum: yes
+  the crate file's sha256: 8e0aae29cb62627cf08ead813aa4280a77c4adc9aee4b820f87dd7e650fc74b2; the index's cksum: 8e0aae29cb62627cf08ead813aa4280a77c4adc9aee4b820f87dd7e650fc74b2
+  the crate file's sha256 is the index's cksum: yes
+  control: a copy of the crate file with one byte appended does not match the cksum: yes
+
+## 4. the crate file's entries and its count of files (change PV4)
+command: tar -tvzf <work>/in/emend-0.1.0.crate
+  exit: 0; entries: 73; standard error: 0 bytes
+  entries outside emend-0.1.0/ or holding "..": 0; entries neither a file nor a directory: 0
+  every entry is under emend-0.1.0/, none holding "..", each a file or a directory: yes
+  control: the same reading finds the fixture's three bad entries: yes
+  files in the package: 73; P3's "Packaged N files" in the archive (records/logs/m7p2-p3/run.log at the phase commit): 72; .cargo_vcs_info.json in the package: 1
+  the package's files:
+    .cargo_vcs_info.json
+    Cargo.lock
+    Cargo.toml
+    Cargo.toml.orig
+    LICENSE-APACHE
+    LICENSE-MIT
+    README.md
+    src/archive.rs
+    src/archive/tests.rs
+    src/cells.rs
+    src/cells/tests.rs
+    src/dates.rs
+    src/dates/tests.rs
+    src/lib.rs
+    src/package.rs
+    src/package/chart.rs
+    src/package/chart_edit.rs
+    src/package/chart_write.rs
+    src/package/extlink.rs
+    src/package/pivot.rs
+    src/package/sheet_read.rs
+    src/package/survey.rs
+    src/package/tests.rs
+    src/package/tests/chart.rs
+    src/package/tests/chart_write.rs
+    src/package/tests/chartsheet.rs
+    src/package/tests/colors.rs
+    src/package/tests/comments.rs
+    src/package/tests/comments/boxes.rs
+    src/package/tests/comments/rich.rs
+    src/package/tests/conditional.rs
+    src/package/tests/copy.rs
+    src/package/tests/dxf.rs
+    src/package/tests/extlink.rs
+    src/package/tests/gradient.rs
+    src/package/tests/grouping.rs
+    src/package/tests/images.rs
+    src/package/tests/images/anchors.rs
+    src/package/tests/images/removal.rs
+    src/package/tests/linestyle.rs
+    src/package/tests/links.rs
+    src/package/tests/named_style.rs
+    src/package/tests/namedstyles.rs
+    src/package/tests/names.rs
+    src/package/tests/names/print.rs
+    src/package/tests/pivot.rs
+    src/package/tests/properties.rs
+    src/package/tests/protection.rs
+    src/package/tests/readback.rs
+    src/package/tests/richtext.rs
+    src/package/tests/rowcol.rs
+    src/package/tests/sheetprops.rs
+    src/package/tests/sheetread.rs
+    src/package/tests/shift.rs
+    src/package/tests/survey.rs
+    src/package/tests/tables.rs
+    src/package/tests/validation.rs
+    src/package/tests/visual.rs
+    src/styles.rs
+    src/styles/colors.rs
+    src/styles/elements.rs
+    src/styles/elements/tests.rs
+    src/styles/read.rs
+    src/styles/tests.rs
+    src/testing.rs
+    src/xml.rs
+    src/xml/tests.rs
+    template/[Content_Types].xml
+    template/_rels/.rels
+    template/xl/_rels/workbook.xml.rels
+    template/xl/styles.xml
+    template/xl/workbook.xml
+    template/xl/worksheets/sheet1.xml
+  the count is P3's 72 plus .cargo_vcs_info.json, which cargo adds in a git checkout and not in P3's archive: yes
+  control: the same count refuses a list with one file more: yes
+
+## 5. every packaged file against the tag's tree (change PV4)
+command: git archive cf727f700f3ddae476f2a83243f0cb296f1e239b | tar -x -C <work>/tag
+  exit: 0; files in the tag's tree: 2645; in its crates/emend: 69
+  each packaged file: its sha256, its path, the tag's file and the result
+    62e5c88d8ea4fec76a87b808fc71310b0b84260b6d84f58b0c537fd85b951fc6  .cargo_vcs_info.json  written by cargo (section 6)
+    5439ba813597a5d9b7bfb019f69712bfcc502c3dd284ade50f347450fd07d51b  Cargo.lock  written by cargo (section 6)
+    6e673d04418172c9406bf804d66a76877e82f8f50a40a8274c1fa6421692cc76  Cargo.toml  written by cargo (section 6)
+    3bc5546088daecde17fd69585cfe6799f3cf1bad3cc80d8cd7319681da089984  Cargo.toml.orig  = crates/emend/Cargo.toml
+    cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  LICENSE-APACHE  = crates/emend/LICENSE-APACHE
+    ab1c75b39a8664d1b9628000acc303881c58723735c37f08a4528118667ad6f1  LICENSE-MIT  = crates/emend/LICENSE-MIT
+    45ac97d51acfdf2367b47ab85d007e04f3b4ee8c79420db58933b781e8ffee54  README.md  = README.md
+    b8d69202921db68f794da97d3425e9e7ecd5df15feff2d33a4f3d30cb14d90f7  src/archive.rs  = crates/emend/src/archive.rs
+    9312b371884e4c1afa2057e814cbd44214deaeff024f1de7119b6f7e29538058  src/archive/tests.rs  = crates/emend/src/archive/tests.rs
+    72a361411a3746a028ca888fa4702e29198dfa35c2d698a3e14782fe9e6b78cc  src/cells.rs  = crates/emend/src/cells.rs
+    82b755d1c38b0be898ccae1d82e689a4a67ec31ff3e04a155d8803e4a72adb17  src/cells/tests.rs  = crates/emend/src/cells/tests.rs
+    6096afdea901a68d1bd52a8414bf7ab5ab5a37429722638f6963cb889c01ae6c  src/dates.rs  = crates/emend/src/dates.rs
+    3b790a2e8b4c783bf867be7efff809da8a2786cc7303b8e44cb2587b6e27509f  src/dates/tests.rs  = crates/emend/src/dates/tests.rs
+    3e76f7b121101c0262b41adc1dc0077062e28152d8d25cfa9271d97e9d73c7cc  src/lib.rs  = crates/emend/src/lib.rs
+    fcd394b98411de350141a477f2ff6307800bd2af18eb340a49ca2c0a15bd7f89  src/package.rs  = crates/emend/src/package.rs
+    44911e7ce73fa626f65af6edf163de1085e2e798116483073d4b555d66290d56  src/package/chart.rs  = crates/emend/src/package/chart.rs
+    20109a4a378be32830ec5bab725a8f7a087938a48daca747ad480ba866e6134a  src/package/chart_edit.rs  = crates/emend/src/package/chart_edit.rs
+    95d738cb36fb2339f6ab598538797ef8cdd8ae4a7140e79d1489ac8d4116197b  src/package/chart_write.rs  = crates/emend/src/package/chart_write.rs
+    f05e3a306396dd0774cf33d44198c00a4f6c62eb914172919014b5d1fd777d00  src/package/extlink.rs  = crates/emend/src/package/extlink.rs
+    f7842aa25e6fb9e92fadbad1bc5402a09ead23db8661d8b796bac31650bbf1a8  src/package/pivot.rs  = crates/emend/src/package/pivot.rs
+    f2020c9a471a28fb6077d0633dcc32d65957ff65fe0bdd0c42d910c618db451b  src/package/sheet_read.rs  = crates/emend/src/package/sheet_read.rs
+    a085a8f9faf7301ffe266128ff0be89f8c2759b3ca41deec1a9c8f5c3e2a74be  src/package/survey.rs  = crates/emend/src/package/survey.rs
+    d75818e21fd3cf808da15573da7b4bdbae68502e12525df071cacd7a02cbf985  src/package/tests.rs  = crates/emend/src/package/tests.rs
+    f8b8f5b4338a52efa4ebfd626cb15350e3f007bf5406ca06468e4e011b41ea06  src/package/tests/chart.rs  = crates/emend/src/package/tests/chart.rs
+    c7e13fe45866830030d2da6b5ce3d37e663ebda0e2aadf5d0f8e324199deca6a  src/package/tests/chart_write.rs  = crates/emend/src/package/tests/chart_write.rs
+    9694d380ed5245d7984cea7c8cc1f74549a4246bc87d4734175f2817af66b42f  src/package/tests/chartsheet.rs  = crates/emend/src/package/tests/chartsheet.rs
+    fb9fe09d4a664a953ae0bbac2d351fb0223ab020f93fbb29c01110911ab048ec  src/package/tests/colors.rs  = crates/emend/src/package/tests/colors.rs
+    df6e8a9ad9f79e43224496a95b865777fa1cbfa310bd1614ef4b559be5941f9a  src/package/tests/comments.rs  = crates/emend/src/package/tests/comments.rs
+    ed904a0c2e2cdc821eab7d2650fc05bfbdbc9fffa24131a9bbc0880dcb7cad71  src/package/tests/comments/boxes.rs  = crates/emend/src/package/tests/comments/boxes.rs
+    bdffd991ef97a584ad63b42dd362cf69a40ec299085ce311085d76e0a7a16c22  src/package/tests/comments/rich.rs  = crates/emend/src/package/tests/comments/rich.rs
+    305a4acaf9e0aa59e9cf7712aab2983b8c1955217441b67685746b2c1bc68882  src/package/tests/conditional.rs  = crates/emend/src/package/tests/conditional.rs
+    9a9b1d8c98e65539c6e12f529411c34d55436f52e07746f208ada253fb76a878  src/package/tests/copy.rs  = crates/emend/src/package/tests/copy.rs
+    5da5ebea994f1504b2d84eb3f7faabdf4532449061f27e1d0ff906a95eaa9cf5  src/package/tests/dxf.rs  = crates/emend/src/package/tests/dxf.rs
+    5894b129209c3314c352f6c3a2dbc24efe3cc188ce045286dcec609b5b687a1a  src/package/tests/extlink.rs  = crates/emend/src/package/tests/extlink.rs
+    c487eb2e3585c36dd182a97c9c9c2486a0b9279f6f1460b7e144e4a28a2fd31c  src/package/tests/gradient.rs  = crates/emend/src/package/tests/gradient.rs
+    a3edacf71dad44136480ae1278635d1739efaab46dd756aa71b5b7a16a5a93e9  src/package/tests/grouping.rs  = crates/emend/src/package/tests/grouping.rs
+    15f45d736db599508cd066ab8da3b44ac308e560bc4915fa4555a8ad6a45e900  src/package/tests/images.rs  = crates/emend/src/package/tests/images.rs
+    8eb40731b6dbb5c7494247eb8bf9ec1b4c73363c516bf9eaf1008d4b8b14cb1d  src/package/tests/images/anchors.rs  = crates/emend/src/package/tests/images/anchors.rs
+    7a0274fd811ee3d979451761be60878c7aee3c4e85c50fa39b002de0b8a4fd0b  src/package/tests/images/removal.rs  = crates/emend/src/package/tests/images/removal.rs
+    763f7145a16f72fd2a439078c7dd4b78d4f74759a374c833a68686fb2b23ca6a  src/package/tests/linestyle.rs  = crates/emend/src/package/tests/linestyle.rs
+    c5115f9a1c6fc34b3a2f5b309fd21ad9c683175e09e88671dc26a76ce0c7bdbe  src/package/tests/links.rs  = crates/emend/src/package/tests/links.rs
+    a3f4b318697c778095781d02a92e0cc6082346a1c27f3ec38b5fa7b7ddccdb7e  src/package/tests/named_style.rs  = crates/emend/src/package/tests/named_style.rs
+    bc2fd13e1669f9e9f69b1426fc61097718e88bbc653df5c8bf33dfd7f04c6664  src/package/tests/namedstyles.rs  = crates/emend/src/package/tests/namedstyles.rs
+    2b8fbf30c71917268e4e6afa497e8a507bf188956742b6b72d0ab3e2b04d64c3  src/package/tests/names.rs  = crates/emend/src/package/tests/names.rs
+    8ed1ca32e8cd27f50011d51f37c6ba6048996eb5acd055468c7ab2b06c1deb83  src/package/tests/names/print.rs  = crates/emend/src/package/tests/names/print.rs
+    f756dfafd9ea3e27254dd962caebe43f4e8be7e33cc1b1500352c47f31319241  src/package/tests/pivot.rs  = crates/emend/src/package/tests/pivot.rs
+    aa1ac75e47a801179159d327b3297ce5c17b7e445b5c20a29e987767824bee5b  src/package/tests/properties.rs  = crates/emend/src/package/tests/properties.rs
+    b4da89ad3dc5edfbb84e148c63c023c3386584ea8bcfb784032ba0d8df326e5e  src/package/tests/protection.rs  = crates/emend/src/package/tests/protection.rs
+    d1099d7f09b74c8d58781855128db71b28ffbdda604e5842060df279e6fc6538  src/package/tests/readback.rs  = crates/emend/src/package/tests/readback.rs
+    c9e711eb8d40d749cf9edbcbc13f5dbdb2a3dfbd38ce734ef656547c876ecf6e  src/package/tests/richtext.rs  = crates/emend/src/package/tests/richtext.rs
+    e44e8d3429d7defe15134527b738db82a84c5a91e50db3fcbce6fa6f96cb09ec  src/package/tests/rowcol.rs  = crates/emend/src/package/tests/rowcol.rs
+    f73879da1d88b72d3812a42a230c2bce7cc478919ce11eb33fe226401f24d394  src/package/tests/sheetprops.rs  = crates/emend/src/package/tests/sheetprops.rs
+    deb5e15cb36a906768d5265d2bf319896ebd42a5d136748e81426babed189cde  src/package/tests/sheetread.rs  = crates/emend/src/package/tests/sheetread.rs
+    ae49b8bd3473eab9a4ac27c0f265b008ed9f4dad9fbf46a3e864c58a2346cc40  src/package/tests/shift.rs  = crates/emend/src/package/tests/shift.rs
+    169c0270a9279e2d4782635b977b2af8f33927c66ad0714e12a000b2b1433782  src/package/tests/survey.rs  = crates/emend/src/package/tests/survey.rs
+    706f35185b72fe5b6a104d26c7ae883b78f4c02eef294fd1be80b0112481092a  src/package/tests/tables.rs  = crates/emend/src/package/tests/tables.rs
+    67ef50650cb9a97c85595a34ff6c097080841449a72dd350f6a6d348950c69b2  src/package/tests/validation.rs  = crates/emend/src/package/tests/validation.rs
+    3a8954692f088e89b7fdf5893e6085348f427ee0dc012049d41a4ff70c53d5c4  src/package/tests/visual.rs  = crates/emend/src/package/tests/visual.rs
+    e855561507744fc65fce07cd7f42e1f5043f94639f5fef4e6a88e67d425d21f2  src/styles.rs  = crates/emend/src/styles.rs
+    23929349a57bd43715d032e4f7b09371a13e85ad77ae38af3c4e5c405fc3cc56  src/styles/colors.rs  = crates/emend/src/styles/colors.rs
+    72b509866680480e3d90761986b15b6db393931b7e9941498d2edffc85ccbc7c  src/styles/elements.rs  = crates/emend/src/styles/elements.rs
+    1999c3e183680cef5871e828039e7f72cb6f1ff1f12c8a87d978579bc791407a  src/styles/elements/tests.rs  = crates/emend/src/styles/elements/tests.rs
+    3779c4296844f5c48ed3ac19b0c1e51dec22882a63756266f1751da42e935b9e  src/styles/read.rs  = crates/emend/src/styles/read.rs
+    424c9f7968fb784c7c3683afc51a41048e82cc5904423ec47e6316d0625e0d2f  src/styles/tests.rs  = crates/emend/src/styles/tests.rs
+    e57cbb4f498246b0510a417ade4040ec1d85b4194b952326d74869d2d6d848f5  src/testing.rs  = crates/emend/src/testing.rs
+    69443305df92acc123890e26ee30a6b48fe2f18d505ef40615c47c598ca00c0f  src/xml.rs  = crates/emend/src/xml.rs
+    7159bda84f7952744db2bc68227ce84d16bb92869dd680636aec071974381ad5  src/xml/tests.rs  = crates/emend/src/xml/tests.rs
+    b34a1c9f5b5c0f54f1274272a429578b417e119fdc48bfcd96f25f93f301458f  template/[Content_Types].xml  = crates/emend/template/[Content_Types].xml
+    9f96bb683e71c45171c7ae310bf6c37fb5a834bb9738497ac7084c42ac9c2d9a  template/_rels/.rels  = crates/emend/template/_rels/.rels
+    1b2fc82d18a622c89e94093d1d5a256857ac9641b8ee51a8290ea82796b1060f  template/xl/_rels/workbook.xml.rels  = crates/emend/template/xl/_rels/workbook.xml.rels
+    4323cdfcda85942b9c9b28b4730a6d6865505647ebd74a1eeabbeb47367c01de  template/xl/styles.xml  = crates/emend/template/xl/styles.xml
+    c0bac302b5be62eebe8d062e677777d556ad4cfe403aad39359d70b9d5c1d30e  template/xl/workbook.xml  = crates/emend/template/xl/workbook.xml
+    cec20be57447cb9dfeb4331f00f55dba0e6280e68f53569df25334eaaa0d2272  template/xl/worksheets/sheet1.xml  = crates/emend/template/xl/worksheets/sheet1.xml
+  packaged files equal to the tag's: 70; differing: 0; written by cargo: 3; the tag's crates/emend files: 69, of them missing from the package: 0
+  every packaged file but the three cargo writes equals the tag's, and every file of the tag's crates/emend is packaged: yes
+  control: the same comparison accepts a copy of the tag's src/lib.rs: yes
+  control: the same comparison refuses that copy with one byte appended: yes
+
+## 6. the files cargo writes, and Cargo.toml.orig, read in full (change PV5)
+file .cargo_vcs_info.json (106 bytes, sha256 62e5c88d8ea4fec76a87b808fc71310b0b84260b6d84f58b0c537fd85b951fc6, no final newline):
+    {
+      "git": {
+        "sha1": "cf727f700f3ddae476f2a83243f0cb296f1e239b"
+      },
+      "path_in_vcs": "crates/emend"
+    }
+file Cargo.toml (1664 bytes, sha256 6e673d04418172c9406bf804d66a76877e82f8f50a40a8274c1fa6421692cc76, a final newline):
+    # THIS FILE IS AUTOMATICALLY GENERATED BY CARGO
+    #
+    # When uploading crates to the registry Cargo will automatically
+    # "normalize" Cargo.toml files for maximal compatibility
+    # with all versions of Cargo and also rewrite `path` dependencies
+    # to registry (e.g., crates.io) dependencies.
+    #
+    # If you are reading this file be aware that the original Cargo.toml
+    # will likely look very different (and much more reasonable).
+    # See Cargo.toml.orig for the original contents.
+    
+    [package]
+    edition = "2024"
+    rust-version = "1.98.1"
+    name = "emend"
+    version = "0.1.0"
+    build = false
+    include = [
+        "src/**",
+        "template/**",
+        "template/_rels/.rels",
+        "Cargo.toml",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "README.md",
+    ]
+    autolib = false
+    autobins = false
+    autoexamples = false
+    autotests = false
+    autobenches = false
+    description = "Read-modify-write of Office Open XML spreadsheets: open an existing .xlsx, change what you were asked to change, and hand the file back with everything else intact."
+    readme = "README.md"
+    keywords = [
+        "xlsx",
+        "spreadsheet",
+        "excel",
+        "ooxml",
+        "openpyxl",
+    ]
+    categories = [
+        "parser-implementations",
+        "encoding",
+    ]
+    license = "MIT OR Apache-2.0"
+    repository = "https://github.com/thekeoni1/emend"
+    
+    [package.metadata.docs.rs]
+    all-features = true
+    
+    [features]
+    charts = []
+    comments = []
+    copy = []
+    dates = []
+    images = []
+    metadata = []
+    read = []
+    richtext = []
+    rowcol = []
+    rules = []
+    sheetprops = []
+    tables = []
+    
+    [lib]
+    name = "emend"
+    path = "src/lib.rs"
+    
+    [dependencies.quick-xml]
+    version = "=0.42.0"
+    default-features = false
+    
+    [dependencies.zip]
+    version = "=8.6.0"
+    features = ["deflate-flate2-zlib-rs"]
+    default-features = false
+file Cargo.toml.orig (4768 bytes, sha256 3bc5546088daecde17fd69585cfe6799f3cf1bad3cc80d8cd7319681da089984, a final newline):
+    [package]
+    name = "emend"
+    version = "0.1.0"
+    edition.workspace = true
+    license.workspace = true
+    rust-version.workspace = true
+    description = "Read-modify-write of Office Open XML spreadsheets: open an existing .xlsx, change what you were asked to change, and hand the file back with everything else intact."
+    readme = "../../README.md"
+    repository = "https://github.com/thekeoni1/emend"
+    keywords = ["xlsx", "spreadsheet", "excel", "ooxml", "openpyxl"]
+    categories = ["parser-implementations", "encoding"]
+    # The packaged files by name (specs/0045, "The release texts and the
+    # manifest (P3)"). Without this list a package built outside a git checkout
+    # missed the template's _rels/.rels, which include_bytes! reads (specs/0031
+    # P2 ruling 1). README.md is the readme above, which cargo puts at the
+    # package's root.
+    include = [
+        "src/**",
+        "template/**",
+        "template/_rels/.rels",
+        "Cargo.toml",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "README.md",
+    ]
+    
+    [package.metadata.docs.rs]
+    all-features = true
+    
+    # The core's two dependencies and nothing else (CLAUDE.md, "Dependencies and
+    # licences"; specs/0008-zip-layer.md and specs/0009-package-layer.md, "Crate"),
+    # pinned and featured exactly as the tools pin them. quick-xml joins the core in
+    # Milestone 1 part 2 P1, which is why part 1's size measurement is the zip layer
+    # alone. With default-features off it brings memchr and nothing more.
+    [dependencies]
+    zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+    quick-xml = { version = "=0.42.0", default-features = false }
+    
+    # No dev-dependencies: the tests build archives byte by byte rather than
+    # through a library, so a bug in a builder cannot hide the same bug in the
+    # layer.
+    
+    # The date arithmetic of specs/0012-styles.md, "Module `dates`": off by
+    # default, with no dependency of its own, so the core's size is the core's
+    # and the feature's cost is measured beside it (CLAUDE.md, "Dependencies and
+    # licences").
+    [features]
+    dates = []
+    # The row and column insertions and deletions of
+    # specs/0018-rows-and-columns.md (decision 7 A): off by default, with no
+    # dependency of its own, measured beside the core as `dates` is. The column
+    # formats, panes and merges of the same part stay in the core.
+    rowcol = []
+    # The defined names, hyperlinks, document properties and protection of
+    # specs/0019-names-links-properties-protection.md (decision 1 A): off by
+    # default, with no dependency of its own, measured beside the core as `dates`
+    # and `rowcol` are.
+    metadata = []
+    # The data validations of specs/0020-validation-and-conditional-formatting.md,
+    # and its conditional formats in later phases (decision 1 A): off by default,
+    # with no dependency of its own, measured beside the core as `metadata` is.
+    rules = []
+    # The tables of specs/0021-tables.md (decision 2 A): off by default, with no
+    # dependency of its own, measured beside the core as `rules` is.
+    tables = []
+    # The cell comments of specs/0022-comments-and-images.md (decision 1 A): off
+    # by default, with no dependency of its own, measured beside the core as
+    # `tables` is.
+    comments = []
+    # The rich text of specs/0024-rich-text.md (decision 1 A): runs with their own
+    # font in a cell, and with `comments` in a comment. Off by default, with no
+    # dependency of its own, measured beside the core as `comments` is.
+    richtext = []
+    # The sheet and print settings of specs/0025-sheet-and-print-settings.md
+    # (decision 1 A): the tab colour, the sheet view and, in later phases, the
+    # print options, margins, page setup, headers and footers. Off by default,
+    # with no dependency of its own, measured beside the core as `richtext` is;
+    # the calls that write defined names need `metadata` too.
+    sheetprops = []
+    # The images of specs/0022-comments-and-images.md (decision 1 A): off by
+    # default, with no dependency of its own, measured beside the core as
+    # `comments` is.
+    images = []
+    # The typed reads of specs/0027-read-back.md (decision 1 A): a cell's
+    # format resolved into the types the writers take and, in later phases, the
+    # column and row formats, the sheet's settings and the shared strings
+    # iterator. Off by default, with no dependency of its own, measured beside
+    # the core as `sheetprops` is.
+    read = []
+    # The worksheet copy of specs/0028-images-and-comments-second-half.md
+    # (decision 1 A): a sheet copied within its workbook, its comments carried
+    # with `comments` too. Off by default, with no dependency of its own,
+    # measured beside the core as `read` is.
+    copy = []
+    # The charts read of specs/0034-charts-read.md (decision 1 A): every chart a
+    # worksheet's drawing holds, read typed. Off by default, with no dependency of
+    # its own, measured beside the core as `read` is; the drawing walk it shares
+    # with `images` is gated on either (P1 ruling A).
+    charts = []
+file Cargo.lock (2524 bytes, sha256 5439ba813597a5d9b7bfb019f69712bfcc502c3dd284ade50f347450fd07d51b, a final newline):
+    # This file is automatically @generated by Cargo.
+    # It is not intended for manual editing.
+    version = 4
+    
+    [[package]]
+    name = "cfg-if"
+    version = "1.0.4"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+    
+    [[package]]
+    name = "crc32fast"
+    version = "1.5.2"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
+    dependencies = [
+     "cfg-if",
+    ]
+    
+    [[package]]
+    name = "emend"
+    version = "0.1.0"
+    dependencies = [
+     "quick-xml",
+     "zip",
+    ]
+    
+    [[package]]
+    name = "equivalent"
+    version = "1.0.2"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+    
+    [[package]]
+    name = "flate2"
+    version = "1.1.10"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "6e634e2e0ebac1ee034020da1ca582e17ffe4e0f5e985823721e168928136dcb"
+    dependencies = [
+     "zlib-rs",
+    ]
+    
+    [[package]]
+    name = "hashbrown"
+    version = "0.17.1"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+    
+    [[package]]
+    name = "indexmap"
+    version = "2.14.2"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
+    dependencies = [
+     "equivalent",
+     "hashbrown",
+    ]
+    
+    [[package]]
+    name = "memchr"
+    version = "2.8.3"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+    
+    [[package]]
+    name = "quick-xml"
+    version = "0.42.0"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
+    dependencies = [
+     "memchr",
+    ]
+    
+    [[package]]
+    name = "typed-path"
+    version = "0.12.3"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
+    
+    [[package]]
+    name = "zip"
+    version = "8.6.0"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
+    dependencies = [
+     "crc32fast",
+     "flate2",
+     "indexmap",
+     "memchr",
+     "typed-path",
+    ]
+    
+    [[package]]
+    name = "zlib-rs"
+    version = "0.6.8"
+    source = "registry+https://github.com/rust-lang/crates.io-index"
+    checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
+  .cargo_vcs_info.json: git.sha1 cf727f700f3ddae476f2a83243f0cb296f1e239b; path_in_vcs crates/emend; dirty false
+  .cargo_vcs_info.json names the tag's commit cf727f700f3ddae476f2a83243f0cb296f1e239b, the path crates/emend, not dirty: yes
+  control: the same check refuses another commit: yes
+  the normalised Cargo.toml:
+    name emend
+    version 0.1.0
+    keywords excel ooxml openpyxl spreadsheet xlsx
+    categories encoding parser-implementations
+  the tag's crates/emend/Cargo.toml (keywords and categories are its own, not the workspace's):
+    name emend
+    version 0.1.0
+    keywords excel ooxml openpyxl spreadsheet xlsx
+    categories encoding parser-implementations
+  the normalised Cargo.toml names emend 0.1.0, with the tag's manifest's keywords and categories: yes
+  control: the same check refuses a copy with one keyword: yes
+  Cargo.lock in the package differs from the tag's workspace Cargo.lock; cargo writes the package's own lock file (information, not a check)
+
+## 7. the registry's page (specs/0031 ruling 4; change PV6)
+  the page reader's exit: 0; its standard error: 0 bytes; what it read:
+    name emend
+    max_version 0.1.0
+    keywords excel ooxml openpyxl spreadsheet xlsx
+    categories encoding parser-implementations
+    page_keywords excel ooxml openpyxl spreadsheet xlsx
+    page_categories encoding parser-implementations
+    versions_0_1_0 1
+    yanked false
+    checksum 8e0aae29cb62627cf08ead813aa4280a77c4adc9aee4b820f87dd7e650fc74b2
+  the page names emend, the manifest's keywords and categories, version 0.1.0 once, not yanked, its checksum the index's cksum: yes
+  control: the same check refuses a page lacking one category: yes
+
+## the FINDING lines of this log (specs/0043 ruling R)
+  FINDING lines printed above: 0 (each begins with the word FINDING; none is fixed)
+
+## status after the run
+command: git status --porcelain
+     M specs/0045-publish.md
+  the spec specs/0045-publish.md, sha256 e85e6c5cdb00f5c87f118f4b90672cb184f82b4e3972a7a40584c67e8bcbec08; ROADMAP.md, sha256 c18006717449134c5bda86c337bc5fe266fb1828811b8891c8055d140b1137f7
+status lines: 1; of them this phase's logs or planning's spec and ROADMAP.md: 1
+  every change in the working tree is this phase's or planning's spec and ROADMAP.md: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/verify.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-10-29T22:32:53Z
+verify log checks all as expected: yes
