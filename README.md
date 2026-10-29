@@ -73,6 +73,10 @@ Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, th
 
 Comparison with openpyxl: over the 27 workbooks and the sixteen ops of the comparison, each tool's output compared with its input, emend on the host and on the static target and openpyxl each wrote 27 of 27 outputs for every op, and LibreOffice opened every one (`records/compare-m6p6-2026-10-24-d88f735.md`). On the roundtrip emend left 870 zip entries byte-identical and dropped none, where openpyxl left 28 identical and dropped 533 (`records/compare-m6p6-2026-10-24-d88f735.md`). The median wall time per workbook was 0.10 s for emend on the host and 0.81 s for openpyxl on every op, openpyxl's including its container's start, and the roundtrip's largest peak RSS was 7992 kB for emend on the host and 674516 kB for openpyxl (`records/compare-m6p6-2026-10-24-d88f735.md`). On the scale tiers emend completed every run, and openpyxl ended at its memory cap on the tier c roundtrip, exit 137 after 290.83 s at a peak of 16554684 kB (`records/compare-m6p6-2026-10-24-d88f735.md`).
 
+Excel: Microsoft Excel opened the 6018 files of Milestone 7 part 1's check, every sample's outputs on the private test corpus and the outputs the crate's tests keep with their inputs: on the corpus 1528 passed and 32 needed a repair, of the kept outputs 1864 passed and 365 were refused, and of their inputs 1874 passed and 355 were refused; Milestone 7 part 2 fixed five of the causes and documented the rest as limits (`records/excel-check-m7-2026-10-26.md`).
+
+After the fixes, Microsoft Excel opened the 4640 files of Milestone 7 part 2's check, six samples' outputs over the 27 workbooks and the outputs the crate's tests keep with their inputs: on the corpus 159 passed and 3 needed a repair, the two documented limits' three outputs, opened by hand with a repair offered; of the kept outputs 1878 passed and 361 were refused, and of their inputs 1881 passed and 358 were refused (`records/excel-check-m7p2-2026-10-28.md`).
+
 ## Out of scope by design
 
 emend does not evaluate formulas, render, autofit, or fix up references

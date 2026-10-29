@@ -121,6 +121,28 @@
   declares the namespace itself, as openpyxl's do, where the add refused before,
   "the workbook root binds no prefix for the relationships namespace"
   (`specs/0043-measurement-and-close.md`, decision 3 A).
+- An of-pie plot with no split: no `splitType` element is written, the schema's
+  default being `auto`, where `auto` was written and Excel refused the chart
+  (`specs/0045-publish.md`, fix 1; `records/excel-check-m7-2026-10-26.md`).
+- A workbook element the rewrite creates, `workbookProtection`, `definedNames`
+  or `calcPr`: it goes immediately before the next main-namespace child in
+  schema order, or before the root's end tag, so an element of another namespace
+  that Excel wrote after `workbookPr` stays before it, where the created element
+  went before that one and Excel refused the order (`specs/0045-publish.md`, fix
+  2, decision 1 A; `records/excel-check-m7-2026-10-26.md`).
+- A new scatter plot of `ScatterStyle::None`: `add_chart` and `add_chartsheet`
+  refuse it, "a new scatter plot takes a scatter style other than none", where
+  the style was written and Excel refused it; the reader keeps `None`
+  (`specs/0045-publish.md`, fix 3, decision 2 A;
+  `records/excel-check-m7-2026-10-26.md`).
+- A chartsheet's only chart: a write that would leave a chartsheet's drawing
+  with no chart frame is refused, "a chartsheet keeps its chart", where the
+  empty drawing was written and Excel refused it; a removal and an addition in
+  one write replace the chart (`specs/0045-publish.md`, fix 4;
+  `records/excel-check-m7-2026-10-26.md`).
+- A moving-average trendline's period: a period outside 2 to 255 is refused, "a
+  moving-average period is 2 to 255", where 65535 was written and Excel refused
+  it (`specs/0045-publish.md`, fix 5; `records/excel-check-m7-2026-10-26.md`).
 
 ### Measured
 
@@ -147,6 +169,20 @@
   3.2 MB/s on the static target, the largest tier's figures including the
   raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s
   (`records/scale-m3p1-2026-10-02-6578925.md`).
+- Excel: Microsoft Excel opened the 6018 files of Milestone 7 part 1's check,
+  every sample's outputs on the private test corpus and the outputs the crate's
+  tests keep with their inputs: on the corpus 1528 passed and 32 needed a
+  repair, of the kept outputs 1864 passed and 365 were refused, and of their
+  inputs 1874 passed and 355 were refused; Milestone 7 part 2 fixed five of the
+  causes and documented the rest as limits
+  (`records/excel-check-m7-2026-10-26.md`).
+- After the fixes, Microsoft Excel opened the 4640 files of Milestone 7 part 2's
+  check, six samples' outputs over the 27 workbooks and the outputs the crate's
+  tests keep with their inputs: on the corpus 159 passed and 3 needed a repair,
+  the two documented limits' three outputs, opened by hand with a repair
+  offered; of the kept outputs 1878 passed and 361 were refused, and of their
+  inputs 1881 passed and 358 were refused
+  (`records/excel-check-m7p2-2026-10-28.md`).
 
 ### Not supported by design
 
