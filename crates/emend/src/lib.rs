@@ -27,6 +27,7 @@
 //! - `sheetprops`: the tab colour, the sheet view and the print settings.
 //! - `read`: a cell's format and a sheet's formats and settings, read back.
 //! - `copy`: a worksheet copied within its workbook.
+//! - `charts`: charts read, added, formatted and removed, and chartsheets.
 //!
 //! The acceptance instrument is the fidelity harness, not this crate's own
 //! reading of its output: a no-edit round trip is byte-identical to the

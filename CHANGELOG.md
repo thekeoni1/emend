@@ -169,19 +169,19 @@
   3.2 MB/s on the static target, the largest tier's figures including the
   raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s
   (`records/scale-m3p1-2026-10-02-6578925.md`).
-- Excel: Microsoft Excel opened the 6018 files of Milestone 7 part 1's check,
-  every sample's outputs on the private test corpus and the outputs the crate's
-  tests keep with their inputs: on the corpus 1528 passed and 32 needed a
-  repair, of the kept outputs 1864 passed and 365 were refused, and of their
-  inputs 1874 passed and 355 were refused; Milestone 7 part 2 fixed five of the
-  causes and documented the rest as limits
+- Excel: Microsoft Excel was asked to open the 6018 files of Milestone 7 part
+  1's check, every sample's outputs on the private test corpus and the outputs
+  the crate's tests keep with their inputs: on the corpus 1528 passed and 32
+  needed a repair, of the kept outputs 1864 passed and 365 were refused, and of
+  their inputs 1874 passed and 355 were refused; Milestone 7 part 2 fixed five
+  of the causes and documented the rest as limits
   (`records/excel-check-m7-2026-10-26.md`).
-- After the fixes, Microsoft Excel opened the 4640 files of Milestone 7 part 2's
-  check, six samples' outputs over the 27 workbooks and the outputs the crate's
-  tests keep with their inputs: on the corpus 159 passed and 3 needed a repair,
-  the two documented limits' three outputs, opened by hand with a repair
-  offered; of the kept outputs 1878 passed and 361 were refused, and of their
-  inputs 1881 passed and 358 were refused
+- After the fixes, Microsoft Excel was asked to open the 4640 files of Milestone
+  7 part 2's check, six samples' outputs over the 27 workbooks and the outputs
+  the crate's tests keep with their inputs: on the corpus 159 passed and 3
+  needed a repair, the two documented limits' three outputs, opened by hand with
+  a repair offered; of the kept outputs 1878 passed and 361 were refused, and of
+  their inputs 1881 passed and 358 were refused
   (`records/excel-check-m7p2-2026-10-28.md`).
 
 ### Not supported by design
