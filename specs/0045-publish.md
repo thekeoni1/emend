@@ -1319,6 +1319,31 @@ AI. The close-out doc commit holds this spec, `ROADMAP.md` (the P3
    the three logs, one check, the report. The tag is not pushed, and
    nothing is pushed, before both the word and the authorisation.
 
+AJ. Finding C1, read by planning from `scripts/install-hooks.sh`
+   (2026-10-29, after the close-out doc commit ebe6bc7): the
+   pre-push hook blocks any pushed ref whose object is not a commit
+   ("privacy.sh checks commits. An annotated tag's own message is
+   not checked, so pushing anything but a commit is blocked"), so
+   `git push --follow-tags` with an annotated `v0.1.0` would be
+   refused whole, branch included, and the hook is not bypassed. The
+   spec's "annotated tag" (the Goal, "Close-out push (after P3)",
+   ruling AI) is superseded, not rewritten: the tag `v0.1.0` is a
+   lightweight tag on the tip, created after the pre checks pass,
+   its object the tip commit, so the hook scans it as a commit; the
+   push is one `git push origin main v0.1.0`, both refs named, no
+   `--follow-tags` (which carries annotated tags alone). The hook,
+   finding the tag ref absent on the remote, scans the whole history
+   of the tip in the push; its counts print in the push log beside
+   the generator's own whole-history scan at the tag and the
+   2026-10-22 counts (825 commits, 3484 blobs, 0 findings). `git
+   clone --branch v0.1.0` and `.cargo_vcs_info.json` (P4) are the
+   same for a lightweight tag. Decision 7 puts the tag's form to the
+   maintainer; this ruling and the decision go into a second
+   close-out doc commit, "M7 part 2 close-out: commit planning docs
+   (ruling AJ and decision 7)", aed8087's form, so the tree is clean
+   for the pre mode. The hook's tag rule itself is left as it is; a
+   change to it is a phase of its own, not this close-out's.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-27: 1 to 5 as recommended (A in
@@ -1351,6 +1376,19 @@ A, typed in the planning session.
    same without a re-opening: part 1's by-hand cells carried onto
    the identical bytes, the record saying so. C, back to P1 to
    fix the two limits' causes, overturning the 2026-10-26 choices.
+
+7. The tag's form (ruling AJ, finding C1): A (recommended), a
+   lightweight tag `v0.1.0` on the tip, pushed with the branch in
+   one `git push origin main v0.1.0`, the hook scanning the tip's
+   whole history as a commit; the maintainer's typed push
+   authorisation in the implementing session, naming the branch and
+   the lightweight tag, is this decision's A. B, the branch pushed
+   alone now and the maintainer creates the annotated tag on the
+   laptop from the clean clone at publication, P4 reading it back;
+   nothing tagged here. C, a hook change first (an annotated tag's
+   message checked as a commit message, its target scanned), a
+   numbered code commit with its own gate and logs before the push:
+   back to a phase.
 
 ## Out of scope
 
