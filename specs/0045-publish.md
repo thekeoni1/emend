@@ -1472,6 +1472,102 @@ answered A by the maintainer's typed words. The close-out is DONE and
 PUSHED; the release tag is on the remote; P4 waits on the
 maintainer's publication from the laptop (decision 4).
 
+## Planning rulings during P4 (2026-10-29)
+
+AN. Planning's word on the P4 generator (2026-10-29). The P4 doc
+   commit 27da228 (parent 8f742d0; this spec 617333f9, `ROADMAP.md`
+   c1800671, ebe6bc7's form) read from git. The dry runs under
+   `<phase>/dry` (`<phase>` = `<home>/.cache/emend-build/m7p2-p4`),
+   every input under the dry run's own directory (specs/0043 ruling
+   Q), no network: the proxy variables name 127.0.0.1:9 and curl is
+   not called; the tag is cloned from the local repository into the
+   dry directory (a deliberate, recorded copy for the dry run alone,
+   deleted with the dry directory), `cargo package -p emend
+   --offline --no-verify` builds the crate file there (027bad88,
+   the same sha256 on two builds), and the index entry and the
+   registry page are hand-written with that sha256 as cksum. d1
+   found four defects, fixed and named (the vcs-info file without a
+   final newline, a control reading the packaged file instead of the
+   tag's, Python's spelling of false, wording); d2 pos: exit 0, 46
+   yes, 0 no beside the API-key line, 73 entries, 70 files equal to
+   the tag's (68 under crates/emend, README.md, Cargo.toml.orig
+   against crates/emend/Cargo.toml), 3 written by cargo, the tag's
+   69 files all packaged, vcs info cf727f7 clean, the normalised
+   Cargo.toml emend 0.1.0 with the manifest's keywords and
+   categories, the page check yes, FINDING lines printed 0 (the word
+   8 times, in the printed script and the summary); d2 neg (one byte
+   of the packaged src/lib.rs changed, repacked, the index and page
+   naming the repacked file): exit 1, one FINDING line on src/lib.rs,
+   "STOP: the package is not the tag's", FINDING lines printed 1.
+   Both runs: stderr 0 bytes, no home path in the log, the tree
+   clean. The generator gen.py bb96e9ec with verify.tmpl 09fa0ec8,
+   the script 8c5123b6, the P3 run script as the frame model
+   (144ecba7, five blocks verbatim, changes PV1 to PV7).
+   The four points: Cargo.lock is a fourth file cargo writes, listed
+   with the three, read in full and not compared, its relation to
+   the tag's workspace lock printed as information (it differs, the
+   lock being pruned to the package); accepted. The page check reads
+   the crate's keywords and categories and the 0.1.0 version's
+   yanked and checksum fields, the top-level objects printed only;
+   accepted, a live page of another shape is a FINDING and a stop.
+   curl with --fail --proto =https --tlsv1.2 --max-time 120 and a
+   user agent naming the repository's URL and nothing of the
+   maintainer; accepted. Planning's word is given: the logged run
+   (logged.sh 67f5c5fb, once, to `<phase>/logged`) may run after the
+   maintainer says in the implementing session that the registry
+   lists 0.1.0. A FINDING in it is a stop; nothing is yanked or
+   re-published on a session's word; planning rules.
+
+AO. The P4 record commit amended before its report (2026-10-29). The
+   first record commit 6407846 (parent 27da228) carried a README
+   b130fd80 that said d1 found five defects where ruling AN says four,
+   and listed the dry builds' equal sha256 as a fourth accepted point
+   where AN accepts three. The independent check found both (its A
+   and B) and a privacy.sh line in the draft with no primary. The
+   implementing session corrected the README (ad5e6fac, 18 lines
+   changed) and amended to 472d361 before reporting, the message and
+   verify.log unchanged (git diff 6407846 472d361: the README only).
+   Accepted: a record commit is amended on a check's finding before
+   its report, as ruling AM amended the close-out's after it; nothing
+   cites 6407846. The privacy.sh output quoted in the report as a
+   session statement is confirmed by planning's own run below.
+
+## Planning verification of P4 (2026-10-29)
+
+Read from the primaries, not the report: the record commit 472d361
+(parent 27da228; `records/logs/m7p2-p4/verify.log` 2d082fd9, 1334
+lines, byte-identical to `<phase>/logged/verify.log`; README
+ad5e6fac; the message ASCII with the Co-Authored-By line only; local,
+goes with part 3's push). The logged run: driver.out "exit: 0; last
+line: verify log checks all as expected: yes", 22:32:48Z to
+22:32:53Z; the script's and the outer stderr 0 bytes each; 46 lines
+"yes", the only ": no" the API-key line; PLANNING_SPEC e85e6c5c
+(this spec with ruling AN) accepted against the committed 617333f9.
+The three inputs each HTTP 200: the crate file 710099 bytes, sha256
+8e0aae29cb62627cf08ead813aa4280a77c4adc9aee4b820f87dd7e650fc74b2;
+the index entry 612 bytes; the page 3795 bytes. The index's one line
+for 0.1.0, yanked false, cksum equal to the crate file's sha256; 73
+entries all under emend-0.1.0/ (P3's 72 plus .cargo_vcs_info.json);
+against `git archive cf727f7` 70 equal, 0 differing, 3 cargo-written,
+the tag's 69 crates/emend files all packaged; .cargo_vcs_info.json
+cf727f700f3ddae476f2a83243f0cb296f1e239b, crates/emend, dirty
+false; the normalised Cargo.toml and the page both carry the
+manifest's five keywords and two categories, the page's 0.1.0 once,
+not yanked, checksum the cksum. FINDING lines printed 0 (the word on
+8 lines, the printed script and the summary). Planning's own fetch of
+https://index.crates.io/em/en/emend (612 bytes) read the same line:
+emend 0.1.0, that cksum, not yanked. Planning's own
+`scripts/privacy.sh --range 27da228..HEAD`: 1 commit, 2635 blobs, 0
+findings, PASS. The private-content grep over the two committed
+files matches only the script's own control line; no home path, no
+non-ASCII byte. The independent check (ab05008c, in the report
+0fc9f20b) answered partly, yes, partly: its A and B corrected and the
+privacy line's primary supplied under ruling AO. The publication is
+verified: emend 0.1.0 on crates.io is the tag v0.1.0's crates/emend,
+file for file. P4 is DONE; part 2 is DONE and PUSHED and PUBLISHED.
+The commits 8f742d0, 27da228, 472d361 and this section's doc commit
+go with part 3's push.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-27: 1 to 5 as recommended (A in
