@@ -1145,6 +1145,180 @@ AE. P3's phase directory is `<home>/.cache/emend-build/m7p2-p3`,
    FINDING line listed by grepping the word (ruling R). The scan
    reads the four commits, EXPECT_RECORDS=0.
 
+AF. The negative log's packaging case, read by planning from the
+   implementing session's trial (2026-10-29): the spec's words for
+   it ("with `template/_rels/.rels` taken out of the `include` list,
+   the verify build failing as the finding did") do not fail, cargo's
+   include globs matching dotfiles, so `template/**` carries the
+   file: a planning error in this spec, recorded, not rewritten. The
+   negative log runs three cases over the archive extracted outside
+   any checkout: (a) the refusal, the manifest of the code commit's
+   parent 612986a (no `include` list) packaged, `cargo package
+   --offline` exit 101 naming `_rels/.rels`, `specs/0031`'s finding
+   reproduced, its list without the file; (b) information, the code
+   commit's list less its `template/_rels/.rels` line, the file
+   still packaged and the count printed, so the by-name line is
+   belt and braces and the list as a whole is the fix; (c) the
+   control, the code commit's manifest, exit 0, the file listed.
+   The by-name line stays as the spec says. The trial's counts (the
+   checkout 73 entries, the archive 72, the pre-P3 manifest 71) are
+   the trial's; the logged run prints its own.
+
+AG. The texts. The three commits read from their diffs: 612986a
+   (this spec 8a515384 and `ROADMAP.md` 884c6e33, the form of
+   5ae8367), 790c488 (the manifest alone: `publish = false` gone,
+   the seven-entry `include` list with the dotfile by name, a
+   comment citing this spec and `specs/0031`), b016818 (the
+   CHANGELOG's five "Fixed" entries in P1's order, each citing this
+   spec by fix number and part 1's record; the two Excel sentences
+   in "Measured" and in the README, their figures equal to the two
+   records' totals lines, part 1's 6018 / 1528 / 32 / 1864 / 365 /
+   1874 / 355 and this part's 4640 / 159 / 3 / 1878 / 361 / 1881 /
+   358; the heading unchanged; nothing outside ASCII). The wording
+   "fixed five of the causes and documented the rest as limits" and
+   "every sample's outputs on the private test corpus" for part 1,
+   and "six samples' outputs over the 27 workbooks" with the three
+   repairs named for this part, are confirmed. One change, one more
+   docs commit before any log, the form of b016818: "Microsoft Excel
+   opened the N files" reads "Microsoft Excel was asked to open the
+   N files" in all four places (the sentence goes on to count the
+   refused). The same commit adds `charts` to the crate-level doc
+   comment's feature list, the line it lacks for the feature the
+   manifest has since Milestone 5: "- `charts`: charts read, added,
+   formatted and removed, and chartsheets.", after the `copy` line;
+   the run log prints the list and the manifest's feature names
+   side by side, each of the manifest's named in the list, with a
+   control refusing a list lacking one. The doc comment's first two
+   paragraphs equal the README's word for word, as read.
+
+AH. P3's dry runs, read by planning from `<phase>/dry/d1` to `d3`
+   (2026-10-29). The docs commit f7cabba, the phase commit, read
+   from its diff: "was asked to open" in the four places, the
+   CHANGELOG items rewrapped, the one `charts` line as ruling AG
+   gives it, the three chart modules gated on the feature. d1: the
+   gate read no, its message check pinning part 1's trailer with
+   "(1M context)"; change T95 takes the harness's line and makes
+   the older form a refusal control (the scan's LY the same). d2:
+   all but the scan yes; the run printed a flag twice in one
+   sentence, a shell expansion slip, fixed in TU's echo with the
+   reason in the line; the superseded run script was removed by a
+   plain `rm -f` in the implementing session's shell after its
+   copy to `<superseded>/run-d2`: recorded; a superseded script is
+   moved, not removed. d3: gate de1b2023, negative 801833ab, run
+   cb47c395 yes, 0 FINDING lines (the word in the run log 13 times,
+   in its printed script, its heading and its count); the scan
+   pre-check 512c02b1 FAIL on its two dry-layout lines alone, 0
+   hits, as P2's dry runs read. Read in d3: the archive of 2639
+   files outside any checkout, `--allow-dirty` not passed there,
+   its list 72 entries equal to the checkout's 73 less
+   `.cargo_vcs_info.json`, `template/_rels/.rels` once in each;
+   `cargo publish --dry-run` exit 0, "Packaged 72 files", the one
+   "aborting upload" warning, no other; the two token variables
+   absent with controls; the four sentences each holding their
+   record's seven figures, a planted figure refused; the heading's
+   form with three controls; the limits read in both sections; the
+   five Fixed items in order; 12 of 12 features named, a copy
+   lacking `charts` refused; the negative's (a) exit 101 naming
+   `_rels/.rels`, 71 entries, (b) 72 with the file, (c) exit 0.
+   The readings: G1, the tree allowance in the carried status
+   section's form (the spec at PLANNING_SPEC, `ROADMAP.md` at
+   PLANNING_ROADMAP, `records/logs/m7p2-p3/`), accepted; G2, the
+   prune empty, P1's directory checked unchanged, P2's not named,
+   the crate's diff Cargo.toml and lib.rs alone, accepted; R3, the
+   script's statement is enough (it names, opens and reads no
+   credentials file, runs no `cargo login`, gives the dry run no
+   token) and CARGO_HOME is not moved; the run log adds one
+   information line, whether `<home>/.cargo/credentials.toml`
+   exists, yes or no and never a byte of it, a FINDING for the
+   maintainer if yes (the token belongs on the laptop alone); S1
+   and S2, the scan over the five commits with the record commit
+   last, EXPECT_RECORDS=0 counting records the base lacks, with
+   the planted control at 1, accepted. N4, a change: the figure
+   check also matches the seven figures in the totals line's
+   order, as whole words with any text between, in each sentence,
+   so a swap of two figures is refused; the negative's control
+   swaps two figures of a copy and the check refuses it. The
+   change and R3's line go through a dry run d4; if d4 reads yes on
+   the gate, the negative and the run, the pre-check failing on its
+   two dry-layout lines alone with 0 hits, the logged run follows
+   without a further hold, d4 reported with it; otherwise the
+   report comes first. PLANNING_SPEC for the logged run is this
+   spec with this ruling in it.
+
+## Planning verification of P3 (2026-10-29)
+
+Read from the primaries, not the report: the record commit 85dd323
+(parent f7cabba, 6 files added under `records/logs/m7p2-p3/`; the
+message ASCII with the Co-Authored-By line only, the count sentence
+carried, its form the P2 record's); sixteen commits ahead of
+origin/main aed8087, no push; the tree after it " M specs/0045-
+publish.md" alone. The five commits of the phase, each read from
+its diff earlier (rulings AG and AH): 612986a, 790c488, b016818,
+f7cabba, 85dd323. The three logs (gate 9e76fec0, negative 8588b183,
+run 906e641b) each read PLANNING_SPEC 64044f95, the working spec
+with ruling AH, and each ends "checks all as expected: yes"
+(14:28:08Z to 14:35:32Z); the lines ending ": no" outside the
+printed scripts are the API-key line in each, the gate's two
+answers over its planted control script, and the swapped copies'
+"in order: no" in the run and the negative, each the refusal a
+control expects. FINDING lines emitted: 0 in each; the word stands
+in the run log alone, on 16 lines and 18 times (ruling AH's "13
+times" for d3 was a line count; check 1's D1). The run: the archive
+outside any checkout, `--allow-dirty` passed in the checkout (one
+status line, the spec) and not there; the lists 73 and 72 equal
+less `.cargo_vcs_info.json`, `template/_rels/.rels` once in each;
+`cargo publish --dry-run` exit 0, "Packaged 72 files", the one
+"aborting upload" warning and no other; both token variables
+absent with controls; `<home>/.cargo/credentials.toml` absent
+(existence alone, change TY), so no R3 finding; the four sentences
+each holding their record's seven figures and in the totals line's
+order, the swapped copies refused (change TY); the heading's form
+with its three controls; the limits read in both sections; the
+five Fixed items in order citing part 1's record; 12 of 12
+features named. The negative: (a) exit 101 naming `_rels/.rels`
+with 71 entries, (b) 72 with the file, (c) exit 0; the planted
+figure and the swapped copy refused (changes NS65, NU65); the copy
+lacking `charts` refused (NT65). The scan (33484899): RESULT: PASS,
+total hits 0, structural 0, check answers 1, record files expected
+0 (change LZ). Planning's own scan of the six files: no name, no
+address, no home or host path, no session link, nothing outside
+ASCII. Check 1 (700798b8, read whole): 1 yes; 2 and 3 yes with
+exceptions E1 to E3 and D1 to D5, none a disagreement on the diff,
+the figures or a verdict; it read fixes 2, 3 and 5's text against
+the code; the README's "After check 1" dispositions read and
+agreed. Its observation on the `include` entry `README.md`, which
+names no file under the crate while cargo packages the readme
+through the `readme` key: the entry stays, naming the file as the
+package carries it (the spec's "the README path cargo resolves"),
+cargo warning about neither form; no code commit. P3 is DONE
+2026-10-29. The close-out next; nothing of it runs until the
+close-out doc commit is in.
+
+## Planning rulings during the close-out (2026-10-29)
+
+AI. The close-out doc commit holds this spec, `ROADMAP.md` (the P3
+   row DONE, the Close row IN PROGRESS) and `CHANGELOG.md`, whose
+   heading becomes "## 0.1.0 (<date>)" with the UTC date of the day
+   the commit is made, nothing else of the file changed; its
+   subject "M7 part 2 close-out: commit planning docs (the P3
+   verification and rulings)", its body the three "<path> sha256
+   <sha256>" lines and the Co-Authored-By line, the form of aed8087
+   (no count sentence, the message naming no count).
+   The pre-mode run checks the heading's date equal to the doc
+   commit's committer date in UTC (`git log -1 --format=%cd
+   --date=format-local:%Y-%m-%d` under TZ=UTC), with a control
+   refusing another date. The rest as "Close-out push (after P3)":
+   the generated scripts as part 1's close-out with the named
+   differences, pre mode on a clean tree, the two Excel-record
+   checks, the tag `v0.1.0` created on the tip after the pre checks
+   pass with the one-line ASCII message "emend 0.1.0", the pre
+   report to planning, planning's word, the maintainer's typed
+   authorisation in the implementing session, one `git push
+   --follow-tags`, the CI run, the post scan, the whole-history scan
+   at the tag beside the 2026-10-22 counts, the record commit with
+   the three logs, one check, the report. The tag is not pushed, and
+   nothing is pushed, before both the word and the authorisation.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-27: 1 to 5 as recommended (A in
