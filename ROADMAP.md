@@ -1308,6 +1308,29 @@ against the tag.
 | Close | close-out push after P3, carrying 658dbc0, base aed8087 by its subject, `PREV` `^M7 part 1 close-out record`, both Excel-record checks in pre mode, the tag `v0.1.0` pushed with the branch (lightweight, `specs/0045` ruling AJ), the whole-history scan at the tag (decision 5), one independent check | DONE 2026-10-29 (doc commits ebe6bc7 and cf727f7 pushed with the lightweight tag v0.1.0, origin/main aed8087..cf727f7, 18 commits, 2663 blobs, 0 findings, the whole-history scan at the tag 881 commits, 4100 blobs, 0 findings, on "great, go with a" typed in the implementing session in answer to decision 7 after planning's word (ruling AK); CI run 40922597765 success; the post scan PASS; record 8f742d0 local, goes with part 3's push; check 1 yes with exceptions on all three, ruled AM; finding C2 and change 73, ruling AL; verified by planning from git, `gh` and the three logs; `specs/0045` "Planning verification of the close-out", AK to AM; part 2 PUSHED, its publication P4) |
 | P4 | after the maintainer's publication: the crate file and the index checksum read back, every packaged file compared with the tag's tree, the registry's keywords and categories read; the record carried by part 3's push | DONE 2026-10-29 (the maintainer published from the laptop, decision 4, and typed "the registry lists emend 0.1.0" in the implementing session; the logged verify run once, exit 0, 0 FINDING lines: the crate file 710099 bytes, sha256 8e0aae29 equal to the index's cksum, 73 entries, 70 files equal to the tag's, 0 differing, 3 written by cargo, the tag's 69 crates/emend files all packaged, vcs info cf727f7 clean, the manifest's keywords and categories on the page, 0.1.0 not yanked; record 472d361 local, goes with part 3's push, amended on check 1's two README findings under `specs/0045` ruling AO; check 1 partly, yes, partly; verified by planning from git, the log, its own index fetch and its own privacy scan; `specs/0045` "Planning verification of P4"; part 2 DONE and PUSHED and PUBLISHED, emend 0.1.0 at https://crates.io/crates/emend) |
 
+### Part 3: the corpus's maintainer items (`specs/0046-corpus-maintainer-items.md`, APPROVED 2026-10-29, decisions 1 to 4 A)
+
+What only the maintainer can supply (`specs/0005` P5 and P6: Google
+Sheets exports; desktop Excel files with pivots, slicers, timelines,
+macros, threaded comments, external links, sparklines, a chartex
+chart) staged by the maintainer, tagged by a read-only proposer
+`scripts/corpus-tags.py` under planning's ruling, added with
+`scripts/corpus-add.py`, the coverage record rerun; then the
+passthrough and every sample run over the grown corpus at one commit
+with every output opened in the pinned LibreOffice image, each record
+compared with its latest committed one on the 27 earlier workbooks,
+the new workbooks' outcomes listed; findings recorded and carried to
+the next milestone's first spec, not fixed (milestone decision 3). No
+code the probes link changes; no size record. The close-out push
+carries part 2's four local commits (8f742d0, 27da228, 472d361,
+39e0c1b).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `scripts/corpus-tags.py` with tests; the incoming directory under `<corpus>/work`; the maintainer's files and their producer, source and note; the tags proposed and ruled; each file added once; `records/corpus-coverage-<utc-date>.md` rerun; the intake, coverage and negative logs; one independent check | IN PROGRESS 2026-10-29 (decisions 1 to 4 A typed in the planning session; waits on the maintainer's files in the incoming directory) |
+| P2 | the passthrough and the 58 samples over the grown corpus at the phase commit, `--label host`, every output opened; the records `m7p3-<name>-<utc-date>-<shortsha>`; the comparison with the latest committed records on the 27 earlier ids; the findings README; one independent check | NOT STARTED |
+| Close | close-out push after P2, carrying part 2's four local commits and this part's, base cf727f7 by its subject, `PREV` `^M7 part 2 close-out record`, both Excel-record checks in pre mode unchanged, the branch alone (no tag), the range scan, one independent check | NOT STARTED |
+
 ## Unscoped
 
 Listed so they are not lost. Scoping any of them needs the maintainer's
