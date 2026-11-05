@@ -596,8 +596,9 @@ J. Round 2's additions verified (2026-11-05). The implementing
    session's first ruling file wrote the producer version as
    `16.0300` alone (843 bytes, sha256 56dd3766); its hash check
    against ruling I caught it before any run, the file was moved
-   to `<phase>/superseded/ruling-r2.tsv.56dd3766` (mode 600, read
-   by planning at that size and hash), and the file as run was
+   to `<phase>/superseded/` under its name with the suffix 56dd3766
+   (mode 600, read by planning at that size and hash; the name
+   reworded here under ruling M), and the file as run was
    written afresh: `<phase>/ruling-r2.tsv` mode 600, 934 bytes,
    sha256 100f73f8 as ruling I gives. Read from `<phase>/logged`
    and the corpus: add-r2.log f18a2fb6 (65420 bytes), "add-r2 exit
@@ -730,6 +731,190 @@ Each slip of the phase is disclosed in the logs' README or in
 rulings D, E, J and L. P1 is DONE at 1113530. P2 begins with its
 doc commit (this spec with rulings A to L and this verification;
 the ROADMAP's P1 row DONE, its P2 row IN PROGRESS).
+
+## Planning rulings during P2 (2026-11-05)
+
+M. Dry run d1 read and two points ruled. The generators (gen/gate.py
+   cd4ca8ac to scripts/m7p3-p2-gate.sh 4f10daa0, 8305 lines;
+   gen/run.py defb9e5c to m7p3-p2-run.sh e9bacd1b, 2042 lines;
+   gen/scan.py 4e9cb22e to m7p3-p2-scan.sh c9fcaa64, 5724 lines;
+   dry.sh d8903793) and their numbered changes A98 to S98, TB to
+   TF, MH to MK are accepted as reported; the usage text's 59
+   `-sample` flags, `--new-sample` excluded, 58 run. d1: the run
+   clean (3 runs, 3 record pairs, the 27 earlier ids missing by
+   design in the fictional corpus); the first scan's two real
+   failures fixed by MK (PLANNING_SPEC equal to the phase commit's
+   blob and the working copy reads as unset); the third was the
+   dry driver's (the scan run from a copy), rerun from the phase's
+   scripts; the rerun's four structural failures are the dry
+   layout's alone, accepted as ruling B accepted P1's. (1) The
+   gate's office-literal check found one new literal at the phase
+   commit: ruling J's name of the superseded ruling file, whose
+   dotted tsv suffix matches check.sh's OFFICE_RE. It is a ruling
+   file under the phase directory, not a workbook. Ruled: the line
+   is reworded in this working spec (above, ruling J, the name
+   without its dotted suffix; wording alone, no substance), so the
+   literal is gone from the spec the close-out range carries; and
+   the gate takes a numbered change accepting exactly that one
+   literal in the committed spec d7a8196 for this phase, with a
+   control (a planted spec copy holding a second office literal
+   still UNEXPECTED). (2) The passthrough's comparison record:
+   the spec's "The runs over the grown corpus (P2)" names
+   `records/step0-2026-09-16-39defb7.md` as the latest passthrough
+   record; it is not. The selection rule (the latest record whose
+   tool arguments are "none", no scale tier) picks
+   `records/m6p6-roundtrip-2026-10-24-d88f735.md`, the passthrough
+   binary over the same 27 ids at d88f735 (host 27 ok, 27 lo ok),
+   which is the latest; the spec's naming was planning's error.
+   Ruled: the passthrough is compared with the rule's pick, named
+   in the log; the d1 FINDING on the selection is resolved by this
+   ruling and is not a FINDING in the logged run (the log prints
+   the rule, its pick and this ruling's letter). The run script
+   takes that as a numbered change. Dry run d2 with the changed
+   scripts, every FINDING line listed, then the word.
+
+N. Dry run d2 verified (2026-11-05) and the word for the logged run.
+   Read from `<phase>/dry/d2`: gate.log f916d54c, "gate log checks
+   all as expected: yes", 0 UNEXPECTED, change K98's lines 9250 to
+   9253 (the accepted literal in the added lines exactly once; the
+   planted second literal read changed by the control); run.log
+   b901df25, "runs done 3 of 3 (the passthrough and 2 flags);
+   record pairs written 3", "FINDING lines printed above: 0", "run
+   log checks all as expected: yes", change TG's PREV_PASSTHROUGH
+   the record ruling M names; scan.log bbd2cf5f "structural checks
+   failed: 4", the four dry-only checks ruling M accepts; no
+   FINDING line in any of the three outside the printed scripts.
+   The scripts: gate 46fa607b (gen 6e5b325f, 8338 lines; the first
+   K98 version's two control defects, a plant OFFICE_RE could not
+   match and a Python newline reaching the shell, fixed before d2,
+   the old pair in `<phase>/superseded/gate-gen1`), run 352f55f1
+   (gen 8fdb538c), scan c9fcaa64 unchanged since d1, dry.sh
+   635361eb (the scan from the phase's scripts), logged.sh
+   a19d89ce (refuses on an existing phase log directory, the key,
+   a running cargo, a spec not at the hash given, a tree holding
+   more than the spec, HEAD not the phase commit, a run directory
+   of d7a8196 already present, or propagation not shared; the gate
+   with PRUNE_PREVIOUS=list, then the 59 runs). Both dry build
+   roots kept. The gate script holds no office literal of its own
+   (planning grepped it with OFFICE_RE: 0). The tree is the spec
+   alone at 563ade76 before this ruling. The word is given for
+   logged.sh once, with PLANNING_SPEC the hash of this spec as it
+   stands with this ruling; the spec is not edited by planning
+   while it runs.
+
+O. The logged run verified (2026-11-05) and the word for the README,
+   the check, the scan and the record commit. Read from
+   records/logs/m7p3-p2: gate.log 6a3e7ed3, 835285 bytes, "gate log
+   checks all as expected: yes", 742 as-expected, 0 UNEXPECTED,
+   PLANNING_SPEC 061dc48b read as the working copy, PRUNE_PREVIOUS
+   list with an empty prune set; run.log 4e633756, 477964 bytes,
+   "runs done 59 of 59 (the passthrough and 58 flags); record pairs
+   written 59; FINDING lines so far: 71", "FINDING lines printed
+   above: 71", "run log checks all as expected: yes", 0 UNEXPECTED;
+   59 lines "its stderr is empty: yes" and 118 lines "stderr bytes:
+   0" (59 of the runner script, 59 of the record script, ruling
+   P); the passthrough compared with the record
+   ruling M names; every one of the 59 comparisons reads "earlier
+   27 (same 27, changed 0, missing 0)". The 118 records are present,
+   untracked; planning searched them for the manifest's original
+   names and notes: none (two lowercase common words that are also
+   name stems occur, both already in the pushed README and tool
+   source). The 59 run directories are under <runs>; planning
+   recounted the outcomes from the outcome column of each run's
+   host summary table: 51 runs ok 39; sheet error 5 ok 34; printarea
+   error 6 ok 33 (the six on earlier ids, unchanged, no FINDING);
+   delete-rows, delete-columns, comment, richcomment, commentbox
+   and copy each error 1 ok 38. Free space after the run 670G.
+   The 71 FINDING lines, all on new ids, fall into five groups, all
+   recorded and none fixed, for the next milestone's first spec:
+   (1) 59 lines on 9956034c4326 (excel-win, maintainer; tags plain,
+   strings, formulas, external): the open check's lo_in fails on
+   the input itself in all 59 runs and lo on the output in 58; the
+   reason file reads "the ods holds 2 table elements and the
+   workbook 1 sheet elements" in every case (3 and 2 for the sheet,
+   copy and chartsheet samples, which add a sheet); lo is ok for
+   the edit-formula sample alone. The input fails the same count
+   rule as the output, so the finding is on the open check's
+   sheet-count rule against this workbook's ods conversion, not on
+   an edit; the two earlier external-tagged ids pass as before.
+   (2) 5 lines, the sheet sample on each of the five google-sheets
+   ids: emend-copy's own check, "error: the output's active tab is
+   not what the edits imply", exit 2; lo_in ok. (3) 2 lines,
+   delete-rows on 90a5b01f9541 and delete-columns on 91d2bdffa46a:
+   the documented refusal "error: an insertion or deletion cuts a
+   shared, array or data table formula". (4) 4 lines on
+   15205770ae5c (tags include comments): comment, richcomment,
+   commentbox and copy, the documented refusal "error: a worksheet
+   has threaded comments". (5) 1 line, remove on 495c7b79b183
+   (excel-win, maintainer; tags plain, strings, names, pivots,
+   slicers, timelines): outcome ok, lo_in ok, lo fail after the
+   last sheet's removal with the reason "the ods holds 2 table
+   elements and the workbook 1 sheet elements". Five new ids
+   (4bd861696651, 7055450ada76, 0d7a34c16e9d, 9de2ee20fc6a,
+   2adafe76df11) have no FINDING in any run. The word: the README
+   of records/logs/m7p3-p2 tables the 71 findings by sample and id
+   in the summary's outcome words, grouped as above, quoting the
+   error, refusal and reason texts verbatim, naming no cell content
+   and no original name, with the disclosures P1's README carried;
+   one independent check, its answer unedited (ruling L); the scan
+   from the phase's scripts with EXPECT_RECORDS 59 as change MB
+   defines it, nothing staged before it (ruling L); the record
+   commit holds the 118 records and records/logs/m7p3-p2 with
+   gate.log, run.log, README.md, independent-check-1.md and
+   scan.log, nothing else, subject "M7 part 3 P2 record: the
+   records, the logs, the README of findings, the check, the scan",
+   body in 1113530's form naming the phase commit d7a8196 and
+   rulings A to O in the working spec, ending with the
+   Co-Authored-By line only; the planning files stay uncommitted
+   for the close-out's doc commit. Then the report under <phase>
+   and STOP.
+
+P. The record commit 44df7e6 verified (2026-11-05) from git: parent
+   d7a8196, the subject as ruled, the body in 1113530's form with
+   the diff-alone sentence and the Co-Authored-By line alone; 123
+   files, the 118 records (equal to the working files the run
+   wrote) and records/logs/m7p3-p2 with README.md abf1b382 (23038
+   bytes), gate.log 6a3e7ed3, run.log 4e633756,
+   independent-check-1.md 85a725d4 (5718 bytes) and scan.log
+   71ee7228 (537527 bytes; "structural checks failed: 0", "RESULT:
+   PASS", 0 UNEXPECTED, PLANNING_SPEC 4fc4371f, EXPECT_RECORDS 59
+   of 59); the tree the spec alone, 9 commits ahead of origin/main.
+   Planning searched the committed README for the manifest's
+   original names and notes, the corpus path and any home path:
+   none; its quoted error, refusal and reason texts are the ones
+   planning read in the run directories under ruling O, and the
+   README says their source files are private and uncommitted.
+   Check 1 answers "yes, with exceptions" on all three questions;
+   its six exceptions were disposed in the README before the
+   commit, the answer unedited. Its one disagreement with ruling O
+   is upheld: the 118 lines "stderr bytes: 0" in run.log are 59 of
+   the runner script (each on a line with "started; ended; exit 0")
+   and 59 of the record script, not 118 record-script lines;
+   ruling O's line is reworded above (wording alone). The gate's
+   own start is 15:39:51Z in gate.log; 15:39:50Z was the driver's
+   line. P2 is DONE at 44df7e6.
+
+## Planning verification of P2 (2026-11-05)
+
+Verified from primaries, never from the implementing session's
+summaries alone: the generators, the dry runs d1 and d2 and the
+two points they raised (rulings M and N); the logged run's gate
+and run logs, the 59 run directories' outcome columns, reason and
+stderr files, and the 118 records (ruling O); the record commit,
+its README, the check and the scan (ruling P). The 59 runs at
+d7a8196 over the 39 files found the 27 earlier ids unchanged in
+every comparison. The 71 FINDING lines fall on 7 of the 12 new
+ids in five groups, all recorded and none fixed, for the next
+milestone's first spec to read: the open check's sheet-count rule
+on one external-link workbook, failing on the input itself (59);
+the sheet sample's active-tab check on every Sheets export (5);
+two formula-cut refusals; four threaded-comment refusals on the
+one Sheets export with comments; one LibreOffice failure after the
+remove sample on a pivots, slicers and timelines workbook. Each
+slip of the phase is disclosed in the logs' README or in rulings
+M to P. P2 is DONE at 44df7e6. The close-out begins with its doc
+commit (this spec with rulings A to P and the two verifications;
+the ROADMAP's P2 row DONE, its Close row IN PROGRESS).
 
 ## Decisions for the maintainer
 
