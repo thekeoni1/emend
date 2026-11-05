@@ -1,0 +1,849 @@
+command: git rev-parse HEAD
+invocation: bash <scripts>/m7p3-p1-intake.sh f8f4ee11e69783c305d91af0ea2e41ab81211abc
+about: M7 part 3 P1 phase commit f8f4ee11e69783c305d91af0ea2e41ab81211abc; HEAD at run: f8f4ee11e69783c305d91af0ea2e41ab81211abc
+input: INTAKE_MODE=negative
+input: INTAKE_SOURCE=unset
+input: DRY_CORPUS=unset
+input: PLANNING_SPEC=b34d6f0b2c69d2aa5e5fd03463dd6c267f0774068050b0ae93b9edb1773e7180
+input: PLANNING_ROADMAP=unset
+input: RUN_WORK=unset
+input: HOME=<home>
+input: INTAKE_RULING: unset (a file outside the tree; its notes and producer versions are never printed)
+input (as exported by this script): PYTHONDONTWRITEBYTECODE=1
+input: TMPDIR=<scratch>/tmp
+  (TMPDIR set, made and exported by this script before any mktemp; <work> is made under it)
+input: ANTHROPIC_API_KEY: unset (its value never printed)
+mode: negative; the logged run: RUN_WORK, INTAKE_SOURCE and DRY_CORPUS are unset, so the corpus is <corpus> and the incoming directory <corpus>/work/incoming (change PI2)
+
+## the three shape greps, over this script, before its log (specs/0001)
+command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape
+  shape CHAIN: in this script 0; in the fixture 1
+  CHAIN: this script holds none: yes
+  control: CHAIN: the same form finds the fixture's one line: yes
+  shape BANG: in this script 0; in the fixture 1
+  BANG: this script holds none: yes
+  control: BANG: the same form finds the fixture's one line: yes
+  shape ASSIGN: in this script 0; in the fixture 1
+  ASSIGN: this script holds none: yes
+  control: ASSIGN: the same form finds the fixture's one line: yes
+  control: ynnot reports no on a passing command: yes
+command: pyb_count <this script>, and the same over a fixture of five lines: a call with -c, one with -I -B -c, a comment, a command -v, a call of a .py path
+  shape PYB: in this script 0; in the fixture 2
+  PYB: this script holds none (change NTJ): yes
+  control: PYB: the same form finds the fixture's two calls without -I -B and not its other three lines: yes
+
+## the phase's commits, read from git
+phase: Milestone 7 part 3 P1 (specs/0046-corpus-maintainer-items.md) negative log; run at 2026-11-05T14:32:26Z
+  the phase commit by its subject "M7 part 3 P1: scripts/corpus-tags.py proposes a staged workbook's producer and tags": f8f4ee11e69783c305d91af0ea2e41ab81211abc
+  the doc commit by its subject "M7 part 3 P1: commit planning docs (the spec and the ROADMAP block)": 1af3f79feceb19715208de74f5da7a01bc3fdd50
+  the phase commit given is the code commit, by its subject (change PI1): yes
+  the doc commit is the phase commit's parent: yes
+  specs/0046-corpus-maintainer-items.md at the phase commit: 2fdeb4b339239b210f1f12cfd1e0d06d691503d31eeee4fc03d6a0ca543d5bab (pinned 2fdeb4b339239b210f1f12cfd1e0d06d691503d31eeee4fc03d6a0ca543d5bab); in the working tree: b34d6f0b2c69d2aa5e5fd03463dd6c267f0774068050b0ae93b9edb1773e7180; PLANNING_SPEC: b34d6f0b2c69d2aa5e5fd03463dd6c267f0774068050b0ae93b9edb1773e7180
+  ROADMAP.md at the phase commit: 5f8fbfea39389f9a2d1ce20c0947f29552b68cb76205a5cbf4a05d4b015ce204 (pinned 5f8fbfea39389f9a2d1ce20c0947f29552b68cb76205a5cbf4a05d4b015ce204); in the working tree: 5f8fbfea39389f9a2d1ce20c0947f29552b68cb76205a5cbf4a05d4b015ce204; PLANNING_ROADMAP: unset
+  the phase commit's spec and ROADMAP.md are the pinned blobs (change PI1): yes
+  the working spec and ROADMAP.md are the phase commit's or planning's named copies: yes
+  control: the same check refuses a spec of another hash: yes
+  scripts/corpus-tags.py: in the working tree sha256 9905d7c89a13ade8149934843e3cf48fdf075d469968467456fd945abb80dc96; at the phase commit 9905d7c89a13ade8149934843e3cf48fdf075d469968467456fd945abb80dc96
+  scripts/corpus-add.py: in the working tree sha256 d7de64ce17f179fb779441e5e3f5205399aff6c8b3d5b948b8041bf23ace82b7; at the phase commit d7de64ce17f179fb779441e5e3f5205399aff6c8b3d5b948b8041bf23ace82b7
+  scripts/corpus-coverage.py: in the working tree sha256 ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21; at the phase commit ff02af14c45cd056b6296433a5583c8d9c6020d86547a1c0a466d948cca76c21
+  the three corpus scripts this log runs are the phase commit's: yes
+root: <repo> stands for the repository's top level; scripts/counting.sh is taken from it at the phase commit by git show, and the three corpus scripts are run from it
+root: <home> stands for the home directory of the account that ran this script
+root: <phase> stands for <home>/.cache/emend-build/m7p3-p1 on the disk, the phase's directory; <phase>/gen holds the generator that wrote this script and <phase>/model the script it carries its frame from
+root: <workroot> stands for the work root: <phase> in the logged run, the directory RUN_WORK names in a dry run; it holds TMPDIR (change PI2)
+root: <corpus> stands for the corpus directory: <home>/emend-testing in the logged run, the directory DRY_CORPUS names in a dry run (change PI2); <corpus>/work/incoming is the logged run's incoming directory, <corpus>/manifest.tsv the manifest and <corpus>/corpus the workbooks
+root: <source> stands for the directory INTAKE_SOURCE names in a dry run, standing for the incoming directory (change PI2)
+root: <scratch> stands for <workroot>, named <scratch> where TMPDIR is concerned: TMPDIR is <scratch>/tmp, made and exported by this script before any mktemp, and <work> is made under it
+root: <scripts> stands for <phase>/scripts on the disk, this script's own directory; this script's own standard error goes to <scripts>/out/intake.stderr (specs/0017 P1 verification ruling 7)
+root: <work> stands for this run's working directory, made by mktemp -d under TMPDIR, <scratch>/tmp, on the disk (the counting library, the listing's files, each command's standard error, the negative's fixtures and scratch corpus), kept after the run and never removed
+  <work>, the directory mktemp -d made, is under TMPDIR, <scratch>/tmp: yes
+  control: the same test refuses a working directory under /tmp: yes
+command: count_tempcalls <this script>, and the same over a fixture of three lines: a directory call, a file call, a comment
+  mktemp calls in this script outside comments: 1 (the one that makes <work>, checked under TMPDIR above); in the fixture: 2
+  this script makes one mktemp call, <work>'s, and no plain temporary file: yes
+  control: the same count finds the fixture's two calls and not its comment: yes
+ANTHROPIC_API_KEY set in this shell: no
+  ANTHROPIC_API_KEY is not set: yes
+  control: the same check refuses a shell where the variable is set: yes
+at entry: status lines 1; of them admitted by the phase's pattern (this phase's logs, a coverage record, planning's modified specs/0046 and ROADMAP.md) 1; the lines:
+     M specs/0046-corpus-maintainer-items.md
+  control: the phase's status pattern admits this phase's log, a dated coverage record, specs/0046 and ROADMAP.md alone; it refuses another phase's log, a modified README and script, and an undated record: yes
+
+## script that wrote this log
+    #!/usr/bin/env bash
+    # Milestone 7 part 3 P1's intake logs (specs/0046-corpus-maintainer-items.md,
+    # "The intake and the additions (P1)" and "P1: the intake and the
+    # additions"; planning's P1 brief and ruling A, 2026-10-29). One script,
+    # four modes, one log each, INTAKE_MODE naming the mode:
+    #   list      the intake listing: every entry of the incoming directory in
+    #             its sorted order, by sequence number, never by name: its
+    #             type, byte count, sha256, the proposer's line
+    #             (scripts/corpus-tags.py) and whether its id is in the corpus;
+    #   add       after planning's tag ruling: the listing read again, then per
+    #             ruled file scripts/corpus-add.py once, its `added` line, the
+    #             corpus copy's sha256, and the file removed from the incoming
+    #             directory by rm of that one path; a refusal is a FINDING and
+    #             the file is left;
+    #   coverage  scripts/corpus-coverage.py --verify over the corpus, its
+    #             whole stdout printed (ids, extensions, byte counts,
+    #             producers, sources, tags and counts only) with its sha256,
+    #             the uncovered and single-producer lines named;
+    #   negative  the proposer's refusal of a file that is not a zip, and
+    #             corpus-add.py's refusals of an unknown tag and an unknown
+    #             source, over fictional files and a scratch corpus of this
+    #             run's own, each beside a control that is accepted.
+    # No original file name, note, producer version, corpus path or byte of a
+    # workbook's content is printed; files are named by sequence number.
+    #
+    # GENERATED by <phase>/gen/intake.py. The frame is M7 part 2 P3's run
+    # script's (<phase>/model/m7p2-p3-run.sh, asserted equal to the script
+    # printed in records/logs/m7p2-p3/run.log): its helpers, its three shape
+    # greps and the PYB shape, its mktemp count, its API-key check and its
+    # standard-error count are carried verbatim, each asserted by the
+    # generator; the rest is this phase's. The changes, a new series:
+    #  PI1. The names: Milestone 7 part 3 P1, the phase directory m7p3-p1, the
+    #       log directory records/logs/m7p3-p1; the phase commit is the code
+    #       commit by its subject; specs/0046 and ROADMAP.md pinned at the
+    #       doc commit's blobs, or PLANNING_SPEC and PLANNING_ROADMAP for
+    #       planning's working copies; the status pattern this phase's.
+    #  PI2. The dry run (specs/0043 ruling Q): RUN_WORK names the work root,
+    #       INTAKE_SOURCE a directory of fictional files standing for the
+    #       incoming directory, DRY_CORPUS a corpus of the dry run's own; the
+    #       three are set together or not at all, and each lies under the
+    #       work root. In the logged run the corpus is <home>/emend-testing
+    #       and the incoming directory its work/incoming.
+    #  PI3. The listing (mode list).
+    #  PI4. The additions (mode add), from the ruling file INTAKE_RULING.
+    #  PI5. The coverage (mode coverage).
+    #  PI6. The negative (mode negative).
+    #  PI7. finding: every refusal or difference prints one line beginning
+    #       FINDING; stop_here ends the run through one STOP: line.
+    #
+    # Usage: INTAKE_MODE=<list|add|coverage|negative> [INTAKE_RULING=<file>] [RUN_WORK=<dir> INTAKE_SOURCE=<dir> DRY_CORPUS=<dir>] [PLANNING_SPEC=<sha256>] [PLANNING_ROADMAP=<sha256>] m7p3-p1-intake.sh <phase commit> > <file outside the tree>
+    # INTAKE_RULING (mode add) is a tab-separated file outside the tree, one
+    # row per ruled file: sequence number, sha256, producer, producer version,
+    # source, tags, and an optional note; only the sequence number, the sha256,
+    # the producer, the source and the tags are ever printed.
+    set -uo pipefail
+    SELF_DIR=$(cd "$(dirname "$0")" && pwd)
+    SELF=$SELF_DIR/$(basename "$0")
+    # specs/0017 P1 verification ruling 7: this script's own standard error, kept and counted at the end.
+    mkdir -p "$SELF_DIR/out" || exit 2
+    ERR=$SELF_DIR/out/intake.stderr
+    exec 2>"$ERR"
+    cd "$(git rev-parse --show-toplevel)" || exit 2
+    MAIN=$(pwd)
+    
+    C=${1:?phase commit required}
+    # Every environment input, as it was set, before any is unset (change PI1).
+    INPUT_NAMES="INTAKE_MODE INTAKE_SOURCE DRY_CORPUS PLANNING_SPEC PLANNING_ROADMAP RUN_WORK HOME"
+    declare -A INPUT_SEEN
+    for v in $INPUT_NAMES; do
+      if [ -n "${!v+x}" ]; then INPUT_SEEN[$v]=${!v}; else INPUT_SEEN[$v]=unset; fi
+    done
+    if [ -n "${INTAKE_RULING+x}" ]; then RULING_SEEN=set; else RULING_SEEN=unset; fi
+    MODE=${INTAKE_MODE:-}
+    case "$MODE" in list|add|coverage|negative) ;; *) echo "INTAKE_MODE is list, add, coverage or negative" >&2; exit 2 ;; esac
+    if [ "$MODE" = add ] && [ ! -f "${INTAKE_RULING:-}" ]; then echo "mode add needs INTAKE_RULING, a file" >&2; exit 2; fi
+    if [ "$MODE" != add ] && [ "$RULING_SEEN" = set ]; then echo "INTAKE_RULING is for mode add alone" >&2; exit 2; fi
+    # Change PI2: RUN_WORK, INTAKE_SOURCE and DRY_CORPUS together make a dry
+    # run; none makes the logged run; some alone are refused.
+    n_dry=0
+    for v in RUN_WORK INTAKE_SOURCE DRY_CORPUS; do [ "${INPUT_SEEN[$v]}" = unset ] || n_dry=$((n_dry + 1)); done
+    case "$n_dry" in 0) LOGGED=yes ;; 3) LOGGED=no ;; *) echo "RUN_WORK, INTAKE_SOURCE and DRY_CORPUS are set together (a dry run) or not at all (the logged run)" >&2; exit 2 ;; esac
+    export RUSTUP_AUTO_INSTALL=0 CARGO_TERM_COLOR=never
+    # Python writes no bytecode, so nothing arises to be removed.
+    export PYTHONDONTWRITEBYTECODE=1
+    unset EMEND_KEEP_DIR EMEND_CORPUS_DIR RUSTDOCFLAGS RUSTFLAGS
+    SPEC=specs/0046-corpus-maintainer-items.md
+    # Change PI1: the blobs the doc commit holds (the generator asserts both).
+    SPEC_WANT=2fdeb4b339239b210f1f12cfd1e0d06d691503d31eeee4fc03d6a0ca543d5bab
+    ROADMAP_WANT=5f8fbfea39389f9a2d1ce20c0947f29552b68cb76205a5cbf4a05d4b015ce204
+    PHASE_SUBJECT="M7 part 3 P1: scripts/corpus-tags.py proposes a staged workbook's producer and tags"
+    DOC_SUBJECT='M7 part 3 P1: commit planning docs (the spec and the ROADMAP block)'
+    PLANNING_SPEC=${PLANNING_SPEC:-}
+    PLANNING_ROADMAP=${PLANNING_ROADMAP:-}
+    PHASE_DIR=$HOME/.cache/emend-build/m7p3-p1
+    REAL_CORPUS=$HOME/emend-testing
+    WORK_ROOT=${RUN_WORK:-$PHASE_DIR}
+    if [ "$LOGGED" = yes ]; then
+      CORPUS=$REAL_CORPUS
+      IN=$CORPUS/work/incoming
+    else
+      CORPUS=$DRY_CORPUS
+      IN=$INTAKE_SOURCE
+    fi
+    if [ ! -d "$WORK_ROOT" ]; then echo "the work root is not there" >&2; exit 2; fi
+    # corpus-add.py and corpus-coverage.py read the corpus from EMEND_CORPUS_DIR
+    # in a dry run; the logged run leaves it unset, so they read their default.
+    if [ "$LOGGED" = no ]; then export EMEND_CORPUS_DIR=$CORPUS; fi
+    # TMPDIR is <scratch>/tmp, the work root's, made and exported before any
+    # mktemp; the working directory is the one mktemp -d makes under it, on the
+    # disk, kept; nothing here is removed but the added files of mode add.
+    TMPDIR=$WORK_ROOT/tmp
+    export TMPDIR
+    mkdir -p "$TMPDIR" || exit 2
+    B=$(mktemp -d) || exit 2
+    # The counting library is the phase commit's, by git show.
+    git show "$C:scripts/counting.sh" >"$B/counting.sh" || exit 2
+    . "$B/counting.sh"
+    fail=0
+    n_findings=0
+    check() { echo "  $1: $2"; [ "$2" = yes ] || fail=1; }
+    yn() { if "$@"; then echo yes; else echo no; fi; }
+    # For a condition that must NOT hold: a leading bang inside yn runs a
+    # command named by the bang (specs/0001), so a negation has its own helper.
+    ynnot() { if "$@"; then echo no; else echo yes; fi; }
+    TAB=$(printf '\t')
+    sha_of() { sha256sum <"$1" | cut -d' ' -f1; }
+    head_is() { [ "$(git rev-parse HEAD)" = "$1" ]; }
+    full_sha() { printf '%s' "$1" | LC_ALL=C "$G" -qE '^[0-9a-f]{40}$'; }
+    # The given commit is the phase commit when it is a full sha and HEAD.
+    given_ok() { full_sha "$1" && head_is "$1"; }
+    if given_ok "$C"; then :; else echo "the phase commit must be a full 40-hex sha that is HEAD, not $C" >&2; exit 2; fi
+    # Change PI1: what the status pattern admits: this phase's log directory,
+    # a coverage record, and planning's modified specs/0046 and ROADMAP.md;
+    # nothing else.
+    OURS="^((\\?\\?| ?[MARCD]) records/logs/m7p3-p1/|\\?\\? records/corpus-coverage-[0-9]{4}-[0-9]{2}-[0-9]{2}[.]md\$| M specs/0046-corpus-maintainer-items[.]md\$| M ROADMAP[.]md\$)"
+    entry_all=$(run_lines git status --porcelain)
+    entry_ours=$(run_matches -E "$OURS" git status --porcelain)
+    entry_clean() { [ "$entry_all" != error ] && [ "$entry_ours" != error ] && [ "$entry_all" = "$entry_ours" ]; }
+    if entry_clean; then :; else
+      echo "the working tree holds changes outside this phase's logs and planning's spec and ROADMAP.md" >&2
+      exit 2
+    fi
+    # <work> first (it lies under TMPDIR), then <source> (a dry run's incoming
+    # stand-in), <corpus>, <scripts>, the work root (<workroot> in a dry run;
+    # <phase> itself in the logged run), <repo>, <phase>, and <home> last.
+    if [ "$LOGGED" = yes ]; then WR_TOKEN='<phase>'; else WR_TOKEN='<workroot>'; fi
+    SCRUB_ARGS=(-e "s#$B#<work>#g" -e "s#$TMPDIR#<scratch>/tmp#g")
+    if [ "$LOGGED" = no ]; then SCRUB_ARGS+=(-e "s#$IN#<source>#g"); fi
+    SCRUB_ARGS+=(-e "s#$CORPUS#<corpus>#g" -e "s#$SELF_DIR#<scripts>#g" -e "s#$WORK_ROOT#$WR_TOKEN#g" -e "s#$MAIN#<repo>#g" -e "s#$PHASE_DIR#<phase>#g" -e "s#$HOME#<home>#g")
+    scrub() { sed "${SCRUB_ARGS[@]}"; }
+    exec 3>&1
+    exec > >(scrub >&3)
+    SCRUB_PID=$!
+    
+    # Change PI7: a refusal or difference prints one FINDING line; stop_here
+    # ends the run through the summary, the status and the standard-error
+    # count, exit 1.
+    finding() { echo "FINDING: $1"; n_findings=$((n_findings + 1)); fail=1; }
+    finish() {
+      echo
+      echo "## the FINDING lines of this log (specs/0043 ruling R)"
+      echo "  FINDING lines printed above: $n_findings (each begins with the word FINDING; none is fixed)"
+      echo
+      echo "## status after the run"
+      echo "command: git status --porcelain"
+      git status --porcelain | sed 's/^/    /'
+      st_all=$(run_lines git status --porcelain)
+      st_ours=$(run_matches -E "$OURS" git status --porcelain)
+      echo "  the spec $SPEC, sha256 $(sha_of "$SPEC"); ROADMAP.md, sha256 $(sha_of ROADMAP.md)"
+      echo "status lines: $st_all; of them this phase's logs, a coverage record or planning's spec and ROADMAP.md: $st_ours"
+      status_accounted() { [ "$st_all" != error ] && [ "$st_ours" != error ] && [ "$st_all" = "$st_ours" ]; }
+      check "every change in the working tree is this phase's or planning's spec and ROADMAP.md" "$(yn status_accounted)"
+      echo
+    echo "## this script's own standard error (specs/0017 P1 verification ruling 7)"
+    nerr=$(wc -c <"$ERR")
+    cp "$ERR" "$B/c-err"; printf 'x' >>"$B/c-err"
+    nerr_ctl=$(wc -c <"$B/c-err")
+    echo "  command: wc -c <scripts>/out/intake.stderr: $nerr bytes; a copy with one byte appended: $nerr_ctl"
+    check "this script wrote nothing to its standard error" "$(yn [ "$nerr" = 0 ])"
+    check "control: the same count reads one byte more in the copy" "$(yn [ "$nerr_ctl" = "$((nerr + 1))" ])"
+      echo "run ended at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo "$MODE log checks all as expected: $([ "$fail" -eq 0 ] && echo yes || echo no)"
+      exec 1>&3
+      wait "$SCRUB_PID" 2>/dev/null
+      exit "$fail"
+    }
+    stop_here() { echo "STOP: $1"; fail=1; finish; }
+    
+    echo "command: git rev-parse HEAD"
+    echo "invocation: bash <scripts>/$(basename "$0") $*"
+    echo "about: M7 part 3 P1 phase commit $C; HEAD at run: $(git rev-parse HEAD)"
+    for v in $INPUT_NAMES; do echo "input: $v=${INPUT_SEEN[$v]}"; done
+    echo "input: INTAKE_RULING: $RULING_SEEN (a file outside the tree; its notes and producer versions are never printed)"
+    echo "input (as exported by this script): PYTHONDONTWRITEBYTECODE=$PYTHONDONTWRITEBYTECODE"
+    echo "input: TMPDIR=$TMPDIR"
+    echo "  (TMPDIR set, made and exported by this script before any mktemp; <work> is made under it)"
+    echo "input: ANTHROPIC_API_KEY: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo set || echo unset) (its value never printed)"
+    if [ "$LOGGED" = yes ]; then
+      echo "mode: $MODE; the logged run: RUN_WORK, INTAKE_SOURCE and DRY_CORPUS are unset, so the corpus is <corpus> and the incoming directory <corpus>/work/incoming (change PI2)"
+    else
+      echo "mode: $MODE; a dry run (specs/0043 ruling Q; change PI2): RUN_WORK names the work root, <workroot>, INTAKE_SOURCE the incoming directory's stand-in, <source>, and DRY_CORPUS the dry corpus, <corpus>; EMEND_CORPUS_DIR is exported as <corpus> for the corpus scripts"
+    fi
+    echo
+    echo "## the three shape greps, over this script, before its log (specs/0001)"
+    D='$'
+    SHAPE_CHAIN="\\${D}\\((yn|ynnot|is|isnot) .*(&&|\\|\\|)"
+    SHAPE_BANG="\\${D}\\((yn|ynnot|is|isnot) !"
+    SHAPE_ASSIGN="\\${D}\\((yn|ynnot|is|isnot) [A-Za-z_][A-Za-z0-9_]*="
+    printf '%s\n' "x=${D}(is [ 1 ] && true)" "y=${D}(isnot ! true)" "z=${D}(yn N=1 true)" >"$B/shape-fixture"
+    echo "command: count_matches -E <shape> <this script>, and the same over a fixture holding one line of each shape"
+    for shape in CHAIN BANG ASSIGN; do
+      var=SHAPE_$shape
+      n_self=$(count_matches -E "${!var}" "$SELF")
+      n_fix=$(count_matches -E "${!var}" "$B/shape-fixture")
+      echo "  shape $shape: in this script $n_self; in the fixture $n_fix"
+      check "$shape: this script holds none" "$(yn [ "$n_self" = 0 ])"
+      check "control: $shape: the same form finds the fixture's one line" "$(yn [ "$n_fix" = 1 ])"
+    done
+    check "control: ynnot reports no on a passing command" "$(yn [ "$(ynnot true)" = no ])"
+    # Change NTJ: the fourth shape, PYB: a Python call without -I -B (the word
+    # followed by whitespace and an option or a .py path, outside a comment,
+    # and not by " -I -B"). The word is built from two halves, so that this
+    # form's own text is no call.
+    PYW=pyth
+    PYW=${PYW}on3
+    pyb_count() {
+      awk -v w="$PYW" '{ l = $0; sub(/^[ \t]+/, "", l); if (substr(l, 1, 1) == "#") next; s = l
+        while ((i = index(s, w)) > 0) { r = substr(s, i + length(w)); if (r ~ /^[ \t]+(-|[^ \t]*[.]py([ \t"]|$))/ && r !~ /^ -I -B( |$)/) { n++; break }; s = r }
+      } END { print n + 0 }' "$1"
+    }
+    printf '%s\n' "$PYW -c x" "$PYW -I -B -c x" "# $PYW -c x" "command -v $PYW" "$PYW tool.py" >"$B/pyb-fixture"
+    n_self=$(pyb_count "$SELF")
+    n_fix=$(pyb_count "$B/pyb-fixture")
+    echo "command: pyb_count <this script>, and the same over a fixture of five lines: a call with -c, one with -I -B -c, a comment, a command -v, a call of a .py path"
+    echo "  shape PYB: in this script $n_self; in the fixture $n_fix"
+    check "PYB: this script holds none (change NTJ)" "$(yn [ "$n_self" = 0 ])"
+    check "control: PYB: the same form finds the fixture's two calls without -I -B and not its other three lines" "$(yn [ "$n_fix" = 2 ])"
+    
+    echo
+    echo "## the phase's commits, read from git"
+    by_subject() { git log --format='%H' -n 1 -F --grep="$1"; }
+    echo "phase: Milestone 7 part 3 P1 ($SPEC) $MODE log; run at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    PC=$(by_subject "$PHASE_SUBJECT")
+    DC=$(by_subject "$DOC_SUBJECT")
+    echo "  the phase commit by its subject \"$PHASE_SUBJECT\": ${PC:-none}"
+    echo "  the doc commit by its subject \"$DOC_SUBJECT\": ${DC:-none}"
+    check "the phase commit given is the code commit, by its subject (change PI1)" "$(yn [ "$PC" = "$C" ])"
+    check "the doc commit is the phase commit's parent" "$(yn [ "$DC" = "$(git rev-parse "$C^")" ])"
+    if [ -z "$PC" ] || [ "$PC" != "$C" ]; then stop_here "the phase commit is not the code commit"; fi
+    spec_committed=$(git show "$C:$SPEC" | sha256sum | cut -d' ' -f1)
+    roadmap_committed=$(git show "$C:ROADMAP.md" | sha256sum | cut -d' ' -f1)
+    spec_now=$(sha_of "$SPEC")
+    roadmap_now=$(sha_of ROADMAP.md)
+    echo "  $SPEC at the phase commit: $spec_committed (pinned $SPEC_WANT); in the working tree: $spec_now; PLANNING_SPEC: ${PLANNING_SPEC:-unset}"
+    echo "  ROADMAP.md at the phase commit: $roadmap_committed (pinned $ROADMAP_WANT); in the working tree: $roadmap_now; PLANNING_ROADMAP: ${PLANNING_ROADMAP:-unset}"
+    pinned_ok() { [ "$spec_committed" = "$SPEC_WANT" ] && [ "$roadmap_committed" = "$ROADMAP_WANT" ]; }
+    check "the phase commit's spec and ROADMAP.md are the pinned blobs (change PI1)" "$(yn pinned_ok)"
+    working_ok() { { [ "$spec_now" = "$spec_committed" ] || { [ -n "$PLANNING_SPEC" ] && [ "$spec_now" = "$PLANNING_SPEC" ]; }; } && { [ "$roadmap_now" = "$roadmap_committed" ] || { [ -n "$PLANNING_ROADMAP" ] && [ "$roadmap_now" = "$PLANNING_ROADMAP" ]; }; }; }
+    check "the working spec and ROADMAP.md are the phase commit's or planning's named copies" "$(yn working_ok)"
+    working_ctl() { local spec_now=1111111111111111111111111111111111111111111111111111111111111111; working_ok; }
+    check "control: the same check refuses a spec of another hash" "$(ynnot working_ctl)"
+    TAGS_PY=$MAIN/scripts/corpus-tags.py
+    ADD_PY=$MAIN/scripts/corpus-add.py
+    COV_PY=$MAIN/scripts/corpus-coverage.py
+    for f in scripts/corpus-tags.py scripts/corpus-add.py scripts/corpus-coverage.py; do
+      echo "  $f: in the working tree sha256 $(sha_of "$f"); at the phase commit $(git show "$C:$f" | sha256sum | cut -d' ' -f1)"
+    done
+    scripts_committed() {
+      local f
+      for f in scripts/corpus-tags.py scripts/corpus-add.py scripts/corpus-coverage.py; do
+        [ "$(sha_of "$f")" = "$(git show "$C:$f" | sha256sum | cut -d' ' -f1)" ] || return 1
+      done
+    }
+    check "the three corpus scripts this log runs are the phase commit's" "$(yn scripts_committed)"
+    echo "root: <repo> stands for the repository's top level; scripts/counting.sh is taken from it at the phase commit by git show, and the three corpus scripts are run from it"
+    echo "root: <home> stands for the home directory of the account that ran this script"
+    echo "root: <phase> stands for <home>/.cache/emend-build/m7p3-p1 on the disk, the phase's directory; <phase>/gen holds the generator that wrote this script and <phase>/model the script it carries its frame from"
+    echo "root: <workroot> stands for the work root: <phase> in the logged run, the directory RUN_WORK names in a dry run; it holds TMPDIR (change PI2)"
+    echo "root: <corpus> stands for the corpus directory: <home>/emend-testing in the logged run, the directory DRY_CORPUS names in a dry run (change PI2); <corpus>/work/incoming is the logged run's incoming directory, <corpus>/manifest.tsv the manifest and <corpus>/corpus the workbooks"
+    echo "root: <source> stands for the directory INTAKE_SOURCE names in a dry run, standing for the incoming directory (change PI2)"
+    echo "root: <scratch> stands for <workroot>, named <scratch> where TMPDIR is concerned: TMPDIR is <scratch>/tmp, made and exported by this script before any mktemp, and <work> is made under it"
+    echo "root: <scripts> stands for <phase>/scripts on the disk, this script's own directory; this script's own standard error goes to <scripts>/out/intake.stderr (specs/0017 P1 verification ruling 7)"
+    echo "root: <work> stands for this run's working directory, made by mktemp -d under TMPDIR, <scratch>/tmp, on the disk (the counting library, the listing's files, each command's standard error, the negative's fixtures and scratch corpus), kept after the run and never removed"
+    work_in_tmpdir() { case "$B/" in "$TMPDIR/"*) return 0 ;; esac; return 1; }
+    check "<work>, the directory mktemp -d made, is under TMPDIR, <scratch>/tmp" "$(yn work_in_tmpdir)"
+    work_ctl() { local B=/tmp/x; work_in_tmpdir; }
+    check "control: the same test refuses a working directory under /tmp" "$(ynnot work_ctl)"
+    # Every mktemp call of this script is checked under TMPDIR, so the source is
+    # read for its calls outside comments; the call's text is built from
+    # pieces, so this form's own text is no call.
+    MKW='$('
+    MKW=${MKW}mkt
+    MKW=${MKW}emp
+    count_tempcalls() {
+      awk -v w="$MKW" '{ l = $0; sub(/^[ \t]+/, "", l); if (substr(l, 1, 1) == "#") next; s = l
+        while ((i = index(s, w)) > 0) { n++; s = substr(s, i + length(w)) }
+      } END { print n + 0 }' "$1"
+    }
+    printf '%s\n' "A=$MKW -d)" "F=$MKW)" "# $MKW -d)" >"$B/mktemp-fixture"
+    n_mk=$(count_tempcalls "$SELF")
+    n_mk_fix=$(count_tempcalls "$B/mktemp-fixture")
+    echo "command: count_tempcalls <this script>, and the same over a fixture of three lines: a directory call, a file call, a comment"
+    echo "  mktemp calls in this script outside comments: $n_mk (the one that makes <work>, checked under TMPDIR above); in the fixture: $n_mk_fix"
+    check "this script makes one mktemp call, <work>'s, and no plain temporary file" "$(yn [ "$n_mk" = 1 ])"
+    check "control: the same count finds the fixture's two calls and not its comment" "$(yn [ "$n_mk_fix" = 2 ])"
+    echo "ANTHROPIC_API_KEY set in this shell: $([ -n "${ANTHROPIC_API_KEY:-}" ] && echo yes || echo no)"
+    key_unset() { [ -z "${ANTHROPIC_API_KEY:-}" ]; }
+    check "ANTHROPIC_API_KEY is not set" "$(yn key_unset)"
+    key_set_ctl() { local ANTHROPIC_API_KEY=planted; key_unset; }
+    check "control: the same check refuses a shell where the variable is set" "$(ynnot key_set_ctl)"
+    echo "at entry: status lines $entry_all; of them admitted by the phase's pattern (this phase's logs, a coverage record, planning's modified specs/0046 and ROADMAP.md) $entry_ours; the lines:"
+    git status --porcelain | sed 's/^/    /'
+    ours_rec_ctl() { printf '?? records/logs/m7p3-p1/intake.log\n?? records/corpus-coverage-2026-10-30.md\n M specs/0046-corpus-maintainer-items.md\n M ROADMAP.md\n?? records/logs/m7p2-p4/verify.log\n M README.md\n M scripts/corpus-add.py\n?? records/corpus-coverage-x.md\n' | count_matches -E "$OURS" /dev/stdin; }
+    check "control: the phase's status pattern admits this phase's log, a dated coverage record, specs/0046 and ROADMAP.md alone; it refuses another phase's log, a modified README and script, and an undated record" "$(yn [ "$(ours_rec_ctl)" = 4 ])"
+    echo
+    echo "## script that wrote this log"
+    sed 's/^/    /' "$SELF"
+    echo
+    echo "## the shared counting library this log sources (the phase commit's, by git show)"
+    sed 's/^/    /' "$B/counting.sh"
+    echo
+    echo "## counting controls"
+    counting_controls
+    if [ "$counting_controls_ok" != yes ]; then fail=1; fi
+    
+    # The corpus directory and, for list and add, the incoming directory:
+    # directories, mode 700, the corpus outside any git work tree (change PI2).
+    mode_of() { stat -c '%a' "$1"; }
+    not_in_git() { [ -d "$1" ] && ! git -C "$1" rev-parse >/dev/null 2>&1; }
+    under_root() { case "$1/" in "$WORK_ROOT/"*) return 0 ;; esac; return 1; }
+    corpus_ok() { [ -d "$CORPUS" ] && [ "$(mode_of "$CORPUS")" = 700 ] && not_in_git "$CORPUS"; }
+    dry_roots_ok() { under_root "$CORPUS" && under_root "$IN" && [ "$CORPUS" != "$REAL_CORPUS" ]; }
+    dry_roots_ctl() { local CORPUS=$REAL_CORPUS; dry_roots_ok; }
+    in_ok() { [ -d "$IN" ] && [ ! -L "$IN" ] && [ "$(mode_of "$IN")" = 700 ]; }
+    if [ "$MODE" != negative ]; then
+      echo
+      echo "## the corpus directory (change PI2)"
+      echo "  <corpus>: a directory: $([ -d "$CORPUS" ] && echo yes || echo no); mode $(mode_of "$CORPUS"); inside a git work tree: $(not_in_git "$CORPUS" && echo no || echo yes)"
+      check "<corpus> is a directory, mode 700, outside any git work tree" "$(yn corpus_ok)"
+      check "control: the same git test finds the repository a work tree" "$(ynnot not_in_git "$MAIN")"
+      if [ "$LOGGED" = no ]; then
+        check "a dry run's corpus and incoming stand-in lie under the work root, and the corpus is not <home>/emend-testing" "$(yn dry_roots_ok)"
+        check "control: the same check refuses the real corpus" "$(ynnot dry_roots_ctl)"
+      fi
+      if corpus_ok; then :; else stop_here "the corpus directory"; fi
+      MAN=$CORPUS/manifest.tsv
+      man_rows() { if [ -f "$MAN" ]; then echo $(($(count_lines "$MAN") - 1)); else echo 0; fi; }
+      in_corpus() { [ -f "$MAN" ] && awk -F'\t' -v id="$1" 'NR > 1 && $1 == id { f = 1 } END { exit !f }' "$MAN"; }
+      echo "  <corpus>/manifest.tsv rows at entry: $(man_rows)"
+    fi
+    
+    # The incoming directory's entries in their sorted order (C locale), by
+    # sequence number; the names are held in an array and never printed.
+    declare -a ENT
+    list_incoming() {
+      ENT=()
+      local e
+      while IFS= read -r -d '' e; do ENT+=("$e"); done < <(find "$IN" -mindepth 1 -maxdepth 1 -print0 | LC_ALL=C sort -z)
+    }
+    PROP_RE='^(xlsx|xlsm|xltx|xltm|other) [0-9]+ (excel-win|excel-mac|unknown) plain(,[a-z0-9]+)*( chartex)?( threaded)?$'
+    prop_form() { printf '%s\n' "$1" | LC_ALL=C "$G" -qE "$PROP_RE"; }
+    # A command's standard error is printed when every line is one refused or
+    # error line of the scripts' own fixed forms; otherwise only its bytes.
+    err_lines() {
+      if [ ! -s "$1" ]; then echo "    (standard error: 0 bytes)"; return; fi
+      if [ "$(count_matches -E '^(refused|error): [A-Za-z0-9 ,._-]+$' "$1")" = "$(count_lines "$1")" ]; then sed 's/^/    stderr: /' "$1"; else echo "    (standard error: $(wc -c <"$1") bytes, not printed: not of the scripts' fixed forms)"; fi
+    }
+    declare -A SEQ_SHA
+    show_listing() {
+      echo "command: find <incoming> -mindepth 1 -maxdepth 1 -print0 | LC_ALL=C sort -z; each entry named by its sequence number"
+      echo "  <incoming>: a directory: $([ -d "$IN" ] && echo yes || echo no); a link: $([ -L "$IN" ] && echo yes || echo no); mode $(mode_of "$IN")"
+      check "the incoming directory is a directory, not a link, mode 700" "$(yn in_ok)"
+      if in_ok; then :; else stop_here "the incoming directory"; fi
+      list_incoming
+      echo "  entries: ${#ENT[@]}"
+      local i n f t sz sh pr rc
+      for ((i = 0; i < ${#ENT[@]}; i++)); do
+        n=$((i + 1))
+        f=${ENT[$i]}
+        if [ -L "$f" ]; then t=link; elif [ -f "$f" ]; then t=file; elif [ -d "$f" ]; then t=directory; else t=other; fi
+        if [ "$t" != file ]; then
+          echo "  entry $n: a $t"
+          finding "entry $n of the incoming directory is a $t, not a regular file"
+          continue
+        fi
+        sz=$(wc -c <"$f")
+        sh=$(sha_of "$f")
+        SEQ_SHA[$n]=$sh
+        python3 -I -B "$TAGS_PY" "$f" >"$B/prop.$n" 2>"$B/prop.$n.err"
+        rc=$?
+        pr=$(cat "$B/prop.$n")
+        echo "  entry $n: a file, $sz bytes, sha256 $sh, id ${sh:0:12}; in the corpus already: $(in_corpus "${sh:0:12}" && echo yes || echo no)"
+        echo "    corpus-tags.py exit $rc: ${pr:-(nothing on stdout)}"
+        err_lines "$B/prop.$n.err"
+        if [ "$rc" = 0 ] && [ "$(count_lines "$B/prop.$n")" = 1 ] && prop_form "$pr" && [ ! -s "$B/prop.$n.err" ]; then
+          check "entry $n: the proposer printed one line of its form, exit 0" yes
+        else
+          check "entry $n: the proposer printed one line of its form, exit 0" no
+          finding "entry $n: the proposer refused it or printed another form (exit $rc)"
+        fi
+        if in_corpus "${sh:0:12}"; then finding "entry $n's id is in the corpus already"; fi
+      done
+      check "control: the proposer's form refuses a line naming a producer it never proposes" "$(ynnot prop_form "xlsx 10 libreoffice plain")"
+      check "control: the proposer's form accepts a line with both words" "$(yn prop_form "xlsm 10 excel-mac plain,charts,comments chartex threaded")"
+    }
+    
+    if [ "$MODE" = list ]; then
+      echo
+      echo "## the intake listing (change PI3)"
+      show_listing
+      finish
+    fi
+    
+    if [ "$MODE" = add ]; then
+      echo
+      echo "## the incoming directory read again before the additions (change PI4)"
+      show_listing
+      echo
+      echo "## the additions, one corpus-add.py per ruled file (change PI4)"
+      echo "command: python3 -I -B <repo>/scripts/corpus-add.py <entry> <producer> <producer version> <source> <tags> [note], once per row of INTAKE_RULING; the entry's name, the producer version and the note are never printed"
+      rows_before=$(man_rows)
+      n_rows=0
+      n_added=0
+      n_refused=0
+      declare -A RULED
+      # One addition as expected: the added line, the copy and the manifest row.
+      added_ok() { [ "$out" = "$want" ] && [ "$(count_lines "$B/add.$r_seq")" = 1 ] && [ -f "$copy" ] && [ "$(sha_of "$copy")" = "$r_sha" ] && in_corpus "$id"; }
+      # The ruling's rows: tab-separated, a sequence number, a sha256, the
+      # producer, the producer version, the source, the tags, an optional note.
+      while IFS=$'\t' read -r r_seq r_sha r_prod r_pver r_src r_tags r_note; do
+        [ -n "$r_seq" ] || continue
+        n_rows=$((n_rows + 1))
+        echo "  ruled row $n_rows: entry $r_seq, sha256 $r_sha, producer $r_prod, source $r_src, tags $r_tags; a note: $([ -n "${r_note:-}" ] && echo yes || echo no)"
+        if ! printf '%s' "$r_seq" | LC_ALL=C "$G" -qxE '[1-9][0-9]*' || [ "$r_seq" -gt "${#ENT[@]}" ] || [ -n "${RULED[$r_seq]:-}" ]; then
+          finding "ruled row $n_rows names no entry of the listing, or an entry twice"
+          continue
+        fi
+        RULED[$r_seq]=1
+        f=${ENT[$((r_seq - 1))]}
+        if [ "${SEQ_SHA[$r_seq]:-}" != "$r_sha" ]; then
+          finding "entry $r_seq's sha256 is not the ruling's; it is left"
+          continue
+        fi
+        if [ -n "${r_note:-}" ]; then
+          python3 -I -B "$ADD_PY" "$f" "$r_prod" "$r_pver" "$r_src" "$r_tags" "$r_note" >"$B/add.$r_seq" 2>"$B/add.$r_seq.err"
+        else
+          python3 -I -B "$ADD_PY" "$f" "$r_prod" "$r_pver" "$r_src" "$r_tags" >"$B/add.$r_seq" 2>"$B/add.$r_seq.err"
+        fi
+        rc=$?
+        out=$(cat "$B/add.$r_seq")
+        echo "    corpus-add.py exit $rc: ${out:-(nothing on stdout)}"
+        err_lines "$B/add.$r_seq.err"
+        if [ "$rc" != 0 ]; then
+          n_refused=$((n_refused + 1))
+          finding "entry $r_seq: corpus-add.py refused it (exit $rc); the file is left"
+          continue
+        fi
+        id=${r_sha:0:12}
+        ext=$(printf '%s' "$out" | cut -d' ' -f3)
+        want="added $id $ext $(wc -c <"$f") $r_prod $r_tags"
+        copy=$CORPUS/corpus/$id.$ext
+        echo "    the corpus copy <corpus>/corpus/$id.$ext: sha256 $([ -f "$copy" ] && sha_of "$copy" || echo none)"
+        check "entry $r_seq: one added line naming its id, extension, bytes, producer and tags; the copy's sha256 the entry's; the id in the manifest" "$(yn added_ok)"
+        if added_ok; then :; else finding "entry $r_seq: the addition is not as expected; the file is left"; continue; fi
+        n_added=$((n_added + 1))
+        echo "    command: rm <the entry's path> (that one path; never rm -r)"
+        rm "$f"
+        check "entry $r_seq: removed from the incoming directory" "$(ynnot [ -e "$f" ])"
+      done <"$INTAKE_RULING"
+      rows_after=$(man_rows)
+      echo "  ruled rows: $n_rows; added: $n_added; refused: $n_refused; manifest rows before $rows_before, after $rows_after"
+      check "the manifest gained one row per addition" "$(yn [ "$rows_after" = "$((rows_before + n_added))" ])"
+      list_incoming
+      echo "  entries left in the incoming directory: ${#ENT[@]}"
+      added_ctl() { local out=x want=y; added_ok; }
+      check "control: the added-line comparison refuses a line that differs" "$(ynnot added_ctl)"
+      finish
+    fi
+    
+    if [ "$MODE" = coverage ]; then
+      echo
+      echo "## the coverage over the corpus (change PI5)"
+      echo "command: python3 -I -B <repo>/scripts/corpus-coverage.py --verify; script sha256 $(sha_of "$COV_PY"); at the phase commit $C"
+      python3 -I -B "$COV_PY" --verify >"$B/coverage.out" 2>"$B/coverage.err"
+      rc=$?
+      echo "  exit $rc; standard error $(wc -c <"$B/coverage.err") bytes; stdout $(count_lines "$B/coverage.out") lines, sha256 $(sha_of "$B/coverage.out")"
+      echo "  the stdout, whole (ids, extensions, byte counts, producers, sources, tags and counts only):"
+      sed 's/^/    /' "$B/coverage.out"
+      first=$(head -n 1 "$B/coverage.out")
+      n_files=$(man_rows)
+      cov_ok() { [ "$rc" = 0 ] && [ ! -s "$B/coverage.err" ] && [ "$first" = "files $n_files" ] && [ "$(count_matches -E '^FAIL ' "$B/coverage.out")" = 0 ]; }
+      check "the coverage ran with --verify, exit 0, no stderr, no FAIL line, its file count the manifest's $n_files rows" "$(yn cov_ok)"
+      if cov_ok; then :; else finding "the coverage script did not verify the corpus"; fi
+      cov_ctl() { local first="files $((n_files + 1))"; cov_ok; }
+      check "control: the same check refuses a count one more than the manifest's" "$(ynnot cov_ctl)"
+      echo "  the gaps (the record's gaps list):"
+      LC_ALL=C "$G" -E '^(uncovered|single-producer) ' "$B/coverage.out" | sed 's/^/    /'
+      check "the stdout names the uncovered and the single-producer tags, one line each" "$(yn [ "$(count_matches -E '^(uncovered|single-producer) ' "$B/coverage.out")" = 2 ])"
+      finish
+    fi
+    
+    # Mode negative (change PI6): fictional files and a scratch corpus under
+    # <work>, never the corpus; EMEND_CORPUS_DIR names the scratch corpus.
+    echo
+    echo "## the negative: the proposer and corpus-add.py refuse (change PI6)"
+    NEG=$B/neg
+    NC=$B/negcorpus
+    mkdir -p "$NEG" && mkdir -m 700 "$NC" || stop_here "the negative's directories"
+    export EMEND_CORPUS_DIR=$NC
+    echo "root: <work>/negcorpus is the negative's scratch corpus, mode 700, made here; EMEND_CORPUS_DIR names it for corpus-add.py; <work>/neg holds the fictional files"
+    python3 -I -B - "$NEG/fictional.xlsx" <<'PYEOF'
+    import sys, zipfile
+    NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>')
+        z.writestr("xl/workbook.xml", '<workbook %s><sheets><sheet name="S" sheetId="1"/></sheets></workbook>' % NS)
+        z.writestr("xl/worksheets/sheet1.xml", '<worksheet %s><sheetData/></worksheet>' % NS)
+    PYEOF
+    printf 'a fictional text file, not a zip\n' >"$NEG/notzip.xlsx"
+    run_one() { "$@" >"$B/neg.out" 2>"$B/neg.err"; echo $?; }
+    refused_once() { [ "$1" = 1 ] && [ ! -s "$B/neg.out" ] && [ "$(count_lines "$B/neg.err")" = 1 ] && [ "$(count_matches -E "^refused: $2\$" "$B/neg.err")" = 1 ]; }
+    show_neg() { echo "  exit $1; stdout: $(cat "$B/neg.out"); stderr: $(cat "$B/neg.err")"; }
+    nc_empty() { [ ! -e "$NC/manifest.tsv" ] && [ -z "$(ls -A "$NC")" ]; }
+    
+    echo "command: python3 -I -B <repo>/scripts/corpus-tags.py <work>/neg/notzip.xlsx (a text file)"
+    rc=$(run_one python3 -I -B "$TAGS_PY" "$NEG/notzip.xlsx"); show_neg "$rc"
+    check "the proposer refuses a file that is not a zip: exit 1, nothing on stdout, one line \"refused: not a zip-based workbook\"" "$(yn refused_once "$rc" 'not a zip-based workbook')"
+    echo "command: python3 -I -B <repo>/scripts/corpus-tags.py <work>/neg/fictional.xlsx (a fictional workbook; the control)"
+    rc=$(run_one python3 -I -B "$TAGS_PY" "$NEG/fictional.xlsx"); show_neg "$rc"
+    prop_ctl() { [ "$rc" = 0 ] && [ ! -s "$B/neg.err" ] && [ "$(cat "$B/neg.out")" = "xlsx $(wc -c <"$NEG/fictional.xlsx") unknown plain" ]; }
+    check "control: the proposer accepts the fictional workbook: exit 0, one line, xlsx, its bytes, unknown, plain" "$(yn prop_ctl)"
+    check "control: the refusal check refuses the accepted run" "$(ynnot refused_once "$rc" 'not a zip-based workbook')"
+    
+    echo "command: python3 -I -B <repo>/scripts/corpus-add.py <work>/neg/fictional.xlsx unknown 0 maintainer plain,nosuchtag"
+    rc=$(run_one python3 -I -B "$ADD_PY" "$NEG/fictional.xlsx" unknown 0 maintainer plain,nosuchtag); show_neg "$rc"
+    check "corpus-add.py refuses an unknown tag: exit 1, one line \"refused: unknown, empty or repeated tag\"" "$(yn refused_once "$rc" 'unknown, empty or repeated tag')"
+    check "nothing was added to the scratch corpus" "$(yn nc_empty)"
+    echo "command: python3 -I -B <repo>/scripts/corpus-add.py <work>/neg/fictional.xlsx unknown 0 nosuchsource plain"
+    rc=$(run_one python3 -I -B "$ADD_PY" "$NEG/fictional.xlsx" unknown 0 nosuchsource plain); show_neg "$rc"
+    check "corpus-add.py refuses an unknown source: exit 1, one line \"refused: unknown source\"" "$(yn refused_once "$rc" 'unknown source')"
+    check "nothing was added to the scratch corpus" "$(yn nc_empty)"
+    echo "command: python3 -I -B <repo>/scripts/corpus-add.py <work>/neg/fictional.xlsx unknown 0 maintainer plain (the control)"
+    rc=$(run_one python3 -I -B "$ADD_PY" "$NEG/fictional.xlsx" unknown 0 maintainer plain); show_neg "$rc"
+    FSHA=$(sha_of "$NEG/fictional.xlsx")
+    add_ctl() { [ "$rc" = 0 ] && [ ! -s "$B/neg.err" ] && [ "$(cat "$B/neg.out")" = "added ${FSHA:0:12} xlsx $(wc -c <"$NEG/fictional.xlsx") unknown plain" ] && [ "$(count_lines "$NC/manifest.tsv")" = 2 ]; }
+    check "control: corpus-add.py accepts the same file with a known tag and source: one added line, one manifest row" "$(yn add_ctl)"
+    check "control: the empty-corpus check refuses the scratch corpus now" "$(ynnot nc_empty)"
+    finish
+
+## the shared counting library this log sources (the phase commit's, by git show)
+    # emend shared counting forms (specs/0007-gate-self-test.md, "scripts/counting.sh").
+    #
+    # Sourced by scripts/gate-self-test.sh and by the log scripts of later phases,
+    # which use these instead of carrying their own copy.
+    #
+    # WHY THIS FILE EXISTS. In T3 P4 four counting sites compared a bare `grep -c`
+    # with 0 without reading the exit status, so a read error printed 0 and the
+    # check passed. Two independent checks found them, and the class was declared
+    # closed three further times while instances still stood: a helper whose first
+    # repair read grep's status while `cat` was the failing command, and both
+    # halves of one function in T2 P7. Planning's remedy is that every counting
+    # form, including a throwaway one, is a named function that reads the exit
+    # status and has a positive control, from the start.
+    #
+    # Every function prints either a number or the word "error". None of them ever
+    # prints a matched line, a value, or a path. A caller that compares a result
+    # with 0 therefore cannot mistake a failed read for an absence.
+    #
+    # counting_controls runs every form against a match, a miss and an unreadable
+    # file, prints one line per control, and sets counting_controls_ok. Callers run
+    # it before using any form.
+    
+    G=/usr/bin/grep
+    
+    # count_matches <-F|-E> <pattern> <file>...: total matching lines across the
+    # files, or "error" if any file could not be read. The files go to grep
+    # directly: with `cat file | grep -c`, an unreadable file makes CAT fail while
+    # grep counts 0 over the empty stream and exits 1, so the read error reads as
+    # "no hits".
+    count_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_from_file <-F|-E> <pattern file> <file>...: the same, with the patterns
+    # read from a file (grep -f), so a pattern is never printed.
+    count_from_file() {
+      local mode=$1 patterns=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c "$mode" -f "$patterns" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # count_bytes <tr class> <file>...: total bytes of that class across the files,
+    # or "error" if any file could not be read. Each file is read on its own rather
+    # than through `cat "$@" | tr`, for the same reason as above.
+    count_bytes() {
+      local class=$1 total=0 f n
+      shift
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(LC_ALL=C tr -cd "$class" <"$f" | wc -c) || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_lines <file>...: total lines, or "error" if any file could not be read.
+    count_lines() {
+      local total=0 f n
+      for f in "$@"; do
+        [ -r "$f" ] || { printf 'error'; return; }
+        n=$(wc -l <"$f") || { printf 'error'; return; }
+        total=$((total + n))
+      done
+      printf '%s' "$total"
+    }
+    
+    # count_matches_i <-F|-E> <pattern> <file>...: count_matches with -i, the form
+    # the hygiene step uses for OFFICE_RE and ZONE_RE. It lived in a log script as a
+    # hand-rolled copy with no control of its own (independent check 2, T6 P1, gap
+    # 14); a counting form belongs here, with a control, even a throwaway one.
+    count_matches_i() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$(LC_ALL=C "$G" -a -H -c -i "$mode" -e "$pattern" -- "$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ge 2 ]; then printf 'error'; return; fi
+      printf '%s\n' "$out" | awk -F: '{ n += $NF } END { print n + 0 }'
+    }
+    
+    # run_lines <command...>: run the command, and print the number of lines it
+    # wrote on stdout, or "error" if the command itself failed. The log scripts
+    # asserted a clean working tree with
+    #   git status --porcelain >file 2>/dev/null || : >file
+    # which turns a FAILED git status into an empty file, so the check read a
+    # failed command as a clean tree (independent check 2, T6 P1, gap 1; planning
+    # reproduced it). Reading the command's exit status is the whole point: a
+    # command that could not run is never the same as a command that found nothing.
+    run_lines() {
+      local out rc
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | wc -l | tr -d ' '
+    }
+    
+    # run_matches <-F|-E> <pattern> <command...>: the same, counting only the lines
+    # that match, so a caller can compare "all lines" with "lines of the expected
+    # shape" without either count hiding a failed command.
+    run_matches() {
+      local mode=$1 pattern=$2 out rc
+      shift 2
+      out=$("$@" 2>/dev/null); rc=$?
+      if [ "$rc" -ne 0 ]; then printf 'error'; return; fi
+      if [ -z "$out" ]; then printf '0'; return; fi
+      printf '%s\n' "$out" | LC_ALL=C "$G" -a -c "$mode" -e "$pattern" || true
+    }
+    
+    CTRL_CLASS='\000-\010\013\014\016-\037\177'
+    NONASCII_CLASS='\200-\377'
+    
+    # counting_controls <label prefix>: run every counting form above against a
+    # fixture that must match and one that must not, and against an unreadable
+    # file, printing one line per result. Sets counting_controls_ok to yes or no.
+    # This is the positive control planning requires for every form, and it also
+    # proves each form reports "error" rather than 0 when it cannot read.
+    counting_controls() {
+      local d ok=yes r
+      d=$(mktemp -d) || { counting_controls_ok=no; return; }
+      printf 'alpha\nbeta needle gamma\nneedle\n' >"$d/hit"
+      printf 'nothing of interest\n' >"$d/miss"
+      printf 'x \033[31mred\033[m\017 y\ncaf\303\251\n' >"$d/bytes"
+      printf 'needle\n' >"$d/patterns"
+      printf 'unreadable\n' >"$d/locked"
+      chmod 000 "$d/locked"
+    
+      r=$(count_matches -F needle "$d/hit");        echo "  control count_matches on a file with two matching lines: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/miss");       echo "  control count_matches on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/miss"); echo "  control count_matches summed over two files: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -E 'ne+dle' "$d/hit");      echo "  control count_matches with a regular expression: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/locked");     echo "  control count_matches on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_matches -F needle "$d/hit" "$d/locked"); echo "  control count_matches on readable plus unreadable: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/hit"); echo "  control count_from_file on the same file: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/miss"); echo "  control count_from_file on a file with none: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_from_file -F "$d/patterns" "$d/locked"); echo "  control count_from_file on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/bytes");    echo "  control count_bytes, control bytes in a file with ESC, ESC and SI: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_bytes "$NONASCII_CLASS" "$d/bytes"); echo "  control count_bytes, non-ASCII bytes in a file with one two-byte character: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/miss");     echo "  control count_bytes on a clean file: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(count_bytes "$CTRL_CLASS" "$d/locked");   echo "  control count_bytes on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(count_lines "$d/hit");                    echo "  control count_lines on a three-line file: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(count_lines "$d/locked");                 echo "  control count_lines on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      printf 'NEEDLE\nneedle\n' >"$d/mixedcase"
+      r=$(count_matches_i -F needle "$d/mixedcase"); echo "  control count_matches_i on mixed case: $r (expect 2)"; [ "$r" = 2 ] || ok=no
+      r=$(count_matches -F needle "$d/mixedcase");  echo "  control count_matches on the same file, case sensitive: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(count_matches_i -F needle "$d/locked");   echo "  control count_matches_i on an unreadable file: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines printf 'a\nb\nc\n');            echo "  control run_lines on a command printing three lines: $r (expect 3)"; [ "$r" = 3 ] || ok=no
+      r=$(run_lines true);                          echo "  control run_lines on a command printing nothing: $r (expect 0)"; [ "$r" = 0 ] || ok=no
+      r=$(run_lines false);                         echo "  control run_lines on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_lines "$d/no-such-command");          echo "  control run_lines on a command that cannot run: $r (expect error)"; [ "$r" = error ] || ok=no
+      r=$(run_matches -F needle printf 'needle\nother\n'); echo "  control run_matches on a command printing one match: $r (expect 1)"; [ "$r" = 1 ] || ok=no
+      r=$(run_matches -F needle false);             echo "  control run_matches on a FAILING command: $r (expect error)"; [ "$r" = error ] || ok=no
+    
+      chmod 644 "$d/locked"
+      rm -rf "${d:?}"
+      counting_controls_ok=$ok
+      echo "  counting controls: $([ "$ok" = yes ] && echo "all as expected" || echo FAILED)"
+    }
+
+## counting controls
+  control count_matches on a file with two matching lines: 2 (expect 2)
+  control count_matches on a file with none: 0 (expect 0)
+  control count_matches summed over two files: 2 (expect 2)
+  control count_matches with a regular expression: 2 (expect 2)
+  control count_matches on an unreadable file: error (expect error)
+  control count_matches on readable plus unreadable: error (expect error)
+  control count_from_file on the same file: 2 (expect 2)
+  control count_from_file on a file with none: 0 (expect 0)
+  control count_from_file on an unreadable file: error (expect error)
+  control count_bytes, control bytes in a file with ESC, ESC and SI: 3 (expect 3)
+  control count_bytes, non-ASCII bytes in a file with one two-byte character: 2 (expect 2)
+  control count_bytes on a clean file: 0 (expect 0)
+  control count_bytes on an unreadable file: error (expect error)
+  control count_lines on a three-line file: 3 (expect 3)
+  control count_lines on an unreadable file: error (expect error)
+  control count_matches_i on mixed case: 2 (expect 2)
+  control count_matches on the same file, case sensitive: 1 (expect 1)
+  control count_matches_i on an unreadable file: error (expect error)
+  control run_lines on a command printing three lines: 3 (expect 3)
+  control run_lines on a command printing nothing: 0 (expect 0)
+  control run_lines on a FAILING command: error (expect error)
+  control run_lines on a command that cannot run: error (expect error)
+  control run_matches on a command printing one match: 1 (expect 1)
+  control run_matches on a FAILING command: error (expect error)
+  counting controls: all as expected
+
+## the negative: the proposer and corpus-add.py refuse (change PI6)
+root: <work>/negcorpus is the negative's scratch corpus, mode 700, made here; EMEND_CORPUS_DIR names it for corpus-add.py; <work>/neg holds the fictional files
+command: python3 -I -B <repo>/scripts/corpus-tags.py <work>/neg/notzip.xlsx (a text file)
+  exit 1; stdout: ; stderr: refused: not a zip-based workbook
+  the proposer refuses a file that is not a zip: exit 1, nothing on stdout, one line "refused: not a zip-based workbook": yes
+command: python3 -I -B <repo>/scripts/corpus-tags.py <work>/neg/fictional.xlsx (a fictional workbook; the control)
+  exit 0; stdout: xlsx 634 unknown plain; stderr: 
+  control: the proposer accepts the fictional workbook: exit 0, one line, xlsx, its bytes, unknown, plain: yes
+  control: the refusal check refuses the accepted run: yes
+command: python3 -I -B <repo>/scripts/corpus-add.py <work>/neg/fictional.xlsx unknown 0 maintainer plain,nosuchtag
+  exit 1; stdout: ; stderr: refused: unknown, empty or repeated tag
+  corpus-add.py refuses an unknown tag: exit 1, one line "refused: unknown, empty or repeated tag": yes
+  nothing was added to the scratch corpus: yes
+command: python3 -I -B <repo>/scripts/corpus-add.py <work>/neg/fictional.xlsx unknown 0 nosuchsource plain
+  exit 1; stdout: ; stderr: refused: unknown source
+  corpus-add.py refuses an unknown source: exit 1, one line "refused: unknown source": yes
+  nothing was added to the scratch corpus: yes
+command: python3 -I -B <repo>/scripts/corpus-add.py <work>/neg/fictional.xlsx unknown 0 maintainer plain (the control)
+  exit 0; stdout: added 700dacad66c8 xlsx 634 unknown plain; stderr: 
+  control: corpus-add.py accepts the same file with a known tag and source: one added line, one manifest row: yes
+  control: the empty-corpus check refuses the scratch corpus now: yes
+
+## the FINDING lines of this log (specs/0043 ruling R)
+  FINDING lines printed above: 0 (each begins with the word FINDING; none is fixed)
+
+## status after the run
+command: git status --porcelain
+     M specs/0046-corpus-maintainer-items.md
+  the spec specs/0046-corpus-maintainer-items.md, sha256 b34d6f0b2c69d2aa5e5fd03463dd6c267f0774068050b0ae93b9edb1773e7180; ROADMAP.md, sha256 5f8fbfea39389f9a2d1ce20c0947f29552b68cb76205a5cbf4a05d4b015ce204
+status lines: 1; of them this phase's logs, a coverage record or planning's spec and ROADMAP.md: 1
+  every change in the working tree is this phase's or planning's spec and ROADMAP.md: yes
+
+## this script's own standard error (specs/0017 P1 verification ruling 7)
+  command: wc -c <scripts>/out/intake.stderr: 0 bytes; a copy with one byte appended: 1
+  this script wrote nothing to its standard error: yes
+  control: the same count reads one byte more in the copy: yes
+run ended at 2026-11-05T14:32:27Z
+negative log checks all as expected: yes
