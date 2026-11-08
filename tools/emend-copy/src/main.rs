@@ -271,13 +271,18 @@
 //!   `first` (1 when the output's first sheet is the added part), `cells` (the
 //!   added part's cell count), `names` (the `definedName` elements, counted
 //!   before and after and asserted equal), `active_before` and `active_after`
-//!   (the first `workbookView`'s `activeTab`, absent read as 0). COUNTS ONLY:
-//!   the name is this tool's own and no sheet name of the workbook is
-//!   printed. `sheets_after` one more, `first` 1, `cells` 1, the names equal
-//!   and `active_after` one more are asserted; a failure is exit 2 with the
-//!   message and no output. The two counts are read by this tool's own pass
-//!   over the workbook part's tokens (`emend::xml::Stream`, quick-xml
-//!   underneath), not by a crate call (P3 ruling 7).
+//!   (the first `workbookView`'s `activeTab`, absent read as 0), and
+//!   `views_before` and `views_after` (1 when the workbook part holds a
+//!   `bookViews` element, else 0). COUNTS ONLY: the name is this tool's own
+//!   and no sheet name of the workbook is printed. `sheets_after` one more,
+//!   `first` 1, `cells` 1 and the names equal are asserted, and the active
+//!   tab as the input's views imply (`specs/0047-harness-findings.md`,
+//!   decision 3 A): with a `bookViews` in the input, `active_after` one
+//!   more; without one, none in the output and `active_after` 0, since the
+//!   core creates no view. A failure is exit 2 with the message and no
+//!   output. The counts are read by this tool's own pass over the workbook
+//!   part's tokens (`emend::xml::Stream`, quick-xml underneath), not by a
+//!   crate call (P3 ruling 7).
 //!
 //! - `--remove-sample`: the removal sample of
 //!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The last sheet
@@ -3766,7 +3771,7 @@ fn sheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let file = File::open(input).map_err(|e| Error::ReadInput(e.kind()))?;
     let mut package = Package::open(BufReader::new(file))?;
     let before = package.sheets()?;
-    let (names_before, active_before, _) = workbook_counts(&mut package, None)?;
+    let (names_before, active_before, _, views_before) = workbook_counts(&mut package, None)?;
     let folded = |name: &str| {
         name.chars()
             .flat_map(char::to_lowercase)
@@ -3794,11 +3799,12 @@ fn sheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
         before.len() as u64,
         names_before,
         active_before,
+        views_before,
     );
     if checked.is_err() {
         discard_output(output);
     }
-    let (sheets_after, cells, names_after, active_after) = checked?;
+    let (sheets_after, cells, names_after, active_after, views_after) = checked?;
     edit_line_named(
         "sheet",
         &[
@@ -3809,20 +3815,27 @@ fn sheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
             ("names", names_after),
             ("active_before", active_before),
             ("active_after", active_after),
+            ("views_before", views_before),
+            ("views_after", views_after),
         ],
     )
 }
 
 /// Reopens the sheet sample's output and asserts what the edits imply: one
 /// sheet more, the added part first, one cell in it, the same number of
-/// defined names, and the first view's active tab one more.
+/// defined names, and the active tab as the input's views imply. With a
+/// `bookViews` in the input (`views_before` 1) the first view's active tab is
+/// one more; without one the output holds none and reads 0, since the core
+/// remaps a present view and creates none (`specs/0047-harness-findings.md`,
+/// decision 3 A).
 fn sheet_read_back(
     output: &Path,
     part: &[u8],
     sheets_before: u64,
     names_before: u64,
     active_before: u64,
-) -> Result<(u64, u64, u64, u64), Error> {
+    views_before: u64,
+) -> Result<(u64, u64, u64, u64, u64), Error> {
     let file = File::open(output).map_err(|e| Error::ReadOutput(e.kind()))?;
     let mut written = Package::open(BufReader::new(file))?;
     let sheets = written.workbook()?.sheets.clone();
@@ -3841,14 +3854,19 @@ fn sheet_read_back(
     if cells != 1 {
         return Err(Error::SheetSample("added sheet's cell count"));
     }
-    let (names_after, active_after, _) = workbook_counts(&mut written, None)?;
+    let (names_after, active_after, _, views_after) = workbook_counts(&mut written, None)?;
     if names_after != names_before {
         return Err(Error::SheetSample("defined name count"));
     }
-    if active_after != active_before + 1 {
+    let active_ok = if views_before == 1 {
+        active_after == active_before + 1
+    } else {
+        views_after == 0 && active_after == 0
+    };
+    if !active_ok {
         return Err(Error::SheetSample("active tab"));
     }
-    Ok((sheets_after, cells, names_after, active_after))
+    Ok((sheets_after, cells, names_after, active_after, views_after))
 }
 
 /// The removal sample (`specs/0016-new-workbook-and-sheets.md`, "Harness
@@ -3861,7 +3879,8 @@ fn remove_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let last = sheets_before.checked_sub(1).ok_or(Error::NoWorksheet)?;
     let chain_before = u64::from(package.workbook()?.calc_chain.is_some());
     let entries_before = package.archive().entries().len() as u64;
-    let (names_before, active_before, local_removed) = workbook_counts(&mut package, Some(last))?;
+    let (names_before, active_before, local_removed, _) =
+        workbook_counts(&mut package, Some(last))?;
     let removed = match package.remove_sheet(&before[last as usize].name) {
         Ok(()) => 1u64,
         Err(LayerError::Package(
@@ -3937,7 +3956,7 @@ fn remove_read_back(
     let workbook = written.workbook()?;
     let sheets = workbook.sheets.clone();
     let chain_after = u64::from(workbook.calc_chain.is_some());
-    let (names_after, active_after, _) = workbook_counts(&mut written, None)?;
+    let (names_after, active_after, _, _) = workbook_counts(&mut written, None)?;
     let first_visible = sheets
         .iter()
         .position(|sheet| {
@@ -3966,14 +3985,15 @@ fn remove_read_back(
 
 /// This tool's own pass over the workbook part's tokens: the `definedName`
 /// elements that are children of the root's `definedNames`, the first
-/// `workbookView`'s `activeTab` (absent read as 0), and the `definedName`
-/// elements whose `localSheetId` is `scope`. Tags are read from each token's
-/// bytes by local name, so the pass shares no reader with the layer's
-/// rewrite (P3 ruling 7).
+/// `workbookView`'s `activeTab` (absent read as 0), the `definedName`
+/// elements whose `localSheetId` is `scope`, and whether the root holds a
+/// `bookViews` child (1 or 0). Tags are read from each token's bytes by local
+/// name, so the pass shares no reader with the layer's rewrite (P3 ruling
+/// 7).
 fn workbook_counts<R: io::Read + io::Seek>(
     package: &mut Package<R>,
     scope: Option<u64>,
-) -> Result<(u64, u64, u64), Error> {
+) -> Result<(u64, u64, u64, u64), Error> {
     let part = package.workbook()?.part.clone();
     let index = package.part(&part).ok_or(Error::NoSuchName)?;
     let mut stream = Stream::new(package.read_part(index)?, index)?;
@@ -3982,6 +4002,7 @@ fn workbook_counts<R: io::Read + io::Seek>(
     let mut names = 0u64;
     let mut scoped = 0u64;
     let mut active: Option<u64> = None;
+    let mut views = 0u64;
     while let Some(token) = stream.next()? {
         let raw = token.raw;
         if raw.starts_with(b"</") {
@@ -3998,6 +4019,9 @@ fn workbook_counts<R: io::Read + io::Seek>(
         let local = tag_local_name(raw);
         if depth == 2 {
             region = local.to_vec();
+            if local == b"bookViews" {
+                views = 1;
+            }
         } else if depth == 3 && region == b"definedNames" && local == b"definedName" {
             names += 1;
             if scope.is_some() && tag_number(raw, b"localSheetId") == scope {
@@ -4017,7 +4041,7 @@ fn workbook_counts<R: io::Read + io::Seek>(
             }
         }
     }
-    Ok((names, active.unwrap_or(0), scoped))
+    Ok((names, active.unwrap_or(0), scoped, views))
 }
 
 /// A start tag's element name after any prefix.
@@ -12840,4 +12864,44 @@ fn temporary_path(output: &Path, kind: &str) -> Result<PathBuf, Error> {
     temporary.push(name);
     temporary.push(format!(".emend-copy{kind}-{}.tmp", process::id()));
     Ok(output.with_file_name(temporary))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The sheet sample's read-back over an output that holds a view: the
+    /// new workbook's, which its template writes with `activeTab="0"`, a
+    /// sheet added, given one cell and moved first. Read as the output of an
+    /// input without a `bookViews` (`views_before` 0) it must fail on
+    /// "active tab", since the core never creates a view
+    /// (`specs/0047-harness-findings.md`, decision 3 A, the negative case of
+    /// "The fixes (P2)"); the binary cannot write such an output, so the
+    /// read-back is called here. Read as the output of an input with one, the
+    /// same file passes, the tab moved by one, as the control.
+    #[test]
+    fn a_view_in_the_output_of_an_input_without_one_fails_on_active_tab() {
+        let dir = env::temp_dir().join(format!("emend-copy-unit-views-{}", process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create the temporary directory");
+        let output = dir.join("out.xlsx");
+        let mut package = Package::new().expect("a new workbook");
+        let part = package.add_sheet("emend").expect("add the sheet");
+        package.set_cell(&part, CellRef { row: 1, col: 1 }, Value::Number(7.0));
+        package
+            .move_sheet("emend", 0)
+            .expect("move the sheet first");
+        assert!(write_into(package, &output).is_ok(), "write the output");
+        let without = sheet_read_back(&output, &part, 1, 0, 0, 0);
+        let with = sheet_read_back(&output, &part, 1, 0, 0, 1);
+        let _ = fs::remove_dir_all(&dir);
+        assert!(
+            matches!(without, Err(Error::SheetSample("active tab"))),
+            "a view the input lacked fails on active tab"
+        );
+        assert!(
+            matches!(with, Ok((2, 1, 0, 1, 1))),
+            "control: with a view in the input the same output passes"
+        );
+    }
 }

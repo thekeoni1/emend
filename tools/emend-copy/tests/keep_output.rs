@@ -3,9 +3,12 @@
 //! when the variable is `1`, and the error line ends `(output kept)`.
 //!
 //! The fixture is a fictional workbook built here, byte by byte, with one
-//! sheet and no `<bookViews>`: the sheet sample adds a sheet, moves it first
-//! and asserts the first view's active tab moved by one, which a workbook
-//! with no view cannot show, so its read-back fails on "active tab". The
+//! sheet and an empty `<bookViews>`: the sheet sample adds a sheet, moves it
+//! first and, the input holding a `bookViews`, asserts the first view's
+//! active tab moved by one, which a `bookViews` with no view cannot show, so
+//! its read-back fails on "active tab". (Until
+//! `specs/0047-harness-findings.md` decision 3 A the fixture held no
+//! `<bookViews>` at all, which the read-back now accepts.) The
 //! zip builder follows `tests/null_rewrite.rs`, copied rather than shared,
 //! as that file's own is. The variable is set on the child's command only,
 //! never on this process.
@@ -164,8 +167,8 @@ const WORKBOOK_TYPE: &str =
 const SHEET_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 
-/// One sheet with one cell and no `<bookViews>` in the workbook part.
-fn no_views_workbook() -> Vec<u8> {
+/// One sheet with one cell and an empty `<bookViews>` in the workbook part.
+fn empty_views_workbook() -> Vec<u8> {
     build(&[
         (
             "[Content_Types].xml",
@@ -191,6 +194,7 @@ fn no_views_workbook() -> Vec<u8> {
             "xl/workbook.xml",
             format!(
                 "<workbook xmlns=\"{MAIN_NS}\" xmlns:r=\"{ATTR_NS}\">\
+                 <bookViews/>\
                  <sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>\
                  </workbook>"
             ),
@@ -217,7 +221,7 @@ fn no_views_workbook() -> Vec<u8> {
 fn fixture(label: &str) -> (TempDir, PathBuf, PathBuf) {
     let dir = TempDir::new(label);
     let input = dir.path("in.xlsx");
-    fs::write(&input, no_views_workbook()).expect("write the fixture");
+    fs::write(&input, empty_views_workbook()).expect("write the fixture");
     let output = dir.path("out.xlsx");
     (dir, input, output)
 }

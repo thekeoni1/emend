@@ -2970,7 +2970,7 @@ fn the_sheet_sample_adds_a_first_sheet_and_moves_the_active_tab() {
     assert_eq!(
         ran.stdout,
         "sheet\tsheets_before=1\tsheets_after=2\tfirst=1\tcells=1\tnames=0\tactive_before=0\
-         \tactive_after=1\n",
+         \tactive_after=1\tviews_before=1\tviews_after=1\n",
         "the first run's line"
     );
     let twice = dir.path("twice.xlsx");
@@ -2979,7 +2979,7 @@ fn the_sheet_sample_adds_a_first_sheet_and_moves_the_active_tab() {
     assert_eq!(
         ran.stdout,
         "sheet\tsheets_before=2\tsheets_after=3\tfirst=1\tcells=1\tnames=0\tactive_before=1\
-         \tactive_after=2\n",
+         \tactive_after=2\tviews_before=1\tviews_after=1\n",
         "the second run's line"
     );
     assert_eq!(
