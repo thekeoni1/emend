@@ -1140,6 +1140,13 @@
 //! Exit 0 on success, 2 on any error, with the message on stderr as
 //! `error: ...`, matching `xlsx-diff` and `passthrough`. Messages name at
 //! most an entry index: never a path, never an entry's content.
+//!
+//! A sample whose output is in place and then fails its read-back removes
+//! the output, as every refusal leaves none. With `EMEND_COPY_KEEP_OUTPUT`
+//! set to `1` in the environment it leaves the output in place instead, so
+//! the harness can read what was written, and the error line ends
+//! `(output kept)` (`specs/0047-harness-findings.md`, "The diagnosis record
+//! (P1)"). Any other value, or none, removes it as before.
 
 use std::env;
 use std::ffi::OsString;
@@ -1149,6 +1156,7 @@ use std::io::{self, BufReader, BufWriter, Seek, SeekFrom, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::{self, ExitCode};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use emend::archive::{Archive, Edits, Error as LayerError, replacement_from_reader};
 use emend::cells::{Area, CellKind, CellRef, FormulaKind, RichText, Run, Value};
@@ -1356,6 +1364,24 @@ enum Operation {
 
 /// Exit status for every error, as in `xlsx-diff` and `passthrough`.
 const EXIT_ERROR: u8 = 2;
+
+/// The environment variable that keeps a failed read-back's output when set
+/// to `1` (the module documentation).
+const KEEP_OUTPUT_VARIABLE: &str = "EMEND_COPY_KEEP_OUTPUT";
+
+/// Set when a failed read-back left its output in place, so the error line
+/// says so.
+static OUTPUT_KEPT: AtomicBool = AtomicBool::new(false);
+
+/// Removes an output that failed its read-back, or leaves it in place and
+/// notes it when `EMEND_COPY_KEEP_OUTPUT` is `1`.
+fn discard_output(output: &Path) {
+    if env::var_os(KEEP_OUTPUT_VARIABLE).is_some_and(|value| value == "1") {
+        OUTPUT_KEPT.store(true, Ordering::Relaxed);
+    } else {
+        let _ = fs::remove_file(output);
+    }
+}
 
 /// Everything that stops a copy.
 enum Error {
@@ -1881,7 +1907,12 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            let _ = writeln!(io::stderr().lock(), "error: {err}");
+            let kept = if OUTPUT_KEPT.load(Ordering::Relaxed) {
+                " (output kept)"
+            } else {
+                ""
+            };
+            let _ = writeln!(io::stderr().lock(), "error: {err}{kept}");
             ExitCode::from(EXIT_ERROR)
         }
     }
@@ -2435,7 +2466,7 @@ fn edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // other refusal of the tool leaves no output (P2 verification ruling 3).
     let checked = read_back(output, &part, before.first, text, boolean, expected);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (cells_after, read_back) = checked?;
     edit_line(&[
@@ -2558,7 +2589,7 @@ fn edit_formula_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // `edit_sample`.
     let checked = formula_read_back(output, found);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (chain_after, cells_after, read_back) = checked?;
     edit_line(&[
@@ -2711,7 +2742,7 @@ fn formula_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let expected = (before.cells + added, added + replaced);
     let checked = formula_sample_read_back(output, &part, &written, expected);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (chain_after, full_calc_after, cells_after, read_back) = checked?;
     print_line(&format!(
@@ -2844,7 +2875,7 @@ fn style_sample(input: &Path, output: &Path) -> Result<(), Error> {
         (xfs_before + 2, before.cells + 1),
     );
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (xfs_after, formats_after, cells_after, read_back) = checked?;
     edit_line(&[
@@ -3018,25 +3049,25 @@ fn gradient_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = gradient_read_back(output, &part, &gradients, &added);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (xfs_after, fills_after, cells_after, read_back) = checked?;
     if xfs_after != xfs_before + 2 {
-        let _ = fs::remove_file(output);
+        discard_output(output);
         return Err(Error::XfsAfter {
             expected: xfs_before + 2,
             found: xfs_after,
         });
     }
     if cells_after != before.cells + 2 {
-        let _ = fs::remove_file(output);
+        discard_output(output);
         return Err(Error::CellsAfter {
             expected: before.cells + 2,
             found: cells_after,
         });
     }
     if read_back != 2 {
-        let _ = fs::remove_file(output);
+        discard_output(output);
         return Err(Error::ReadBack {
             expected: 2,
             found: read_back,
@@ -3130,25 +3161,25 @@ fn namedstyle_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = namedstyle_read_back(output, &part, &set, k, [coded, based]);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let read = checked?;
     if read.xfs_after != xfs_before + 2 {
-        let _ = fs::remove_file(output);
+        discard_output(output);
         return Err(Error::XfsAfter {
             expected: xfs_before + 2,
             found: read.xfs_after,
         });
     }
     if read.cells_after != before.cells + 2 {
-        let _ = fs::remove_file(output);
+        discard_output(output);
         return Err(Error::CellsAfter {
             expected: before.cells + 2,
             found: read.cells_after,
         });
     }
     if read.read_back != 3 {
-        let _ = fs::remove_file(output);
+        discard_output(output);
         return Err(Error::ReadBack {
             expected: 3,
             found: read.read_back,
@@ -3352,7 +3383,7 @@ fn font_sample(input: &Path, output: &Path) -> Result<(), Error> {
         (xfs_before + 2, before.cells + 1),
     );
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let after = checked?;
     let added = |after: Option<u32>, before: Option<u32>| {
@@ -3555,7 +3586,7 @@ fn border_sample(input: &Path, output: &Path) -> Result<(), Error> {
         (xfs_before + 2, before.cells + 1),
     );
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let after = checked?;
     let added = u64::from(
@@ -3765,7 +3796,7 @@ fn sheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
         active_before,
     );
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (sheets_after, cells, names_after, active_after) = checked?;
     edit_line_named(
@@ -3842,7 +3873,7 @@ fn remove_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = remove_read_back(input, output, removed, last, active_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (sheets_after, entries_after, chain_after, names_after, active_after) = checked?;
     let parts = entries_before.saturating_sub(entries_after);
@@ -3860,7 +3891,7 @@ fn remove_sample(input: &Path, output: &Path) -> Result<(), Error> {
         None
     };
     if let Some(what) = failure {
-        let _ = fs::remove_file(output);
+        discard_output(output);
         return Err(Error::RemoveSample(what));
     }
     edit_line_named(
@@ -4076,7 +4107,7 @@ fn format_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = format_read_back(output, &part, before.cells, &counts);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (cells_after, after) = checked?;
     edit_line_named(
@@ -4133,7 +4164,7 @@ fn shift_sample(input: &Path, output: &Path, insert: bool, columns: bool) -> Res
     // The output is in place: a failure from here on removes it.
     let checked = shift_read_back(output, &part, at, count, insert, columns, &before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, chain_after, full_calc) = checked?;
     if columns {
@@ -4551,7 +4582,7 @@ fn names_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = names_read_back(output, at, &sheet, names_before, local_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (names_after, local_after, chain_after, full_calc, names_removed) = checked?;
     edit_line_named(
@@ -4602,7 +4633,7 @@ fn link_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = link_read_back(output, &part, before.cells, links_before, external_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (cells_after, links_after, external_after) = checked?;
     edit_line_named(
@@ -4779,7 +4810,7 @@ fn validate_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = validate_read_back(output, &part, &listed, dv_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (dv_after, count_after, dv_removed) = checked?;
     edit_line_named(
@@ -4963,7 +4994,7 @@ fn cf_sample(input: &Path, output: &Path) -> Result<(), Error> {
         (cf_before, dxfs_before, priority_max_before),
     );
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (cf_after, dxfs_after, priority_first_after, cf_removed) = checked?;
     edit_line_named(
@@ -5144,7 +5175,7 @@ fn scale_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = scale_read_back(output, &part, cf_before, visual_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (cf_after, visual_after) = checked?;
     edit_line_named(
@@ -5228,7 +5259,7 @@ fn table_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = table_read_back(output, &part, &before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, id_after, removed) = checked?;
     edit_line_named(
@@ -5370,7 +5401,7 @@ fn comment_sample(input: &Path, output: &Path) -> Result<(), Error> {
     };
     let checked = comment_read_back(output, &part, cell, &before, parts_more);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, removed) = checked?;
     edit_line_named(
@@ -5443,7 +5474,7 @@ fn commentbox_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = commentbox_read_back(output, &part, cell, comments_before, shapes_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (comments_after, shapes_after, box_equal, visible_after) = checked?;
     edit_line_named(
@@ -5570,7 +5601,7 @@ fn copy_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = copy_read_back(output, &before, sheets_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (sheets_after, after, chain_after) = checked?;
     edit_line_named(
@@ -5687,7 +5718,7 @@ fn image_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = image_read_back(output, &part, &before, sampled.max_row);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, from) = checked?;
     let mut line = String::from("image");
@@ -5751,7 +5782,7 @@ fn richtext_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = richtext_read_back(output, &part, cell, sst_before, inline_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (sst_after, inline_after, runs_after, text_after, bold_first) = checked?;
     edit_line_named(
@@ -5889,7 +5920,7 @@ fn richcomment_sample(input: &Path, output: &Path) -> Result<(), Error> {
     };
     let checked = richcomment_read_back(output, &part, cell, &before, parts_more, rich_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, rich_after, runs_after, text_after) = checked?;
     edit_line_named(
@@ -6118,7 +6149,7 @@ fn anchor_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = anchor_read_back(output, &part, &before, kinds_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, (two_after, absolute_after)) = checked?;
     edit_line_named(
@@ -6243,7 +6274,7 @@ fn remove_image_sample(input: &Path, output: &Path) -> Result<(), Error> {
         drawing_before,
     );
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, media_dropped, drawing_dropped) = checked?;
     edit_line_named(
@@ -6772,7 +6803,7 @@ fn sheetview_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = sheetview_read_back(output, &part, &before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, kept) = checked?;
     edit_line_named(
@@ -6904,7 +6935,7 @@ fn printarea_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = printarea_read_back(output, &part, at, &sheet.name, last.row, names_before, had);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (names_after, autofilter_after) = checked?;
     edit_line_named(
@@ -7162,7 +7193,7 @@ fn pagesetup_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = pagesetup_read_back(output, &part, &before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, kept) = checked?;
     let mut pairs: Vec<(String, u64)> = Vec::new();
@@ -7436,7 +7467,7 @@ fn group_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = group_read_back(output, &part, &before, window);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, level_cols, kept) = checked?;
     edit_line_named(
@@ -7561,7 +7592,7 @@ fn linestyle_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = linestyle_read_back(output, &part, &before, row, style, xfs_before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, split, kept, xfs_after) = checked?;
     edit_line_named(
@@ -7632,7 +7663,7 @@ fn roundtrip_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = roundtrip_read_back(output, &read, &added, before);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, equal) = checked?;
     edit_line_named(
@@ -7826,7 +7857,7 @@ fn namedstyles_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = namedstyles_read_back(output, &read, &writable);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let equal = checked?;
     let mut line = String::from("namedstyles");
@@ -8552,7 +8583,7 @@ fn add_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = add_chart_read_back(output, &part, &before, &chart, anchor);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, equal) = checked?;
     edit_line_named(
@@ -8802,7 +8833,7 @@ fn chartsheet_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chartsheet_read_back(output, &added, sheets_before, kept_before, &chart);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (charts, series, sheets_after) = checked?;
     edit_line_named(
@@ -8988,7 +9019,7 @@ fn chart_kinds_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_kinds_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, read_back) = checked?;
     edit_line_named(
@@ -9113,7 +9144,7 @@ fn chart_more_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_more_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, read_back) = checked?;
     edit_line_named(
@@ -9300,7 +9331,7 @@ fn chart_3d_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_3d_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, read_back) = checked?;
     edit_line_named(
@@ -9503,7 +9534,7 @@ fn chart_surface_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_surface_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, kinds, series, read_back) = checked?;
     edit_line_named(
@@ -9735,7 +9766,7 @@ fn chart_format_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_format_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, series, markers, read_back) = checked?;
     edit_line_named(
@@ -9977,7 +10008,7 @@ fn chart_trend_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_trend_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, series, read_back) = checked?;
     edit_line_named(
@@ -10200,7 +10231,7 @@ fn chart_axis_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_axis_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, counts) = checked?;
     edit_line_named(
@@ -10429,7 +10460,7 @@ fn chart_text_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_text_read_back(output, &part, &before, &charts);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, series, texts, styles, read_back) = checked?;
     edit_line_named(
@@ -10639,7 +10670,7 @@ fn chart_edit_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_edit_read_back(output, &part, &before, &first, kept, (&c_name, &b, &c));
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (charts, series, read_back) = checked?;
     edit_line_named(
@@ -10873,7 +10904,7 @@ fn chart_labels_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = chart_labels_read_back(output, &part, &before, &calls);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, read_back) = checked?;
     edit_line_named(
@@ -11120,7 +11151,7 @@ fn remove_chart_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = remove_chart_read_back(input, output, &part, &before, kept_removed);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (after, parts_dropped, drawing_dropped) = checked?;
     edit_line_named(
@@ -11869,7 +11900,7 @@ fn props_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = props_read_back(output);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (read_back, props_after) = checked?;
     edit_line_named(
@@ -11928,7 +11959,7 @@ fn protect_sample(input: &Path, output: &Path) -> Result<(), Error> {
     // The output is in place: a failure from here on removes it.
     let checked = protect_read_back(output, &part, &book);
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (sheet_after, book_after) = checked?;
     let mut line = String::from("protect");
@@ -12120,7 +12151,7 @@ fn date_sample(input: &Path, output: &Path) -> Result<(), Error> {
         (xfs_before + 1, before.cells + 1),
     );
     if checked.is_err() {
-        let _ = fs::remove_file(output);
+        discard_output(output);
     }
     let (xfs_after, cells_after, read_back) = checked?;
     let mut line = format!(
