@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The README's size sentence cites the figure at the tag, 451512 section bytes
+  (`records/size-m7p2-2026-10-28-43471ed.md`); the 0.1.0 entry below cited
+  Milestone 3 part 7's 436992 and stands as released.
+
 ## 0.1.0 (2026-10-29)
 
 ### Added
