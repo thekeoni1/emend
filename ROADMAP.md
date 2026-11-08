@@ -1331,6 +1331,98 @@ carries part 2's four local commits (8f742d0, 27da228, 472d361,
 | P2 | the passthrough and the 58 samples over the grown corpus at the phase commit, `--label host`, every output opened; the records `m7p3-<name>-<utc-date>-<shortsha>`; the comparison with the latest committed records on the 27 earlier ids; the findings README; one independent check | DONE 2026-11-05 (phase commit d7a8196, record 44df7e6; 59 runs over the 39 files, the passthrough and 58 samples, every output opened; the 27 earlier ids unchanged in all 59 comparisons; 71 FINDING lines on 7 of the 12 new ids in five groups, recorded not fixed: the open check's sheet count on one external-link workbook, failing on the input itself (59), the sheet sample's active-tab check on the five Sheets exports (5), two formula-cut refusals, four threaded-comment refusals on one Sheets export, one LibreOffice failure after the remove sample on a pivots, slicers and timelines workbook; check 1 yes with exceptions on all three, disposed in the README; the scan PASS; `specs/0046` rulings M to P; no push) |
 | Close | close-out push after P2, carrying part 2's four local commits and this part's, base cf727f7 by its subject, `PREV` `^M7 part 2 close-out record`, both Excel-record checks in pre mode unchanged, the branch alone (no tag), the range scan, one independent check | DONE 2026-11-07 (doc commit 4316630 pushed, the branch alone, no tag, origin/main cf727f7..4316630, 10 commits, 2782 blobs, 0 findings, on "push 11/7/2026" typed in the implementing session after planning's word (ruling R); CI run 42431758270 success; the post scan PASS over the range; record ed918a1 local, goes with the next push; check 1 yes, yes, yes with exceptions, disposed in the report; change 73 not carried, ruling Q; verified by planning from git, `gh` and the three logs; `specs/0046` "Planning verification of the close-out", Q to S; part 3 PUSHED, Milestone 7 DONE and PUSHED) |
 
+## Milestone 8: corpus findings and the core ceiling (APPROVED 2026-11-07)
+
+Theme chosen by the maintainer 2026-11-07 after Milestone 7 part 3's
+close-out, from planning's recommendation ("great, lets go"): the
+five finding groups part 3's P2 recorded and did not fix
+(`records/logs/m7p3-p2/README.md`, "The findings"; `specs/0046`,
+"Planning verification of P2") are diagnosed and fixed, and the
+Milestone 2 ceiling question Milestone 7 deferred (decision 2) is
+answered as this milestone's first decision. The primaries at
+approval: the budget figure 451512 section bytes at Milestone 7 part
+2's record (`records/size-m7p2-2026-10-28-43471ed.md`, the format
+probe 984728 over `probe-zip-xml` 533216), 7240 under the ceiling of
+458752; the README citing 451528 (Milestone 6 part 6's record) and
+the CHANGELOG 436992 (Milestone 3 part 7's). Of the five groups,
+three are harness-side: groups 1 and 5 fail the open check's
+sheet-count rule (`scripts/lo-check.sh`, `<sheet` elements of the
+workbook against `<table:table` elements of LibreOffice's
+conversion), the external-link workbook on its own input in all 59
+runs and the pivots, slicers and timelines workbook after its last
+sheet's removal; group 2 is emend-copy's sheet-sample assertion that
+the first view's active tab moves by one, failing on every Google
+Sheets export with the input opening. Two are the core's documented
+refusals: group 3 "an insertion or deletion cuts a shared, array or
+data table formula" (the `rowcol` feature) and group 4 "a worksheet
+has threaded comments" (the `comments` feature, `specs/0022`
+decision 3). Decisions taken 2026-11-07 by the maintainer's "great,
+lets go" on planning's recommended options:
+
+- Decision 1 (the ceiling): A, 458752 is kept. This milestone's
+  core changes sit behind `rowcol` and `comments`, so the budget
+  probe does not move; the question is reopened only when a change
+  to code the core links needs it, as that spec's first decision.
+- Decision 2 (shared formula cut): A, a shared formula group the
+  cut touches is unshared, each cell given its own formula, before
+  the shift; array and data-table formulas stay refused.
+- Decision 3 (threaded comments): A, a new note on a cell without a
+  threaded comment is written to the legacy comments part beside
+  the threaded one; an edit on a cell that has a threaded comment
+  stays refused; the Excel check proves it.
+- Decision 4 (release): A, 0.1.1 is published after the Excel
+  check, as Milestone 7 part 2 published 0.1.0.
+
+Three parts, each with its own spec before it starts, scoped into
+phases as before; the first doc commit goes with Milestone 7 part
+3's local commits ed918a1 and 06b96e5:
+
+1. Part 1, harness and docs, no core code: a diagnosis record per
+   harness-side group, read from part 3's run directories and the
+   conversions; the sheet-count rule and the sheet-sample assertion
+   fixed as the diagnoses warrant, each fix named; the size
+   sentences of the README and the CHANGELOG corrected to the latest
+   record's figure; the affected runs rerun over the 39 files with
+   every output opened.
+2. Part 2, the two refusals behind their features: decisions 2 and
+   3 implemented with samples and tests; the size record against
+   decision 1's ceiling and the feature bands; the 59 runs rerun
+   over the grown corpus with every output opened; findings recorded
+   and fixed in the part, or carried with a reason.
+3. Part 3, the Excel check and the release: the check over this
+   milestone's changed samples, carried by the maintainer to the
+   machine with Excel as in Milestone 7 part 1, gating nothing; the
+   CHANGELOG's 0.1.1 entry; the publish as Milestone 7 part 2's, the
+   maintainer publishing from a clean clone of the pushed tag on a
+   machine of their own, no registry token in any session; the
+   publication verified against the tag.
+
+### Part 1: the harness-side findings and the docs (`specs/0047-harness-findings.md`, DRAFTED 2026-11-07; decisions 1 to 4 pending, P1 needs none)
+
+The three finding groups that are the harness's, not the core's:
+LibreOffice's conversion of an external-link workbook holds a cache
+table the open check's sheet-count rule counts as a sheet (group 1,
+59 lines); the remove sample's output on a pivots workbook leaves a
+pivot cache sourcing the removed sheet, for which LibreOffice adds a
+hidden table of its own (group 5, 1 line; emend's, decision 2);
+emend-copy's sheet sample asserts the active tab moved by one on
+inputs with no `<bookViews>` (group 2, 5 lines). First a diagnosis
+record from part 3 P2's run directories by a read-only script
+printing counts and booleans, never a name; then the fixes as the
+decisions rule, the README's size sentence corrected to 451512
+(`records/size-m7p2-2026-10-28-43471ed.md`) with the CHANGELOG's
+correction, and the 59 runs rerun over the 39 workbooks, each
+compared per id with part 3 P2's record, the expected changes
+enumerated. No code the probes link changes; no size record. The
+close-out push carries Milestone 7 part 3's two local commits
+(ed918a1, 06b96e5).
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | `scripts/lo-tables.py` with its self-test; `emend-copy`'s `EMEND_COPY_KEEP_OUTPUT` with its test; the five sheet-sample rebuilds kept; the script over part 3 P2's directories; `records/diagnosis-m8p1-<utc-date>-<shortsha>.md`; one independent check | IN PROGRESS 2026-11-07 |
+| P2 | the count rule telling cache tables from sheets with tests (decision 1); the read-back reading the input's `<bookViews>` with its test (decision 3); the README and CHANGELOG sentences (decision 4); the passthrough and 58 samples over the 39 workbooks, compared per id with part 3 P2's records, the expected changes exactly; the records `m8p1-<name>-<utc-date>-<shortsha>`; the README; one independent check | PLANNED |
+| Close | close-out push after P2, carrying ed918a1 and 06b96e5 and this part's, base 4316630 by its subject, `PREV` `^M7 part 3 close-out record`, both Excel-record checks in pre mode unchanged, the "Unreleased" heading above 0.1.0 and the 0.1.0 entry unchanged, the branch alone (no tag), the range scan, one independent check | PLANNED |
+
 ## Unscoped
 
 Listed so they are not lost. Scoping any of them needs the maintainer's
