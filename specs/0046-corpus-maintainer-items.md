@@ -916,6 +916,122 @@ M to P. P2 is DONE at 44df7e6. The close-out begins with its doc
 commit (this spec with rulings A to P and the two verifications;
 the ROADMAP's P2 row DONE, its Close row IN PROGRESS).
 
+## Planning rulings during the close-out (2026-11-05 to 2026-11-07)
+
+Q. The close-out doc commit 4316630 and the generators verified
+   (2026-11-05; given by message while the tree had to stay clean,
+   written here after the push as ruling AK of `specs/0045` was).
+   The doc commit: parent 44df7e6, the subject as the spec names
+   it, two files, this spec c5297b39 (961 lines) and the ROADMAP
+   889f9e87, the body the two GN lines and the Co-Authored-By line
+   only; the tree clean, 10 commits ahead of origin/main cf727f7.
+   The copies under `<phase>/carried` equal part 2's committed
+   logs' scripts and HEAD's scripts/counting.sh; gen.py c101ca33
+   writes the push script 1aa0600b, the ci script f44eadca and the
+   scan script 34cc5bbf; dry.sh 77f65aa6. Changes 74 to 78
+   accepted: 74 the names, base, tip and `PREV`; 75 the target
+   root with dry-run detection (`specs/0043` ruling Q); 76 the
+   CHANGELOG date read from part 2's first close-out doc commit in
+   the tip's history and the new check that the CHANGELOG is
+   unchanged in the range (dropping change 69 refused); 77 no tag,
+   the pre check "no tag points at the tip" with its control
+   counting v0.1.0 at the base; 78 push mode `git push origin
+   main` alone and git's output naming no tag. Change 73 (part 2's
+   "PASS privacy" exactly twice, ruling AL) is not carried: one
+   ref means the hook runs once and "PASS privacy" once is right;
+   ruling AL's sentence "part 3's close-out dry runs prove it" is
+   superseded and the proof falls to the next close-out that
+   pushes two refs. Dry run d2 clean: push.log 6a80f054 (136678
+   bytes) "pre checks all as expected: yes", 0 UNEXPECTED, tags 0
+   at the tip and 1 at the base, the CHANGELOG unchanged with its
+   heading dated 2026-10-29, privacy 10 commits, 2782 blobs, 0
+   findings; scan-pre.log 0e5abfc0 (156074 bytes) "structural
+   checks failed: 0", RESULT: PASS, 146 of 146 files; every
+   stderr 0 bytes; the word FINDING only in change 45's carried
+   text and the printed scripts' comments. The word for the logged
+   pre mode and the pre scan from the `<phase>/close` copies.
+
+R. The logged pre run verified (2026-11-05) and the word for the
+   push. push.log 7c8b6dba (136670 bytes): "pre checks all as
+   expected: yes", "The base recorded above is what push mode
+   compares against.", the base cf727f7, 0 UNEXPECTED, the one
+   ": no" the dry-run information line; the hook's pre-stage scan
+   "PASS privacy", 10 commits, 2782 blobs, 0 findings; tags 0 at
+   the tip, 1 at the base, the control yes; the CHANGELOG
+   unchanged in the range, heading "## 0.1.0 (2026-10-29)", the
+   date check yes; both Excel-record checks reading one file each,
+   unchanged. scan-pre.log 3bc499af (156074 bytes): "structural
+   checks failed: 0", RESULT: PASS, 146 of 146 files read.
+   run-pre.sh c1b3f946; the close copies cmp-equal to the scripts;
+   both stderr files 0 bytes; HEAD 4316630, origin/main cf727f7,
+   the tree clean, no tag at HEAD, no API key in either session's
+   environment. Planning's word for push mode from the close
+   copies, after the maintainer's typed authorisation in the
+   implementing session, then the CI script, the post scan over
+   cf727f7..4316630, the record commit with the three logs only
+   (the spec's words; ruling Q by message had said a README states
+   the change-73 note, which was wrong: the note goes in the record
+   commit's body and the report), one independent check and the
+   report under `<phase>`.
+
+S. The push, the CI run, the post scan and the record commit
+   verified (2026-11-07, the maintainer's local date; the UTC
+   times below fall on 2026-11-08). The maintainer typed "push
+   11/7/2026" in the implementing session, read at 00:50:55Z; push
+   mode ran at 00:51:10Z from the close copy 1aa0600b with
+   MAINTAINER_AUTH and MAINTAINER_AUTH_DATE set from those words.
+   git pushed cf727f7..4316630 main -> main, the branch alone, no
+   tag line; the hook ran once over that range, "PASS privacy", 10
+   commits, 2782 blobs, 0 findings; ls-remote main 4316630, the
+   only remote tag v0.1.0 still at cf727f7, the repository PUBLIC;
+   "push checks all as expected: yes". CI run 42431758270 on
+   4316630, main, push, conclusion success, every step success,
+   "ci-run log checks all as expected: yes". The post scan over the
+   range: 10 of 10 messages, 146 of 146 files read, total hits 0,
+   errors 0, structural checks failed 0, RESULT: PASS, ended
+   00:54:38Z. Every exit 0, every stderr file 0 bytes. The record
+   commit ed918a1: parent 4316630; three files under
+   records/logs/m7p3-close/, push.log 5e7e73d8 (141426 bytes, its
+   pre part byte-identical to 7c8b6dba), ci-run.log bea6f045
+   (50231 bytes) and scan.log 65fab23d (156766 bytes); no README;
+   the body in 8f742d0's form with the change-73 paragraph and the
+   three script hashes, ASCII, the Co-Authored-By line only; local,
+   goes with the next push. Its first form 5263e7f, never pushed,
+   called 472d361 a doc commit; the amendment to "part 2's P4
+   commits" is right and is the phase's one slip. FINDING emitted
+   0 (the word in push.log twice and scan.log once: change 45's
+   carried text and the printed scripts). The independent check
+   (check-answer.txt f6e158ad, extracted by script; the report
+   e52dd721) answers yes, yes, and yes with exceptions; the
+   exceptions are the receipt time, the driver's settings, the
+   exits and the outer stderr, session facts outside its
+   materials, each disposed in the report against its file under
+   `<phase>`. The close-out is DONE and PUSHED. This spec and the
+   ROADMAP (the Close row DONE, the part and milestone headings
+   DONE and PUSHED) go in the local doc commit "M7 part 3 close:
+   commit planning docs (the close-out verification and rulings)"
+   with the next push.
+
+## Planning verification of the close-out (2026-11-07)
+
+Read from the primaries, not the report: origin/main 4316630 by
+ls-remote, the only remote tag v0.1.0 still at cf727f7, the
+repository PUBLIC by `gh`, the tree clean, main one commit ahead;
+the pushed range cf727f7..4316630 of 10 commits (part 2's
+close-out record 8f742d0, its P4 commits 27da228, 472d361 and
+39e0c1b, and part 3's six); the hook's one run over it, 10
+commits, 2782 blobs, 0 findings, printed in push.log by the pre
+stage and again by the push. CI run 42431758270 success by `gh`
+and by ci-run.log. The post scan PASS over 146 files and 10
+messages. The record commit ed918a1 with the three logs only, the
+hashes and bytes of ruling S. Rulings Q and R were given by
+message on 2026-11-05 while the tree had to stay clean and are
+written here after the push, as ruling AK of `specs/0045` was.
+The five finding groups of P2 stay recorded, not fixed, for the
+next milestone's first spec. Part 3 and Milestone 7 are DONE and
+PUSHED; the record ed918a1 and the doc commit named in ruling S
+are local and go with the next push.
+
 ## Decisions for the maintainer
 
 Decided by the maintainer 2026-10-29: 1 to 4 as recommended (A in
