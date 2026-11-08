@@ -1397,7 +1397,7 @@ phases as before; the first doc commit goes with Milestone 7 part
    machine of their own, no registry token in any session; the
    publication verified against the tag.
 
-### Part 1: the harness-side findings and the docs (`specs/0047-harness-findings.md`, DRAFTED 2026-11-07; decisions 1 to 4 pending, P1 needs none)
+### Part 1: the harness-side findings and the docs (`specs/0047-harness-findings.md`, APPROVED 2026-11-08, decisions 1 to 4 A)
 
 The three finding groups that are the harness's, not the core's:
 LibreOffice's conversion of an external-link workbook holds a cache
@@ -1419,8 +1419,8 @@ close-out push carries Milestone 7 part 3's two local commits
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | `scripts/lo-tables.py` with its self-test; `emend-copy`'s `EMEND_COPY_KEEP_OUTPUT` with its test; the five sheet-sample rebuilds kept; the script over part 3 P2's directories; `records/diagnosis-m8p1-<utc-date>-<shortsha>.md`; one independent check | IN PROGRESS 2026-11-07 |
-| P2 | the count rule telling cache tables from sheets with tests (decision 1); the read-back reading the input's `<bookViews>` with its test (decision 3); the README and CHANGELOG sentences (decision 4); the passthrough and 58 samples over the 39 workbooks, compared per id with part 3 P2's records, the expected changes exactly; the records `m8p1-<name>-<utc-date>-<shortsha>`; the README; one independent check | PLANNED |
+| P1 | `scripts/lo-tables.py` with its self-test; `emend-copy`'s `EMEND_COPY_KEEP_OUTPUT` with its test; the five sheet-sample rebuilds kept; the script over part 3 P2's directories; `records/diagnosis-m8p1-<utc-date>-<shortsha>.md`; one independent check | DONE 2026-11-07 (phase commit 01b0896, record 8b138cd; the record `diagnosis-m8p1-2026-11-08-01b0896` with 0 statements against the corrected facts and the three classifications supported; the first logged run ended no on one id-order check of the run script, recorded, fixed by change TR and rerun, `specs/0047` ruling B; the prune removed Milestone 7 part 3's three build targets; check 1 yes with one exception, yes with exceptions, no, each disposed in the logs README, ruling C; the scan PASS; no push) |
+| P2 | the count rule telling cache tables from sheets with tests (decision 1); the read-back reading the input's `<bookViews>` with its test (decision 3); the README and CHANGELOG sentences (decision 4); the passthrough and 58 samples over the 39 workbooks, compared per id with part 3 P2's records, the expected changes exactly; the records `m8p1-<name>-<utc-date>-<shortsha>`; the README; one independent check | IN PROGRESS 2026-11-08 |
 | Close | close-out push after P2, carrying ed918a1 and 06b96e5 and this part's, base 4316630 by its subject, `PREV` `^M7 part 3 close-out record`, both Excel-record checks in pre mode unchanged, the "Unreleased" heading above 0.1.0 and the 0.1.0 entry unchanged, the branch alone (no tag), the range scan, one independent check | PLANNED |
 
 ## Unscoped

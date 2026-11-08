@@ -1,10 +1,10 @@
 # 0047: Milestone 8 part 1, the harness-side findings and the docs
 
-Status: DRAFTED 2026-11-07 by the planning session for the
-implementing session; the milestone APPROVED 2026-11-07 (Milestone
-8, decisions 1 to 4 A, `ROADMAP.md` "Milestone 8"); this spec's
-decisions 1 to 4 await the maintainer's letters, typed in the
-planning session. P1 depends on none of them; P2 reads them.
+Status: APPROVED 2026-11-08 (decisions 1 to 4 A, typed in the
+planning session: "i agree with recommendations, proceed"); the
+milestone APPROVED 2026-11-07 (Milestone 8, decisions 1 to 4 A,
+`ROADMAP.md` "Milestone 8"). P1 DONE 2026-11-07 at 8b138cd; P2 IN
+PROGRESS 2026-11-08 (ruling D).
 
 Milestone 8, "corpus findings and the core ceiling", fixes the five
 finding groups Milestone 7 part 3's P2 recorded over the grown
@@ -80,9 +80,10 @@ externalLink part is an `externalBook` with 1 `<sheetName>` and 1
 `<sheetData>`. LibreOffice's conversion of the input and of the
 passthrough output each hold 2 `<table:table>` elements: the first
 with a 6-character name and a style whose `table:display` is true;
-the second with a 40-character name holding `://` and `#`,
-`table:print="false"`, and no `table:display` in its style. The
-sheet sample's output holds 2 sheets with `activeTab="1"`; its
+the second with a 30-character name holding `://` and `#`,
+`table:print="false"`, and a style whose `table:display` is false
+(ruling A). The sheet sample's output holds 2 sheets with
+`activeTab="1"`; its
 conversion holds 3 tables, the third the same cache table. The rule
 (`scripts/lo-check.sh`, `LO_SHEET_PATTERN` against
 `<table:table(?=[\s/>])`) counts the cache table as a sheet.
@@ -297,6 +298,181 @@ scan" holds the three logs only. One independent check before the
 report. Milestone 7 part 3's record ed918a1 and close doc commit
 06b96e5 go with this push.
 
+## Planning rulings during P1 (2026-11-07)
+
+A. Dry run d1 read and the facts corrected. Planning ran the
+   committed `scripts/lo-tables.py` (12a57fc) over the real
+   conversions: the cache table's name is 30 characters and its
+   style's `table:display` is false; the drafted facts read 40 and
+   "no `table:display`" because planning's first probe counted the
+   escaped XML text (two apostrophes as `&apos;`) and matched only
+   style names of one form. The facts above are corrected in place
+   before the logged run so that the record's "as the facts" lines
+   read against the truth; group 5's hidden table (14 characters,
+   display false, print absent) and every other fact stand. The
+   fictional dry corpus (gen/make-dry-corpus.py) and the record's
+   classifier (run-parts/classify.py) are built to the drafted
+   facts: both are brought to the corrected ones (a 30-character
+   cache name; display false), the scripts regenerated, and a dry
+   run d2 made. d1 itself is accepted: gate.log d5bfe37b and run.log
+   c6db7afc "checks all as expected: yes", 0 UNEXPECTED, every
+   stderr 0 bytes, 0 FINDING emitted; its scan FAILs on three
+   structural checks, each the dry layout (the phase directory,
+   LOGDIR and RECDIR, the home directory in the dry paths), as part
+   3 P2's dry scans did (`specs/0046` ruling M). The deviations are
+   accepted: the gate's template is part 3 P1's printed gate, which
+   has the code-commit forms P2's lacked; the five rebuilds go
+   through `scripts/passthrough-run.sh --ids` with
+   `EMEND_COPY_KEEP_OUTPUT=1` and no conversion, into
+   `<runs>/<utc-date>-<shortsha>-sheet-kept`, each id reading
+   error, exit 2, the line ending "(output kept)", the output kept;
+   the passthrough output workbooks of groups 1 and 5 are read too;
+   the keep-output variable acts for every sample, as the spec's
+   sentence reads. The dry run's run script left a temporary
+   directory under `<phase>/tmp`, outside dry/d1: the dry driver
+   sets TMPDIR under dry/dN as well as every build root (`specs/
+   0043` ruling Q extended), and the leftovers are left in place,
+   listed by name and bytes in the report for the maintainer's
+   deletion list. The word: after d2 reads as d1 did (gate and run
+   yes, 0 UNEXPECTED, 0 FINDING on the fictional corpus, the scan's
+   only failures the three dry-layout lines), the logged run follows
+   without a further stop: the gate with PRUNE_PREVIOUS=yes, the
+   run, the record commit (the record, the logs under
+   records/logs/m8p1-p1/, the check), the scan last, one
+   independent check, the report. A departure from the corrected
+   facts on the real files is a FINDING for planning, not a failure,
+   and the run stops nowhere for it.
+
+B. The logged run's one "no" ruled (2026-11-07). gate.log d8503ba1
+   (878025 bytes) reads "gate log checks all as expected: yes", 0
+   UNEXPECTED, the prune done with PRUNE_PREVIOUS=yes: the three
+   Milestone 7 part 3 target roots (6227787948, 6227466908 and
+   2146536849 bytes by du -sb) removed by rm -r "${PREV_DIR:?}/
+   ${n:?}", each "gone" line as expected, the kept names still
+   there; the gate stands. run.log 1b9c7230 (240530 bytes) ends
+   "run log checks all as expected: no" on one check, "they are the
+   five ids specs/0047 names, in that order (change TK)": the
+   manifest lists the google-sheets ids as 91d2bdffa46a,
+   90a5b01f9541, 453a166dcdfe, 15205770ae5c, 6e0be3d0f2b1 and the
+   spec lists the same five sorted; the implementing session's
+   script compared order as well as membership, and its dry corpus
+   wrote the sorted order, so d1 and d2 could not see it. Every
+   other check reads yes, 0 UNEXPECTED, every stderr 0 bytes; the
+   five rebuilds read error, exit 2, the composed line, the output
+   kept; the record 7801689e (24333 bytes) reads 0 statements
+   against the corrected facts (70 "as the facts", the three
+   classifications supported, 0 FINDING emitted), and its group 1
+   lines read name_length=30 and display=false as ruling A has
+   them. This is a failing run: recorded, fixed, run again with the
+   fix named (`CLAUDE.md`). Change TR: the check compares the
+   manifest's google-sheets ids with the spec's five as a set, with
+   a control that refuses one id replaced; the dry corpus writes its
+   manifest in the manifest's real order. The first run directory
+   `<runs>/2026-11-08-01b0896-sheet-kept` is moved, not removed, to
+   `<corpus>/superseded-runs/2026-11-08-01b0896-sheet-kept-run1`
+   (the directory the corpus already keeps for stopped runs), the
+   first record and run.log 1b9c7230 to `<phase>/superseded/run1/`
+   with their sha256 printed, all three moves by the rerun's logged
+   driver with `mv` and printed before and after; this is the one
+   write under `<corpus>` beyond the new run directory that P1
+   allows. Then dry d3 of the run step alone (the gate and scan
+   scripts unchanged at 43de576f and 11b1791e), and, if d3 reads as
+   d2 did, the run step rerun with RERUN_NOTE naming run.log
+   1b9c7230 and change TR, without a further stop: the record
+   commit (the record, gate.log d8503ba1 as it stands, the rerun's
+   run.log, the check, scan.log), the scan last, one independent
+   check, the report under `<phase>`; the README of the logs names
+   the superseded run and the moves. The d1 leftovers under
+   `<phase>/tmp` (tmp.dLnN1l8eiD 5466780 bytes, g 2609885, r
+   1196996, s 1962816, d2check 49957) and the logged runs' <work>
+   directories stay, for the maintainer's deletion list.
+
+C. The record commit 8b138cd verified (2026-11-07) from git: parent
+   01b0896, the subject as ruled, the diff-alone sentence, the
+   Co-Authored-By line only, ASCII; six files, the record
+   records/diagnosis-m8p1-2026-11-08-01b0896.md b4418552 (24333
+   bytes; 0 statements against the facts, 70 "as the facts", the
+   three classifications supported, 0 FINDING) and
+   records/logs/m8p1-p1 with README.md f7d79dc5, gate.log d8503ba1,
+   run.log 4770abad (the rerun; its last line yes, the one ": no"
+   the API-key line, RERUN_NOTE naming run.log 1b9c7230 and change
+   TR, the set check and its control yes), independent-check-1.md
+   96c5dd3f and scan.log 224df0ed ("structural checks failed: 0",
+   RESULT: PASS, EXPECT_RECORDS 1 of 1, PLANNING_SPEC 8bc1c702). The
+   first run directory is at `<corpus>/superseded-runs/
+   2026-11-08-01b0896-sheet-kept-run1` and the rerun's at
+   `<runs>/2026-11-08-01b0896-sheet-kept`; no committed file holds
+   a home path, an office-file literal or a byte outside ASCII.
+   Check 1 answers yes with one exception, yes with exceptions, and
+   no; every exception is a figure whose primary is a file under
+   `<phase>` that the commit does not carry (the dry logs, the
+   generators after change TR, the two driver outputs with the
+   moves' before and after lines), each named with its source in
+   the README's "After independent check 1"; planning read the two
+   driver outputs (rerun-driver.out 36eeb629, 2468 bytes;
+   logged-driver.out ba23c399, 1298 bytes; no home path, no
+   office-file literal, ASCII) and rules that both go into P2's
+   record commit under records/logs/m8p1-p1/ as the moves' primary,
+   named in P2's README. gate.log's gen/run.py hash is the
+   generator before change TR, and the gate stands because it does
+   not read that generator's output (ruling B). The exception on Q1
+   is ruling A's acceptance. P1 is DONE at 8b138cd. P2 waits on the
+   maintainer's letters for decisions 1 to 4.
+
+D. Decisions 1 to 4 taken as A (2026-11-08) and P2 briefed. Four
+   points the spec left to the phase are fixed here. The count rule:
+   `scripts/lo-check.sh`'s comparison moves into a function the
+   script also exposes alone (the workbook package, the ods and the
+   reason file as its arguments, the same exit codes), so that the
+   rule is tested without a conversion; a new `scripts/lo-check-test.sh`
+   builds fictional xlsx and ods archives with `python3 -I -B` in a
+   temporary directory and runs the function over them: a pair with
+   one sheet, one external sheet name and one cache table (ok), a
+   pair with no cache table and no external reference (ok), a pair
+   whose cache count and external sheet names differ (fail, the new
+   reason), and a pair whose non-cache tables and sheets differ
+   (fail, the new reason); a cache table is told by the three marks
+   of decision 1 A read with a parser, never by a regex over the raw
+   text (ruling A's lesson). The read-back: its test is an
+   integration test under `tools/emend-copy/tests/` on fictional
+   fixtures the test writes, as `keep_output.rs` does. The gate: its
+   prune lists and removes P1's build target
+   `<home>/.cache/emend-build/m8p1-p1/target` alone, by `rm -r` with
+   the control (`specs/0044` ruling AD); P1's dry roots, its `tmp`
+   leftovers and its two driver outputs stay. The record commit
+   carries, besides `records/logs/m8p1-p2/`, the two P1 driver
+   outputs under `records/logs/m8p1-p1/` (ruling C), named in P2's
+   README with their hashes. The comparison per id is part 3 P2's
+   run script's, against `records/m7p3-<name>-2026-11-05-d7a8196.md`;
+   the run script checks the expected-change table of "The reruns
+   (P2)" and prints each departure as a FINDING line. P2 stops once:
+   after the doc commit, the three code commits and the dry run, for
+   planning's word on the diffs and the dry logs; the logged run (the
+   gate with the prune, the 59 runs, the record commit, the scan, one
+   independent check, the report) then follows without a further
+   stop. The doc commit is on 8b138cd with the two planning files as
+   they stand after this ruling.
+
+## Planning verification of P1 (2026-11-07)
+
+Verified from primaries, never from the implementing session's
+summaries alone: the two code commits' diffs and tests; dry runs d1
+and d2 and the committed script run by planning over the real
+conversions (ruling A, which corrected two of planning's own
+facts); the logged run's gate and the prune; the first run's one
+failing check, its cause and the rerun under change TR (ruling B);
+the record commit, the record, the check and the scan (ruling C).
+The three groups are classified as the spec drafted them, now on
+measured ground: group 1 is the open check's rule counting
+LibreOffice's external-link cache table, whose name holds `://` and
+`#` and whose style hides it and marks it not for printing; group 5
+is emend's output leaving a pivot cache sourcing a removed sheet,
+for which LibreOffice adds a hidden table of its own; group 2 is
+the sample tool's assertion on inputs with no `<bookViews>`, which
+the core neither needs nor creates. P1 is DONE at 8b138cd; the
+planning files stay uncommitted for P2's doc commit, which waits on
+decisions 1 to 4.
+
 ## Decisions for the maintainer
 
 To be typed in the planning session; the recommended option is A
@@ -328,6 +504,11 @@ in each. P1 needs none of them.
    released and an "Unreleased" section carries the correction, to
    become 0.1.1's in part 3; B, the 0.1.0 entry's sentence is edited
    in place.
+
+Decided by the maintainer 2026-11-08, typed in the planning session
+("i agree with recommendations, proceed"): 1 A, 2 A, 3 A, 4 A. P2
+reads the A branches above; decision 2 A's refusal is part 2's
+(`specs/0048`).
 
 ## Out of scope
 
