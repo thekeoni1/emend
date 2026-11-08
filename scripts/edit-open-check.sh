@@ -112,7 +112,7 @@ reason_class() {
       "the conversion exited "* | \
         "stderr holds a line with Error or Warning other than the allowed javaldx line" | \
         "no ods file was written") class=refused ;;
-      "the ods holds "*" table elements and the workbook "*" sheet elements") class=count ;;
+      "the ods holds "*" table elements, "*" of them external-link caches, and the workbook "*" sheet elements and "*" external sheet names") class=count ;;
       "cannot prepare the conversion directory" | "the conversion timed out after "* | \
         "podman could not run the container, exit "* | "the conversion was killed, exit status "* | \
         "the stderr scan failed, grep exit "* | "the stderr allowance scan failed, grep exit "* | \

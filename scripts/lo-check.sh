@@ -19,7 +19,9 @@ readonly LO_ALLOWED_STDERR='Warning: failed to launch javaldx - java may not fun
 # unprefixed <sheet, so a prefixed workbook counted 0. A sheet element of a
 # foreign namespace would count too; no corpus file or fixture has one, and
 # the check is a count, not a schema (P2 ruling 4). scripts/edit-open-check.sh
-# counts a kept input's sheets with this same pattern.
+# counts a kept input's sheets with this same pattern; the open check itself
+# counts with a parser since specs/0047-harness-findings.md decision 1 A
+# (lo_count_check below).
 readonly LO_SHEET_PATTERN='<(?:[A-Za-z_][A-Za-z0-9._-]*:)?sheet(?=[\s/>])'
 
 # lo_check <file> <work dir> <reason file> <reference workbook>: the open check
@@ -27,10 +29,10 @@ readonly LO_SHEET_PATTERN='<(?:[A-Za-z_][A-Za-z0-9._-]*:)?sheet(?=[\s/>])'
 # /in and the work directory's ods/ as /out, and the copy is converted to ODS
 # under --lo-timeout, which is its own budget, one per conversion. It is ok
 # when the conversion exits 0, its stderr holds no line with Error or Warning
-# other than the allowed javaldx line, the ODS exists, and its content.xml
-# holds as many <table:table elements as the reference workbook's
-# xl/workbook.xml holds <sheet elements. It prints nothing: the reason goes to
-# the reason file, which stays in the run directory.
+# other than the allowed javaldx line, the ODS exists, and lo_count_check
+# finds the ODS's tables agree with the reference workbook's sheets. It prints
+# nothing: the reason goes to the reason file, which stays in the run
+# directory.
 # The container is named emend-lo-<shell pid>-<subshell pid>-<n>, n counting
 # this shell's calls. A timeout kills the podman client and not the
 # container, so after exit 124 the container is removed by name with podman
@@ -48,7 +50,7 @@ readonly LO_SHEET_PATTERN='<(?:[A-Za-z_][A-Za-z0-9._-]*:)?sheet(?=[\s/>])'
 LO_CHECK_N=0
 lo_check() {
   local file=$1 work=$2 reason=$3 reference=$4
-  local indir base outdir ods rc counts sheets tables name
+  local indir base outdir ods rc name
   LO_CHECK_N=$((LO_CHECK_N + 1))
   name=emend-lo-$$-$BASHPID-$LO_CHECK_N
   indir=$(dirname -- "$file")
@@ -114,29 +116,76 @@ lo_check() {
     printf 'no ods file was written\n' >"$reason"
     return 1
   fi
-  counts=$(LO_REFERENCE=$reference LO_ODS=$ods LO_SHEET=$LO_SHEET_PATTERN python3 -I -B -c '
-import os, re, sys, zipfile
+  lo_count_check "$reference" "$ods" "$reason"
+}
+
+# lo_count_check <workbook package> <ods> <reason file>: the count rule of the
+# open check (specs/0047-harness-findings.md, "The fixes (P2)", decision 1 A),
+# callable alone so that it is tested without a conversion
+# (scripts/lo-check-test.sh). Both archives are read with zipfile and
+# ElementTree, never with a pattern over the raw text. From the workbook it
+# reads the sheet elements of xl/workbook.xml and the sheetName elements over
+# the parts xl/_rels/workbook.xml.rels types externalLink; from the ODS the
+# table:table elements of content.xml. A table is an external-link cache, the
+# copy LibreOffice keeps of a linked workbook's sheet, when its table:name
+# holds :// or starts with file:, also holds #, and its table:print is false;
+# every other table counts as a sheet. It is ok when the workbook holds a
+# sheet element, the tables that are not caches equal the sheet elements, and
+# the caches equal the external sheet names. Elements count by local name in
+# any namespace, as LO_SHEET_PATTERN takes any prefix.
+# Returns 0 for ok, 1 for fail and 2 for error (an archive or part that cannot
+# be read, or python3 failing), as lo_check does, and prints nothing.
+lo_count_check() {
+  local reference=$1 ods=$2 reason=$3 counts sheets names tables caches
+  counts=$(python3 -I -B -c '
+import posixpath, sys, zipfile
+import xml.etree.ElementTree as ET
+TABLE = "urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+def local(tag):
+    return tag.rpartition("}")[2]
+def count(data, name):
+    return sum(1 for e in ET.fromstring(data).iter() if local(e.tag) == name)
 try:
-    workbook = zipfile.ZipFile(os.environ["LO_REFERENCE"]).read("xl/workbook.xml").decode("utf-8", "replace")
-    content = zipfile.ZipFile(os.environ["LO_ODS"]).read("content.xml").decode("utf-8", "replace")
+    with zipfile.ZipFile(sys.argv[1]) as z:
+        sheets = count(z.read("xl/workbook.xml"), "sheet")
+        names = 0
+        if "xl/_rels/workbook.xml.rels" in z.namelist():
+            for rel in ET.fromstring(z.read("xl/_rels/workbook.xml.rels")).iter("{%s}Relationship" % RELS):
+                if not rel.get("Type", "").endswith("/externalLink") or rel.get("TargetMode") == "External":
+                    continue
+                target = rel.get("Target", "")
+                if target.startswith("/"):
+                    part = posixpath.normpath(target[1:])
+                else:
+                    part = posixpath.normpath(posixpath.join("xl", target))
+                names += count(z.read(part), "sheetName")
+    tables = caches = 0
+    with zipfile.ZipFile(sys.argv[2]) as z, z.open("content.xml") as f:
+        # Only the start of each table is read; rows are let go as they end.
+        for event, e in ET.iterparse(f, events=("start", "end")):
+            if event == "start" and e.tag == "{%s}table" % TABLE:
+                tables += 1
+                name = e.get("{%s}name" % TABLE, "")
+                if (("://" in name or name.startswith("file:")) and "#" in name
+                        and e.get("{%s}print" % TABLE) == "false"):
+                    caches += 1
+            elif event == "end" and e.tag == "{%s}table-row" % TABLE:
+                e.clear()
 except Exception as err:
     sys.stdout.write("error %s" % type(err).__name__)
 else:
-    # Tolerant of any whitespace after the name, and of a tag closed straight
-    # away: <sheet\n, <sheet\t, <sheet/> and <sheet> all count, with any prefix
-    # (LO_SHEET_PATTERN), while <sheets> and <sheetData do not, and
-    # <table:table-row and <table:table-cell do not.
-    sheet = os.environ["LO_SHEET"]
-    table = r"<table:table(?=[\s/>])"
-    sys.stdout.write("%d %d" % (len(re.findall(sheet, workbook)), len(re.findall(table, content))))
-') || { printf 'cannot count sheets and tables\n' >"$reason"; return 2; }
-  read -r sheets tables <<<"$counts"
-  if ! [[ "$sheets" =~ ^[0-9]+$ ]] || ! [[ "${tables:-}" =~ ^[0-9]+$ ]]; then
+    sys.stdout.write("%d %d %d %d" % (sheets, names, tables, caches))
+' "$reference" "$ods") || { printf 'cannot count sheets and tables\n' >"$reason"; return 2; }
+  read -r sheets names tables caches <<<"$counts"
+  if ! [[ "$sheets" =~ ^[0-9]+$ ]] || ! [[ "${names:-}" =~ ^[0-9]+$ ]] ||
+    ! [[ "${tables:-}" =~ ^[0-9]+$ ]] || ! [[ "${caches:-}" =~ ^[0-9]+$ ]]; then
     printf 'cannot read the ods or the workbook part\n' >"$reason"
     return 2
   fi
-  if [ "$sheets" -eq 0 ] || [ "$sheets" -ne "$tables" ]; then
-    printf 'the ods holds %s table elements and the workbook %s sheet elements\n' "$tables" "$sheets" >"$reason"
+  if [ "$sheets" -eq 0 ] || [ "$((tables - caches))" -ne "$sheets" ] || [ "$caches" -ne "$names" ]; then
+    printf 'the ods holds %s table elements, %s of them external-link caches, and the workbook %s sheet elements and %s external sheet names\n' \
+      "$tables" "$caches" "$sheets" "$names" >"$reason"
     return 1
   fi
   return 0
