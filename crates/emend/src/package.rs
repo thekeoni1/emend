@@ -360,11 +360,22 @@
 //!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`,
 //!   `a_col_to_the_last_column_is_clipped_and_a_cell_there_is_refused`).
 //! - "an insertion or deletion cuts a shared, array or data table formula"
-//!   (`shift::a_shared_formula_before_after_straddling_inside_and_deleted_whole`,
+//!   (`shift::array_and_data_table_formulas_are_still_refused_when_cut`,
 //!   `an_array_formula_likewise_and_one_whose_ref_does_not_parse`,
 //!   `an_array_formula_before_the_point_stays_and_a_deletion_inside_it_is_refused`,
 //!   `a_ref_pushed_past_the_grid_is_a_grow_and_one_moved_past_it_off_the_grid`,
-//!   `formulas_on_the_column_axis_move_are_refused_when_cut_and_go_with_their_cells`).
+//!   `formulas_on_the_column_axis_move_are_refused_when_cut_and_go_with_their_cells`,
+//!   `on_the_column_axis_arrays_stay_refused_a_member_first_and_off_the_grid_are_refused`).
+//! - "a shared formula member precedes its master"
+//!   (`shift::a_member_before_the_master_of_a_group_unshared_is_refused`,
+//!   `on_the_column_axis_arrays_stay_refused_a_member_first_and_off_the_grid_are_refused`):
+//!   a group the shift unshares whose member is written before its master.
+//! - "an unshared formula would leave the grid"
+//!   (`shift::a_translation_off_the_grid_is_refused`,
+//!   `on_the_column_axis_arrays_stay_refused_a_member_first_and_off_the_grid_are_refused`,
+//!   `translate::a_component_moved_below_one_is_refused`,
+//!   `a_component_moved_past_the_grid_is_refused`): a member's translated
+//!   text would hold a reference below row or column 1 or past the grid.
 //! - "an insertion or deletion would move a table or a pivot table"
 //!   (`shift::a_table_or_pivot_before_the_point_stays_and_one_at_or_after_it_is_refused`,
 //!   `a_table_or_pivot_on_the_column_axis_before_the_point_stays_and_one_at_or_after_it_is_refused`),
@@ -2429,6 +2440,8 @@ mod pivot;
 mod sheet_read;
 #[cfg(feature = "read")]
 mod survey;
+#[cfg(feature = "rowcol")]
+mod translate;
 #[cfg(feature = "charts")]
 pub use chart::{
     AxisKind, AxisPosition, BarDirection, Chart, ChartAnchor, ChartAxis, ChartEntry, ChartKind,
@@ -2481,6 +2494,8 @@ use crate::styles::{
 #[cfg(any(feature = "rules", feature = "sheetprops"))]
 use crate::styles::{Color, color_element};
 use crate::xml::{BYTE_ORDER_MARK, Scope, Stream};
+#[cfg(feature = "rowcol")]
+use translate::translated_formula;
 
 /// The part every package must have, by exact bytes.
 pub const CONTENT_TYPES_PART: &[u8] = b"[Content_Types].xml";
@@ -13137,6 +13152,16 @@ const OFF_GRID: Error = Error::Package("a row or column would be moved off the w
 #[cfg(feature = "rowcol")]
 const CUTS_FORMULA: Error =
     Error::Package("an insertion or deletion cuts a shared, array or data table formula");
+/// A shared formula member written before the master of a group the shift
+/// unshares (`specs/0048-the-two-refusals.md`, "The unshare"). The Cargo
+/// feature `rowcol`.
+#[cfg(feature = "rowcol")]
+const MEMBER_BEFORE_MASTER: Error = Error::Package("a shared formula member precedes its master");
+/// What the translator refuses a moved component below 1 or past the grid
+/// with (`specs/0048-the-two-refusals.md`, "The translator"). The Cargo
+/// feature `rowcol`.
+#[cfg(feature = "rowcol")]
+const UNSHARED_OFF_GRID: Error = Error::Package("an unshared formula would leave the grid");
 #[cfg(feature = "rowcol")]
 const TABLE_MOVED: Error =
     Error::Package("an insertion or deletion would move a table or a pivot table");
@@ -23071,6 +23096,16 @@ fn shift_worksheet_from(
     // The open cell's depth, and whether it is at or after the point.
     let mut cell: Option<(usize, bool)> = None;
     let mut moved_formula = false;
+    // The open cell's input reference, which a shared formula's translation
+    // is measured from.
+    let mut cell_ref = CellRef { row: 0, col: 0 };
+    // Each group the pass unshares: its `si`, the master's cell and its
+    // unescaped text (`specs/0048-the-two-refusals.md`, "The unshare").
+    let mut unshared: BTreeMap<u32, (CellRef, String)> = BTreeMap::new();
+    // Every master's `si` met so far, and every member's `si` met before
+    // its group's master.
+    let mut masters: BTreeSet<u32> = BTreeSet::new();
+    let mut early: BTreeSet<u32> = BTreeSet::new();
     let mut counted: Option<CountedBuffer> = None;
     // The open `<hyperlinks>`: its depth, its start tag and name, whether
     // the start tag has been written, and the bytes held since the last
@@ -23113,7 +23148,84 @@ fn shift_worksheet_from(
                     let mut raw = token.raw.to_vec();
                     if depth == at + 1 && ours && local == b"f" {
                         moved_formula |= reaches;
-                        raw = shifted_formula(token.raw, shift, dropping.is_some(), index)?;
+                        let name = start.name().into_inner().as_bytes().to_vec();
+                        let group = shared_index(token.raw, index)?;
+                        match shifted_formula(token.raw, shift, dropping.is_some(), index)? {
+                            Shifted::Bytes(bytes) => raw = bytes,
+                            Shifted::Unshare => {
+                                // The master: `t`, `ref` and `si` go, its text
+                                // stays and is held for the members.
+                                let Some((si, _)) = group else {
+                                    return Err(Error::Package("a shared formula has no index"));
+                                };
+                                if early.contains(&si) {
+                                    return Err(MEMBER_BEFORE_MASTER);
+                                }
+                                let tag = unshared_tag(token.raw, index)?;
+                                let text = if empty {
+                                    emit!(&tag);
+                                    scope.end();
+                                    String::new()
+                                } else {
+                                    let (inner, end, text) =
+                                        formula_body(&mut stream, &mut scope, index)?;
+                                    emit!(&[tag, inner, end].concat());
+                                    text
+                                };
+                                masters.insert(si);
+                                unshared.insert(si, (cell_ref, text));
+                                depth -= 1;
+                                continue;
+                            }
+                        }
+                        match group {
+                            Some((si, true)) => {
+                                masters.insert(si);
+                            }
+                            Some((si, false)) => {
+                                // A deleted member goes with its cell as
+                                // written.
+                                if dropping.is_none()
+                                    && let Some((from, text)) = unshared.get(&si)
+                                {
+                                    // A member of an unshared group: its own
+                                    // `<f>`, with the master's text read from
+                                    // this cell unless it carries text of its
+                                    // own.
+                                    let tag = unshared_tag(token.raw, index)?;
+                                    let translated = || {
+                                        translated_formula(
+                                            text,
+                                            i64::from(cell_ref.row) - i64::from(from.row),
+                                            i64::from(cell_ref.col) - i64::from(from.col),
+                                        )
+                                        .map(|text| {
+                                            escape(&text).replace('\r', "&#13;").into_bytes()
+                                        })
+                                    };
+                                    let close = [b"</".as_slice(), &name, b">"].concat();
+                                    let written = if empty {
+                                        scope.end();
+                                        [opened_tag(&tag), translated()?, close].concat()
+                                    } else {
+                                        let (inner, end, own) =
+                                            formula_body(&mut stream, &mut scope, index)?;
+                                        if own.is_empty() {
+                                            [tag, translated()?, end].concat()
+                                        } else {
+                                            [tag, inner, end].concat()
+                                        }
+                                    };
+                                    emit!(&written);
+                                    depth -= 1;
+                                    continue;
+                                }
+                                if !masters.contains(&si) {
+                                    early.insert(si);
+                                }
+                            }
+                            None => {}
+                        }
                     }
                     emit!(&raw);
                 } else if data.is_some_and(|at| depth == at + 1) && ours && local == b"row" {
@@ -23191,6 +23303,7 @@ fn shift_worksheet_from(
                             }
                         }
                     }
+                    cell_ref = reference;
                     if !empty {
                         cell = Some((depth, shift.reaches(on_axis)));
                     }
@@ -23391,29 +23504,46 @@ fn shift_worksheet_from(
     Ok((temp, replacement, moved_formula))
 }
 
+/// What the rule does with an `<f>` start tag.
+#[cfg(feature = "rowcol")]
+enum Shifted {
+    /// The tag as written, or with its `ref` moved whole.
+    Bytes(Vec<u8>),
+    /// A shared formula's master whose group the rule grows or cuts, or
+    /// whose cell it deletes while the group's `ref` is not wholly inside
+    /// the deletion: the group is unshared
+    /// (`specs/0048-the-two-refusals.md`, "The unshare").
+    Unshare,
+}
+
 /// An `<f>` start tag through the rule: a shared, array or data table
-/// `ref` moved whole, refused when the rule grows or cuts it, and
-/// unchanged when it lies wholly inside a deletion (the row is dropped
-/// with it, P2 ruling 1); a moved end past the grid is a grow (P2 ruling
-/// 5). Every other formula tag is its bytes.
+/// `ref` moved whole, and unchanged when it lies wholly inside a deletion
+/// (the row is dropped with it, P2 ruling 1). A shared group the rule
+/// grows or cuts, or whose master it deletes, is unshared; an array or
+/// data table formula so met is refused, and a moved end past the grid is
+/// a grow refused for all three (P2 ruling 5). Every other formula tag is
+/// its bytes.
 #[cfg(feature = "rowcol")]
 fn shifted_formula(
     raw: &[u8],
     shift: &AxisShift,
     dropping: bool,
     index: usize,
-) -> Result<Vec<u8>, Error> {
+) -> Result<Shifted, Error> {
     let kind = attribute_value(raw, b"t", index)?;
     if !matches!(kind, Some(b"shared") | Some(b"array") | Some(b"dataTable")) {
-        return Ok(raw.to_vec());
+        return Ok(Shifted::Bytes(raw.to_vec()));
     }
     let Some(value) = attribute_value(raw, b"ref", index)? else {
-        return Ok(raw.to_vec());
+        return Ok(Shifted::Bytes(raw.to_vec()));
     };
+    let shared = kind == Some(b"shared");
     let area = shift.rowwise(shift_area(value)?);
     match shift.shift.interval(area.first.row, area.last.row) {
-        Moved::Gone => Ok(raw.to_vec()),
+        Moved::Gone => Ok(Shifted::Bytes(raw.to_vec())),
+        Moved::Changed(..) if shared => Ok(Shifted::Unshare),
         Moved::Changed(..) => Err(CUTS_FORMULA),
+        Moved::Whole(..) if dropping && shared => Ok(Shifted::Unshare),
         Moved::Whole(a, b) => {
             if dropping {
                 // A master in a deleted row whose ref the rule keeps whole
@@ -23428,7 +23558,7 @@ fn shifted_formula(
                 });
             }
             if a == u64::from(area.first.row) {
-                return Ok(raw.to_vec());
+                return Ok(Shifted::Bytes(raw.to_vec()));
             }
             let moved = Area {
                 first: CellRef {
@@ -23441,8 +23571,82 @@ fn shifted_formula(
                 },
             };
             with_attribute(raw, b"ref", shift.rowwise(moved).a1().as_bytes(), index)
+                .map(Shifted::Bytes)
         }
     }
+}
+
+/// A shared formula tag's `si` and whether it is the master (it has a
+/// `ref`); `None` for any other tag, or a shared one with no `si` that
+/// reads as a number.
+#[cfg(feature = "rowcol")]
+fn shared_index(raw: &[u8], index: usize) -> Result<Option<(u32, bool)>, Error> {
+    if attribute_value(raw, b"t", index)? != Some(b"shared") {
+        return Ok(None);
+    }
+    let si = attribute_value(raw, b"si", index)?
+        .and_then(|value| str::from_utf8(value).ok())
+        .and_then(decimal);
+    let master = attribute_value(raw, b"ref", index)?.is_some();
+    Ok(si.map(|si| (si, master)))
+}
+
+/// An `<f>` start tag of an unshared group: `t`, `ref` and `si` removed,
+/// every other byte kept.
+#[cfg(feature = "rowcol")]
+fn unshared_tag(raw: &[u8], index: usize) -> Result<Vec<u8>, Error> {
+    let mut tag = raw.to_vec();
+    for name in [b"t".as_slice(), b"ref", b"si"] {
+        tag = without_attribute(&tag, name, index)?;
+    }
+    Ok(tag)
+}
+
+/// An empty element's tag written as a start tag: `<f/>` as `<f>`.
+#[cfg(feature = "rowcol")]
+fn opened_tag(empty: &[u8]) -> Vec<u8> {
+    let mut tag = empty.strip_suffix(b"/>").unwrap_or(empty).to_vec();
+    while tag.last().is_some_and(u8::is_ascii_whitespace) {
+        tag.pop();
+    }
+    tag.push(b'>');
+    tag
+}
+
+/// An `<f>`'s content after its start tag, read to its end tag: the bytes
+/// between as written, the end tag's bytes, and the unescaped text. The end
+/// tag is given back to `scope`; an element inside is refused as
+/// [`crate::cells`] refuses it.
+#[cfg(feature = "rowcol")]
+fn formula_body<R: Read>(
+    stream: &mut Stream<R>,
+    scope: &mut Scope,
+    index: usize,
+) -> Result<(Vec<u8>, Vec<u8>, String), Error> {
+    let mut inner = Vec::new();
+    let mut text = String::new();
+    let mut after_cr = false;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(_) | Event::Empty(_) => {
+                return Err(Error::Package("a text element holds an element"));
+            }
+            Event::End(_) => {
+                scope.end();
+                return Ok((inner, token.raw.to_vec(), text));
+            }
+            Event::Text(ref chunk) => crate::cells::push_text(&mut text, chunk, &mut after_cr),
+            // A CDATA section is characters written another way.
+            Event::CData(ref chunk) => crate::cells::push_text(&mut text, chunk, &mut after_cr),
+            Event::GeneralRef(ref reference) => {
+                text.push(crate::cells::expand(reference, index)?);
+                after_cr = false;
+            }
+            _ => {}
+        }
+        inner.extend_from_slice(token.raw);
+    }
+    Err(Error::Xml(index))
 }
 
 /// The `ref` a table part's root carries, or a pivot table part's first

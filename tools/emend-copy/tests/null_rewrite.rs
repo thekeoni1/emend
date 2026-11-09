@@ -3235,8 +3235,10 @@ fn the_delete_rows_sample_removes_row_two() {
 }
 
 #[test]
-fn the_row_samples_refuse_a_shared_formula_straddling_row_two_and_leave_nothing() {
-    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:A3\" si=\"0\">B1</f><v>1</v></c></row></sheetData>";
+fn the_row_samples_refuse_an_array_formula_straddling_row_two_and_leave_nothing() {
+    // An array formula: a shared group so cut is unshared
+    // (`specs/0048-the-two-refusals.md`, "The unshare").
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"array\" ref=\"A1:A3\">B1</f><v>1</v></c></row></sheetData>";
     for flag in ["--insert-rows-sample", "--delete-rows-sample"] {
         styled_run_refused(
             flag,
@@ -3293,8 +3295,9 @@ fn the_delete_columns_sample_removes_column_two() {
 }
 
 #[test]
-fn the_column_samples_refuse_a_shared_formula_straddling_column_two_and_leave_nothing() {
-    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:C1\" si=\"0\">B1</f><v>1</v></c></row></sheetData>";
+fn the_column_samples_refuse_an_array_formula_straddling_column_two_and_leave_nothing() {
+    // An array formula, as the row samples' test says.
+    let body = "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"array\" ref=\"A1:C1\">B1</f><v>1</v></c></row></sheetData>";
     for flag in ["--insert-columns-sample", "--delete-columns-sample"] {
         styled_run_refused(
             flag,

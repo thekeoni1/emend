@@ -7557,6 +7557,8 @@ mod shift;
 mod survey;
 #[cfg(feature = "tables")]
 mod tables;
+#[cfg(feature = "rowcol")]
+mod translate;
 #[cfg(feature = "rules")]
 mod validation;
 #[cfg(feature = "rules")]

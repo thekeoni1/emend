@@ -198,7 +198,7 @@ const SHARED: &str = "<sheetData>\
     </sheetData>";
 
 #[test]
-fn a_shared_formula_before_after_straddling_inside_and_deleted_whole() {
+fn a_shared_formula_before_after_and_deleted_whole() {
     // Before the point: untouched, and no formula moves.
     let parts = with_body(SHARED);
     let out = edited_output(parts.clone(), insert(5, 1));
@@ -219,15 +219,165 @@ fn a_shared_formula_before_after_straddling_inside_and_deleted_whole() {
              </sheetData>"
         )
     );
-    // Straddling an insertion, and a deletion inside it: refused.
-    assert_package(refused_on(parts.clone(), insert(3, 1)), CUTS);
-    assert_package(refused_on(parts.clone(), delete(3, 1)), CUTS);
-    // A deletion cutting its first rows: refused.
-    assert_package(refused_on(parts.clone(), delete(1, 2)), CUTS);
+    // Straddling an insertion, a deletion inside it and one cutting its
+    // first rows: the group is unshared (`specs/0048-the-two-refusals.md`,
+    // "The unshare"; the cases are in the tests below).
     // The master deleted with its whole range: allowed (P2 ruling 1).
     let got =
         String::from_utf8(stored_data(&edited_output(parts, delete(2, 3)), SHEET)).expect("UTF-8");
     assert_eq!(got, worksheet("<sheetData></sheetData>"));
+}
+
+/// The worksheet part after `edit` on `parts`, as text.
+#[track_caller]
+fn sheet_after(parts: &Parts, edit: ShiftEdit) -> String {
+    String::from_utf8(stored_data(&edited_output(parts.clone(), edit), SHEET)).expect("UTF-8")
+}
+
+const MEMBER_FIRST: &str = "a shared formula member precedes its master";
+const UNSHARED_OFF: &str = "an unshared formula would leave the grid";
+
+/// A shared group in column A, rows 2 to 4, whose master and members carry
+/// an attribute the unshare keeps.
+const SHARED_KEPT: &str = "<sheetData>\
+    <row r=\"2\"><c r=\"A2\"><f t=\"shared\" ref=\"A2:A4\" si=\"0\" ca=\"1\">B2*$C$1</f><v>1</v></c></row>\
+    <row r=\"3\"><c r=\"A3\"><f t=\"shared\" si=\"0\" ca=\"1\"/><v>2</v></c></row>\
+    <row r=\"4\"><c r=\"A4\"><f t=\"shared\" si=\"0\"/><v>3</v></c></row>\
+    </sheetData>";
+
+#[test]
+fn a_cut_group_is_unshared_with_each_text_translated_and_its_values_kept() {
+    // A deletion inside the group: the master keeps its text, the member
+    // left gets the master's text read from its own input cell, and every
+    // `<v>` and other attribute stays.
+    let parts = with_body(SHARED_KEPT);
+    assert_eq!(
+        sheet_after(&parts, delete(3, 1)),
+        worksheet(
+            "<sheetData>\
+             <row r=\"2\"><c r=\"A2\"><f ca=\"1\">B2*$C$1</f><v>1</v></c></row>\
+             <row r=\"3\"><c r=\"A3\"><f>B4*$C$1</f><v>3</v></c></row>\
+             </sheetData>"
+        )
+    );
+}
+
+#[test]
+fn a_grown_group_is_unshared() {
+    let parts = with_body(SHARED_KEPT);
+    assert_eq!(
+        sheet_after(&parts, insert(3, 2)),
+        worksheet(
+            "<sheetData>\
+             <row r=\"2\"><c r=\"A2\"><f ca=\"1\">B2*$C$1</f><v>1</v></c></row>\
+             <row r=\"5\"><c r=\"A5\"><f ca=\"1\">B3*$C$1</f><v>2</v></c></row>\
+             <row r=\"6\"><c r=\"A6\"><f>B4*$C$1</f><v>3</v></c></row>\
+             </sheetData>"
+        )
+    );
+}
+
+#[test]
+fn a_deleted_master_with_members_kept_unshares_them() {
+    let parts = with_body(SHARED_KEPT);
+    let members_up = |by: u32| {
+        worksheet(&format!(
+            "<sheetData>\
+             <row r=\"{}\"><c r=\"A{}\"><f ca=\"1\">B3*$C$1</f><v>2</v></c></row>\
+             <row r=\"{}\"><c r=\"A{}\"><f>B4*$C$1</f><v>3</v></c></row>\
+             </sheetData>",
+            3 - by,
+            3 - by,
+            4 - by,
+            4 - by
+        ))
+    };
+    // The master's row alone, and the rows before the group with it.
+    assert_eq!(sheet_after(&parts, delete(2, 1)), members_up(1));
+    assert_eq!(sheet_after(&parts, delete(1, 2)), members_up(2));
+}
+
+#[test]
+fn a_member_with_text_of_its_own_keeps_it_and_one_without_a_master_is_untouched() {
+    let parts = with_body(
+        "<sheetData>\
+         <row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:A2\" si=\"0\">B1</f></c></row>\
+         <row r=\"2\"><c r=\"A2\"><f t=\"shared\" si=\"0\">C9</f></c>\
+         <c r=\"B2\"><f t=\"shared\" si=\"7\"/></c></row>\
+         </sheetData>",
+    );
+    assert_eq!(
+        sheet_after(&parts, insert(2, 1)),
+        worksheet(
+            "<sheetData>\
+             <row r=\"1\"><c r=\"A1\"><f>B1</f></c></row>\
+             <row r=\"3\"><c r=\"A3\"><f>C9</f></c>\
+             <c r=\"B3\"><f t=\"shared\" si=\"7\"/></c></row>\
+             </sheetData>"
+        )
+    );
+}
+
+#[test]
+fn a_group_moved_whole_stays_shared_and_one_inside_the_deletion_goes() {
+    let parts = with_body(SHARED_KEPT);
+    assert_eq!(
+        sheet_after(&parts, delete(1, 1)),
+        worksheet(
+            "<sheetData>\
+             <row r=\"1\"><c r=\"A1\"><f t=\"shared\" ref=\"A1:A3\" si=\"0\" ca=\"1\">B2*$C$1</f><v>1</v></c></row>\
+             <row r=\"2\"><c r=\"A2\"><f t=\"shared\" si=\"0\" ca=\"1\"/><v>2</v></c></row>\
+             <row r=\"3\"><c r=\"A3\"><f t=\"shared\" si=\"0\"/><v>3</v></c></row>\
+             </sheetData>"
+        )
+    );
+    assert_eq!(
+        sheet_after(&parts, delete(2, 3)),
+        worksheet("<sheetData></sheetData>")
+    );
+}
+
+#[test]
+fn array_and_data_table_formulas_are_still_refused_when_cut() {
+    let array = with_body(
+        "<sheetData><row r=\"2\"><c r=\"A2\"><f t=\"array\" ref=\"A2:A4\">B2</f><v>1</v></c></row></sheetData>",
+    );
+    let table = with_body(
+        "<sheetData><row r=\"2\"><c r=\"A2\"><f t=\"dataTable\" ref=\"A2:A4\" r1=\"B1\"/><v>1</v></c></row></sheetData>",
+    );
+    for parts in [array, table] {
+        assert_package(refused_on(parts.clone(), insert(3, 1)), CUTS);
+        assert_package(refused_on(parts.clone(), delete(3, 1)), CUTS);
+        assert_package(refused_on(parts, delete(1, 2)), CUTS);
+    }
+}
+
+#[test]
+fn a_member_before_the_master_of_a_group_unshared_is_refused() {
+    let parts = with_body(
+        "<sheetData>\
+         <row r=\"1\"><c r=\"A1\"><f t=\"shared\" si=\"0\"/></c></row>\
+         <row r=\"2\"><c r=\"A2\"><f t=\"shared\" ref=\"A1:A4\" si=\"0\">B1</f></c></row>\
+         </sheetData>",
+    );
+    assert_package(refused_on(parts.clone(), delete(3, 1)), MEMBER_FIRST);
+    // Moved whole, the group stays shared and the order does not matter.
+    let got = sheet_after(&parts, insert(1, 1));
+    assert!(
+        got.contains("<f t=\"shared\" ref=\"A2:A5\" si=\"0\">B1</f>"),
+        "{got}"
+    );
+}
+
+#[test]
+fn a_translation_off_the_grid_is_refused() {
+    let parts = with_body(
+        "<sheetData>\
+         <row r=\"1048575\"><c r=\"A1048575\"><f t=\"shared\" ref=\"A1048575:A1048576\" si=\"0\">A1048576</f></c></row>\
+         <row r=\"1048576\"><c r=\"A1048576\"><f t=\"shared\" si=\"0\"/></c></row>\
+         </sheetData>",
+    );
+    assert_package(refused_on(parts, delete(1048575, 1)), UNSHARED_OFF);
 }
 
 #[test]
@@ -784,6 +934,77 @@ fn formulas_on_the_column_axis_move_are_refused_when_cut_and_go_with_their_cells
     let got = String::from_utf8(stored_data(&edited_output(parts, delete_cols(2, 2)), SHEET))
         .expect("UTF-8");
     assert_eq!(got, worksheet("<sheetData><row r=\"2\"></row></sheetData>"));
+}
+
+/// A shared group in row 1, columns B to D.
+const SHARED_ROW: &str = "<sheetData><row r=\"1\">\
+    <c r=\"B1\"><f t=\"shared\" ref=\"B1:D1\" si=\"0\" ca=\"1\">B2*$A$1</f><v>1</v></c>\
+    <c r=\"C1\"><f t=\"shared\" si=\"0\"/><v>2</v></c>\
+    <c r=\"D1\"><f t=\"shared\" si=\"0\"/><v>3</v></c>\
+    </row></sheetData>";
+
+#[test]
+fn a_group_on_the_column_axis_is_unshared_when_cut_grown_or_its_master_deleted() {
+    let parts = with_body(SHARED_ROW);
+    let row = |cells: &str| {
+        worksheet(&format!(
+            "<sheetData><row r=\"1\">{cells}</row></sheetData>"
+        ))
+    };
+    assert_eq!(
+        sheet_after(&parts, delete_cols(3, 1)),
+        row(
+            "<c r=\"B1\"><f ca=\"1\">B2*$A$1</f><v>1</v></c><c r=\"C1\"><f>D2*$A$1</f><v>3</v></c>"
+        )
+    );
+    assert_eq!(
+        sheet_after(&parts, insert_cols(3, 1)),
+        row(
+            "<c r=\"B1\"><f ca=\"1\">B2*$A$1</f><v>1</v></c><c r=\"D1\"><f>C2*$A$1</f><v>2</v></c>\
+             <c r=\"E1\"><f>D2*$A$1</f><v>3</v></c>"
+        )
+    );
+    assert_eq!(
+        sheet_after(&parts, delete_cols(2, 1)),
+        row("<c r=\"B1\"><f>C2*$A$1</f><v>2</v></c><c r=\"C1\"><f>D2*$A$1</f><v>3</v></c>")
+    );
+}
+
+#[test]
+fn a_group_on_the_column_axis_moved_whole_stays_shared_and_one_deleted_whole_goes() {
+    let parts = with_body(SHARED_ROW);
+    let got = sheet_after(&parts, insert_cols(1, 1));
+    assert!(
+        got.contains("<c r=\"C1\"><f t=\"shared\" ref=\"C1:E1\" si=\"0\" ca=\"1\">B2*$A$1</f>"),
+        "{got}"
+    );
+    assert!(
+        got.contains("<c r=\"E1\"><f t=\"shared\" si=\"0\"/>"),
+        "{got}"
+    );
+    assert_eq!(
+        sheet_after(&parts, delete_cols(2, 3)),
+        worksheet("<sheetData><row r=\"1\"></row></sheetData>")
+    );
+}
+
+#[test]
+fn on_the_column_axis_arrays_stay_refused_a_member_first_and_off_the_grid_are_refused() {
+    let array = with_body(
+        "<sheetData><row r=\"1\"><c r=\"B1\"><f t=\"array\" ref=\"B1:D1\">B2</f><v>1</v></c></row></sheetData>",
+    );
+    assert_package(refused_on(array.clone(), insert_cols(3, 1)), CUTS);
+    assert_package(refused_on(array, delete_cols(3, 1)), CUTS);
+    let first = with_body(
+        "<sheetData><row r=\"1\"><c r=\"A1\"><f t=\"shared\" si=\"0\"/></c>\
+         <c r=\"B1\"><f t=\"shared\" ref=\"A1:D1\" si=\"0\">B2</f></c></row></sheetData>",
+    );
+    assert_package(refused_on(first, delete_cols(3, 1)), MEMBER_FIRST);
+    let off = with_body(
+        "<sheetData><row r=\"1\"><c r=\"XFC1\"><f t=\"shared\" ref=\"XFC1:XFD1\" si=\"0\">XFD1</f></c>\
+         <c r=\"XFD1\"><f t=\"shared\" si=\"0\"/></c></row></sheetData>",
+    );
+    assert_package(refused_on(off, delete_cols(16383, 1)), UNSHARED_OFF);
 }
 
 #[test]
