@@ -3,8 +3,8 @@
 Status: APPROVED 2026-11-08 (decisions 1 to 4 A, typed in the
 planning session: "i agree with recommendations, proceed"); the
 milestone APPROVED 2026-11-07 (Milestone 8, decisions 1 to 4 A,
-`ROADMAP.md` "Milestone 8"). P1 DONE 2026-11-07 at 8b138cd; P2 IN
-PROGRESS 2026-11-08 (ruling D).
+`ROADMAP.md` "Milestone 8"). P1 DONE 2026-11-07 at 8b138cd; P2 DONE
+2026-11-08 at e56dc19 (rulings D to H); the close-out IN PROGRESS.
 
 Milestone 8, "corpus findings and the core ceiling", fixes the five
 finding groups Milestone 7 part 3's P2 recorded over the grown
@@ -177,14 +177,16 @@ count compares the sheet count with the count of tables that are
 not external-link cache tables, a cache table being one whose
 `table:name` holds `://` or starts with `file:` and also holds `#`
 and whose `table:print` is `false`; and it requires the cache-table
-count to equal the `<sheetName>` count over the workbook's
-externalLink parts, printing "the ods holds N table elements, M of
-them external-link caches, and the workbook S sheet elements and X
-external sheet names" as the reason when either comparison fails.
+count not to exceed the `<sheetName>` count over the workbook's
+externalLink parts (ruling F; the draft read "equal"), printing "the
+ods holds N table elements, M of them external-link caches, and the
+workbook S sheet elements and X external sheet names" as the reason
+when either comparison fails.
 `scripts/lo-check-test.sh` (or the existing test of the library)
 gains a fictional fixture pair with a cache table and one without,
-and a negative case where the cache count and the external sheet
-names differ. `scripts/edit-open-check.sh`'s reason class `count`
+and a negative case where the cache count exceeds the external sheet
+names (ruling H; the draft read "differ").
+`scripts/edit-open-check.sh`'s reason class `count`
 matches the new wording.
 
 Group 2, as decision 3 rules. Under A: `sheet_read_back` takes
@@ -453,6 +455,160 @@ D. Decisions 1 to 4 taken as A (2026-11-08) and P2 briefed. Four
    stop. The doc commit is on 8b138cd with the two planning files as
    they stand after this ruling.
 
+E. The stop report read and the word given (2026-11-08). Verified
+   from git and the phase directory: the doc commit 4296d03 names the
+   two files with the hashes planning printed (03144cde, 50daf043),
+   no count sentence; the three code commits' diffs do what "The
+   fixes (P2)" says: `lo_count_check` reads both archives with
+   zipfile and ElementTree, tells a cache by the three marks, and
+   writes the four-count reason in the spec's wording;
+   `sheet_read_back` branches on `views_before`, the sheet line
+   gains the two fields, the remove sample's read-back is unchanged;
+   the README and CHANGELOG lines are the spec's text and the 0.1.0
+   entry is untouched. Planning ran `scripts/lo-check-test.sh`
+   (PASS, 10 ok lines, exit 0) and `lo_count_check` over
+   9956034c4326's part 3 P2 input and output conversions (both 0).
+   Dry d2: both gates and the run read yes, 0 UNEXPECTED, the scan's
+   five failures the dry layout, 3 FINDING lines, each the fictional
+   corpus not reproducing a named refusal. The deviations are
+   accepted: the negative case that doctors an output is a unit test
+   in the tool's main.rs, because the binary cannot write such an
+   output, with tests/book_views.rs holding the two passing cases
+   and a binary-level negative; keep_output.rs's fixture gains an
+   empty bookViews so that it still fails on "active tab"; the
+   sheets are counted by local name with the parser and
+   LO_SHEET_PATTERN stays for edit-open-check.sh alone; the doc
+   commit was amended once before anything referenced it; the dry
+   corpus holds 9 of the 39 ids in the manifest's order. The rule's
+   edge found by d1 is recorded, not fixed: LibreOffice writes a
+   cache table only for an external sheet a formula references, so a
+   workbook with an externalLink sheet name no formula uses fails
+   the rule (caches fewer than names). No file of the 39 is one
+   (9956034c4326 alone holds an externalReference and passes on
+   input and output); the rule stays the decided equality, and a
+   corpus file showing the edge makes a FINDING that reopens it with
+   a real fixture. The word: the logged run follows as the report's
+   "After the word", without a further stop.
+
+F. The logged run's one FINDING ruled (2026-11-08). gate.log 2aad3fff
+   reads yes, exit 0, the prune done (P1's target gone, its 28 names
+   kept). run.log b0ae5da8 made all 59 runs and 59 record pairs,
+   0 UNEXPECTED, and ends "no" on one check, group 1 met in 58 of
+   59: on --edit-formula-sample 9956034c4326 reads ok/fail/ok where
+   part 3 P2 read ok/ok/fail, the reason "the ods holds 1 table
+   elements, 0 of them external-link caches, and the workbook 1
+   sheet elements and 1 external sheet names". The sample replaced
+   the workbook's only formula, the one that used the external
+   sheet, so the output keeps an external sheet name no formula
+   uses, LibreOffice writes no cache table for it, and the equality
+   fails: ruling E's known limit, shown by a corpus file in the same
+   run. This is a failing run: recorded, fixed, run again with the
+   fix named. The fix: the rule's third comparison becomes "the
+   caches do not exceed the external sheet names" (a cache without a
+   name is still a failure; a name without a cache is not), the
+   reason's wording unchanged, the function's comment saying why;
+   `scripts/lo-check-test.sh` gains a case (vi), one sheet, one
+   external sheet name, one displayed table and no cache, ok; case
+   (iii) still fails. One code commit on 67310df, its message naming
+   run.log b0ae5da8 and the FINDING line; it is the phase commit.
+   "The fixes (P2)" above is corrected in place. The first run's 59
+   record pairs and run.log b0ae5da8 move to `<phase>/superseded/
+   run1/` and its 59 run directories `<runs>/2026-11-08-67310df-*`
+   to `<corpus>/superseded-runs/`, each move by `mv` printed before
+   and after by the logged driver, every moved file's sha256
+   printed; gate.log 2aad3fff is kept as the prune's primary and
+   goes into the record commit as `gate-prune.log`. Then: the
+   generators brought to the new phase commit, a dry run d3 (the
+   gate in list mode, the run, the scan) whose fictional external
+   workbook also has the edge (a second external sheet name no
+   formula uses, expected ok), and, if d3 reads as d2 did, the
+   logged gate with PRUNE_PREVIOUS=list and the logged run with
+   RERUN_NOTE naming run.log b0ae5da8, the FINDING and the fix
+   commit, without a further stop: the records, the logs README
+   (the superseded run, the moves and the edge under their own
+   headings), the pre-check scan, one independent check, the final
+   scan, the record commit, the report; STOP. No push. The record
+   commit's logs are gate-prune.log, gate.log, run.log, scan.log,
+   independent-check-1.md and the README, with the two P1 driver
+   outputs under records/logs/m8p1-p1/ as ruling C has them.
+
+G. The second logged gate's one "no" ruled (2026-11-08). The fix
+   commit 8816db0 is verified: the third comparison reads `-gt`, the
+   comment says why, the message names run.log b0ae5da8 and its
+   FINDING line, and `scripts/lo-check-test.sh` run by planning
+   prints case (vi) ok and PASS. The moves are done and verified:
+   the 118 record files and run.log b0ae5da8 under `<phase>/
+   superseded/run1/`, the 59 run directories under
+   `<corpus>/superseded-runs/`, none left under `<runs>`, every file
+   re-hashed at its new place (moves.out cb0a6b4d); gate.log 2aad3fff
+   is `records/logs/m8p1-p2/gate-prune.log`. The departure is
+   accepted: the moves ran as their own logged script before d3,
+   because the run script admits only records at the phase commit's
+   short sha, so moves inside the driver would have failed d3 on
+   layout; moves.out goes into the record commit as
+   `records/logs/m8p1-p2/moves.out`, the moves' primary. Dry d3 read
+   as d2 did (gate list mode yes, run yes, the scan's five failures
+   the dry layout, 0 UNEXPECTED, the three fictional FINDING pairs).
+   The second logged gate, gate.log e872e83d, ends "no" on one
+   UNEXPECTED line (371): the driver exported RERUN_NOTE and
+   RERUN_FILES, meant for the run step, to the whole driver, and the
+   gate's carried check then wanted a superseded .sh among
+   RERUN_FILES. Every other gate check read as expected; the gate
+   itself and the fix are not at fault; no run directory or record
+   was made. This is a failing run of the gate: recorded, fixed, run
+   again with the fix named. The fix is the driver's: gate.log
+   e872e83d, `<phase>/gate` and `<phase>/out` move to
+   `<phase>/superseded/gate2/` by `mv`, hashed, with a copy of the
+   second driver; the third driver gives each step its own inputs
+   through that step's environment alone and exports nothing
+   driver-wide; the gate's RERUN_NOTE names gate.log e872e83d, line
+   371 and the cause, its RERUN_FILES that gate.log and the copied
+   second driver; the run's RERUN_NOTE names run.log b0ae5da8, the
+   FINDING and the fix commit, its RERUN_FILES the run1 run.log and
+   the first driver copied there. Then ruling F item 4 as written,
+   without a further stop; the README names gate2 under the
+   superseded heading. The record commit's logs are gate-prune.log,
+   gate.log, run.log, scan.log, moves.out, independent-check-1.md
+   and README.md, with the two P1 driver outputs under
+   records/logs/m8p1-p1/ (ruling C).
+
+H. The record commit e56dc19 verified (2026-11-08) from git, the
+   records and the logs: parent 8816db0, the subject as ruled, the
+   diff-alone sentence, the Co-Authored-By line only, ASCII; 127
+   files: the 118 record files at 8816db0, records/logs/m8p1-p2
+   (README.md 5b3eaa7c, gate-prune.log 2aad3fff, gate.log 8066a4c5,
+   run.log d275146e, scan.log 923c822c, moves.out cb0a6b4d,
+   independent-check-1.md a43320c1) and the two P1 driver outputs
+   under records/logs/m8p1-p1 at their hashes (ruling C). Both gate
+   logs and the run log end yes with 0 UNEXPECTED; the run log's
+   rerun note names run.log b0ae5da8, its FINDING and 8816db0, the
+   gate's names gate.log e872e83d and line 371; 0 FINDING lines; the
+   scan "structural checks failed: 0", RESULT: PASS, EXPECT_RECORDS
+   59. Planning compared the 59 record pairs per id with part 3 P2's
+   itself, from the .txt records, apart from the run script: 59
+   pairs of 39 ids; 64 changed triples, 9956034c4326 in all 59
+   (fail/fail to ok/ok in 58, ok/fail to ok/ok in the edit-formula
+   sample, the fixed rule) and the five google-sheets ids in the
+   sheet sample (error to ok, lo ok); the seven named pairs
+   unchanged; no other change. No committed file holds a byte
+   outside ASCII or a home path (the two "/home/" strings in run.log
+   and the one in scan.log are the scripts' own search patterns, as
+   the scan's privacy form allows). Check 1 answers yes with
+   exceptions, yes with exceptions, no; each exception is disposed
+   in the README's "After independent check 1" and planning rules
+   them so: the fix message's "option A" names the stop report's
+   option and stands; the spec's test sentence that read "differ" is
+   corrected in place above; the run directories' 32309 per-file
+   hashes live in a list file under `<phase>` whose own sha256
+   moves.out prints, and gate2's moves output stays under `<phase>`,
+   its primary gate.log e872e83d hashed in gate.log's rerun lines;
+   every Q3 figure without a committed primary is a figure of a file
+   under `<phase>` or `<corpus>`, named with its source, as P1's were
+   (ruling C); the README's four small inaccuracies (two line ranges,
+   one table cell, one timestamp) are corrected in its after-check
+   section and the README stands as committed. P2 is DONE at
+   e56dc19. The close-out follows "Close-out push (after P2)".
+
 ## Planning verification of P1 (2026-11-07)
 
 Verified from primaries, never from the implementing session's
@@ -472,6 +628,27 @@ the sample tool's assertion on inputs with no `<bookViews>`, which
 the core neither needs nor creates. P1 is DONE at 8b138cd; the
 planning files stay uncommitted for P2's doc commit, which waits on
 decisions 1 to 4.
+
+## Planning verification of P2 (2026-11-08)
+
+Verified from primaries, never from the implementing session's
+summaries alone: the four code commits' diffs against "The fixes
+(P2)" and rulings D to G; the count-rule test and the rule over the
+real external-link workbook's conversions, run by planning; dry runs
+d2 and d3; the first logged run's one FINDING, its cause and the fix
+(ruling F); the second logged gate's one UNEXPECTED line and its
+driver cause (ruling G); the third driver's gate and run, the 59
+records compared per id by planning's own reading, the scan, check 1
+and the record commit (ruling H). The three harness-side groups are
+fixed as decided: the open check tells LibreOffice's external-link
+cache tables from sheets and lets an external sheet name stand
+without a cache; the sheet sample reads the active tab against the
+input's own `<bookViews>`; the README cites the figure at the tag
+and the CHANGELOG says so above an unchanged 0.1.0 entry. The 59
+reruns changed exactly what the fixes imply and nothing else; group
+5's remove line and the six refusals stand for part 2. P2 is DONE at
+e56dc19; the planning files stay uncommitted for the close-out doc
+commit.
 
 ## Decisions for the maintainer
 
