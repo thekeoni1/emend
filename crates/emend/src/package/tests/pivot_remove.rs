@@ -1,8 +1,9 @@
 //! A sheet a pivot cache sources, refused at `remove_sheet`
 //! (`specs/0048-the-two-refusals.md`, "The pivot cache source", decision
-//! 1 A): each test builds a two-sheet workbook with one pivot cache whose
-//! worksheet source names a sheet, a table or a defined name, and removes a
-//! sheet.
+//! 1 A, and Amendment 1: the table case with the feature `tables`, the
+//! defined-name case with `metadata`): each test builds a two-sheet
+//! workbook with one pivot cache whose worksheet source names a sheet, a
+//! table or a defined name, and removes a sheet.
 
 use super::*;
 
@@ -55,6 +56,7 @@ fn with_cache(defined: &str, listed: bool, cache_bytes: &str) -> Parts {
 }
 
 /// A table part on sheet 2, named `name` and displayed as `display`.
+#[cfg(feature = "tables")]
 fn with_table(parts: &mut Parts, name: &str, display: &str) {
     with_sheet_rels(
         parts,
@@ -108,6 +110,7 @@ fn a_cache_naming_the_sheet_by_its_sheet_attribute_refuses_and_the_next_call_wor
     let _ = written(package);
 }
 
+#[cfg(feature = "tables")]
 #[test]
 fn a_cache_naming_a_table_on_the_sheet_by_its_display_name_or_name_refuses() {
     for by in ["Sales", "Table1"] {
@@ -121,6 +124,7 @@ fn a_cache_naming_a_table_on_the_sheet_by_its_display_name_or_name_refuses() {
     }
 }
 
+#[cfg(feature = "metadata")]
 #[test]
 fn a_cache_naming_a_defined_name_qualified_with_the_sheet_quoted_or_bare_refuses() {
     for text in [
