@@ -1,0 +1,22 @@
+logged run at HEAD 01b0896c194e627fca2bcb4f384d9d11d0d88785; PLANNING_SPEC eb859312f231d358c9ae403e8ab327b156bc47ea49264d712cd423a182fc7c3f; ANTHROPIC_API_KEY set: no; free space 651G
+gate started 2026-11-08T03:05:47Z
+gate exit 0; gate log checks all as expected: yes; outer stderr 0 bytes; 2026-11-08T03:18:11Z
+  the gate's own stderr: 0 bytes
+run started 2026-11-08T03:18:11Z
+run exit 1; run log checks all as expected: no; outer stderr 0 bytes; 2026-11-08T03:18:22Z
+  the run's own stderr: 0 bytes
+FINDING lines (outside the printed scripts):
+records/logs/m8p1-p1/run.log:3298:  exit 0; stderr bytes 0; FINDING lines it printed: 0
+records/logs/m8p1-p1/run.log:3301:  the record's count of statements against the facts is the FINDING lines the program printed: yes
+records/logs/m8p1-p1/run.log:3313:## the FINDING lines of this log (specs/0043 ruling R)
+records/logs/m8p1-p1/run.log:3314:  FINDING lines printed above: 0 (each begins with the word FINDING; none is fixed in P1)
+UNEXPECTED lines:
+records/logs/m8p1-p1/gate.log:0
+records/logs/m8p1-p1/run.log:0
+records written: 1
+<phase>/tmp names after: d2check g r s tmp.Fb4nfrUMUU tmp.dLnN1l8eiD 
+free space after: 659G
+git status:
+   M specs/0047-harness-findings.md
+  ?? records/diagnosis-m8p1-2026-11-08-01b0896.md
+  ?? records/logs/m8p1-p1/

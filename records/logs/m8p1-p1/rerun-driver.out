@@ -1,0 +1,28 @@
+rerun (logged) at HEAD 01b0896c194e627fca2bcb4f384d9d11d0d88785; PLANNING_SPEC 8bc1c7026f23c8d11f5de59fed6e76eeb9115b4aab49236d147a8d5023214c3e; ANTHROPIC_API_KEY set: no; 2026-11-08T03:22:13Z
+gate.sh 43de576f31a8bba90cc423e5caf9a8fb0b3bc2486d2ce941c570be5a9c97be8f and scan.sh 11b1791e532efea7bc03c4ff901c640f18ef00f6fa5f4ad213bde852ec64e14b, unchanged; run.sh 16aa96883bd13bdd652b31b446e221147d3aa136b1e067ca36ada56f15e68659
+the gate log the run reads: d8503ba15a962b58475e81766884d1a90016ba08cad283f235a6092138e4db22 878025 bytes
+## the moves (specs/0047 ruling B), by mv, nothing removed
+before: <corpus>/runs/2026-11-08-01b0896-sheet-kept: directory, 23 files, 302161 bytes
+before: records/diagnosis-m8p1-2026-11-08-01b0896.md: sha256 7801689e7f489de6c05c9f3ea6471503fa9dcac6116fc539e984e10f11202066, 24333 bytes
+before: records/logs/m8p1-p1/run.log: sha256 1b9c723072bd06df0ae8e1d7df965f3880ed408ac3b2f7b21becdde5ca546c6c, 240530 bytes
+mv -n -T <runs dir> -> <corpus>/superseded-runs/2026-11-08-01b0896-sheet-kept-run1: exit 0
+mv -n records/diagnosis-m8p1-2026-11-08-01b0896.md -> <phase>/superseded/run1/: exit 0
+mv -n records/logs/m8p1-p1/run.log -> <phase>/superseded/run1/: exit 0
+after: <corpus>/runs/2026-11-08-01b0896-sheet-kept there: no; <corpus>/superseded-runs/2026-11-08-01b0896-sheet-kept-run1: 23 files, 302161 bytes
+after: <phase>/superseded/run1/diagnosis-m8p1-2026-11-08-01b0896.md: sha256 7801689e7f489de6c05c9f3ea6471503fa9dcac6116fc539e984e10f11202066; records/diagnosis-m8p1-2026-11-08-01b0896.md there: no
+after: <phase>/superseded/run1/run.log: sha256 1b9c723072bd06df0ae8e1d7df965f3880ed408ac3b2f7b21becdde5ca546c6c; records/logs/m8p1-p1/run.log there: no
+run started 2026-11-08T03:22:13Z
+run exit 0; run log checks all as expected: yes; outer stderr 0 bytes; 2026-11-08T03:22:18Z
+run.log: sha256 4770abadb0df37a63d4c7ed8e74adb7833e48bb3af9b8754d7cc8aee98957f09, 242523 bytes
+the run's own stderr: 0 bytes
+UNEXPECTED: 0; verdicts no: 1
+FINDING lines (outside the printed script):
+3312:  exit 0; stderr bytes 0; FINDING lines it printed: 0
+3315:  the record's count of statements against the facts is the FINDING lines the program printed: yes
+3327:## the FINDING lines of this log (specs/0043 ruling R)
+3328:  FINDING lines printed above: 0 (each begins with the word FINDING; none is fixed in P1)
+records now: 1
+git status:
+   M specs/0047-harness-findings.md
+  ?? records/diagnosis-m8p1-2026-11-08-01b0896.md
+  ?? records/logs/m8p1-p1/
