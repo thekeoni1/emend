@@ -5,7 +5,8 @@ planning session: "great, i agree" to planning's recommendation of
 A in each); the milestone APPROVED 2026-11-07 (Milestone 8,
 decisions 1 to 4 A, `ROADMAP.md` "Milestone 8"); part 1 DONE and
 PUSHED 2026-11-09 (`specs/0047`). P1 DONE 2026-11-09 at cbef379
-(rulings A and B); P2 IN PROGRESS.
+(rulings A and B); P2 DONE 2026-11-09 at 572e71f (rulings C and D);
+P3 IN PROGRESS.
 
 Milestone 8 part 2 implements the milestone's decisions 2 and 3 and
 part 1's decision 2: the two documented refusals Milestone 7 part
@@ -554,6 +555,91 @@ four samples over the 39 moved. The `rowcol` cost grew 18644 over
 the band's accepted 16000, recorded and not fixed; P3's size record
 attributes it by file. P1 is DONE at cbef379; the working spec and
 the ROADMAP stay uncommitted for P2's doc commit.
+
+## Planning rulings during P2 (2026-11-09)
+
+C. The stop report verified from git, the diffs, the tests and the
+   dry logs, and the word for the logged gate and run. The doc
+   commit 94fc5a4 names the two files at the hashes planning
+   printed; the test-only commit 8586040 adds the three tests of
+   ruling B (1) and no code; the code commit c609bf3 does what
+   "Threaded comments" says: `threaded_cells` reads each
+   threadedComment relationship's target by a streaming pass
+   (`threaded_refs`: the root `ThreadedComments` in the 2018
+   namespace, each child's `ref` an area read as its first cell),
+   `record_comments` refuses an addition, removal or replacement
+   on a named cell with "a cell has a threaded comment" and edits
+   every other cell as before, the threaded parts never written;
+   "a threaded comments part cannot be read" covers another root,
+   a child without `ref`, an unparsed `ref`, an external or missing
+   target and an XML error; `record_copies` keeps the sheet-level
+   refusal. The five tests cover the spec's list on a fixture
+   holding a threaded part, a persons part, a legacy part with the
+   `tc=` fallback and a plain comment, and a VML part, asserting
+   the fallback, the threaded part and the persons part byte for
+   byte. Dry d1: the gate and run yes, the three pairs met and the
+   copy pair kept, the scan FAIL on the four dry-layout lines
+   alone, no FINDING; the `comments` cost 66576 against 63440, a
+   growth of 3136, above the expected 3000 and within the accepted
+   5000, no FINDING. Rulings on the report's points: (1) the growth
+   is accepted; P3's record attributes it. (2) The sheet-level test
+   removed, its case replaced by the five: accepted. (3) The
+   by-name comments run of 60 with `comments,richtext,rowcol`:
+   accepted; the filter takes the submodules. (4)
+   `THREADED_COMMENTS_HELD` gated on `comments` and `copy`
+   together: accepted, the copy is its only raiser. (5) The copy
+   pair as an explicit "kept" class with a control: accepted. (6)
+   The test-only commit classed as a code commit: accepted; no
+   further change. (7) Planning edits specs/0048 alone before the
+   record commit. (8) The prune of P1's target is the spec's rule.
+   Noted, not a change: one doc-comment line of `add_comment` runs
+   long after the edit; P3 may rewrap it in a docs commit if it
+   touches that comment, otherwise it stands.
+
+D. The record commit 572e71f verified (2026-11-09) from git, the
+   logs and the README: parent c609bf3, the subject as the brief
+   gave it, the diff-alone sentence, the Co-Authored-By line only,
+   ASCII; five files under `records/logs/m8p2-p2/` (gate.log
+   d0027553, run.log 0646a0c7, scan.log 1779a159, README.md
+   4cc1be00, independent-check-1.md d9bbb6e6) and nothing else.
+   gate.log ends yes with the seven sets at their counts on both
+   targets (cc 762, all 1236), shift 47 and comments 60 by name,
+   and the prune of P1's target by the `rm -r` form with its
+   control. run.log ends yes: the four samples over the 39, every
+   output opened, compared per id with part 1 P2's records; on
+   15205770ae5c comment, richcomment and commentbox from error/-/ok
+   to ok/ok/ok and copy kept error/-/ok, every other row the same,
+   new 0 and missing 0; no FINDING; the `comments` cost 66576
+   against 63440, the growth 3136 accepted. The scan PASS before
+   the record commit. No log holds a byte outside ASCII, an address
+   or a home path (the scripts' own patterns apart). Check 1
+   answers yes to the diff and the logs with coverage notes and
+   finds the README's figures in primaries or named with their
+   files; each note is disposed in the README's after-check section
+   and planning rules them so: (1) the threaded part's external
+   target refusal and the XML-error mapping get tests in P3's
+   test-only commit; the read message covers an XML error alone,
+   and a read failure of the archive (`Error::Io`) passes through
+   as raised, which is right: it is not a malformed part. (2) A box
+   alone on a threaded cell meets "no comment addition on that
+   cell" first, as any lone box does; the spec's box refusal is met
+   through the addition: accepted as is. P2 is DONE at 572e71f.
+
+## Planning verification of P2 (2026-11-09)
+
+Verified from primaries, never from the implementing session's
+summaries alone: the three commits' diffs against "Threaded
+comments", "Errors" and ruling B (1); the reader and the per-cell
+check read by planning; the five tests' fixture and assertions
+(the fallback, the threaded part and the persons part byte for
+byte); dry run d1 (ruling C); the logged gate and run, the scan,
+check 1 and the record commit (ruling D). Group 4's three corpus
+refusals are gone: the comment, rich comment and box samples write
+outputs that open on the threaded-comments workbook, and the copy
+stays refused as decision 2 A rules. No other row of the four
+samples over the 39 moved. The `comments` cost grew 3136, within
+the accepted band. P2 is DONE at 572e71f; the working spec and the
+ROADMAP stay uncommitted for P3's doc commit.
 
 ## Decisions for the maintainer
 
