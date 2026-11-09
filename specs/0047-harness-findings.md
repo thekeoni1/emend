@@ -4,7 +4,9 @@ Status: APPROVED 2026-11-08 (decisions 1 to 4 A, typed in the
 planning session: "i agree with recommendations, proceed"); the
 milestone APPROVED 2026-11-07 (Milestone 8, decisions 1 to 4 A,
 `ROADMAP.md` "Milestone 8"). P1 DONE 2026-11-07 at 8b138cd; P2 DONE
-2026-11-08 at e56dc19 (rulings D to H); the close-out IN PROGRESS.
+2026-11-08 at e56dc19 (rulings D to H); the close-out DONE and
+PUSHED 2026-11-09 at e1fc6e4 (ruling I; record 454dea3 local). Part
+1 is DONE and PUSHED.
 
 Milestone 8, "corpus findings and the core ceiling", fixes the five
 finding groups Milestone 7 part 3's P2 recorded over the grown
@@ -609,6 +611,47 @@ H. The record commit e56dc19 verified (2026-11-08) from git, the
    section and the README stands as committed. P2 is DONE at
    e56dc19. The close-out follows "Close-out push (after P2)".
 
+I. The close-out verified (2026-11-09, the maintainer's local date)
+   from git, `gh` and the three logs, not from the report. The pre
+   run first: push.log 2591a24b "pre checks all as expected: yes",
+   83 yes, 0 UNEXPECTED, the base recorded 4316630, 13 commits, no
+   tag at the tip and the v0.1.0 control at cf727f7; scan-pre.log
+   cbf36d15 PASS, "structural checks failed: 0"; the doc commit
+   e1fc6e4 carrying this spec at 28b8e812 and `ROADMAP.md` at
+   aee61feb; the tree clean. Planning's word went by message on
+   2026-11-09 saying it was not the maintainer's authorisation; this
+   ruling is written after the push so the tree stayed clean. The
+   maintainer then typed "push 11/9/2026" in the implementing
+   session; push mode ran at 12:51:05Z from the close copy of the
+   push script d4e6ccab with MAINTAINER_AUTH and MAINTAINER_AUTH_DATE
+   set from those words (push.log line 2087 holds them verbatim).
+   git pushed 4316630..e1fc6e4 main -> main, the branch alone, no
+   tag line; the hook ran once over the 13 commits, 2931 blobs, 0
+   findings; remote main equals local main; the repository PUBLIC;
+   "push checks all as expected: yes" (push.log af7fc617, 2137
+   lines, 152505 bytes). CI run 42620644869 on e1fc6e4, event push,
+   "status completed; conclusion success", every step success,
+   "ci-run log checks all as expected: yes" (ci-run.log b2798052,
+   871 lines); `gh run view` agrees. The post scan over
+   4316630..e1fc6e4: 13 messages, all ending with the harness's
+   Co-Authored-By line, 149 of 149 files read, "total hits: 0",
+   "structural checks failed: 0", RESULT: PASS (scan.log d295536a,
+   3368 lines). The record commit 454dea3 on e1fc6e4 adds
+   `records/logs/m8p1-close/{push,ci-run,scan}.log` and nothing
+   else, each cmp-equal to its `<phase>` copy, the message naming
+   gen.py 6135512e and the three scripts' hashes, ASCII, the
+   Co-Authored-By line only; main one ahead of origin/main, no tag
+   at HEAD; no byte outside ASCII, no home path (the "/home/"
+   strings are the scripts' own patterns) and no address in the
+   three logs. Check 1 answered yes, yes and found no figure
+   contradicting a primary; its two precision points (the push
+   driver's header comment and authorisation lines also differ from
+   part 3's; the line 820 quote abbreviated) are disposed in the
+   report and stand. The push range carries Milestone 7 part 3's
+   ed918a1 and 06b96e5 and this part's eleven. The close-out is DONE
+   and PUSHED; part 1 is DONE and PUSHED; the record 454dea3 goes
+   with part 2's push.
+
 ## Planning verification of P1 (2026-11-07)
 
 Verified from primaries, never from the implementing session's
@@ -649,6 +692,23 @@ reruns changed exactly what the fixes imply and nothing else; group
 5's remove line and the six refusals stand for part 2. P2 is DONE at
 e56dc19; the planning files stay uncommitted for the close-out doc
 commit.
+
+## Planning verification of the close-out (2026-11-09)
+
+Read from the primaries, not the report: origin/main e1fc6e4 by
+rev-parse after fetch, the only remote tag v0.1.0 still at cf727f7
+by ls-remote, the tree clean, main one commit ahead; the pushed
+range 4316630..e1fc6e4 of 13 commits (part 3's record ed918a1 and
+doc commit 06b96e5, part 1's P1 four, P2 six and the close-out doc
+commit); the hook's one run over it, 13 commits, 2931 blobs, 0
+findings, printed by the pre stage and again by the push. CI run
+42620644869 success by `gh` and by ci-run.log. The post scan PASS
+over 149 files and 13 messages. The record commit 454dea3 with the
+three logs only, at the hashes of ruling I. Ruling I was given as
+planning's word by message on 2026-11-09 while the tree had to stay
+clean and is written here after the push, as part 3's rulings Q and
+R were. Part 1 is DONE and PUSHED; the record 454dea3 is local and
+goes with the next push. Part 2 (`specs/0048`) follows.
 
 ## Decisions for the maintainer
 

@@ -1331,7 +1331,7 @@ carries part 2's four local commits (8f742d0, 27da228, 472d361,
 | P2 | the passthrough and the 58 samples over the grown corpus at the phase commit, `--label host`, every output opened; the records `m7p3-<name>-<utc-date>-<shortsha>`; the comparison with the latest committed records on the 27 earlier ids; the findings README; one independent check | DONE 2026-11-05 (phase commit d7a8196, record 44df7e6; 59 runs over the 39 files, the passthrough and 58 samples, every output opened; the 27 earlier ids unchanged in all 59 comparisons; 71 FINDING lines on 7 of the 12 new ids in five groups, recorded not fixed: the open check's sheet count on one external-link workbook, failing on the input itself (59), the sheet sample's active-tab check on the five Sheets exports (5), two formula-cut refusals, four threaded-comment refusals on one Sheets export, one LibreOffice failure after the remove sample on a pivots, slicers and timelines workbook; check 1 yes with exceptions on all three, disposed in the README; the scan PASS; `specs/0046` rulings M to P; no push) |
 | Close | close-out push after P2, carrying part 2's four local commits and this part's, base cf727f7 by its subject, `PREV` `^M7 part 2 close-out record`, both Excel-record checks in pre mode unchanged, the branch alone (no tag), the range scan, one independent check | DONE 2026-11-07 (doc commit 4316630 pushed, the branch alone, no tag, origin/main cf727f7..4316630, 10 commits, 2782 blobs, 0 findings, on "push 11/7/2026" typed in the implementing session after planning's word (ruling R); CI run 42431758270 success; the post scan PASS over the range; record ed918a1 local, goes with the next push; check 1 yes, yes, yes with exceptions, disposed in the report; change 73 not carried, ruling Q; verified by planning from git, `gh` and the three logs; `specs/0046` "Planning verification of the close-out", Q to S; part 3 PUSHED, Milestone 7 DONE and PUSHED) |
 
-## Milestone 8: corpus findings and the core ceiling (APPROVED 2026-11-07)
+## Milestone 8: corpus findings and the core ceiling (APPROVED 2026-11-07; part 1 DONE and PUSHED 2026-11-09)
 
 Theme chosen by the maintainer 2026-11-07 after Milestone 7 part 3's
 close-out, from planning's recommendation ("great, lets go"): the
@@ -1397,7 +1397,7 @@ phases as before; the first doc commit goes with Milestone 7 part
    machine of their own, no registry token in any session; the
    publication verified against the tag.
 
-### Part 1: the harness-side findings and the docs (`specs/0047-harness-findings.md`, APPROVED 2026-11-08, decisions 1 to 4 A)
+### Part 1: the harness-side findings and the docs (`specs/0047-harness-findings.md`, APPROVED 2026-11-08, decisions 1 to 4 A; DONE and PUSHED 2026-11-09)
 
 The three finding groups that are the harness's, not the core's:
 LibreOffice's conversion of an external-link workbook holds a cache
@@ -1421,7 +1421,38 @@ close-out push carries Milestone 7 part 3's two local commits
 | --- | --- | --- |
 | P1 | `scripts/lo-tables.py` with its self-test; `emend-copy`'s `EMEND_COPY_KEEP_OUTPUT` with its test; the five sheet-sample rebuilds kept; the script over part 3 P2's directories; `records/diagnosis-m8p1-<utc-date>-<shortsha>.md`; one independent check | DONE 2026-11-07 (phase commit 01b0896, record 8b138cd; the record `diagnosis-m8p1-2026-11-08-01b0896` with 0 statements against the corrected facts and the three classifications supported; the first logged run ended no on one id-order check of the run script, recorded, fixed by change TR and rerun, `specs/0047` ruling B; the prune removed Milestone 7 part 3's three build targets; check 1 yes with one exception, yes with exceptions, no, each disposed in the logs README, ruling C; the scan PASS; no push) |
 | P2 | the count rule telling cache tables from sheets with tests (decision 1); the read-back reading the input's `<bookViews>` with its test (decision 3); the README and CHANGELOG sentences (decision 4); the passthrough and 58 samples over the 39 workbooks, compared per id with part 3 P2's records, the expected changes exactly; the records `m8p1-<name>-<utc-date>-<shortsha>`; the README; one independent check | DONE 2026-11-08 (phase commit 8816db0, record e56dc19; the count rule, the read-back and the two documents in 182482a, bbcb69a and 67310df; 59 runs over the 39 files at the phase commit, every output opened; the changes exactly the ones the fixes imply: 9956034c4326 lo_in fail to ok in 59 and lo fail to ok in 58, the five Sheets exports' sheet sample error to ok, the seven named pairs unchanged, 0 FINDING; the first logged run's one FINDING, the count rule's equality failing the edit-formula output that kept an external sheet name no formula used, fixed by 8816db0 (the caches may not exceed the names) under `specs/0047` ruling F and rerun; the second logged gate's driver fault ruled G and rerun; check 1 yes with exceptions, yes with exceptions, no, each disposed in the logs README, ruling H; the scan PASS; no push) |
-| Close | close-out push after P2, carrying ed918a1 and 06b96e5 and this part's, base 4316630 by its subject, `PREV` `^M7 part 3 close-out record`, both Excel-record checks in pre mode unchanged, the "Unreleased" heading above 0.1.0 and the 0.1.0 entry unchanged, the branch alone (no tag), the range scan, one independent check | IN PROGRESS 2026-11-08 |
+| Close | close-out push after P2, carrying ed918a1 and 06b96e5 and this part's, base 4316630 by its subject, `PREV` `^M7 part 3 close-out record`, both Excel-record checks in pre mode unchanged, the "Unreleased" heading above 0.1.0 and the 0.1.0 entry unchanged, the branch alone (no tag), the range scan, one independent check | DONE 2026-11-09 (doc commit e1fc6e4 pushed, the branch alone, no tag, origin/main 4316630..e1fc6e4, 13 commits, 2931 blobs, 0 findings, on "push 11/9/2026" typed in the implementing session after planning's word (ruling I); CI run 42620644869 success; the post scan PASS over the range, 149 files and 13 messages; record 454dea3 local, goes with the next push; check 1 yes, yes, nothing contradicting a primary, two precision points disposed in the report; verified by planning from git, `gh` and the three logs; `specs/0047` "Planning verification of the close-out", ruling I; part 1 DONE and PUSHED) |
+
+### Part 2: the two refusals behind their features (`specs/0048-the-two-refusals.md`, APPROVED 2026-11-09, decisions 1 to 3 A)
+
+Milestone 8 decisions 2 and 3 and part 1's decision 2 made code:
+behind `rowcol`, an insertion or deletion that would grow or cut a
+shared formula group's `ref`, or delete its master while a member
+stays, unshares the group first, each cell given the master's text
+translated to it by a reference translator of this part, then the
+shift as today (array and data table formulas stay refused); behind
+`comments`, a sheet with threaded comments takes a comment edit on
+any cell no threaded comment names, the legacy part written beside
+the threaded one, a threaded cell refused per cell and the copy of
+such a sheet still refused (decision 2); in the core, `remove_sheet`
+refuses a sheet a pivot cache sources by its `sheet` attribute or,
+by decision 1 A, by a table or defined name of the sheet. The
+size record judges the core change against the ceiling 458752 and
+the `rowcol` and `comments` costs against their bands; the README's
+feature figures and the CHANGELOG's "Unreleased" entries follow.
+The 59 runs rerun over the 39 workbooks, compared per id with part
+1 P2's records: seven expected changes (two shift samples, three
+comment samples, the remove sample with nothing removed under
+decision 3 A, the copy sample unchanged) and nothing else. The
+close-out carries part 1's record 454dea3.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| P1 | the translator with its tests; the shift pass's unshare with its tests; the crate docs; the four row and column samples over the 39, compared per id with part 1 P2's records; the rowcol probe's figure; one independent check | IN PROGRESS 2026-11-09 |
+| P2 | the threaded comments part reader and the per-cell rule with their tests; the docs; the comment, richcomment, commentbox and copy samples over the 39; the comments probe's figure; one independent check | PLANNED |
+| P3 | the pivot cache source refusal with its tests (decision 1); `remove_sample`'s reason (decision 3); the remove sample over the 39; the size record `records/size-m8p2-<utc-date>-<shortsha>.md`; the README figures and the CHANGELOG entries; one independent check | PLANNED |
+| P4 | the passthrough and 58 samples over the 39 workbooks, compared per id with part 1 P2's records, the seven expected changes exactly; the records `m8p2-<name>-<utc-date>-<shortsha>`; the logs README; two independent checks | PLANNED |
+| Close | close-out push after P4, carrying 454dea3 and this part's, base e1fc6e4 by its subject, `PREV` `^M8 part 1 close-out record`, both Excel-record checks unchanged, the "Unreleased" sections above an unchanged 0.1.0 entry, the size record once in the range, the branch alone (no tag), the range scan, one independent check | PLANNED |
 
 ## Unscoped
 
