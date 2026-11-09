@@ -799,20 +799,304 @@ fn the_names_and_the_idmap_skip_what_is_taken() {
     );
 }
 
-#[test]
-fn a_sheet_with_threaded_comments_is_refused() {
-    let parts = with_parts(
-        sheet_r("<sheetData/>"),
-        Some(&relationship(
-            "rId1",
-            "http://schemas.microsoft.com/office/2017/10/relationships/threadedComment",
-            "../threadedComments/threadedComment1.xml",
+/// The threaded comments part's content type and its root's namespace.
+const THREADED_TYPE: &str = "application/vnd.ms-excel.threadedcomments+xml";
+const THREADED_NS: &str = "http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments";
+const PERSONS_TYPE: &str = "application/vnd.ms-excel.person+xml";
+
+/// A `threadedComment` relationship.
+fn threaded_rel(id: &str, target: &str) -> String {
+    relationship(
+        id,
+        "http://schemas.microsoft.com/office/2017/10/relationships/threadedComment",
+        target,
+    )
+}
+
+/// A threaded comments part whose root holds `children`.
+fn threaded_xml(children: &str) -> String {
+    format!(
+        "{DECLARATION}\n<ThreadedComments xmlns=\"{THREADED_NS}\">{children}</ThreadedComments>"
+    )
+}
+
+/// One threaded comment on `cell`, as Excel writes one.
+fn threaded_comment(cell: &str) -> String {
+    format!(
+        "<threadedComment ref=\"{cell}\" dT=\"2026-01-01T00:00:00.00\" \
+         personId=\"{{00000000-0000-0000-0000-000000000001}}\" \
+         id=\"{{00000000-0000-0000-0000-000000000002}}\"><text>t</text></threadedComment>"
+    )
+}
+
+/// The fallback author Excel writes for a threaded comment.
+const TC_AUTHOR: &str = "tc={00000000-0000-0000-0000-000000000002}";
+
+/// A worksheet in Excel's form with a threaded comment on C3: the threaded
+/// part, a persons part, a legacy comments part holding the fallback on C3
+/// by its `tc=` author and a plain comment by `Ann` on A1, and a VML part
+/// with both notes; `rId1` the comments, `rId2` the VML part and `rId3` the
+/// threaded part. `threaded` is the threaded part's bytes.
+fn threaded_sheet(threaded: String) -> Parts {
+    with_parts(
+        sheet_r("<sheetData/><legacyDrawing r:id=\"rId2\"/>"),
+        Some(&format!(
+            "{}{}{}",
+            comments_rel("rId1", "../comments1.xml"),
+            vml_rel("rId2", "../drawings/vmlDrawing1.vml"),
+            threaded_rel("rId3", "../threadedComments/threadedComment1.xml")
         )),
-        &[],
+        &[
+            (
+                "xl/comments1.xml",
+                comments_xml(
+                    &[TC_AUTHOR, "Ann"],
+                    &format!(
+                        "{}{}",
+                        kept_comment("A1", 1, "one"),
+                        kept_comment("C3", 0, "fallback")
+                    ),
+                ),
+                COMMENTS_TYPE,
+            ),
+            (
+                "xl/drawings/vmlDrawing1.vml",
+                excel_vml(
+                    "1",
+                    &format!(
+                        "{}{}",
+                        kept_note("_x0000_s1025", 0, 0),
+                        kept_note("_x0000_s1026", 2, 2)
+                    ),
+                ),
+                VML_TYPE,
+            ),
+            (
+                "xl/threadedComments/threadedComment1.xml",
+                threaded,
+                THREADED_TYPE,
+            ),
+            (
+                "xl/persons/person.xml",
+                format!("{DECLARATION}\n<personList xmlns=\"{THREADED_NS}\"/>"),
+                PERSONS_TYPE,
+            ),
+        ],
+    )
+}
+
+const THREADED_CELL: &str = "a cell has a threaded comment";
+const THREADED_UNREADABLE: &str = "a threaded comments part cannot be read";
+
+#[test]
+fn an_addition_box_and_removal_beside_a_threaded_comment_are_edited_as_on_any_sheet() {
+    // Specs/0048 "Threaded comments": every cell a threaded comment does not
+    // name is edited as on any sheet; the fallback and its `tc=` author stay
+    // byte for byte, and the threaded part, the persons part, the sheet and
+    // its relationships are untouched.
+    let parts = threaded_sheet(threaded_xml(&threaded_comment("C3")));
+    let changed = [
+        b"xl/comments1.xml".as_slice(),
+        b"xl/drawings/vmlDrawing1.vml".as_slice(),
+    ];
+    let output = edited_output(parts.clone(), |p| add(p, "B5", "Ann", "three"));
+    assert_untouched(&output, &parts, &changed);
+    let comments = part_text(&parts, b"xl/comments1.xml").replace(
+        "</commentList>",
+        &format!(
+            "{}</commentList>",
+            added_comment("", "B5", 1, "three", false)
+        ),
+    );
+    assert_eq!(text_of(&output, b"xl/comments1.xml"), comments);
+    let vml = part_text(&parts, b"xl/drawings/vmlDrawing1.vml")
+        .replace("</xml>", &format!("{}</xml>", note(VOX, 1027, 3, 4, 1)));
+    assert_eq!(text_of(&output, b"xl/drawings/vmlDrawing1.vml"), vml);
+    // A box with the addition.
+    let output = edited_output(parts.clone(), |p| {
+        add(p, "B5", "Ann", "three");
+        p.set_comment_box(
+            SHEET,
+            at("B5"),
+            CommentBox {
+                width: 200,
+                height: 100,
+                visible: true,
+            },
+        )
+        .expect("recorded");
+    });
+    assert_untouched(&output, &parts, &changed);
+    assert_eq!(text_of(&output, b"xl/comments1.xml"), comments);
+    // A removal of the plain comment: its element and note go, the
+    // fallback stays.
+    let output = edited_output(parts.clone(), |p| remove(p, "A1"));
+    assert_untouched(&output, &parts, &changed);
+    assert_eq!(
+        text_of(&output, b"xl/comments1.xml"),
+        part_text(&parts, b"xl/comments1.xml").replace(&kept_comment("A1", 1, "one"), "")
+    );
+    let mut package = Package::open(Cursor::new(output)).expect("open the output");
+    assert_eq!(
+        package.comments(SHEET).expect("read back"),
+        [kept_entry("C3", TC_AUTHOR, "fallback")]
+    );
+}
+
+#[cfg(feature = "richtext")]
+#[test]
+fn a_rich_addition_beside_a_threaded_comment_is_edited_as_on_any_sheet() {
+    let parts = threaded_sheet(threaded_xml(&threaded_comment("C3")));
+    let text = crate::cells::RichText {
+        runs: vec![crate::cells::Run {
+            text: "three".to_string(),
+            font: None,
+        }],
+    };
+    let output = edited_output(parts.clone(), |p| {
+        p.add_rich_comment(SHEET, at("B5"), "Ann", &text)
+            .expect("recorded");
+    });
+    assert_untouched(
+        &output,
+        &parts,
+        &[
+            b"xl/comments1.xml".as_slice(),
+            b"xl/drawings/vmlDrawing1.vml".as_slice(),
+        ],
+    );
+    let written = text_of(&output, b"xl/comments1.xml");
+    assert!(
+        written.contains(&kept_comment("C3", 0, "fallback")),
+        "{written}"
+    );
+    assert!(
+        written.contains(&format!("<author>{TC_AUTHOR}</author>")),
+        "{written}"
+    );
+}
+
+#[test]
+fn the_four_calls_on_the_threaded_cell_are_refused_and_record_nothing() {
+    let parts = threaded_sheet(threaded_xml(&threaded_comment("C3")));
+    assert_package(
+        refused_with(parts.clone(), |p| add(p, "C3", "Ann", "x")),
+        THREADED_CELL,
     );
     assert_package(
-        refused_with(parts, |p| add(p, "A1", "Ann", "one")),
-        "a worksheet has threaded comments",
+        refused_with(parts.clone(), |p| {
+            add(p, "C3", "Ann", "x");
+            p.set_comment_box(
+                SHEET,
+                at("C3"),
+                CommentBox {
+                    width: 200,
+                    height: 100,
+                    visible: true,
+                },
+            )
+            .expect("recorded");
+        }),
+        THREADED_CELL,
+    );
+    assert_package(
+        refused_with(parts.clone(), |p| remove(p, "C3")),
+        THREADED_CELL,
+    );
+    #[cfg(feature = "richtext")]
+    {
+        let text = crate::cells::RichText {
+            runs: vec![crate::cells::Run {
+                text: "x".to_string(),
+                font: None,
+            }],
+        };
+        assert_package(
+            refused_with(parts.clone(), |p| {
+                p.add_rich_comment(SHEET, at("C3"), "Ann", &text)
+                    .expect("recorded");
+            }),
+            THREADED_CELL,
+        );
+    }
+    // An area `ref` is read as its first cell.
+    let area = threaded_sheet(threaded_xml(&threaded_comment("C3:D4")));
+    assert_package(
+        refused_with(area, |p| add(p, "C3", "Ann", "x")),
+        THREADED_CELL,
+    );
+    // Nothing is recorded: the package still writes the next edit.
+    let (_, mut package) = opened(parts);
+    add(&mut package, "C3", "Ann", "x");
+    assert!(package.write_to(Cursor::new(Vec::new())).is_err());
+}
+
+#[test]
+fn a_threaded_part_that_cannot_be_read_is_refused() {
+    for threaded in [
+        format!("{DECLARATION}\n<Other xmlns=\"{THREADED_NS}\"/>"),
+        format!("{DECLARATION}\n<ThreadedComments xmlns=\"{MAIN_NS}\"/>"),
+        threaded_xml("<threadedComment id=\"x\"/>"),
+        threaded_xml("<threadedComment ref=\"C\"/>"),
+    ] {
+        assert_package(
+            refused_with(threaded_sheet(threaded), |p| add(p, "B5", "Ann", "x")),
+            THREADED_UNREADABLE,
+        );
+    }
+    let mut missing = threaded_sheet(threaded_xml(&threaded_comment("C3")));
+    missing.retain(|(name, _)| name.as_slice() != b"xl/threadedComments/threadedComment1.xml");
+    assert_package(
+        refused_with(missing, |p| add(p, "B5", "Ann", "x")),
+        THREADED_UNREADABLE,
+    );
+}
+
+#[test]
+fn a_sheet_with_the_relationship_and_no_legacy_part_gains_one_as_a_sheet_with_none() {
+    let threaded = with_parts(
+        sheet_r("<sheetData/>"),
+        Some(&threaded_rel(
+            "rId1",
+            "../threadedComments/threadedComment1.xml",
+        )),
+        &[(
+            "xl/threadedComments/threadedComment1.xml",
+            threaded_xml(&threaded_comment("C3")),
+            THREADED_TYPE,
+        )],
+    );
+    let output = edited_output(threaded.clone(), |p| add(p, "A1", "Ann", "one"));
+    assert_eq!(
+        stored_data(&output, b"xl/threadedComments/threadedComment1.xml"),
+        part_text(&threaded, b"xl/threadedComments/threadedComment1.xml").into_bytes()
+    );
+    let plain = with_parts(sheet_r("<sheetData/>"), None, &[]);
+    let plain_output = edited_output(plain, |p| add(p, "A1", "Ann", "one"));
+    let read = |output: &[u8], name: &[u8]| {
+        let mut package = Package::open(Cursor::new(output.to_vec())).expect("open the output");
+        let index = package.part(name).expect("the part");
+        let mut text = String::new();
+        package
+            .read_part(index)
+            .expect("read_part")
+            .read_to_string(&mut text)
+            .expect("UTF-8");
+        text
+    };
+    for name in [
+        b"xl/comments1.xml".as_slice(),
+        b"xl/drawings/vmlDrawing1.vml",
+    ] {
+        assert_eq!(read(&output, name), read(&plain_output, name));
+    }
+    let rels = read(&output, b"xl/worksheets/_rels/sheet1.xml.rels");
+    assert!(
+        rels.contains(&threaded_rel(
+            "rId1",
+            "../threadedComments/threadedComment1.xml"
+        )),
+        "the threaded relationship is kept: {rels}"
     );
 }
 

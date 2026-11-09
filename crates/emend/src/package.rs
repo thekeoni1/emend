@@ -584,8 +584,13 @@
 //!   (`comments::the_call_refuses_each_rule_and_records_nothing`).
 //! - "a comment text is not valid"
 //!   (`comments::the_call_refuses_each_rule_and_records_nothing`).
-//! - "a worksheet has threaded comments"
-//!   (`comments::a_sheet_with_threaded_comments_is_refused`).
+//! - "a worksheet has threaded comments", raised by `Package::copy_sheet`'s
+//!   write alone (`specs/0048-the-two-refusals.md`, decision 2 A;
+//!   `copy::a_copy_of_a_sheet_with_threaded_comments_or_a_comment_edit_is_refused`).
+//! - "a cell has a threaded comment"
+//!   (`comments::the_four_calls_on_the_threaded_cell_are_refused_and_record_nothing`).
+//! - "a threaded comments part cannot be read"
+//!   (`comments::a_threaded_part_that_cannot_be_read_is_refused`).
 //! - "a worksheet has two legacyDrawing elements"
 //!   (`comments::two_legacy_drawings_or_one_out_of_schema_order_are_refused`).
 //! - "no comment on that cell"
@@ -1703,10 +1708,13 @@
 //!   its content (P1 ruling 4).
 //! - What is never written: formatting runs (but through
 //!   `Package::add_rich_comment`, the Cargo feature `richtext`'s, below), a
-//!   comment's position beyond the box's size, a threaded comment. A
-//!   sheet with a threaded comments relationship refuses every comment edit
-//!   (decision 3 A); `Package::comments` reads such a sheet's legacy fallback,
-//!   the comments part Excel writes beside the threaded one.
+//!   comment's position beyond the box's size, a threaded comment. On a
+//!   sheet with a threaded comments relationship a cell a threaded comment
+//!   names refuses every comment edit, and every other cell is edited as on
+//!   any sheet, the threaded parts, the persons part and their
+//!   relationships never written (`specs/0048-the-two-refusals.md`,
+//!   "Threaded comments"); `Package::comments` reads such a sheet's legacy
+//!   fallback, the comments part Excel writes beside the threaded one.
 //! - What is read back: `Package::comments` gives each comment's cell,
 //!   author and text, runs flattened, and with `richtext` its runs (below);
 //!   a snapshot of the file.
@@ -7838,9 +7846,12 @@ impl<R: Read + Seek> Package<R> {
     /// holds a character XML cannot carry" for an author or a text holding
     /// one; "a comment author is not valid" for an author empty or past 255
     /// characters; "a comment text is not valid" for a text empty or past
-    /// 32767 characters. The write refuses a sheet with a relationship of
-    /// type [`THREADED_COMMENTS`], "a worksheet has threaded comments"; a
-    /// part with two `<legacyDrawing>` elements, or one out of schema order,
+    /// 32767 characters. The write refuses a cell a threaded comment names
+    /// on a sheet with a relationship of type [`THREADED_COMMENTS`], "a cell
+    /// has a threaded comment", and such a relationship whose part is
+    /// missing, whose root is not `ThreadedComments` or whose
+    /// `threadedComment` has no `ref` or one that does not parse, "a
+    /// threaded comments part cannot be read"; a part with two `<legacyDrawing>` elements, or one out of schema order,
     /// "a worksheet has two legacyDrawing elements"; a comments
     /// relationship whose part is missing, a comments part whose root has
     /// no `commentList` or two, a kept `comment` whose `ref` is absent or
@@ -10104,6 +10115,37 @@ impl<'a> Parts<'a> {
         }
     }
 
+    /// The cells the worksheet `part`'s threaded comments name, read from
+    /// each target of its `threadedComment` relationships
+    /// (`specs/0048-the-two-refusals.md`, "Threaded comments"); none for a
+    /// sheet without such a relationship.
+    #[cfg(feature = "comments")]
+    fn threaded_cells(&mut self, part: &[u8]) -> Result<Vec<CellRef>, Error> {
+        let rels = self.relationships(part)?;
+        let targets = rels
+            .all()
+            .iter()
+            .filter(|rel| THREADED_COMMENTS.contains(&rel.kind.as_slice()))
+            .map(|rel| {
+                if rel.external {
+                    return Err(THREADED_UNREADABLE);
+                }
+                rels.target_part(rel).map_err(|_| THREADED_UNREADABLE)
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        let mut cells = Vec::new();
+        for target in targets {
+            let index = self.archive.index_of(&target).ok_or(THREADED_UNREADABLE)?;
+            cells.extend(
+                threaded_refs(self.archive.read(index)?, index).map_err(|e| match e {
+                    Error::Xml(_) => THREADED_UNREADABLE,
+                    e => e,
+                })?,
+            );
+        }
+        Ok(cells)
+    }
+
     /// Records each worksheet's comment edits
     /// (`specs/0022-comments-and-images.md`, "Comments: the calls" and
     /// "Comments: the parts"): the comments part appended to, created or,
@@ -10195,13 +10237,20 @@ impl<'a> Parts<'a> {
             if self.edits.shifts.iter().any(|(at, _)| *at == part) {
                 return Err(SHIFT_ALONE);
             }
-            if self
-                .relationships(&part)?
-                .all()
+            // A cell a threaded comment names takes no comment edit; every
+            // other cell is edited as on any sheet, the threaded parts never
+            // written (`specs/0048-the-two-refusals.md`, "Threaded
+            // comments").
+            let threaded = self.threaded_cells(&part)?;
+            if edits
+                .additions
                 .iter()
-                .any(|rel| THREADED_COMMENTS.contains(&rel.kind.as_slice()))
+                .map(|(cell, _)| cell)
+                .chain(&edits.removals)
+                .chain(&edits.replaced)
+                .any(|cell| threaded.contains(cell))
             {
-                return Err(THREADED_COMMENTS_HELD);
+                return Err(THREADED_CELL);
             }
             let comments = self.comments_rel(&part)?;
             let legacy = element_rel_id(
@@ -13255,8 +13304,20 @@ const TABLE_UNREADABLE: Error = Error::Package("a table part or its relationship
 const COMMENT_AUTHOR_INVALID: Error = Error::Package("a comment author is not valid");
 #[cfg(feature = "comments")]
 const COMMENT_TEXT_INVALID: Error = Error::Package("a comment text is not valid");
-#[cfg(feature = "comments")]
+/// A copy of a sheet with a threaded comments relationship
+/// (`specs/0048-the-two-refusals.md`, decision 2 A): raised by the copy's
+/// write alone.
+#[cfg(all(feature = "comments", feature = "copy"))]
 const THREADED_COMMENTS_HELD: Error = Error::Package("a worksheet has threaded comments");
+/// A comment edit on a cell a threaded comment names
+/// (`specs/0048-the-two-refusals.md`, "Threaded comments").
+#[cfg(feature = "comments")]
+const THREADED_CELL: Error = Error::Package("a cell has a threaded comment");
+/// A threaded comments part whose root is not `ThreadedComments` in the 2018
+/// namespace, a `threadedComment` without a `ref` or with one that does not
+/// parse, or a target that is not there.
+#[cfg(feature = "comments")]
+const THREADED_UNREADABLE: Error = Error::Package("a threaded comments part cannot be read");
 #[cfg(feature = "comments")]
 const TWO_LEGACY_DRAWINGS: Error = Error::Package("a worksheet has two legacyDrawing elements");
 #[cfg(feature = "comments")]
@@ -23687,6 +23748,58 @@ fn part_ref(archive: &mut Core, index: usize, location: bool) -> Result<Option<V
         }
     }
     Ok(None)
+}
+
+/// The namespace of a threaded comments part's root (Microsoft's 2018
+/// extension).
+#[cfg(feature = "comments")]
+const THREADED_NS: &[u8] =
+    b"http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments";
+
+/// Each `threadedComment` child's `ref` of a threaded comments part, an area
+/// read as its first cell, by a pass over the part's tokens; the root must
+/// be `ThreadedComments` in [`THREADED_NS`] and every child named so must
+/// carry a `ref` that parses.
+#[cfg(feature = "comments")]
+fn threaded_refs(input: impl Read, index: usize) -> Result<Vec<CellRef>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut root = false;
+    let mut cells = Vec::new();
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = namespace == Some(THREADED_NS);
+                if depth == 1 {
+                    if !ours || local != b"ThreadedComments" {
+                        return Err(THREADED_UNREADABLE);
+                    }
+                    root = true;
+                } else if depth == 2 && ours && local == b"threadedComment" {
+                    let value =
+                        attribute_value(token.raw, b"ref", index)?.ok_or(THREADED_UNREADABLE)?;
+                    cells.push(Area::parse(value).ok_or(THREADED_UNREADABLE)?.first);
+                }
+                if matches!(token.event, Event::Empty(_)) {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    if !root {
+        return Err(THREADED_UNREADABLE);
+    }
+    Ok(cells)
 }
 
 /// What a created rels part begins with when the package has no
