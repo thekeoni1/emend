@@ -287,16 +287,20 @@
 //! - `--remove-sample`: the removal sample of
 //!   `specs/0016-new-workbook-and-sheets.md`, "Harness runs". The last sheet
 //!   of the list is removed and the package written. When the layer refuses
-//!   the removal as the last sheet or the last visible sheet, nothing is
-//!   recorded and the output is the input's bytes. The output is reopened
+//!   the removal as the last sheet, the last visible sheet or a sheet a
+//!   pivot cache sources (`specs/0048-the-two-refusals.md`, "The harness",
+//!   decision 3 A), nothing is recorded and the output is the input's
+//!   bytes. The output is reopened
 //!   and one line goes to stdout: the word `remove` then `sheets_before`,
 //!   `sheets_after`, `removed` (0 or 1), `parts` (the entries the output has
 //!   fewer than the input, the chain counted), `chain_before` and
 //!   `chain_after` (1 when the workbook names a calculation chain),
 //!   `names_before`, `names_after`, `local_removed` (the input's
 //!   `definedName` elements whose `localSheetId` is the removed sheet's
-//!   index) and `active_before` and `active_after` (as `--sheet-sample`
-//!   reads them). COUNTS ONLY. Asserted: `sheets_after` is `sheets_before`
+//!   index), `active_before` and `active_after` (as `--sheet-sample`
+//!   reads them) and `removed_reason`, the refusal's class: `last`,
+//!   `last_visible`, `pivot_source`, or `-` when the sheet was removed.
+//!   COUNTS ONLY. Asserted: `sheets_after` is `sheets_before`
 //!   less `removed`; `parts` is 0 and the output the input's bytes when
 //!   nothing was removed; `chain_after` is 0 when a sheet was removed;
 //!   `names_after` is `names_before` less `local_removed`; and
@@ -3881,11 +3885,13 @@ fn remove_sample(input: &Path, output: &Path) -> Result<(), Error> {
     let entries_before = package.archive().entries().len() as u64;
     let (names_before, active_before, local_removed, _) =
         workbook_counts(&mut package, Some(last))?;
-    let removed = match package.remove_sheet(&before[last as usize].name) {
-        Ok(()) => 1u64,
-        Err(LayerError::Package(
-            "the last sheet cannot be removed" | "the last visible sheet cannot be removed",
-        )) => 0,
+    // The three refusals that remove nothing, each by its class
+    // (`specs/0048-the-two-refusals.md`, "The harness", decision 3 A).
+    let (removed, reason) = match package.remove_sheet(&before[last as usize].name) {
+        Ok(()) => (1u64, "-"),
+        Err(LayerError::Package("the last sheet cannot be removed")) => (0, "last"),
+        Err(LayerError::Package("the last visible sheet cannot be removed")) => (0, "last_visible"),
+        Err(LayerError::Package("a pivot cache sources the sheet")) => (0, "pivot_source"),
         Err(e) => return Err(e.into()),
     };
     write_into(package, output)?;
@@ -3913,7 +3919,7 @@ fn remove_sample(input: &Path, output: &Path) -> Result<(), Error> {
         discard_output(output);
         return Err(Error::RemoveSample(what));
     }
-    edit_line_named(
+    edit_line_text(
         "remove",
         &[
             ("sheets_before", sheets_before),
@@ -3928,6 +3934,7 @@ fn remove_sample(input: &Path, output: &Path) -> Result<(), Error> {
             ("active_before", active_before),
             ("active_after", active_after),
         ],
+        &[("removed_reason", reason)],
     )
 }
 
@@ -12247,12 +12254,20 @@ fn edit_line(pairs: &[(&str, u64)]) -> Result<(), Error> {
 
 /// [`edit_line`] with another first word.
 fn edit_line_named(word: &str, pairs: &[(&str, u64)]) -> Result<(), Error> {
+    edit_line_text(word, pairs, &[])
+}
+
+/// [`edit_line_named`]'s line with `texts`, each `key=value`, after the
+/// counts.
+fn edit_line_text(word: &str, pairs: &[(&str, u64)], texts: &[(&str, &str)]) -> Result<(), Error> {
     let mut line = String::from(word);
-    for (key, value) in pairs {
+    let counts = pairs.iter().map(|(key, value)| (*key, value.to_string()));
+    let texts = texts.iter().map(|(key, value)| (*key, value.to_string()));
+    for (key, value) in counts.chain(texts) {
         line.push('\t');
         line.push_str(key);
         line.push('=');
-        line.push_str(&value.to_string());
+        line.push_str(&value);
     }
     print_line(&line)
 }

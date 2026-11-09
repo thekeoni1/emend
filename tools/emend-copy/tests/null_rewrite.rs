@@ -3014,7 +3014,7 @@ fn the_remove_sample_removes_the_last_sheet_or_nothing() {
         ran.stdout,
         "remove\tsheets_before=1\tsheets_after=1\tremoved=0\tparts=0\tchain_before=0\
          \tchain_after=0\tnames_before=0\tnames_after=0\tlocal_removed=0\tactive_before=0\
-         \tactive_after=0\n",
+         \tactive_after=0\tremoved_reason=last\n",
         "the one-sheet line"
     );
     assert_eq!(
@@ -3036,7 +3036,7 @@ fn the_remove_sample_removes_the_last_sheet_or_nothing() {
         ran.stdout,
         "remove\tsheets_before=3\tsheets_after=2\tremoved=1\tparts=1\tchain_before=0\
          \tchain_after=0\tnames_before=0\tnames_after=0\tlocal_removed=0\tactive_before=2\
-         \tactive_after=0\n",
+         \tactive_after=0\tremoved_reason=-\n",
         "the removal line"
     );
     assert_eq!(
