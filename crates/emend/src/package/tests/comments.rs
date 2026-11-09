@@ -1053,6 +1053,32 @@ fn a_threaded_part_that_cannot_be_read_is_refused() {
 }
 
 #[test]
+fn an_external_threaded_target_or_one_that_is_not_xml_is_refused_with_the_read_message() {
+    // Ruling D (1) of `specs/0048-the-two-refusals.md`: an external target,
+    // and an XML error in the part, each refused with the read message.
+    let external = with_parts(
+        sheet_r("<sheetData/>"),
+        Some(
+            "<Relationship Id=\"rId1\" \
+             Type=\"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment\" \
+             Target=\"https://example.invalid/threaded.xml\" TargetMode=\"External\"/>",
+        ),
+        &[],
+    );
+    assert_package(
+        refused_with(external, |p| add(p, "B5", "Ann", "x")),
+        THREADED_UNREADABLE,
+    );
+    let broken = threaded_sheet(format!(
+        "{DECLARATION}\n<ThreadedComments xmlns=\"{THREADED_NS}\"><threadedComment ref=\"C3\"></ThreadedComments>"
+    ));
+    assert_package(
+        refused_with(broken, |p| add(p, "B5", "Ann", "x")),
+        THREADED_UNREADABLE,
+    );
+}
+
+#[test]
 fn a_sheet_with_the_relationship_and_no_legacy_part_gains_one_as_a_sheet_with_none() {
     let threaded = with_parts(
         sheet_r("<sheetData/>"),
