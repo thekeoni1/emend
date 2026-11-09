@@ -131,8 +131,12 @@ lo_check() {
 # holds :// or starts with file:, also holds #, and its table:print is false;
 # every other table counts as a sheet. It is ok when the workbook holds a
 # sheet element, the tables that are not caches equal the sheet elements, and
-# the caches equal the external sheet names. Elements count by local name in
-# any namespace, as LO_SHEET_PATTERN takes any prefix.
+# the caches do not exceed the external sheet names: a cache with no name
+# fails, a name with no cache does not, because LibreOffice writes a cache
+# table only for an external sheet a formula references (ruling F, after
+# 9956034c4326's edited output, whose one formula was the one that used its
+# link, made none). Elements count by local name in any namespace, as
+# LO_SHEET_PATTERN takes any prefix.
 # Returns 0 for ok, 1 for fail and 2 for error (an archive or part that cannot
 # be read, or python3 failing), as lo_check does, and prints nothing.
 lo_count_check() {
@@ -183,7 +187,7 @@ else:
     printf 'cannot read the ods or the workbook part\n' >"$reason"
     return 2
   fi
-  if [ "$sheets" -eq 0 ] || [ "$((tables - caches))" -ne "$sheets" ] || [ "$caches" -ne "$names" ]; then
+  if [ "$sheets" -eq 0 ] || [ "$((tables - caches))" -ne "$sheets" ] || [ "$caches" -gt "$names" ]; then
     printf 'the ods holds %s table elements, %s of them external-link caches, and the workbook %s sheet elements and %s external sheet names\n' \
       "$tables" "$caches" "$sheets" "$names" >"$reason"
     return 1

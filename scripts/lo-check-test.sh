@@ -15,7 +15,9 @@
 #         fail, one cache against no external sheet name;
 #   (iv)  two sheets, one table: fail;
 #   (v)   control: one sheet, a displayed table and a table whose name holds
-#         :// and # but has no table:print, which counts as a sheet: fail.
+#         :// and # but has no table:print, which counts as a sheet: fail;
+#   (vi)  one sheet, one external sheet name no formula uses, one displayed
+#         table and no cache table (LibreOffice writes none for it): ok.
 # A cache table is one whose table:name holds :// or starts with file:, also
 # holds #, and whose table:print is false. Every name is fictional. No
 # conversion runs, so neither podman nor the image is needed.
@@ -58,6 +60,7 @@ CASES = {
     "iii": (1, 0, ["displayed", "cache"]),
     "iv": (2, 0, ["displayed"]),
     "v": (1, 0, ["displayed", "noprint"]),
+    "vi": (1, 1, ["displayed"]),
 }
 TABLES = {
     "displayed": '<table:table table:name="Fictional"/>',
@@ -127,6 +130,7 @@ run_case ii 0 ""
 run_case iii 1 "the ods holds 2 table elements, 1 of them external-link caches, and the workbook 1 sheet elements and 0 external sheet names"
 run_case iv 1 "the ods holds 1 table elements, 0 of them external-link caches, and the workbook 2 sheet elements and 0 external sheet names"
 run_case v 1 "the ods holds 2 table elements, 0 of them external-link caches, and the workbook 1 sheet elements and 0 external sheet names"
+run_case vi 0 ""
 
 if [ "$failed" -eq 0 ]; then
   echo "lo-check-test: PASS"
