@@ -4,7 +4,8 @@ Status: APPROVED 2026-11-09 (decisions 1 to 3 A, typed in the
 planning session: "great, i agree" to planning's recommendation of
 A in each); the milestone APPROVED 2026-11-07 (Milestone 8,
 decisions 1 to 4 A, `ROADMAP.md` "Milestone 8"); part 1 DONE and
-PUSHED 2026-11-09 (`specs/0047`). P1 IN PROGRESS.
+PUSHED 2026-11-09 (`specs/0047`). P1 DONE 2026-11-09 at cbef379
+(rulings A and B); P2 IN PROGRESS.
 
 Milestone 8 part 2 implements the milestone's decisions 2 and 3 and
 part 1's decision 2: the two documented refusals Milestone 7 part
@@ -452,6 +453,107 @@ session; the post scan over the range. The record commit "M8 part
 2 close-out record: the push, the CI run and the scan" holds the
 three logs only. One independent check. Part 1's record 454dea3
 goes with this push.
+
+## Planning rulings during P1 (2026-11-09)
+
+A. The stop report verified from git, the diffs, the tests and the
+   dry logs, and the word for the logged gate and run. The doc
+   commit 02ba09d names the three files at the hashes planning
+   printed; the code commit 2740ce7 (diff 6564082e) does what "The
+   unshare" and "The translator" say: `shifted_formula` returns
+   `Unshare` for a shared group the rule grows or cuts or whose
+   master's row is deleted with the `ref` not wholly inside the
+   deletion; the pass holds each unshared master's input cell and
+   unescaped text and writes each later member's `<f>` with the
+   translated text (its own text kept when it has one), `t`, `ref`
+   and `si` removed and every other attribute kept; a member met
+   before its master in a group then unshared is refused; array and
+   data table formulas take the cuts message; the translator's
+   fifteen cases cover the spec's list. Rulings on the report's
+   points: (1) the size FINDING (the `rowcol` cost 76888 against
+   58244, a growth of 18644 over the accepted 16000) stands as
+   recorded, not fixed, as "Size" says; the band was planning's
+   estimate and is not moved; the logged run will print the same
+   FINDING and that is not a rerun; P3's size record attributes the
+   growth by file. (2) One code commit for the translator, the
+   unshare and the docs list is accepted for the reasons given (the
+   translator alone is dead code; the catalogue test wants each
+   message listed where it is raised). (3) The three renamed tests
+   are accepted: the straddling cases moved to the new unshare
+   tests, and emend-copy's two refusal tests use array formulas,
+   which stay refused. (4) A byte past ASCII read as a name
+   character is accepted; the spec's "letter" includes it. (5) The
+   cuts entry's text kept, its test list changed: as "Errors" says.
+   (6) The forks' calls (labels W*, no passthrough run, no rerun
+   note, a growth below 3000 a FINDING too) are accepted; the gate
+   and scan admit specs/0048 and `ROADMAP.md` as planning's
+   uncommitted files and planning edits neither `specs/0047` nor
+   anything else before the record commit. (7) The logged gate's
+   prune of part 1's P2 and close-out build targets is this spec's
+   "Phases" rule (`specs/0044` ruling AD). Noted, not a change: a
+   mixed-case column (`aB1`) is written back in upper case; a
+   lowercase one in lower case; the spec's "as given" reads so.
+
+B. The record commit cbef379 verified (2026-11-09) from git, the
+   logs and the README: parent 2740ce7, the subject as the brief
+   gave it, the diff-alone sentence, the Co-Authored-By line only,
+   ASCII; five files under `records/logs/m8p2-p1/` (gate.log
+   ba3e318f, run.log 194f6dd4, scan.log 26261cca, README.md
+   492430dc, independent-check-1.md 9e1e37a9) and nothing else.
+   gate.log ends yes with the seven sets at their counts on both
+   targets, shift 44 and translate 15 by name, and the prune of
+   part 1's P2 and close-out targets by the `rm -r` form with its
+   control. run.log ends yes: the four samples over the 39, every
+   output opened, each compared per id with part 1 P2's record;
+   delete-rows 90a5b01f9541 and delete-columns 91d2bdffa46a from
+   error/-/ok to ok/ok/ok, every other row the same, new 0 and
+   missing 0 in each sample; the one FINDING line, the `rowcol`
+   growth 18644 (1061616 against the format probe's 984728, the
+   cost 76888 against 58244), as ruling A (1) ruled. The scan PASS,
+   "structural checks failed: 0", run before the record commit as
+   part 1 P2's was. No log holds a byte outside ASCII, an address
+   or a home path (the two "/home/" strings in run.log and the one
+   in scan.log are the scripts' own patterns). Check 1 answers yes
+   with exceptions, yes with one precision point, and names README
+   figures without a committed primary; each is disposed in the
+   README's "After independent check 1" and planning rules them
+   so: (1) the three test gaps (a data table formula cut on the
+   column axis; a column-axis member with an attribute or text of
+   its own; a shared group's end pushed past the grid by an
+   insertion at or before its master, refused with the cuts
+   message) are tests P2 adds in a test-only commit of its own
+   before its threaded-comments commits, the gate's `all` count
+   moved by them; no code changes for them. (2) A row written with
+   a leading zero is not a reference: accepted, Excel writes none;
+   a member in a deleted row before its master counted as early:
+   accepted, a layout Excel does not write. (3) The per-id
+   comparison reads outcome, lo and lo_in and not the exit code,
+   which the record rows print: accepted for P1 to P4; "error 2 -
+   ok" in this spec names the four columns for the reader. (4) No
+   scan after the record commit, as part 1 P2. The README's
+   figures from files under `<phase>` (the mktemp name, the
+   driver's start time, the outer stderr sizes) are named with
+   their sources in its after-check section, as ruling C of
+   `specs/0047` allows; its line-range and wording slips are
+   corrected there and the README stands as committed. P1 is DONE
+   at cbef379.
+
+## Planning verification of P1 (2026-11-09)
+
+Verified from primaries, never from the implementing session's
+summaries alone: the doc and code commits' diffs against "The
+unshare", "The translator" and "Errors"; the translator's module
+and its fifteen cases read by planning; the unshare tests' fixtures
+and expected outputs read by planning (the member's text is the
+master's read from the member's input cell, then moved with its
+cell, as the crate's definition says); dry run d1 (ruling A); the
+logged gate and run, the scan, check 1 and the record commit
+(ruling B). The two corpus refusals of group 3 are gone: both
+samples now write an output that opens, and no other row of the
+four samples over the 39 moved. The `rowcol` cost grew 18644 over
+the band's accepted 16000, recorded and not fixed; P3's size record
+attributes it by file. P1 is DONE at cbef379; the working spec and
+the ROADMAP stay uncommitted for P2's doc commit.
 
 ## Decisions for the maintainer
 
