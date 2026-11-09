@@ -87,7 +87,12 @@ A cell edit on a table's header row changes the cell and not the table's
 column name; the two must be kept in step by the caller, or Excel repairs
 the file. A sheet removed leaves every reference to it, and to its tables,
 in other sheets' formulas and defined names as they were, as insertions and
-deletions leave references (`specs/0045-publish.md`). A style edit assumes
+deletions leave references (`specs/0045-publish.md`). A sheet a pivot cache
+sources is not removed: the core refuses a sheet a cache names by its
+`sheet` attribute, the feature `tables` a sheet holding a table a cache
+names, and the feature `metadata` a sheet a cache's defined name is
+qualified with (`specs/0048-the-two-refusals.md`, "The pivot cache source",
+and Amendment 1). A style edit assumes
 the styles part carries the font, fill, border and cell-style collections
 and the `cellXfs` entries that name them (`specs/0012-styles.md`;
 `specs/0015-open-checks.md`, Excel-check ruling 4).

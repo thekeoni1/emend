@@ -2,8 +2,33 @@
 
 ## Unreleased
 
+### Added
+
+- With the feature `rowcol`, an insertion or deletion that grows or cuts a
+  shared formula group, or deletes its master, unshares the group, each
+  member written with its own translated formula text, where before the
+  insertion or deletion was refused. A member written before its master
+  refuses with "a shared formula member precedes its master", and a
+  member whose translated text would hold a reference below row or column
+  1 or past the grid with "an unshared formula would leave the grid"
+  (`specs/0048-the-two-refusals.md`, "The unshare").
+- With the feature `comments`, on a sheet with a threaded comments
+  relationship a cell a threaded comment names refuses every comment edit
+  with "a cell has a threaded comment", and every other cell is edited as
+  on any sheet, the threaded parts, the persons part and their
+  relationships never written; a threaded comments part that cannot be
+  read refuses with "a threaded comments part cannot be read"
+  (`specs/0048-the-two-refusals.md`, "Threaded comments").
+
 ### Changed
 
+- `remove_sheet` refuses a sheet a pivot cache sources with "a pivot cache
+  sources the sheet": in the core, a cache whose worksheet source names the
+  sheet by its `sheet` attribute; with the feature `tables`, by the name of
+  a table on the sheet; with the feature `metadata`, by a defined name
+  qualified with the sheet. A cache part that cannot be read refuses with
+  "a pivot cache cannot be read" (`specs/0048-the-two-refusals.md`, "The
+  pivot cache source", and Amendment 1).
 - The README's size sentence cites the figure at the tag, 451512 section bytes
   (`records/size-m7p2-2026-10-28-43471ed.md`); the 0.1.0 entry below cited
   Milestone 3 part 7's 436992 and stands as released.
