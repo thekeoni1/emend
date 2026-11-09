@@ -37,7 +37,9 @@
 //! have one form, written twice so they are looked up as the pairs are
 //! (ruling 2). `TABLE`, `PIVOT_TABLE`, `COMMENTS`, `VML_DRAWING`,
 //! `DRAWING`, `IMAGE` and `HYPERLINK` are public under the feature as well
-//! as their own (ruling 5).
+//! as their own (ruling 5). `TABLE` and `PIVOT_CACHE_DEFINITION` are public
+//! with no feature, the core's sheet removal reading them
+//! (`specs/0048-the-two-refusals.md`, "The pivot cache source").
 //!
 //! # Errors
 //!
@@ -266,6 +268,13 @@
 //! - "the last sheet cannot be removed" (`the_last_sheet_cannot_be_removed`).
 //! - "the last visible sheet cannot be removed"
 //!   (`the_last_visible_sheet_cannot_be_removed`).
+//! - "a pivot cache sources the sheet" (`specs/0048-the-two-refusals.md`,
+//!   "The pivot cache source";
+//!   `pivot_remove::a_cache_naming_the_sheet_by_its_sheet_attribute_refuses_and_the_next_call_works`,
+//!   `a_cache_naming_a_table_on_the_sheet_by_its_display_name_or_name_refuses`,
+//!   `a_cache_naming_a_defined_name_qualified_with_the_sheet_quoted_or_bare_refuses`).
+//! - "a pivot cache cannot be read"
+//!   (`pivot_remove::an_unreadable_cache_part_refuses_with_the_read_message`).
 //! - "a sheet position is past the end"
 //!   (`moves_to_the_front_to_the_end_to_its_own_place_and_past_the_end`).
 //! - "a sheets element holds something other than sheet elements"
@@ -2577,13 +2586,8 @@ pub const THEME: [&[u8]; 2] = [
 /// The `table` relationship type, transitional then strict
 /// (`specs/0018-rows-and-columns.md`, "The shift rule"; feature `rowcol`,
 /// feature `tables` for `specs/0021-tables.md`, and feature `read` for
-/// `specs/0033-read-breadth-survey.md`).
-#[cfg(any(
-    feature = "rowcol",
-    feature = "tables",
-    feature = "read",
-    all(feature = "sheetprops", feature = "metadata")
-))]
+/// `specs/0033-read-breadth-survey.md`), and the core's sheet removal
+/// (`specs/0048-the-two-refusals.md`, "The pivot cache source").
 pub const TABLE: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/table",
@@ -2724,8 +2728,9 @@ pub const EXTERNAL_LINK_PATH: [&[u8]; 2] = [
 ];
 
 /// The `pivotCacheDefinition` relationship type, a pivot table's to its
-/// cache definition, transitional then strict (the Cargo feature `read`).
-#[cfg(feature = "read")]
+/// cache definition, transitional then strict (the Cargo feature `read`,
+/// and the core's sheet removal, `specs/0048-the-two-refusals.md`, "The
+/// pivot cache source").
 pub const PIVOT_CACHE_DEFINITION: [&[u8]; 2] = [
     b"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition",
     b"http://purl.oclc.org/ooxml/officeDocument/relationships/pivotCacheDefinition",
@@ -8255,10 +8260,23 @@ impl<R: Read + Seek> Package<R> {
     ///
     /// "no sheet of that name"; "the last sheet cannot be removed" when the
     /// projected list has one sheet; "the last visible sheet cannot be
-    /// removed" when every other sheet is hidden (P4 ruling 1); whatever
-    /// reading the workbook, a reached rels part or the content types part
-    /// refuses, and for the chain whatever [`Relationships::target_part`]
-    /// refuses. Nothing is recorded when this fails.
+    /// removed" when every other sheet is hidden (P4 ruling 1); "a pivot
+    /// cache sources the sheet" when a `<pivotCache>` of the workbook's
+    /// `<pivotCaches>` names, through an internal relationship of type
+    /// [`PIVOT_CACHE_DEFINITION`], a cache part whose worksheet source has no
+    /// `r:id` and a `sheet` equal to the name, or a `name` equal to the
+    /// `name` or `displayName` of a table part the sheet's [`TABLE`]
+    /// relationships name, or to a workbook `<definedName>` whose text, after
+    /// an optional `=`, starts with the sheet's name, quoted or bare, and `!`;
+    /// "a pivot cache cannot be read" when such a part is not well-formed or
+    /// its root is not `pivotCacheDefinition`
+    /// (`specs/0048-the-two-refusals.md`, "The pivot cache source"); a cache
+    /// of another type, a relationship whose part is not there and a
+    /// workbook with no `<pivotCaches>` contribute nothing, and a sheet added
+    /// in the same write is not checked; whatever reading the workbook, a
+    /// reached rels part or the content types part refuses, and for the chain
+    /// whatever [`Relationships::target_part`] refuses. Nothing is recorded
+    /// when this fails.
     pub fn remove_sheet(&mut self, name: &str) -> Result<(), Error> {
         self.parts().remove_sheet(name)
     }
@@ -11517,6 +11535,82 @@ impl<'a> Parts<'a> {
         Ok(())
     }
 
+    /// Whether a pivot cache of the workbook sources the sheet named `name`
+    /// (`specs/0048-the-two-refusals.md`, "The pivot cache source", decision
+    /// 1 A): each `<pivotCache>` of the workbook's `<pivotCaches>` whose
+    /// `r:id` names an internal `pivotCacheDefinition` relationship to a part
+    /// that is there, a `<cacheSource type="worksheet">` whose
+    /// `<worksheetSource>` has no `r:id` and a `sheet` equal to the name, or
+    /// a `name` equal to the `name` or `displayName` of a table part the
+    /// sheet's `table` relationships name (the walk reaches them), or to a
+    /// workbook `<definedName>` whose text, after an optional `=`, starts
+    /// with the sheet's name quoted or bare and `!`.
+    fn pivot_sourced(
+        &mut self,
+        workbook: &[u8],
+        name: &str,
+        part: &[u8],
+        reached: &[Vec<u8>],
+    ) -> Result<bool, Error> {
+        let index = self.archive.index_of(workbook).ok_or(NO_SUCH_PART)?;
+        let (caches, names) = workbook_pivot_caches(self.archive.read(index)?, index)?;
+        if caches.is_empty() {
+            return Ok(false);
+        }
+        let rels = self.relationships(workbook)?;
+        let targets: Vec<Vec<u8>> = caches
+            .iter()
+            .filter_map(|id| rels.by_id(id))
+            .filter(|rel| !rel.external && PIVOT_CACHE_DEFINITION.contains(&rel.kind.as_slice()))
+            .filter_map(|rel| rels.target_part(rel).ok())
+            .collect();
+        let mut sources = Vec::new();
+        for target in targets {
+            if let Some(at) = self.archive.index_of(&target) {
+                let read = cache_source(self.archive.read(at)?, at).map_err(|e| match e {
+                    Error::Xml(_) => PIVOT_UNREADABLE,
+                    e => e,
+                })?;
+                sources.extend(read);
+            }
+        }
+        if sources
+            .iter()
+            .any(|(sheet, _)| sheet.as_deref() == Some(name))
+        {
+            return Ok(true);
+        }
+        let wanted: Vec<&String> = sources.iter().filter_map(|(_, by)| by.as_ref()).collect();
+        if wanted.is_empty() {
+            return Ok(false);
+        }
+        let quoted = format!("'{}'!", name.replace('\'', "''"));
+        let bare = format!("{name}!");
+        if names.iter().any(|(defined, text)| {
+            let text = text.strip_prefix('=').unwrap_or(text);
+            wanted.contains(&defined) && (text.starts_with(&quoted) || text.starts_with(&bare))
+        }) {
+            return Ok(true);
+        }
+        let sheet_rels = self.relationships(part)?;
+        let tables: Vec<Vec<u8>> = sheet_rels
+            .all()
+            .iter()
+            .filter(|rel| !rel.external && TABLE.contains(&rel.kind.as_slice()))
+            .filter_map(|rel| sheet_rels.target_part(rel).ok())
+            .filter(|target| reached.contains(target))
+            .collect();
+        for table in tables {
+            if let Some(at) = self.archive.index_of(&table) {
+                let names = root_names(self.archive.read(at)?, at)?;
+                if names.iter().any(|have| wanted.contains(&have)) {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
     /// The body of [`Package::remove_sheet`].
     fn remove_sheet(&mut self, name: &str) -> Result<(), Error> {
         let list = self.projected()?;
@@ -11555,6 +11649,9 @@ impl<'a> Parts<'a> {
         let mut skipped = self.edits.rel_removals.clone();
         skipped.push((workbook.clone(), sheet.rel_id.clone()));
         let reached = self.reachable(&sheet.part, &[], &[])?;
+        if self.pivot_sourced(&workbook, &sheet.name, &sheet.part, &reached)? {
+            return Err(PIVOT_SOURCED);
+        }
         let kept: BTreeSet<Vec<u8>> = self.reachable(b"", &skipped, &stops)?.into_iter().collect();
         let mut removals: Vec<WalkRemoval> = Vec::new();
         for entry in reached {
@@ -13168,6 +13265,12 @@ const NO_SUCH_SHEET: Error = Error::Package("no sheet of that name");
 const SHEET_PAST_END: Error = Error::Package("a sheet position is past the end");
 const LAST_SHEET: Error = Error::Package("the last sheet cannot be removed");
 const LAST_VISIBLE_SHEET: Error = Error::Package("the last visible sheet cannot be removed");
+/// A removal of a sheet a pivot cache's worksheet source names
+/// (`specs/0048-the-two-refusals.md`, "The pivot cache source").
+const PIVOT_SOURCED: Error = Error::Package("a pivot cache sources the sheet");
+/// A pivot cache definition part that is not well-formed or whose root is
+/// not `pivotCacheDefinition` in the main namespace.
+const PIVOT_UNREADABLE: Error = Error::Package("a pivot cache cannot be read");
 const SHEETS_NOT_SHEETS: Error =
     Error::Package("a sheets element holds something other than sheet elements");
 const SHEET_ADDED_TO_PREFIXED: Error =
@@ -23800,6 +23903,173 @@ fn threaded_refs(input: impl Read, index: usize) -> Result<Vec<CellRef>, Error> 
         return Err(THREADED_UNREADABLE);
     }
     Ok(cells)
+}
+
+/// An attribute's value unescaped and normalized, as a sheet name is read.
+fn unescaped_value(
+    attribute: &quick_xml::events::attributes::Attribute<'_>,
+    index: usize,
+) -> Result<String, Error> {
+    Ok(attribute
+        .normalized_value(XmlVersion::Implicit1_0)
+        .map_err(|_| Error::Xml(index))?
+        .into_owned())
+}
+
+/// The `r:id` of each `<pivotCache>`, and each `<definedName>`'s name and
+/// text, as [`workbook_pivot_caches`] reads them.
+type PivotRefs = (Vec<Vec<u8>>, Vec<(String, String)>);
+
+/// A worksheet source's `sheet` and `name`, as [`cache_source`] reads them.
+type CacheSource = (Option<String>, Option<String>);
+
+/// The workbook part's `<pivotCaches>` children's `r:id` values and every
+/// `<definedName>` of its `<definedNames>` as its name and text, by a pass
+/// over its tokens (`specs/0048-the-two-refusals.md`, "The pivot cache
+/// source").
+fn workbook_pivot_caches(input: impl Read, index: usize) -> Result<PivotRefs, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut parent: Vec<u8> = Vec::new();
+    let mut caches = Vec::new();
+    let mut names = Vec::new();
+    while let Some(token) = stream.next()? {
+        let (start, empty) = match token.event {
+            Event::Start(ref start) => (start, false),
+            Event::Empty(ref start) => (start, true),
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+                if depth < 2 {
+                    parent.clear();
+                }
+                continue;
+            }
+            _ => continue,
+        };
+        depth += 1;
+        scope.start(start)?;
+        let (namespace, local) = scope.resolve_element(start.name())?;
+        let ours = is_main(namespace);
+        if depth == 2 && ours {
+            parent = local.to_vec();
+        } else if depth == 3 && ours && parent == b"pivotCaches" && local == b"pivotCache" {
+            for attribute in start.attributes() {
+                let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                if attribute.key.as_namespace_binding().is_some() {
+                    continue;
+                }
+                let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+                if is_relationships_attribute(namespace) && local == b"id" {
+                    caches.push(attribute.value.as_bytes().to_vec());
+                }
+            }
+        } else if depth == 3 && ours && parent == b"definedNames" && local == b"definedName" {
+            let mut name = String::new();
+            for attribute in start.attributes() {
+                let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                if attribute.key.as_namespace_binding().is_none()
+                    && attribute.key.as_ref() == "name"
+                {
+                    name = unescaped_value(&attribute, index)?;
+                }
+            }
+            let text = if empty {
+                String::new()
+            } else {
+                // The text read consumes the end tag and closes the scope.
+                depth -= 1;
+                crate::cells::text_of(&mut stream, &mut scope, index)?
+            };
+            names.push((name, text));
+            if !empty {
+                continue;
+            }
+        }
+        if empty {
+            scope.end();
+            depth -= 1;
+        }
+    }
+    Ok((caches, names))
+}
+
+/// A pivot cache definition part's worksheet source as its `sheet` and its
+/// `name`, `None` for a cache of another `type` or whose `worksheetSource`
+/// has an `r:id` (an external workbook); refused with "a pivot cache
+/// cannot be read" for a root other than `pivotCacheDefinition` in the main
+/// namespace.
+fn cache_source(input: impl Read, index: usize) -> Result<Option<CacheSource>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    let mut scope = Scope::new(index);
+    let mut depth = 0usize;
+    let mut worksheet = false;
+    while let Some(token) = stream.next()? {
+        match token.event {
+            Event::Start(ref start) | Event::Empty(ref start) => {
+                depth += 1;
+                scope.start(start)?;
+                let (namespace, local) = scope.resolve_element(start.name())?;
+                let ours = is_main(namespace);
+                if depth == 1 && (!ours || local != b"pivotCacheDefinition") {
+                    return Err(PIVOT_UNREADABLE);
+                }
+                if depth == 2 && ours && local == b"cacheSource" {
+                    worksheet = attribute_value(token.raw, b"type", index)? == Some(b"worksheet");
+                } else if depth == 3 && worksheet && ours && local == b"worksheetSource" {
+                    let (mut sheet, mut name) = (None, None);
+                    for attribute in start.attributes() {
+                        let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                        if attribute.key.as_namespace_binding().is_some() {
+                            continue;
+                        }
+                        let (namespace, local) = scope.resolve_attribute(attribute.key)?;
+                        if is_relationships_attribute(namespace) && local == b"id" {
+                            return Ok(None);
+                        }
+                        if namespace.is_none() && local == b"sheet" {
+                            sheet = Some(unescaped_value(&attribute, index)?);
+                        } else if namespace.is_none() && local == b"name" {
+                            name = Some(unescaped_value(&attribute, index)?);
+                        }
+                    }
+                    return Ok(Some((sheet, name)));
+                }
+                if matches!(token.event, Event::Empty(_)) {
+                    scope.end();
+                    depth -= 1;
+                }
+            }
+            Event::End(_) => {
+                scope.end();
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    Ok(None)
+}
+
+/// A table part's root `name` and `displayName`, unescaped, by a pass over
+/// its tokens to the root.
+fn root_names(input: impl Read, index: usize) -> Result<Vec<String>, Error> {
+    let mut stream = Stream::new(input, index)?;
+    while let Some(token) = stream.next()? {
+        if let Event::Start(ref start) | Event::Empty(ref start) = token.event {
+            let mut out = Vec::new();
+            for attribute in start.attributes() {
+                let attribute = attribute.map_err(|_| Error::Xml(index))?;
+                if attribute.key.as_namespace_binding().is_none()
+                    && matches!(attribute.key.as_ref(), "name" | "displayName")
+                {
+                    out.push(unescaped_value(&attribute, index)?);
+                }
+            }
+            return Ok(out);
+        }
+    }
+    Ok(Vec::new())
 }
 
 /// What a created rels part begins with when the package has no

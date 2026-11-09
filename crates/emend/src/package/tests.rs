@@ -6598,10 +6598,12 @@ fn every_byte_outside_the_regions_is_kept_with_ext_lst_and_pivot_caches() {
         ),
     );
     set(&mut parts, b"xl/_rels/workbook.xml.rels", rels);
+    // A cache in the main namespace, as the pivot cache source check reads
+    // one (`specs/0048-the-two-refusals.md`); its source names no sheet.
     with_part(
         &mut parts,
         "xl/pivotCache/pivotCacheDefinition1.xml",
-        "<pivotCacheDefinition/>",
+        &format!("<pivotCacheDefinition xmlns=\"{MAIN_NS}\"/>"),
         None,
     );
     let (parts, mut package) = opened(parts);
@@ -7538,6 +7540,7 @@ mod namedstyles;
 mod names;
 #[cfg(feature = "read")]
 mod pivot;
+mod pivot_remove;
 #[cfg(feature = "metadata")]
 mod properties;
 #[cfg(feature = "metadata")]
