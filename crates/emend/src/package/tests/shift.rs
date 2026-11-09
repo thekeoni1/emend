@@ -1008,6 +1008,59 @@ fn on_the_column_axis_arrays_stay_refused_a_member_first_and_off_the_grid_are_re
 }
 
 #[test]
+fn a_data_table_on_the_column_axis_is_still_refused_when_cut() {
+    let table = with_body(
+        "<sheetData><row r=\"1\"><c r=\"B1\"><f t=\"dataTable\" ref=\"B1:D1\" r1=\"A1\"/><v>1</v></c></row></sheetData>",
+    );
+    assert_package(refused_on(table.clone(), insert_cols(3, 1)), CUTS);
+    assert_package(refused_on(table.clone(), delete_cols(3, 1)), CUTS);
+    assert_package(refused_on(table, delete_cols(1, 2)), CUTS);
+}
+
+#[test]
+fn a_column_axis_member_keeps_its_own_attribute_and_its_own_text() {
+    let parts = with_body(
+        "<sheetData><row r=\"1\">\
+         <c r=\"B1\"><f t=\"shared\" ref=\"B1:D1\" si=\"0\">B2</f><v>1</v></c>\
+         <c r=\"C1\"><f t=\"shared\" si=\"0\" ca=\"1\"/><v>2</v></c>\
+         <c r=\"D1\"><f t=\"shared\" si=\"0\">X9</f><v>3</v></c>\
+         </row></sheetData>",
+    );
+    assert_eq!(
+        sheet_after(&parts, insert_cols(3, 1)),
+        worksheet(
+            "<sheetData><row r=\"1\">\
+             <c r=\"B1\"><f>B2</f><v>1</v></c>\
+             <c r=\"D1\"><f ca=\"1\">C2</f><v>2</v></c>\
+             <c r=\"E1\"><f>X9</f><v>3</v></c>\
+             </row></sheetData>"
+        )
+    );
+}
+
+#[test]
+fn a_shared_group_pushed_past_the_grid_by_an_insertion_at_or_before_its_master_is_refused() {
+    // The rule moves the group whole, so its end past the grid is a grow
+    // refused with the cuts message, as for an array (P2 ruling 5).
+    let rows = with_body(
+        "<sheetData>\
+         <row r=\"1048570\"><c r=\"A1048570\"><f t=\"shared\" ref=\"A1048570:A1048576\" si=\"0\">B1048570</f></c></row>\
+         <row r=\"1048571\"><c r=\"A1048571\"><f t=\"shared\" si=\"0\"/></c></row>\
+         </sheetData>",
+    );
+    assert_package(refused_on(rows.clone(), insert(1, 3)), CUTS);
+    assert_package(refused_on(rows, insert(1048570, 3)), CUTS);
+    let columns = with_body(
+        "<sheetData><row r=\"1\">\
+         <c r=\"XFA1\"><f t=\"shared\" ref=\"XFA1:XFD1\" si=\"0\">XFA2</f></c>\
+         <c r=\"XFB1\"><f t=\"shared\" si=\"0\"/></c>\
+         </row></sheetData>",
+    );
+    assert_package(refused_on(columns.clone(), insert_cols(1, 2)), CUTS);
+    assert_package(refused_on(columns, insert_cols(16381, 2)), CUTS);
+}
+
+#[test]
 fn the_chain_rule_fires_on_the_column_axis_when_a_formula_moves_and_not_otherwise() {
     let rows_after = "<row r=\"1\"><c r=\"A1\"><v>2</v></c></row><row r=\"3\"><c r=\"B3\"><f>A1*2</f><v>4</v></c></row>";
     let mut parts = with_a_calc_chain();
