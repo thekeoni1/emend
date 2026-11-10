@@ -37,9 +37,12 @@
 //! have one form, written twice so they are looked up as the pairs are
 //! (ruling 2). `TABLE`, `PIVOT_TABLE`, `COMMENTS`, `VML_DRAWING`,
 //! `DRAWING`, `IMAGE` and `HYPERLINK` are public under the feature as well
-//! as their own (ruling 5). `TABLE` and `PIVOT_CACHE_DEFINITION` are public
-//! with no feature, the core's sheet removal reading them
-//! (`specs/0048-the-two-refusals.md`, "The pivot cache source").
+//! as their own (ruling 5). `PIVOT_CACHE_DEFINITION` is public with no
+//! feature, the core's sheet removal reading it; `TABLE` is public with
+//! `rowcol`, `tables`, `read`, or `sheetprops` and `metadata` together, the
+//! sheet removal reading it under `tables`
+//! (`specs/0048-the-two-refusals.md`, "The pivot cache source", and
+//! Amendment 1).
 //!
 //! # Errors
 //!

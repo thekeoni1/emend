@@ -27,8 +27,10 @@
   sheet by its `sheet` attribute; with the feature `tables`, by the name of
   a table on the sheet; with the feature `metadata`, by a defined name
   qualified with the sheet. A cache part that cannot be read refuses with
-  "a pivot cache cannot be read" (`specs/0048-the-two-refusals.md`, "The
-  pivot cache source", and Amendment 1).
+  "a pivot cache cannot be read". `package::PIVOT_CACHE_DEFINITION`,
+  public before with the feature `read` alone, is public with no feature,
+  the core's sheet removal reading it (`specs/0048-the-two-refusals.md`,
+  "The pivot cache source", and Amendment 1).
 - The README's size sentence cites the figure at the tag, 451512 section bytes
   (`records/size-m7p2-2026-10-28-43471ed.md`); the 0.1.0 entry below cited
   Milestone 3 part 7's 436992 and stands as released.

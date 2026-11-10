@@ -21,11 +21,11 @@ that added it and with its size cost, in section bytes over the core
 probe it is measured against, from the size record.
 
 - `dates`, the date arithmetic of `specs/0012-styles.md`: 4840 over the styles probe (`records/size-m6p6-2026-10-24-7ac8b74.md`).
-- `rowcol`, the row and column insertions and deletions of `specs/0018-rows-and-columns.md`: 58260 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `rowcol`, the row and column insertions and deletions of `specs/0018-rows-and-columns.md`: 76872 (`records/size-m8p2-2026-11-10-8065795.md`).
 - `metadata`, the defined names, hyperlinks, document properties and protection of `specs/0019-names-links-properties-protection.md`: 49748 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
 - `rules`, the data validations and conditional formats of `specs/0020-validation-and-conditional-formatting.md`: 48888 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
 - `tables`, the tables of `specs/0021-tables.md`: 46196 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
-- `comments`, the cell comments of `specs/0022-comments-and-images.md`: 63424 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
+- `comments`, the cell comments of `specs/0022-comments-and-images.md`: 66388 (`records/size-m8p2-2026-11-10-8065795.md`).
 - `images`, the images of `specs/0022-comments-and-images.md`: 56956 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
 - `richtext`, the rich text runs of `specs/0024-rich-text.md`: 13704 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
 - `sheetprops`, the sheet and print settings of `specs/0025-sheet-and-print-settings.md`: 27092 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
