@@ -6,7 +6,8 @@ A in each); the milestone APPROVED 2026-11-07 (Milestone 8,
 decisions 1 to 4 A, `ROADMAP.md` "Milestone 8"); part 1 DONE and
 PUSHED 2026-11-09 (`specs/0047`). P1 DONE 2026-11-09 at cbef379
 (rulings A and B); P2 DONE 2026-11-09 at 572e71f (rulings C and D);
-P3 IN PROGRESS.
+P3 DONE 2026-11-10 at 053d27c under Amendment 1, decision 4 A
+(rulings E to M).
 
 Milestone 8 part 2 implements the milestone's decisions 2 and 3 and
 part 1's decision 2: the two documented refusals Milestone 7 part
@@ -349,7 +350,8 @@ part 2's.
 ### The documents
 
 README: the `rowcol` and `comments` lines of the feature list cite
-this part's record's figures. CHANGELOG, under "## Unreleased":
+this part's record's figures, in P4's first commit, after the
+record exists (ruling H). CHANGELOG, under "## Unreleased":
 "### Added", the unshare and the per-cell threaded comments rule
 (each as the crate's definition words it); "### Changed", the
 `remove_sheet` refusal; the "### Changed" bullet of part 1 stands.
@@ -423,7 +425,9 @@ with its test (`tools/emend-copy/tests/`); the remove sample over
 the 39; the size record over the twenty-nine probes with the
 movements attributed; the README figures and the CHANGELOG
 entries. A budget at or above the ceiling stops P3 as "Size" says.
-One independent check. Stop as P1.
+One independent check. Stop as P1. Amendment 1 (decision 4 A): the
+stop at 6b13c52 is followed by one fix commit (ruling F), then the
+documents commit, the generators and the dry run as before.
 
 ### P4: the reruns
 
@@ -432,7 +436,10 @@ opened, the records `records/m8p2-<name>-<utc-date>-<shortsha>`,
 compared per id with part 1 P2's; the logs README. Two independent
 checks (the records against the run, and the report). No code
 unless a finding is fixed, with the fix named and the affected
-samples rerun as part 1 P2 did.
+samples rerun as part 1 P2 did. The first commit after the doc
+commit is the README's two feature figures citing P3's size record
+(ruling H), with the CHANGELOG clause of ruling K (4) and the crate
+docs' sentence of ruling M (1).
 
 ### Close-out push (after P4)
 
@@ -641,6 +648,272 @@ samples over the 39 moved. The `comments` cost grew 3136, within
 the accepted band. P2 is DONE at 572e71f; the working spec and the
 ROADMAP stay uncommitted for P3's doc commit.
 
+## Planning rulings during P3 (2026-11-09)
+
+E. The ceiling stop verified (2026-11-09) from the report, the four
+   commits and the diff of 5ab0e96, and the measurement ruled. The
+   doc commit a1a0ae0 at the two hashes; ea6dc9f the two tests of
+   ruling D (1), no code; 5ab0e96 the refusal as "The pivot cache
+   source" says under decision 1 A (one workbook pass for the
+   `<pivotCache>` ids and the defined names, one pass per cache
+   part, one per table root, `normalized_value` for each name,
+   two `format!` prefixes; `TABLE` and `PIVOT_CACHE_DEFINITION`
+   made unconditional), with `pivot_remove.rs`; 6b13c52 the
+   sample's reason class, emend-copy alone. The format probe at
+   6b13c52 is 994200 section bytes against 984728 at c609bf3 and
+   at the record, so the whole growth of 9472 is 5ab0e96's; the
+   budget 460984 is 2232 above the ceiling 458752 and "Size" stops
+   the phase before the record commit, as it did. Planning's word
+   was to measure, not to change: in a local clone at 6b13c52
+   under `<phase>/measure`, nothing committed, four builds of the
+   format and zip probes (zip 533216 in each): A as committed
+   460984; B (the `sheet` attribute alone, patch 5b5b783d) 456200,
+   2552 under the ceiling, growth 4688; A-slim (bytes for strings,
+   no `format!`, patch 44879689) 460876; B-slim (patch 393713aa)
+   456320. The crate has no unescape helper of its own, so
+   `normalized_value` stays in every variant. The cost of decision
+   1 A over B, 4784, is the defined-name pass with `text_of` and
+   the table root read. The four commits stand as history; the
+   generators and the dry run wait on the amendment's decision.
+   Planning's band for the core growth (expected 300 to 2500,
+   accepted 4000) was an estimate from line counts, not from a
+   measured pass of like shape; the lesson is in planning's
+   memory and in "Amendment 1" below.
+
+F. The fix under Amendment 1, decision 4 A (ruled 2026-11-09, after
+   the maintainer's "i agree with recs"). One code commit on top of
+   6b13c52, its message naming this amendment and the stop ("the
+   budget above the ceiling at 6b13c52, ruling E") and ending with
+   the diff-alone sentence. The change: `pivot_sourced` keeps the
+   `sheet` attribute case in the core; the defined-name case (the
+   `<definedNames>` read of `workbook_pivot_caches`, the two
+   prefixes, the match) is a block under `cfg(feature =
+   "metadata")`, and the table case (the sheet's `table`
+   relationships, `root_names`) a block under `cfg(feature =
+   "tables")`; a cache source's `name` is read only under either
+   feature; `TABLE`'s `cfg` returns as it stood at c609bf3 (it
+   already names `tables`); `PIVOT_CACHE_DEFINITION` stays
+   unconditional, the core reads it. The measurement's `sheet`-only
+   patch (ruling E, 5b5b783d) is the reference for the core's shape,
+   written again in the repository's tree, nothing applied from the
+   clone. The tests of the two name cases in `pivot_remove.rs` run
+   under their features in the form the crate's feature tests use;
+   the `sheet` tests and the two error tests stay unconditional; the
+   gate's test run covers both features as it covers the existing
+   feature tests. The crate docs' entry for "a pivot cache sources
+   the sheet" names the three cases and the two features; the
+   documents commit's README removal sentence and CHANGELOG entry
+   say the same. The core probe measured 456200 in the clone for
+   this shape; the figure that counts is the size record's, its
+   growth over 451512 a FINDING against the unmoved band (4688 if
+   the record repeats the clone), attributed by file; each of the
+   `tables` and `metadata` probes is judged against the 500 to 3000
+   band, accepted 5000, as a feature cost (ruling G). Then the
+   documents commit, the generators (P2's as numbered changes, the
+   target `<phase>/target`, the prune of P2's target), the dry run
+   (the dry corpus extended with pivot-sourcing fixtures of the
+   three kinds) and the stop report, as "P3" says. `ROADMAP.md` is
+   not edited before the logged run (the run admits this spec
+   alone); its P3 row is written at P4's doc commit.
+
+G. The fix commit verified and the feature bands read
+   (2026-11-09). c076900 (amended per ruling I to 37e800f) is
+   ruling F's change: the `sheet` case in
+   the core, the `wanted` names and the two name cases in blocks
+   under `any(tables, metadata)`, `metadata` and `tables`, the two
+   pivot structs with `cfg` fields, `TABLE`'s `cfg` as at c609bf3,
+   `PIVOT_CACHE_DEFINITION` unconditional, the table test and its
+   helper under `tables` and the defined-name test under
+   `metadata`, the crate docs' entry naming the three cases; two
+   files, no other change. The dev size check at the fix: format
+   989480 over zip 533216, a budget of 456264, 2488 under the
+   ceiling, growth 4752 over 451512 (the clone's 456200 plus the
+   kept parameters). "Size" names a feature's cost as its probe
+   over the format probe (`rowcol` 58244, `comments` 63440 are such
+   figures), so Amendment 1's band for `tables` and `metadata` is
+   read the same way: the cost at Milestone 7 part 2's record is
+   46212 for `tables` and 49764 for `metadata`; at the fix 48592
+   and 52032, growths of 2380 and 2268, inside 500 to 3000. The
+   raw probe growths (7132 and 7020) are the core's growth plus
+   those costs; "Size"'s "every other probe" band does not apply
+   to these two, the amendment's does. The size record judges each
+   feature-linking probe this way and prints both figures.
+H. The README's feature figures and the record's name
+   (2026-11-09). The size record is named for the phase head the
+   probes are built at, as `size-m7p2-2026-10-28-43471ed.md` was
+   named for part 2 P1's documents commit; its UTC date is the
+   logged run's. A documents commit therefore cannot cite its own
+   record. As M6 part 6 P4 (37062b7) and M8 part 1 P2 (67310df)
+   cited a record from a later phase, the README's `rowcol` and
+   `comments` figures are P4's first commit after P4's doc commit,
+   on the code path, docs only, no CHANGELOG line (the figures cite
+   a record as the budget sentence does). P3's documents commit
+   carries the CHANGELOG entries and the README's removal sentence
+   alone; the record commit is unchanged in shape. "The documents"
+   and "P4" say so.
+I. The fix commit's doc defect (2026-11-09). At c076900 the doc of
+   `remove_sheet` still links [`TABLE`], which the commit put back
+   under its `cfg`, so the crate's doc build with `-D warnings`
+   fails with no features and with `metadata` alone; the same
+   paragraph still reads all three cases as unconditional. The
+   implementing session's doc check ran under `--all-features`
+   alone, which hides it (its gotcha). The repair is the doc
+   paragraph alone: the `sheet` case, then each name case under
+   its Cargo feature, no link to `TABLE`, the paragraph reflowed to
+   the file's doc width. c076900 is HEAD, unpushed, and cited by no
+   log and no committed file (ruling G alone names it, uncommitted),
+   so it is amended, as P2's doc commit 122696b was amended to
+   4296d03 before anything referenced it (its stop report, point
+   5), and ruling F's one fix commit holds. The amended message adds
+   one sentence naming the doc paragraph; the new hash replaces
+   c076900 in ruling G when the stop report prints it; c076900 is
+   local and unreferenced. The stop report lists the doc build's
+   feature sets with their exit codes.
+J. The size record's build (2026-11-09). As Milestone 7 part 2
+   P1's `size.log` was, the record is written by its own logged
+   script: a fourth generator from M7 part 2's printed size script
+   with this part's names as numbered changes, writing
+   `records/logs/m8p2-p3/size.log` and the record (the probes at
+   the phase head, each rebuilt at 43471ed by the base record's
+   log, the attribution by file, ruling G's two figures for each
+   feature-linking probe, the record written then installed); the
+   run log stays the remove sample and cites `size.log` by hash;
+   the scan reads four logs; the record commit carries the size
+   log with the three others. The size record is named for the
+   phase head the size script builds at (ruling H). The run log and
+   the size log each read `PLANNING_SPEC` at run time.
+K. The stop verified and the word given (2026-11-09). From the
+   commits: 37e800f is c076900's code diff with the doc paragraph
+   repaired (one file, 16 lines between them, no code), its message
+   with ruling I's sentence; 8065795 the CHANGELOG's three bullets
+   and the README's removal sentence as "The documents" says under
+   ruling H, no office literal, no U+2014. From dry d2 (gate
+   59a04a10, size 733c8028, run e64292a8, scan f1536045): the
+   three logs end "checks all as expected: yes"; the scan FAILs on
+   the four dry-layout structural checks alone, the a1a0ae0
+   diff-alone line information; the remove pair 495c7b79b183
+   ok/fail/ok to ok/ok/ok met with removed 0 and `pivot_source`,
+   the two dry-only fixtures reading `pivot_source` printed and not
+   judged; the clippy and doc sets include the crate with no
+   feature and with `tables` and `metadata` alone; the kept names
+   26, P2's target listed. The size figures as the report says:
+   budget 456264, 2488 under; core 4752; costs rowcol 18628,
+   comments 2948, tables 2380, metadata 2268; 11 FINDING lines, all
+   in `size.log`. The report's points:
+   (1) richcomment, printnames and copycomments stay FINDINGs:
+   "Size" puts them in the "every other probe" band and a band is
+   not moved after the figure is read; the logs README's findings
+   list states, for each, the core's 4752 and the judged cost
+   growths it carries, from the size log's 5a to 5f figures, so the
+   reader sees the cause; no generator change. (2) The six shrinks
+   stay FINDINGs, as "Size" says and M7 part 2's record did. (3)
+   The attribution at file granularity naming the five commits is
+   part 7's method; the record's prose for the core names 5ab0e96
+   and 37e800f as the cause, which suffices. (4)
+   `PIVOT_CACHE_DEFINITION` is `pub` in `pub mod package`, so it is
+   a public item without `read` since 5ab0e96; it stays so (the
+   relationship-type constants are `pub` by the crate's convention
+   and the core reads it); the CHANGELOG's "Changed" bullet gains
+   one clause saying so in P4's docs-only commit (ruling H), no
+   change to P3. (5) The gate counting no emend-copy tests per set
+   follows P2; check.sh's workspace run covers them. (6) The scan
+   not checking the record commit's subject follows P2; planning
+   reads the subject. (7) The doc-set slip is in both sessions'
+   gotchas. The word: the logged driver in the order gate, size,
+   run, scan with PRUNE_PREVIOUS=yes over P2's target alone and its
+   control; the record named for the phase head 8065795 with the
+   run's UTC date; the four logs under `records/logs/m8p2-p3/`, the
+   README listing every FINDING line of the four logs, one
+   independent check given the spec, the range diff, the draft
+   report and the four logs; the record commit "M8 part 2 P3
+   record: the size record, the logs, the README, the check"; the
+   final scan; the report; STOP. Planning does not edit this spec
+   while the driver runs.
+
+L. The interrupted logged run (given by message 2026-11-10, written
+   here after the record commit because the gate log pins this
+   spec at 37a8987d). The host's disk filled on 2026-11-09 and the
+   machine stopped during the size step: the gate log was complete
+   ("yes", 3528ea39, P2's target pruned), the size log cut
+   mid-line at 10710 lines (6339d013), the run and the scan not
+   started. An environment failure, not a failed check: the gate
+   log stands and is not rerun, its six binaries checked against
+   its hashes first; attempt 1's files are moved, not deleted, to
+   `<phase>/superseded/size-attempt-1`; the size step runs again
+   from its start as attempt 2 with the cause in its rerun note,
+   then the run and the scan; the README has a section on the
+   interruption with both hashes; a build failing on an artifact
+   the stop corrupted is a stop and a report. Then as ruling K.
+M. The points of P3's final report (2026-11-10). (1) The crate
+   docs' sentence that `TABLE` is public with no feature is false
+   since 37e800f; it, the CHANGELOG clause of ruling K (4) and the
+   README figures of ruling H are P4's first commit, documents and
+   that one doc comment, no compiled code. (2) The scan run after
+   the README, as P2's, is the phases' form; rulings K and L named
+   the order of the logs, not a driver step. (3) The README's
+   after-check section corrects its lead sentence on the three
+   raw-growth probes; it stands as committed. (4) The size log's
+   "P1" at line 95 is a generator carry, the same in dry d2; not
+   regenerated. (5) and (6) are answered in the README's
+   after-check section; nothing follows.
+
+## Planning verification of P3 (2026-11-10)
+
+From the record commit 053d27c (seven files, nothing else) and its
+logs: gate.log 3528ea39, size.log f65e0cef (attempt 2), run.log
+3b72e757, each ending "checks all as expected: yes" with
+`PLANNING_SPEC` 37a8987d; scan.log 23543045, structural failures
+0, RESULT PASS; the size record
+`records/size-m8p2-2026-11-10-8065795.md` (b4a386c3). The budget
+is 456264, under the ceiling 458752 by 2488. Eleven FINDING lines,
+all in the size log, recorded and not fixed: the core's growth
+4752 over the accepted 4000; the `rowcol` cost's growth 18628 over
+the accepted 16000; six probes shrinking 16 or 32; richcomment
+7556, printnames 7656 and copycomments 7700 over 6752. The
+`tables` and `metadata` costs grew 2380 and 2268, inside their
+band. The remove sample over the 39: same 38, changed 1, the pair
+495c7b79b183 ok/fail/ok to ok/ok/ok met with its line, no other id
+reading `pivot_source`, no FINDING. Check 1's answer is in the
+record verbatim with its dispositions in the README. P3 is DONE;
+nothing is pushed.
+
+## Amendment 1 (2026-11-09): the budget above the ceiling
+
+The facts: the budget at 6b13c52 is 460984, 2232 above 458752;
+the `sheet`-only rule measures 456200, 2552 under, a growth of
+4688 over the record's 451512 and above the accepted 4000 of
+"Size"; the committed rule's two extra cases (a table's name and
+a defined name) cost 4784 of core bytes (ruling E). Milestone 8
+decision 1 said the ceiling is reopened "only when a change to
+code the core links needs it, as that spec's first decision";
+this is that decision, number 4 below. Under 4 A, "Size" reads:
+the core rule is the `sheet` attribute alone, its growth 4688 a
+FINDING against the band (the band is not moved, as P1's was
+not), recorded and attributed in the size record; the table-name
+case is the Cargo feature `tables`'s and the defined-name case
+the Cargo feature `metadata`'s, each a block of `pivot_sourced`
+under its `cfg`, each feature's cost expected to grow 500 to 3000
+and accepted up to 5000 over Milestone 7 part 2's record; the
+`tables` and `metadata` tests of `pivot_remove.rs` run under their
+features; the crate docs' entry for "a pivot cache sources the
+sheet" names the three cases and their features; `TABLE` stays
+unconditional only if the core still reads it, else its `cfg`
+returns with `tables` added. The fix is one code commit after
+5ab0e96 naming this amendment and the stop ("the budget above the
+ceiling at 6b13c52, ruling E"), then the documents commit, the
+generators and the dry run as "P3" says; the size record judges
+the result. Under 4 B, "Size" reads: the ceiling is 466944 (456
+KiB) from this part on, the budget 460984 under it by 5960, the
+growth 9472 a FINDING against the unmoved band; the README's size
+sentence and the ROADMAP's Milestone 8 decision 1 line say so; no
+code changes; the generators and the dry run follow. Under 4 C,
+the core rule is the `sheet` attribute alone and the two name
+cases are a documented limit: the README's removal sentence says
+a pivot cache built from a table or a named range on the removed
+sheet is left sourcing nothing (the finding of `specs/0047`
+decision 2 B for those cases); the `tables` and `metadata` tests
+of the two cases are removed with the code; otherwise as 4 A.
+
 ## Decisions for the maintainer
 
 To be typed in the planning session; the recommended option is A
@@ -650,6 +923,23 @@ sample's expectation in P2 and P4 needs 2.
 Decided by the maintainer 2026-11-09, typed in the planning session
 ("great, i agree" to planning's recommendation): 1 A, 2 A, 3 A. The
 A branches above apply.
+
+Decided by the maintainer 2026-11-09, typed in the planning session
+("i agree with recs" to planning's recommendation of A): 4 A.
+"Size" reads as Amendment 1's 4 A paragraph says; ruling F has the
+fix.
+
+4. The budget above the ceiling (Amendment 1; Milestone 8 decision
+   1 reopened): A (recommended), the ceiling 458752 stands; the
+   core refuses by the `sheet` attribute alone (456200, 2552
+   under; the growth 4688 a recorded FINDING); the table-name case
+   goes behind `tables` and the defined-name case behind
+   `metadata`, the features that already read those parts, so a
+   consumer linking them keeps the whole rule at no core cost; B,
+   the ceiling is raised to 466944 (456 KiB) and the committed rule
+   stands whole in the core (460984, 5960 under the new ceiling);
+   C, the `sheet` attribute alone in the core and the two name
+   cases a documented limit, no feature code.
 
 1. The pivot source by `name`: A (recommended), the refusal covers
    a `sheet` attribute naming the sheet, a `name` naming a table
