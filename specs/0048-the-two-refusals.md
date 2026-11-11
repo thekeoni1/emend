@@ -7,8 +7,9 @@ decisions 1 to 4 A, `ROADMAP.md` "Milestone 8"); part 1 DONE and
 PUSHED 2026-11-09 (`specs/0047`). P1 DONE 2026-11-09 at cbef379
 (rulings A and B); P2 DONE 2026-11-09 at 572e71f (rulings C and D);
 P3 DONE 2026-11-10 at 053d27c under Amendment 1, decision 4 A
-(rulings E to M); P4 DONE 2026-11-10 at 5def62f (ruling N). The
-close-out push is next.
+(rulings E to M); P4 DONE 2026-11-10 at 5def62f (ruling N); the
+close-out DONE and PUSHED 2026-11-10 at 9f862ca (ruling O; the
+record f44debd local, it goes with part 3's push). PART DONE.
 
 Milestone 8 part 2 implements the milestone's decisions 2 and 3 and
 part 1's decision 2: the two documented refusals Milestone 7 part
@@ -939,6 +940,34 @@ without its stage wrote an empty log into the tree and exited 1;
 the file was moved out, not deleted, and the scan rerun by its
 usage; a slip of invocation, not a rerun of a failing check. P4
 is DONE; nothing is pushed.
+
+## Planning rulings during the close-out (2026-11-10)
+
+O. No prune in the close-out (given by message, written after the
+   push). Planning's brief asked the close-out's gate to prune
+   P4's target; the close-out push script has no prune block
+   (`specs/0032` P3 verification ruling 9, `specs/0031` P2
+   verification ruling 6) and "Close-out push (after P4)" names
+   none. The clause was a planning slip and is withdrawn. Part 3
+   P1's gate prunes P4's target and the close-out's.
+
+## Planning verification of the close-out (2026-11-10)
+
+From the record commit f44debd (three logs, nothing else) and the
+remote: the doc commit 9f862ca holds the two planning files at
+the hashes of the brief; push.log b9d17939 ends "push checks all
+as expected: yes", pre mode before it "yes", the maintainer's
+authorisation typed in the implementing session and recorded
+with its date; `git ls-remote` reads 9f862ca for the branch, no
+tag on it; ci-run.log 26aa929a, run 42935203506, no step with a
+conclusion other than success or skipped; scan.log 9712087f over
+e1fc6e4..9f862ca, RESULT PASS. No FINDING line in the three
+logs. The pushed range is 19 commits and carries part 1's record
+454dea3. The independent check answers yes to its three
+questions; its point on the size block's label ("the parent of"
+over the adding commit, the computation right) is fixed in the
+next carried script. The part is DONE and PUSHED; the record
+f44debd is local.
 
 ## Amendment 1 (2026-11-09): the budget above the ceiling
 
