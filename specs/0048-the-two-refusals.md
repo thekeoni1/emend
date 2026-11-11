@@ -7,7 +7,8 @@ decisions 1 to 4 A, `ROADMAP.md` "Milestone 8"); part 1 DONE and
 PUSHED 2026-11-09 (`specs/0047`). P1 DONE 2026-11-09 at cbef379
 (rulings A and B); P2 DONE 2026-11-09 at 572e71f (rulings C and D);
 P3 DONE 2026-11-10 at 053d27c under Amendment 1, decision 4 A
-(rulings E to M).
+(rulings E to M); P4 DONE 2026-11-10 at 5def62f (ruling N). The
+close-out push is next.
 
 Milestone 8 part 2 implements the milestone's decisions 2 and 3 and
 part 1's decision 2: the two documented refusals Milestone 7 part
@@ -876,6 +877,68 @@ band. The remove sample over the 39: same 38, changed 1, the pair
 reading `pivot_source`, no FINDING. Check 1's answer is in the
 record verbatim with its dispositions in the README. P3 is DONE;
 nothing is pushed.
+
+## Planning rulings during P4 (2026-11-10)
+
+N. The stop verified and the word given (2026-11-10). The doc
+   commit 3bbac34 at the two hashes; f625b99 the README's two
+   figures (76872 and 66388, the record's), the CHANGELOG clause
+   and the crate docs' sentence, doc comment lines alone in the
+   crate. Dry d1: the gate and run logs end "yes", 59 of 59 runs,
+   the scan FAILs on the four dry-layout checks alone. Its 8
+   FINDING lines are one cause: the dry workbooks' worksheet roots
+   declare no `xmlns:r`; adding a chart declares it and removing
+   the chart leaves the declaration, so the sheet part does not
+   return to its input bytes and the remove-chart sample reads
+   error. (1) "Seven changes" is the six measured changes and the
+   copy pair kept; the table holds that. (2) The dry FINDINGs are
+   accepted as a dry cut, no second dry run: the 39 real workbooks
+   declare the prefix (part 1 P2's remove-chart records read ok on
+   all 39) and the logged run judges them. The residue itself, a
+   namespace declaration an addition wrote left after its removal
+   on a root that had none, is a finding of this part: recorded in
+   the logs README and at the close-out in `ROADMAP.md` under
+   "Unscoped", not fixed here (a core change). (3) The run
+   summaries' two counters carried past the remove sample are left
+   as generated, the totals being right; the README says so. (4)
+   and (5) stand. (6) The README's budget sentence cites the figure
+   at the 0.1.0 tag by its own words; it is updated with the
+   release, part 3, not here. (7) An `rm -rf` typed on a path that
+   did not exist removed nothing; the rule stands, the form is
+   `rm -r "${var:?}"` in a logged script alone. The word: the
+   logged gate with PRUNE_PREVIOUS=yes over P3's target alone, the
+   run, the records, the README with every FINDING line, two
+   independent checks, the record commit "M8 part 2 P4 record: the
+   59 records, the logs, the README, the checks", the final scan,
+   the report, STOP. Planning does not edit this spec while the
+   driver runs.
+
+## Planning verification of P4 (2026-11-10)
+
+From the record commit 5def62f (124 files, all under `records/`)
+and its logs: gate.log a27d8ee7 and run.log 4f148de2, each ending
+"checks all as expected: yes" with `PLANNING_SPEC` 9a6e0db5;
+scan.log 199c614f, RESULT PASS. The gate pruned P3's target and
+ran the seven test sets at P3's figures on the host and on i686,
+0 failed. The run: 59 of 59, 0 FINDING lines. Planning compared
+the 59 record pairs itself, per id and per column but the wall
+time and the peak memory, with part 1 P2's 59 of the same names:
+39 ids in each, six rows changed and no other, the six of the
+table (delete-rows 90a5b01f9541, delete-columns 91d2bdffa46a,
+comment, richcomment and commentbox 15205770ae5c, each
+error/-/ok to ok/ok/ok; remove 495c7b79b183 ok/fail/ok to
+ok/ok/ok, its output now a passthrough), and copy 15205770ae5c
+kept error/-/ok. The two checks' answers are in the record
+verbatim; the two README sentences both found wrong (the dry
+ids, which are nine real ids labelling generated workbooks, and
+when ruling N was written, which was before the run) are
+answered in the README's last section and stand corrected there.
+The namespace residue is reproduced in the README on a generated
+workbook and shows on none of the 39. A first final-scan call
+without its stage wrote an empty log into the tree and exited 1;
+the file was moved out, not deleted, and the scan rerun by its
+usage; a slip of invocation, not a rerun of a failing check. P4
+is DONE; nothing is pushed.
 
 ## Amendment 1 (2026-11-09): the budget above the ceiling
 
