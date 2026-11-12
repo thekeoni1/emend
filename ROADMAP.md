@@ -1465,8 +1465,8 @@ The close-out carries part 2's record f44debd.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| P1 | the eight reruns over the 39, compared per id with part 2 P4's records; the keep and its open record; the list, the stage and the zip; one independent check | IN PROGRESS 2026-11-10 |
-| P2 | after the maintainer's check: the record `records/excel-check-m8-<utc-date>.md`; the acceptance on the six changed rows; one independent check | PLANNED |
+| P1 | the eight reruns over the 39, compared per id with part 2 P4's records; the keep and its open record; the list, the stage and the zip; one independent check | DONE 2026-11-11 (record c15561b; 8 records changed 0; open 2280/2268/2269; 3 FINDING lines, a renamed test, ruling B; stage 4850 files) |
+| P2 | after the maintainer's check: the record `records/excel-check-m8-<utc-date>.md`; the acceptance on the six changed rows; one independent check | IN PROGRESS: the maintainer's check ran 2026-11-12 (4848 rows; the six changed rows `pass`; corpus 311 pass and 1 repair by hand, the documented limit; no finding; `specs/0049` ruling G); the record phase briefed |
 | P3 | the manifest's version 0.1.1 and the packaging dry run; the CHANGELOG's 0.1.1 heading; the README's size sentence at 456264 and its Excel sentence; one independent check | PLANNED |
 | Close | close-out push after P3, carrying f44debd, base 9f862ca by its subject, `PREV` `^M8 part 2 close-out record`, three Excel-record checks, the lightweight tag `v0.1.1` pushed with the branch, the whole-history scan at the tag, the range scan, one independent check | PLANNED |
 | P4 | after the maintainer's publication: the crate file and the index checksum read back, every packaged file compared with the tag's tree | PLANNED |
@@ -1552,5 +1552,7 @@ approval.
   declares it and removing the chart leaves the declaration, and a
   sheet relationships part with no relationship, so the add then
   remove is not byte-identical with the input. The 39 corpus
-  workbooks declare the prefix and read ok. A core change; whether
-  a removal undoes a declaration its addition wrote is a decision.
+  workbooks declare the prefix and read ok. DECIDED 2026-11-11
+  (the maintainer, `specs/0049` ruling F): a documented limit, no
+  core change; the README and the 0.1.1 CHANGELOG entry say so in
+  Milestone 8 part 3 P3.
