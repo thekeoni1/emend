@@ -67,7 +67,7 @@ In the copy sample, 784 of the 917 zip entries on the host came back byte for by
 
 Of the 1093 output files the crate's and the copy tool's tests keep, LibreOffice opened 1082; the record's own sections explain the eleven it did not (`records/m3p6-open-2026-10-08-9cfd92e.md`).
 
-Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 451512 section bytes, 7240 under the ceiling of 458752 (`records/size-m7p2-2026-10-28-43471ed.md`).
+Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 456264 section bytes, 2488 under the ceiling of 458752 (`records/size-m8p2-2026-11-10-8065795.md`).
 
 Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`). In Milestone 6's rerun of the tiers, emend's roundtrip of the tier c workbook, 1159829654 bytes, took 2.30 s at a peak of 7872 kB on the host and 3.60 s at a peak of 7560 kB on the static target, and of the tier d workbook, 201769244 bytes, 0.40 s on each (`records/compare-m6p6-2026-10-24-d88f735.md`).
 
@@ -76,6 +76,8 @@ Comparison with openpyxl: over the 27 workbooks and the sixteen ops of the compa
 Excel: Microsoft Excel was asked to open the 6018 files of Milestone 7 part 1's check, every sample's outputs on the private test corpus and the outputs the crate's tests keep with their inputs: on the corpus 1528 passed and 32 needed a repair, of the kept outputs 1864 passed and 365 were refused, and of their inputs 1874 passed and 355 were refused; Milestone 7 part 2 fixed five of the causes and documented the rest as limits (`records/excel-check-m7-2026-10-26.md`).
 
 After the fixes, Microsoft Excel was asked to open the 4640 files of Milestone 7 part 2's check, six samples' outputs over the 27 workbooks and the outputs the crate's tests keep with their inputs: on the corpus 159 passed and 3 needed a repair, the two documented limits' three outputs, opened by hand with a repair offered; of the kept outputs 1878 passed and 361 were refused, and of their inputs 1881 passed and 358 were refused (`records/excel-check-m7p2-2026-10-28.md`).
+
+After Milestone 8's changes, Microsoft Excel was asked to open the 4848 files of Milestone 8 part 3's check, eight samples' outputs over the 39 workbooks and the outputs the crate's tests keep with their inputs: on the corpus 311 passed and 1 needed a repair, the documented limit of a removed sheet's references, opened by hand with a repair offered; of the kept outputs 1905 passed and 363 were refused, and of their inputs 1907 passed and 361 were refused (`records/excel-check-m8-2026-11-12.md`).
 
 ## Out of scope by design
 
@@ -95,7 +97,10 @@ qualified with (`specs/0048-the-two-refusals.md`, "The pivot cache source",
 and Amendment 1). A style edit assumes
 the styles part carries the font, fill, border and cell-style collections
 and the `cellXfs` entries that name them (`specs/0012-styles.md`;
-`specs/0015-open-checks.md`, Excel-check ruling 4).
+`specs/0015-open-checks.md`, Excel-check ruling 4). A removal does not
+undo a namespace declaration, or an emptied relationships part, that an
+earlier addition wrote; the result is valid
+(`specs/0049-excel-check-and-release.md`, ruling F).
 
 ## Licence
 

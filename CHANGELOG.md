@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 (unreleased)
 
 ### Added
 
@@ -31,9 +31,26 @@
   public before with the feature `read` alone, is public with no feature,
   the core's sheet removal reading it (`specs/0048-the-two-refusals.md`,
   "The pivot cache source", and Amendment 1).
-- The README's size sentence cites the figure at the tag, 451512 section bytes
-  (`records/size-m7p2-2026-10-28-43471ed.md`); the 0.1.0 entry below cited
+- The README's size sentence cites Milestone 8 part 2's figure, 456264 section
+  bytes, 2488 under the ceiling of 458752
+  (`records/size-m8p2-2026-11-10-8065795.md`); the 0.1.0 entry below cited
   Milestone 3 part 7's 436992 and stands as released.
+
+### Measured
+
+- Excel: after Milestone 8's changes, Microsoft Excel was asked to open the
+  4848 files of Milestone 8 part 3's check, eight samples' outputs over the 39
+  workbooks and the outputs the crate's tests keep with their inputs: on the
+  corpus 311 passed and 1 needed a repair, the documented limit of a removed
+  sheet's references, opened by hand with a repair offered; of the kept outputs
+  1905 passed and 363 were refused, and of their inputs 1907 passed and 361
+  were refused (`records/excel-check-m8-2026-11-12.md`).
+
+### Not supported by design
+
+- A removal does not undo a namespace declaration, or an emptied
+  relationships part, that an earlier addition wrote; the result is valid
+  (`specs/0049-excel-check-and-release.md`, ruling F).
 
 ## 0.1.0 (2026-10-29)
 
