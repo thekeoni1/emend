@@ -678,3 +678,39 @@ Q. The publication (2026-11-13). The maintainer said in the
    taken from this ruling. The P4 doc commit holds this spec and
    `ROADMAP.md` (the Close row DONE and PUSHED, the P4 row IN
    PROGRESS). The P4 record and the close-out record stay local.
+
+## Planning rulings during P4 and verification of P4
+
+R. Planning's word on the P4 generator (2026-11-13), given by
+   message and written here after the record commit. The doc
+   commit 031732b on 5df377c. The generator carries M7 part 2
+   P4's script by changes QV1 to QV5; QV4 reads 0.1.0 in both
+   the index and the page, each with a control, each a FINDING
+   and a stop; accepted. One dry pair, no second, none being
+   needed; accepted. The dry pair: positive 50 yes, the one "no"
+   the API-key line; negative one FINDING line and exit 1.
+
+Verified from primaries 2026-11-13.
+
+- The maintainer said in the implementing session that the
+  registry lists 0.1.1 (a session statement); the logged run
+  ran once after it.
+- The record commit e9dcaac on 031732b, local: the log and the
+  README under `records/logs/m8p3-p4/`, both ASCII.
+- The log: 50 lines ending "yes", the one "no" the API-key
+  line, no line beginning FINDING, the last line "verify log
+  checks all as expected: yes". The crate file's sha256 is the
+  index's cksum; 76 entries, 73 equal to the tag's, 0 differing,
+  3 written by cargo, the tag's 72 files of the crate all
+  packaged; the version-control file names 635aaba, not dirty;
+  0.1.0 still listed and not yanked in the index and on the
+  page.
+- The independent check: yes, yes, partly; its one point on the
+  README's line citation was fixed before the commit, the rest
+  are session statements or files planning read for its word.
+- The remote is unchanged: main and `v0.1.1` at 635aaba. Three
+  commits are local (5df377c, 031732b, e9dcaac) and go with the
+  next milestone's first push, with this section's doc commit.
+
+P4 is DONE 2026-11-13. Part 3 is DONE, PUSHED and PUBLISHED.
+Milestone 8 is DONE.

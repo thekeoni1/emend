@@ -1331,7 +1331,7 @@ carries part 2's four local commits (8f742d0, 27da228, 472d361,
 | P2 | the passthrough and the 58 samples over the grown corpus at the phase commit, `--label host`, every output opened; the records `m7p3-<name>-<utc-date>-<shortsha>`; the comparison with the latest committed records on the 27 earlier ids; the findings README; one independent check | DONE 2026-11-05 (phase commit d7a8196, record 44df7e6; 59 runs over the 39 files, the passthrough and 58 samples, every output opened; the 27 earlier ids unchanged in all 59 comparisons; 71 FINDING lines on 7 of the 12 new ids in five groups, recorded not fixed: the open check's sheet count on one external-link workbook, failing on the input itself (59), the sheet sample's active-tab check on the five Sheets exports (5), two formula-cut refusals, four threaded-comment refusals on one Sheets export, one LibreOffice failure after the remove sample on a pivots, slicers and timelines workbook; check 1 yes with exceptions on all three, disposed in the README; the scan PASS; `specs/0046` rulings M to P; no push) |
 | Close | close-out push after P2, carrying part 2's four local commits and this part's, base cf727f7 by its subject, `PREV` `^M7 part 2 close-out record`, both Excel-record checks in pre mode unchanged, the branch alone (no tag), the range scan, one independent check | DONE 2026-11-07 (doc commit 4316630 pushed, the branch alone, no tag, origin/main cf727f7..4316630, 10 commits, 2782 blobs, 0 findings, on "push 11/7/2026" typed in the implementing session after planning's word (ruling R); CI run 42431758270 success; the post scan PASS over the range; record ed918a1 local, goes with the next push; check 1 yes, yes, yes with exceptions, disposed in the report; change 73 not carried, ruling Q; verified by planning from git, `gh` and the three logs; `specs/0046` "Planning verification of the close-out", Q to S; part 3 PUSHED, Milestone 7 DONE and PUSHED) |
 
-## Milestone 8: corpus findings and the core ceiling (APPROVED 2026-11-07; part 1 DONE and PUSHED 2026-11-09; part 2 DONE and PUSHED 2026-11-10; part 3 close-out PUSHED 2026-11-13, publication and P4 open)
+## Milestone 8: corpus findings and the core ceiling (APPROVED 2026-11-07; DONE 2026-11-13: part 1 PUSHED 2026-11-09, part 2 PUSHED 2026-11-10, part 3 PUSHED and 0.1.1 PUBLISHED 2026-11-13)
 
 Theme chosen by the maintainer 2026-11-07 after Milestone 7 part 3's
 close-out, from planning's recommendation ("great, lets go"): the
@@ -1469,7 +1469,20 @@ The close-out carries part 2's record f44debd.
 | P2 | after the maintainer's check: the record `records/excel-check-m8-<utc-date>.md`; the acceptance on the six changed rows; one independent check | DONE 2026-11-12 (doc 69a3227, record f8bd007, local; the maintainer's check ran 2026-11-12; `records/excel-check-m8-2026-11-12.md`, 4848 rows, the six changed rows `pass`, corpus 311 pass and 1 repair by hand (the documented limit of the removed sheet's references), fixture pairs 1883, 339, 22 and 24, no finding; decision 2 A met; the record byte-equal to planning's and to the implementing session's own assembly; the scan PASS; one check, its question 2 ruled (I); verified by planning from primaries; `specs/0049` rulings G to I and "verification of P2") |
 | P3 | the manifest's version 0.1.1 and the packaging dry run; the CHANGELOG's 0.1.1 heading; the README's size sentence at 456264 and its Excel sentence; the namespace limit's two sentences (ruling F); one independent check | DONE 2026-11-12 (doc 43b8851, version be6cdb1, texts 41203c5 and 7ea64ba, record dcb312e, local; FINDING: with the version line alone changed the format probe reads 989464 and the budget 456248, 16 section bytes under part 2's record, the cause not measured (ruling K): the size texts cite 456248, 2504 under the ceiling of 458752, from `records/logs/m8p3-p3/gate.log`, and name part 2's 456264; the packaging dry run 75 files, no token variable set; the texts' 29 and 5 digit sentences all cited; the scan PASS; one check, yes to all three; verified by planning from primaries; `specs/0049` rulings J to M and "Planning verification of P3") |
 | Close | close-out push after P3, carrying f44debd, base 9f862ca by its subject, `PREV` `^M8 part 2 close-out record`, three Excel-record checks, the lightweight tag `v0.1.1` pushed with the branch, the whole-history scan at the tag, the range scan, one independent check | DONE and PUSHED 2026-11-13 (635aaba, tag `v0.1.1`; CI run 43456769114 success; record 5df377c local) |
-| P4 | after the maintainer's publication: the crate file and the index checksum read back, every packaged file compared with the tag's tree | IN PROGRESS (published by the maintainer 2026-11-13; briefed 2026-11-13; ruling Q) |
+| P4 | after the maintainer's publication: the crate file and the index checksum read back, every packaged file compared with the tag's tree | DONE 2026-11-13 (0.1.1 published by the maintainer; record e9dcaac local; 76 entries, 73 equal to the tag, 0 differing) |
+
+## Docs: the newcomer's intro (`specs/0050-newcomer-intro.md`, APPROVED 2026-11-13)
+
+The maintainer's request of 2026-11-13: a reader who does not know
+emend should learn from the README's opening what it is and why to
+pick it over other libraries; openpyxl is cut to one sentence there.
+A standalone docs task, no code but a doc test of the README's
+example, nothing published.
+
+| Phase | Content | Status |
+| --- | --- | --- |
+| P1 | the README's opening and the crate doc comment's, with the example as a doc test; the gate; the record | PLANNED |
+| Close | close-out push, carrying Milestone 8's three local commits; no tag | PLANNED |
 
 ## Unscoped
 
