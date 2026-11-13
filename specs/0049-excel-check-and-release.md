@@ -504,3 +504,112 @@ J. The CHANGELOG heading in P3 (2026-11-12). As `specs/0045`
    Excel sentence's figures are those of
    `records/excel-check-m8-2026-11-12.md`, each printed by a
    command in the run log.
+
+## Planning rulings during P3
+
+K. The size figure at the 0.1.1 manifest (2026-11-12; the
+   FINDING "Size" provides for, from dry run d1's gate log).
+   With the version line alone changed (be6cdb1) the format
+   probe reads 989464 section bytes against part 2's record's
+   989480, and the budget 456248 against 456264: 16 fewer, the
+   file bytes equal; the charts probe moved by the same 16. The
+   cause is not measured and no text names one. "Size"'s
+   premise, that the version string is in no probe's section
+   bytes, is wrong by these 16 bytes. The texts say what the
+   released manifest measures: the README's size sentence reads
+   456248 section bytes, 2504 under the ceiling of 458752,
+   citing `records/logs/m8p3-p3/gate.log`, and says that part
+   2's size record measured 456264 before the version changed,
+   citing that record; the CHANGELOG's entry says the same. This
+   is one more docs commit on 41203c5, the new phase commit, and
+   a new dry run. The gate keeps its FINDING line against part
+   2's record, recorded and not fixed, and by a numbered change
+   also requires the format probe at 989464 and the budget at
+   456248, the figures the texts cite; another figure in the
+   logged gate is a stop before the run step. The run log's
+   citation check takes the gate log of its own log directory
+   for that path and checks that it prints both figures. No
+   size record is taken; the next size record measures every
+   probe at its own commit.
+
+L. Answers to the stop report (2026-11-12). The archive's
+   publish dry run keeps the carried form without the dirty
+   flag, the archive holding no repository (`specs/0045` ruling
+   AE); this spec's and the brief's naming of the flag is read
+   so. The citation rule lists and does not refuse a digit
+   sentence citing a spec alone, and the version heading; its
+   exclusions stand. The gate's older-stage check, its dropped
+   keep-host check and its carried builds stand. The negative
+   holds no stale line, so nothing is reworded; its swap pair
+   and the run log's heading and citation controls stand. The
+   scan's README check dropped in P2 stays dropped.
+
+M. The word (2026-11-12, by message, after dry run d2 with the
+   phase commit 7ea64ba; written here after the record commit).
+   No new ruling went with it. A regeneration a fork made with
+   stale roles and never ran stays under the phase's `tmp`,
+   named in the README.
+
+## Planning verification of P3
+
+From primaries, 2026-11-13 (UTC):
+
+- Commits on f8bd007: doc 43b8851 (GN form), code be6cdb1 (the
+  version line in the manifest and in the lock, 2 lines), docs
+  41203c5 and 7ea64ba (the texts; ruling K's the second), record
+  dcb312e (6 files under `records/logs/m8p3-p3/`). Nothing
+  pushed; 10 commits ahead of origin/main; the tree holds the
+  working spec alone.
+- Planning read the texts' whole diff from f8bd007: the heading
+  "## 0.1.1 (unreleased)"; the size sentence as ruling K in both
+  files; the Excel sentence's seven figures the record's; ruling
+  F's sentence in both; the 0.1.0 entry untouched.
+- The three logs each end "checks all as expected: yes" (gate
+  12772, negative 5802, run 3028); the scan ends RESULT: PASS
+  (7192).
+- gate.log: the prune removed P2's target alone, 6475256473
+  bytes, `rm -r` exit 0 (232 to 234); the format probe 989464
+  (12158); one FINDING line, ruling K's (12167); the figures the
+  texts cite as expected (12172).
+- run.log: both token variables absent and no credentials file
+  (2735, 2736, 2741); "Packaged N files" 75 with the one
+  aborting-upload warning and no error line (2868); "Packaging
+  emend v0.1.1" once (2874); 458752 less 456248 is 2504 (2908);
+  the heading's form (2922, 2923); the 0.1.0 entry byte for byte
+  the base's (2944); sentences holding a number uncited: README
+  0 of 29, the 0.1.1 entry 0 of 5 (2959, 2967); `lib.rs`
+  unchanged (2975).
+- Planning's own scan of the six files: nothing outside ASCII;
+  no home or host path and no session link but the split
+  control fixtures the gate and the scan print.
+- The independent check answers yes to all three questions; its
+  one point on a placeholder's root line is answered in the
+  README.
+
+P3 is DONE 2026-11-12. The close-out next; nothing of it runs
+until the close-out doc commit is in.
+
+## Planning rulings during the close-out
+
+N. The close-out doc commit (2026-11-13), as `specs/0045` ruling
+   AI with this part's names. It holds this spec, `ROADMAP.md`
+   (the P3 row DONE, the Close row IN PROGRESS) and
+   `CHANGELOG.md`, whose heading becomes "## 0.1.1 (<date>)" with
+   the UTC date of the day the commit is made, nothing else of
+   the file changed; its subject is the one "Close-out push
+   (after P3)" gives, its body the three "<path> sha256
+   <sha256>" lines and the Co-Authored-By line, no count
+   sentence. The pre-mode run checks the heading's date equal to
+   the doc commit's committer date in UTC, with a control
+   refusing another date. The rest as "Close-out push (after
+   P3)": pre mode on a clean tree; the lightweight tag `v0.1.1`
+   created on the tip after the pre checks pass; the pre report
+   to planning; planning's word; the maintainer's typed
+   authorisation in the implementing session naming the branch
+   and the tag; one `git push origin main v0.1.1`; the CI run;
+   the post scan; the whole-history scan at the tag beside the
+   last run's counts; the record commit with the three logs;
+   one check; the report. Nothing is pushed, the tag included,
+   before both the word and the authorisation. The size texts'
+   gate log path (ruling K) is in the range and is a committed
+   file at the tip.
