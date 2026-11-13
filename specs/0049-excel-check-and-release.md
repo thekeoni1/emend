@@ -427,3 +427,80 @@ G. The check's results and the record (2026-11-12). The
    from `<home>/.cache/emend-build/m8p3-p2/record-from-planning/`
    and checks the sha256 in the run log. Decision 2 A is met
    on the record; P3 follows P2's verification.
+
+## Planning rulings during P2 and verification of P2
+
+H. The word and the answers (2026-11-12; given by message while
+   the logged driver held the spec to its blob, written here
+   after the record commit). The word followed planning's read
+   of dry run d1. (1) The negative's two new cases for ruling
+   E's stop (A3 on a copy of the real inputs, R3 on fictional
+   ones) are kept. (2) One carried line of the negative names a
+   case (c) this log does not hold: it stands in this phase, is
+   named in the README, and is reworded by a numbered change in
+   the next negative that carries the frame. (3) P1's scan
+   printed a control under part 2's close-out doc commit's name
+   that tested an earlier commit's paths; both are refused, no
+   result changed, the committed line stands as ruling D's
+   does, and P2's scan gives it its own variable. (4) The
+   scan's control refusing P1's doc commit as the phase commit,
+   and the gate's refusing 4f8fdfc and f44debd in either role,
+   are accepted. (5) The gate refuses an untracked record at
+   its start and end, so it is not rerun after the run step; a
+   need to rerun it is a stop. (6) The gate carries P1's builds
+   and test sets though P2 runs no sample. (7) The acceptance
+   in totals is the six rows, the corpus counts, the fixture
+   pairs and the record's findings and acceptance lines; the
+   comparison with the earlier records is covered by the
+   assembly's byte-equal rerun. (8) An empty directory a fork
+   made under `<phase>` stays, named in the README.
+
+I. The independent check's question 2 (2026-11-12). `specs/0044`
+   "P2: the record" names the restored check's two cases for
+   its negative; P2's negative here does not run them, as
+   Milestone 7 part 2's did not. The check on
+   `records/excel-check-m8-*.md` is the close-out's by this
+   spec ("The maintainer's check and the record (P2)", last
+   paragraph), with its control there; P2's negative stands.
+   The check's question 3 points (two line ranges and one
+   placeholder's meaning) are corrected in the README's
+   after-check section and stand so.
+
+Verification of P2 (2026-11-12, from primaries):
+
+- Doc commit 69a3227 on c15561b, the two files in GN form;
+  record commit f8bd007 on it, 7 files; the tree clean; nothing
+  pushed.
+- `records/excel-check-m8-2026-11-12.md` is sha256 e58daaf8...
+  and byte-equal to planning's copy (planning's own cmp).
+- The three logs each end "checks all as expected: yes" (gate
+  12262, negative 6480, run 2777); the scan ends RESULT: PASS
+  (6953).
+- run.log: the assembly rerun exit 0 with nothing on standard
+  error and its output the record's sha256 (2616, 2617); the six
+  changed rows pass 6 of 6 (2711 to 2713); the acceptance in
+  totals, corpus 311 1 0 and fixture pairs 1883, 339, 22, 24,
+  findings None (2741); FINDING lines 0 (2762).
+- gate.log: the prune removed P1's target alone, 6475256310
+  bytes, `rm -r` exit 0 (229 to 231).
+- Planning's own scan of the seven files: nothing outside ASCII;
+  no home or host path and no session link but the split
+  control fixtures the gate and the scan print.
+- The independent check: question 1 yes; 2 no on a strict
+  reading (ruling I); 3 no on citations, corrected in the
+  README.
+
+P2 is DONE 2026-11-12: decision 2 A is met, no finding. P3 next.
+
+## Planning rulings before P3
+
+J. The CHANGELOG heading in P3 (2026-11-12). As `specs/0045`
+   ruling AB: P3 writes "## 0.1.1 (unreleased)" and its run log
+   checks the form alone, "## 0.1.1 (" followed by one
+   parenthesised word or date, with a control refusing a heading
+   of another version; the date is written at the close-out, as
+   Milestone 7 part 2's close-out wrote 0.1.0's. Ruling F's two
+   sentences go in P3's docs commit with the other texts. The
+   Excel sentence's figures are those of
+   `records/excel-check-m8-2026-11-12.md`, each printed by a
+   command in the run log.
