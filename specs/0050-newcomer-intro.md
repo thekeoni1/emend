@@ -137,7 +137,7 @@ One phase and a close-out, by the standing per-phase workflow.
 
 | Phase | Content | Status |
 | --- | --- | --- |
-| P1 | doc commit (this spec, `specs/0049`, `ROADMAP.md`); one code commit (README, `lib.rs`); the driver's checks above; the gate; logs under `records/logs/docs-intro-p1/`; README of the record; one independent check; one record commit | logged run VERIFIED 2026-11-13 (record 25ceb42); change 2 (ruling F) pending |
+| P1 | doc commit (this spec, `specs/0049`, `ROADMAP.md`); one code commit (README, `lib.rs`); the driver's checks above; the gate; logs under `records/logs/docs-intro-p1/`; README of the record; one independent check; one record commit | DONE 2026-11-13 (records a46fe52 and a2a31d2, local) |
 | Close | close-out push carrying 5df377c, 031732b, e9dcaac and P1's commits; no tag; CI; the post scan; the record | PLANNED |
 
 The stop report before the logged run carries the full diff of
@@ -189,3 +189,37 @@ F. Change 2 (the check's note, planning's judgement): the README
    `verify-change2.log` beside the first; a short addendum to the
    record's README; one record commit; the scan; report; STOP. No
    second independent check: the change is two lines of spec text.
+
+## Planning ruling G and verification of change 2 (2026-11-13)
+
+G. Change 2's first dry run (d5) ended "no": the gate's hygiene
+   step found U+2014 in the committed `verify.log` of 25ceb42, on
+   lines 319 and 320, where the log prints the driver's own text
+   (four characters; a tool had decoded an escape in the script).
+   Earlier gate runs saw the log untracked. Planning had accepted
+   25ceb42 without that check; the miss is planning's too. Ruled
+   by message (the driver pinned this file): the local commits
+   25ceb42, 0aba0fb and 00fae94, none pushed, are rebuilt from
+   2f7891a. The first log is committed with those characters
+   written as their ASCII escape, the original's sha256 fa264d94
+   and the command stated in the record's README; the script uses
+   `chr(0x2014)`; the driver checks the record directory for the
+   character on staged content.
+
+Verified from primaries: e9dcaac..HEAD is 40ee6b1, 4dfd4f4,
+2f7891a, a46fe52, 3a90317, 4b2a23e, a2a31d2; the committed first
+log differs from 25ceb42's on 4 diff lines (2 lines each side);
+no U+2014 anywhere at HEAD; no non-ASCII byte in the record's
+logs or README; `verify-change2.log` ends "verify log checks all
+as expected: yes" with no FINDING line; the README differs from
+2f7891a's in the umya bullet alone; the budget 456248; each
+message ends with the Co-Authored-By line only; the remote
+unchanged at 635aaba. ACCEPTED. P1 is DONE 2026-11-13.
+
+## Close-out
+
+A doc commit of this spec and `ROADMAP.md`; the pre scan over
+635aaba..HEAD (the three Milestone 8 commits and this task's);
+the gate's hygiene at HEAD; the pre report; planning's word; the
+maintainer's authorisation typed in the implementing session; one
+push of main, no tag; CI; the post scan; the record, local.

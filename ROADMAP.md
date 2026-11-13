@@ -1481,7 +1481,7 @@ example, nothing published.
 
 | Phase | Content | Status |
 | --- | --- | --- |
-| P1 | the README's opening and the crate doc comment's, with the example as a doc test; the gate; the record | PLANNED |
+| P1 | the README's opening and the crate doc comment's, with the example as a doc test; the gate; the record | DONE 2026-11-13 (records a46fe52, a2a31d2; change 1 the crate docs' openpyxl sentence, change 2 the umya line, ruling G a log's U+2014) |
 | Close | close-out push, carrying Milestone 8's three local commits; no tag | PLANNED |
 
 ## Unscoped
