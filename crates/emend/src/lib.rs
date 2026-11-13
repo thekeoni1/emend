@@ -7,8 +7,7 @@
 //! there.
 //!
 //! emend has the scope of Python's openpyxl and the same limits: it does not
-//! evaluate formulas, render, or autofit. See "Out of scope by design" below,
-//! and "What has been measured" for the comparison.
+//! evaluate formulas, render, or autofit.
 //!
 //! The core (open, read, edit, write back) depends on `zip` and `quick-xml`
 //! and nothing else. Everything heavier is a Cargo feature, off by default,
