@@ -613,3 +613,68 @@ N. The close-out doc commit (2026-11-13), as `specs/0045` ruling
    before both the word and the authorisation. The size texts'
    gate log path (ruling K) is in the range and is a committed
    file at the tip.
+
+O. The pre report (2026-11-13), answered by message with
+   planning's word and written here after the push so that the
+   tree stayed clean. Change 92's "the adding commit" label on
+   the m8 record's added-once block is accepted. Part 2's change
+   87 is not carried to 0.1.1. The disclosed stray push command,
+   run by a subagent's unquoted heredoc outside any repository,
+   failed and pushed nothing; the record's README names it.
+
+P. The record commit holds the three logs and a README. "The
+   three logs only" in "Close-out push (after P3)" is amended by
+   ruling O's last sentence: the README is the fourth file and
+   is accepted. The check's other point, that the refusal of an
+   earlier authorisation naming neither branch nor tag is in no
+   log, stands as the report marks it; the authorisation that
+   was acted on is in the push log verbatim.
+
+## Planning verification of the close-out
+
+Verified from primaries 2026-11-13.
+
+- The doc commit 635aaba on dcb312e: three "<path> sha256"
+  lines; the CHANGELOG's one change is the heading's date,
+  2026-11-13, the commit's committer date in UTC.
+- Pre mode: `records/logs/m8p3-close/push.log` line 2348 "pre
+  checks all as expected: yes"; the range's privacy scan 11
+  commits, 3119 blobs, 0 findings; the whole history at the tag
+  934 commits, 4645 blobs, 0 findings.
+- The push: one `git push origin main v0.1.1`; main moved
+  9f862ca..635aaba; `v0.1.1` a new lightweight tag on 635aaba;
+  the maintainer's typed authorisation in the log; line 2456
+  "push checks all as expected: yes". Planning's own read of the
+  remote shows main and `v0.1.1` at 635aaba.
+- CI: run 43456769114 on 635aaba, conclusion success, by the log
+  and by planning's own read.
+- The post scan: total hits 0, RESULT: PASS.
+- The record commit 5df377c, local on 635aaba: four files under
+  `records/logs/m8p3-close/`, ASCII; the path pattern matches
+  script text only. The tree is clean.
+
+The close-out is DONE and PUSHED 2026-11-13. The maintainer
+publishes 0.1.1 next; P4 after that. The record commit goes
+with the next push.
+
+## Planning rulings before P4
+
+Q. The publication (2026-11-13). The maintainer said in the
+   planning session that 0.1.1 is published, from a clone of the
+   tag made inside WSL on the laptop (a first clone made on the
+   Windows side was not used: its checkout may convert line
+   ends). Planning's own read, not the record: the index lists
+   0.1.0 and 0.1.1, neither yanked; the crate file's sha256
+   equals the index's cksum for 0.1.1; 76 entries, 73 equal to
+   the tag's files (the original manifest among them), the
+   version-control file naming 635aaba; the packaged lock file
+   holds 12 of the workspace lock's 16 packages and none other.
+   P4 as `specs/0045` rulings AN and AO with this part's names:
+   the lock file is the fourth file cargo writes, listed, read
+   and not compared; the generator carried from that P4's by
+   numbered changes; one dry run pair (positive and one-byte
+   negative) with no network before the one logged run; the
+   expected counts are printed by the dry run from the tag, not
+   taken from this ruling. The P4 doc commit holds this spec and
+   `ROADMAP.md` (the Close row DONE and PUSHED, the P4 row IN
+   PROGRESS). The P4 record and the close-out record stay local.
