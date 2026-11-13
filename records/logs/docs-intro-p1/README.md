@@ -178,3 +178,65 @@ recorded, not fixed by a rerun.
 7. The note on the umya bullet (with lazy_read, unparsed worksheets are
    written back from their raw bytes, decision-architecture.md lines
    30-33) concerns the spec's own wording and goes to planning.
+
+## Addendum: change 2 (ruling F) and its logged run
+
+Planning verified the first logged run and judged the independent
+check's note on the umya line (ruling F): the cited record does not
+support "a model of the whole file". The spec's text for that bullet
+now reads "reads a workbook into its own model and writes a new file
+from it", and the README bullet says so verbatim. The commits, on the
+rebuilt record commit a46fe52 (ruling G, above):
+
+- 3a90317 doc commit: specs/0050 alone, sha256
+  a00e7d6a0806a50411754a33779fb35ea26a7146823f6df5c946e500c0a902ce,
+  the same patch and message as the superseded 0aba0fb.
+- 4b2a23e code commit: README.md alone, the umya bullet, the same patch
+  and message as the superseded 00fae94.
+
+The script's change 2: the commit chain of seven, the spec pinned to
+that hash, Acceptance 1 over the three code commits, the calamine test
+on the whole word "reader" (the check's point 1) and the xlsxwriter
+test on the whole word "writing", each with a control. With ruling G:
+the script spells U+2014 as chr(0x2014), holds no byte outside
+printable ASCII and checks that of itself, and checks that no file of
+this directory at the code commit holds U+2014, its control the
+superseded 25ceb42's verify.log, read by the same command form.
+
+Dry run d5 (sha256 50650063281b995f54611c19697eb31313b67598cd19669224ad75897abfca87) ended "no": the gate's hygiene step failed on
+the U+2014 in the first verify.log, the finding ruling G answers. Dry
+run d6 (sha256 7f947fd71799dae92f845902b074a3a44383a9f758208071131d7c5de5a33a77) ended "yes" with no FINDING line.
+
+| Log | Last line | sha256 |
+|---|---|---|
+| verify-change2.log | verify log checks all as expected: yes | a5809b5e06ece067dbd269df415d675ebb2877a206309ac1b5fa0a7cede80785 |
+| driver-change2.out | logged run ended 2026-11-13T23:10:45Z | aa8a456dafac2548b8195f6a7f4102c11f410a8e85cb73a901bf9b34c228db2d |
+
+The run, once, 2026-11-13T23:02:10Z to 2026-11-13T23:10:45Z
+(verify-change2.log lines 2 and 901), at 4b2a23e (line 593), FINDING
+lines 0 (line 899); driver-change2.out line 2: exit 0, standard error
+0 bytes, no line holding the home directory, none ending ": no". The
+script as run: sha256 cd43f489cca488790547d771015f18f12360a1989b7d7d5bbda6dea799d2a769 (line 4); the
+logged driver logged-change2.sh: sha256 40a10842f23db4a9e41388009ecda81209fcb9beefed3f3c4fd6ec7d3bdea291.
+
+- The spec at the code commit is the pinned one (line 605).
+- Change 2 names README.md alone; the three code commits name
+  README.md and crates/emend/src/lib.rs and nothing else (lines 617
+  and 629).
+- The README head is the spec's text with the example; the README block
+  equals the doc test's visible lines (lines 661 and 665); the tail is
+  still 10351 bytes with the same sha256 at e9dcaac and at the code
+  commit (lines 668-670).
+- calamine 0.38.0's description holds the word "reader" and
+  rust_xlsxwriter 0.102.0's the word "writing" (lines 788 and 801); the
+  whole-word test refuses "A Spreadsheet writer" and accepts "A
+  Spreadsheet reader" (lines 803-804).
+- The script holds no byte outside printable ASCII (line 809); no file
+  of this directory at the code commit holds U+2014, and the same form
+  finds it in 25ceb42's verify.log (lines 813-822).
+- The privacy scan over the range: 6 commits, 3120 blobs, 0 findings
+  (line 839). The gate passes with nine PASS lines; the doc test
+  passes on the host and on i686 (lines 855-869); the budget is 456248,
+  2504 under 458752 (lines 895-896).
+
+No second independent check (ruling F).

@@ -1,0 +1,902 @@
+Docs intro P1 verify log (specs/0050-newcomer-intro.md)
+run started 2026-11-13T23:02:10Z
+invocation: RUN_DIR=<run> bash <phase>/scripts/docs-intro-p1-verify.sh 4b2a23e60ca16cc32af4ed5ee7d794816807cdf1
+script sha256: cd43f489cca488790547d771015f18f12360a1989b7d7d5bbda6dea799d2a769
+
+## this script, as run
+    #!/usr/bin/env bash
+    # Docs intro P1 (specs/0050-newcomer-intro.md): the verify log.
+    #
+    # Usage: RUN_DIR=<a directory that does not exist> bash docs-intro-p1-verify.sh <code commit>
+    #
+    # <code commit> is the phase's last code commit, change 2 (planning's
+    # ruling F); its parent is change 2's doc commit, whose parent is the first
+    # record commit, whose parent is change 1 (ruling C), whose parent is the
+    # first code commit, whose parent is the doc commit, whose parent is the
+    # base e9dcaac. The texts are read at <code commit>. Change 2 of this
+    # script: the commit chain, the pinned spec, Acceptance 1 over the three
+    # code commits, and the calamine test on the word "reader". Proves: Acceptance 1 (the two code commits' files), the README text and
+    # the example rules (the README block equals the doc test's visible lines),
+    # Acceptance 3 (the README tail from "## Dependencies and features" byte for
+    # byte as at the base), rules 1 to 3 (the figures in their cited records by
+    # grep -n -F; the two crates' descriptions read from their crate files; the
+    # umya line rests on its record), Acceptance 4 (no U+2014; the privacy scan
+    # over the range) and Acceptance 2 (scripts/check.sh on both targets, the doc
+    # test run and printed on each, a planted defect that makes it fail, and the
+    # budget at 456248, a difference a FINDING line).
+    #
+    # Every check prints "<what>: as-expected" or "<what>: no"; every control
+    # prints "control: <what>: as-expected" or "control: <what>: no". The last
+    # line says whether every check and control was as expected. Placeholders:
+    # <repo> the repository, <run> RUN_DIR, <home> the home directory.
+    set -uo pipefail
+    export PYTHONDONTWRITEBYTECODE=1
+    export CARGO_NET_OFFLINE=true
+    export CARGO_TERM_COLOR=never
+    export RUSTUP_AUTO_INSTALL=0
+    export LC_ALL=C
+    
+    CODE_ARG=${1:-}
+    RUN=${RUN_DIR:-}
+    if [ -z "$CODE_ARG" ] || [ -z "$RUN" ]; then
+      echo "usage: RUN_DIR=<new dir> bash docs-intro-p1-verify.sh <code commit>" >&2
+      exit 2
+    fi
+    if [ -e "$RUN" ]; then
+      echo "RUN_DIR exists; each run takes a new directory" >&2
+      exit 2
+    fi
+    mkdir -p "$RUN" || exit 2
+    REPO=$HOME/emend
+    cd "$REPO" || exit 2
+    
+    FAILS=0
+    FINDINGS=0
+    ok() { echo "  $1: as-expected"; }
+    bad() { echo "  $1: no"; FAILS=$((FAILS + 1)); }
+    # check <what> <command...>: the command succeeds.
+    check() { local d=$1; shift; if "$@"; then ok "$d"; else bad "$d"; fi; }
+    # accept <what> <command...>: a control that must succeed.
+    accept() { local d=$1; shift; if "$@"; then ok "control: $d"; else bad "control: $d"; fi; }
+    # refuse <what> <command...>: a control that must fail.
+    refuse() { local d=$1; shift; if "$@"; then bad "control: $d"; else ok "control: $d"; fi; }
+    finding() { echo "FINDING: $1"; FINDINGS=$((FINDINGS + 1)); }
+    same() { [ "$1" = "$2" ]; }
+    
+    echo "Docs intro P1 verify log (specs/0050-newcomer-intro.md)"
+    echo "run started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "invocation: RUN_DIR=<run> bash <phase>/scripts/docs-intro-p1-verify.sh $CODE_ARG"
+    echo "script sha256: $(sha256sum <"$0" | cut -d' ' -f1)"
+    echo
+    echo "## this script, as run"
+    sed 's/^/    /' "$0"
+    echo
+    
+    echo "## the environment"
+    if [ -n "${ANTHROPIC_API_KEY+set}" ]; then bad "ANTHROPIC_API_KEY is unset"; else ok "ANTHROPIC_API_KEY is unset"; fi
+    for v in CARGO_REGISTRY_TOKEN CARGO_REGISTRIES_CRATES_IO_TOKEN; do
+      if [ -n "${!v+set}" ]; then bad "$v is unset"; else ok "$v is unset"; fi
+    done
+    echo "  rustc: $(rustc --version)"
+    echo "  cargo: $(cargo --version)"
+    echo "  python3: $(python3 --version 2>&1)"
+    echo "  curl: $(curl --version | head -n 1)"
+    echo "  size: $(size --version | head -n 1)"
+    echo "  CARGO_NET_OFFLINE=$CARGO_NET_OFFLINE for every cargo command; PYTHONDONTWRITEBYTECODE=$PYTHONDONTWRITEBYTECODE"
+    echo
+    
+    echo "## the commits"
+    CODE=$(git rev-parse --verify "$CODE_ARG^{commit}") || { echo "  not a commit" ; exit 2; }
+    DOC2=$(git rev-parse --verify "$CODE^1")
+    REC=$(git rev-parse --verify "$DOC2^1")
+    CODE2=$(git rev-parse --verify "$REC^1")
+    CODE1=$(git rev-parse --verify "$CODE2^1")
+    DOC=$(git rev-parse --verify "$CODE1^1")
+    BASE=$(git rev-parse --verify "$DOC^1")
+    HEAD_AT=$(git rev-parse HEAD)
+    echo "command: git rev-parse, git log -1 --format='%H %P %s' for each"
+    for c in "$BASE" "$DOC" "$CODE1" "$CODE2" "$REC" "$DOC2" "$CODE"; do echo "  $(git log -1 --format='%H %P %s' "$c")"; done
+    echo "  HEAD at run: $HEAD_AT"
+    echo "  status: $(git status --porcelain | wc -l) lines"
+    git status --porcelain | sed 's/^/    /'
+    check "the base is e9dcaac, the M8 part 3 P4 record" same "$(git log -1 --format='%h %s' --abbrev=7 "$BASE")" "e9dcaac M8 part 3 P4 record: the publication verified"
+    check "the doc commit's subject" same "$(git log -1 --format=%s "$DOC")" "Docs intro P1: commit planning docs (the spec, M8 part 3 P4's verification)"
+    check "the first code commit's subject" same "$(git log -1 --format=%s "$CODE1")" "Docs intro P1: the README's opening and the crate docs' example"
+    check "the second code commit's subject (change 1)" same "$(git log -1 --format=%s "$CODE2")" "Docs intro P1 change 1: the crate docs keep the openpyxl paragraph's first sentence"
+    check "the record commit's subject" same "$(git log -1 --format=%s "$REC")" "Docs intro P1 record: the logged run, the check"
+    check "change 2's doc commit's subject" same "$(git log -1 --format=%s "$DOC2")" "Docs intro P1 change 2: commit planning docs (ruling F, P1's verification)"
+    check "the third code commit's subject (change 2)" same "$(git log -1 --format=%s "$CODE")" "Docs intro P1 change 2: the umya line says what its record supports"
+    check "each commit of the chain has one parent" same "$(for c in "$CODE" "$DOC2" "$REC" "$CODE2" "$CODE1" "$DOC"; do git log -1 --format=%P "$c" | wc -w; done | tr '\n' ' ')" "1 1 1 1 1 1 "
+    SPEC_PIN=a00e7d6a0806a50411754a33779fb35ea26a7146823f6df5c946e500c0a902ce
+    echo "command: git show <code commit>:specs/0050-newcomer-intro.md | sha256sum, against the hash planning's change 2 brief pins"
+    spec_at=$(git show "$CODE:specs/0050-newcomer-intro.md" | sha256sum | cut -d' ' -f1)
+    echo "  at the code commit: $spec_at; pinned: $SPEC_PIN"
+    check "the spec at the code commit is the pinned one" same "$spec_at" "$SPEC_PIN"
+    check "change 2's doc commit message names the spec with that sha256" grep -q -x -F "specs/0050-newcomer-intro.md sha256 $SPEC_PIN" <(git log -1 --format=%B "$DOC2")
+    refuse "the same pin test over the spec at the first doc commit" same "$(git show "$DOC:specs/0050-newcomer-intro.md" | sha256sum | cut -d' ' -f1)" "$SPEC_PIN"
+    refuse "same over two different strings" same "a" "b"
+    echo
+    
+    echo "## Acceptance 1: the files each commit changes"
+    echo "command: git diff --name-only over each code commit and its parent, their union; the same over the record commit, each doc commit"
+    code1_files=$(git diff --name-only "$DOC" "$CODE1" | tr '\n' ' ')
+    code2_files=$(git diff --name-only "$CODE1" "$CODE2" | tr '\n' ' ')
+    code3_files=$(git diff --name-only "$DOC2" "$CODE" | tr '\n' ' ')
+    code_files=$(printf '%s\n' $code1_files $code2_files $code3_files | sort -u | tr '\n' ' ')
+    rec_files=$(git diff --name-only "$CODE2" "$REC" | sed 's#/[^/]*$##' | sort -u | tr '\n' ' ')
+    doc2_files=$(git diff --name-only "$REC" "$DOC2" | tr '\n' ' ')
+    echo "  first code commit: $code1_files"
+    echo "  change 1: $code2_files"
+    echo "  change 2: $code3_files"
+    echo "  the record commit's directories: $rec_files"
+    echo "  change 2's doc commit: $doc2_files"
+    check "change 2 names README.md alone" same "$code3_files" "README.md "
+    check "the record commit writes under records/logs/docs-intro-p1 alone" same "$rec_files" "records/logs/docs-intro-p1 "
+    check "change 2's doc commit names specs/0050 alone" same "$doc2_files" "specs/0050-newcomer-intro.md "
+    doc_files=$(git diff --name-only "$BASE" "$DOC" | tr '\n' ' ')
+    echo "  the three code commits' union: $code_files"
+    echo "  doc commit: $doc_files"
+    for c in "$CODE1" "$CODE2" "$CODE"; do git diff --stat "$c^1" "$c" | sed 's/^/    /'; done
+    check "the three code commits name README.md and crates/emend/src/lib.rs and nothing else" same "$code_files" "README.md crates/emend/src/lib.rs "
+    check "the first code commit names the same two files" same "$code1_files" "README.md crates/emend/src/lib.rs "
+    check "change 1 names crates/emend/src/lib.rs alone" same "$code2_files" "crates/emend/src/lib.rs "
+    check "the doc commit names the three planning files and nothing else" same "$doc_files" "ROADMAP.md specs/0049-excel-check-and-release.md specs/0050-newcomer-intro.md "
+    refuse "the code commit's form over the doc commit gives a different list" same "$doc_files" "README.md crates/emend/src/lib.rs "
+    echo "command: git show <doc commit>:<path> | sha256sum, for each planning file, and the doc commit message's line for it"
+    for f in specs/0050-newcomer-intro.md specs/0049-excel-check-and-release.md ROADMAP.md; do
+      h=$(git show "$DOC:$f" | sha256sum | cut -d' ' -f1)
+      echo "  $f sha256 $h"
+      check "the doc commit message names $f with that sha256" grep -q -x -F "$f sha256 $h" <(git log -1 --format=%B "$DOC")
+    done
+    refuse "the same message form for a hash it does not carry" grep -q -x -F "ROADMAP.md sha256 0000" <(git log -1 --format=%B "$DOC")
+    echo
+    
+    echo "## the texts: the README block, the example, the crate doc, the tail, the citations, the three crates"
+    mkdir -p "$RUN/text"
+    git show "$CODE:specs/0050-newcomer-intro.md" >"$RUN/text/spec.md"
+    git show "$BASE:README.md" >"$RUN/text/readme-base.md"
+    git show "$CODE:README.md" >"$RUN/text/readme-code.md"
+    git show "$BASE:crates/emend/src/lib.rs" >"$RUN/text/lib-base.rs"
+    git show "$CODE:crates/emend/src/lib.rs" >"$RUN/text/lib-code.rs"
+    for f in spec.md readme-base.md readme-code.md lib-base.rs lib-code.rs; do
+      echo "  <run>/text/$f: $(wc -c <"$RUN/text/$f") bytes, sha256 $(sha256sum <"$RUN/text/$f" | cut -d' ' -f1)"
+    done
+    cat >"$RUN/text/check.py" <<'PY'
+    import difflib, re, sys
+    d = sys.argv[1]
+    def rd(n):
+        return open(f"{d}/{n}", encoding="utf-8").read()
+    spec, rb, rc, lb, lc = (rd(n) for n in ("spec.md", "readme-base.md", "readme-code.md", "lib-base.rs", "lib-code.rs"))
+    fails = 0
+    def res(what, cond, control=False):
+        global fails
+        tag = "control: " if control else ""
+        print(f"  {tag}{what}: {'as-expected' if cond else 'no'}")
+        if not cond:
+            fails += 1
+    
+    # The spec's block and the doc test's visible lines.
+    S = spec.split("\n")
+    start = S.index("````markdown") + 1
+    block = S[start:S.index("````", start)]
+    
+    def doctest(lib):
+        L = lib.split("\n")
+        h = L.index("//! # Example")
+        o = L.index("//! ```", h)
+        c = L.index("//! ```", o + 1)
+        body = [l[4:] if l.startswith("//! ") else ("" if l == "//!" else None) for l in L[o + 1:c]]
+        vis = [l for l in body if l != "#" and not l.startswith("# ")]
+        hid = [l for l in body if l == "#" or l.startswith("# ")]
+        return L[o], vis, hid, body
+    fence, vis, hid, body = doctest(lc)
+    print("command: the doc test of <code commit>:crates/emend/src/lib.rs, under its '# Example' heading")
+    print(f"  fence line: {fence!r}; visible lines {len(vis)}; hidden lines {len(hid)}")
+    res("no line of the doc test is outside the //! form", None not in body)
+    res("the fence runs the test (no no_run, ignore or compile_fail)", fence == "//! ```")
+    res("the same fence test refuses a no_run fence", ("//! ```no_run" == "//! ```") is False, True)
+    res("the visible lines are at most 15", len(vis) <= 15)
+    res("no unwrap in the doc test", not any("unwrap" in l for l in body))
+    res("the example opens from a reader, sets one cell and writes to a writer",
+        sum("Package::open(" in l for l in vis) == 1 and sum(".set_cell(" in l for l in vis) == 1 and sum(".write_to(" in l for l in vis) == 1)
+    res("the example names no feature-gated item and no file name with a dot",
+        not any(re.search(r'"[^"]*\.[A-Za-z]{3,4}"', l) for l in vis))
+    
+    R = rc.split("\n")
+    tail_at = R.index("## Dependencies and features")
+    head = R[:tail_at]
+    o = head.index("```rust")
+    c = head.index("```", o + 1)
+    rblock = head[o + 1:c]
+    print("command: the README's ```rust block at <code commit>, against the doc test's visible lines")
+    print(f"  README block lines: {len(rblock)}; doc test visible lines: {len(vis)}")
+    res("the README block equals the doc test's visible lines byte for byte", "\n".join(rblock).encode() == "\n".join(vis).encode())
+    res("the same comparison refuses the visible lines with one byte changed", "\n".join(rblock).encode() != "\n".join(vis[:-1] + [vis[-1] + " "]).encode(), True)
+    
+    i = block.index("EXAMPLE")
+    want = block[:i] + vis + block[i + 1:] + [""]
+    print("command: the README's lines before '## Dependencies and features' at <code commit>, against the spec's block with EXAMPLE replaced by the visible lines")
+    print(f"  README head lines: {len(head)}; expected: {len(want)}")
+    res("the README head is the spec's text verbatim with the example", head == want)
+    res("the same comparison refuses the expected text less one line", head != want[:-2] + want[-1:], True)
+    
+    # The tail.
+    import hashlib
+    Rb = rb.split("\n")
+    tb = "\n".join(Rb[Rb.index("## Dependencies and features"):]).encode()
+    tc = "\n".join(R[tail_at:]).encode()
+    print("command: sha256 of README.md from the line '## Dependencies and features' to the end, at <base> and <code commit>")
+    print(f"  base tail: {len(tb)} bytes, sha256 {hashlib.sha256(tb).hexdigest()}")
+    print(f"  code tail: {len(tc)} bytes, sha256 {hashlib.sha256(tc).hexdigest()}")
+    res("the tail is byte for byte as at the base", hashlib.sha256(tb).digest() == hashlib.sha256(tc).digest())
+    res("the same comparison refuses the tail with one byte added", hashlib.sha256(tb).digest() != hashlib.sha256(tc + b"x").digest(), True)
+    oos = [n for n, l in enumerate(R) if l == "## Out of scope by design"]
+    res("the 'Out of scope by design' section lies in the tail", len(oos) == 1 and oos[0] > tail_at)
+    
+    # The crate doc: two paragraphs replaced, the example appended, nothing else.
+    B = lb.split("\n"); C = lc.split("\n")
+    ops = [op for op in difflib.SequenceMatcher(None, B, C, autojunk=False).get_opcodes() if op[0] != "equal"]
+    print("command: difflib opcodes of lib.rs, <base> against <code commit>, the non-equal ones")
+    for op in ops:
+        print(f"  {op[0]} base lines {op[1] + 1}-{op[2]} code lines {op[3] + 1}-{op[4]}")
+    def para(lines, first):
+        j = next(n for n, l in enumerate(lines) if l.startswith(first))
+        k = j
+        while k < len(lines) and lines[k] != "":
+            k += 1
+        return " ".join(lines[j:k])
+    p1 = para(block, "emend edits existing Excel workbooks")
+    p2 = para(block, "emend has the scope of Python's openpyxl")
+    old_a = B.index("//! emend is a pure-Rust library for read-modify-write of Office Open XML")
+    old_b = B.index("//! are not gaps.")
+    # The opcodes are printed for information; the test is a reconstruction:
+    # the code file is the base's lines before the old paragraphs, the new
+    # paragraphs, the base's lines from the blank line after them to its last
+    # //! line, an inserted block, and the base's remaining lines.
+    lastdoc = max(n for n, l in enumerate(B) if l.startswith("//!"))
+    k = C.index(B[old_b + 2])
+    new = C[old_a:k - 1]
+    n_ins = len(C) - old_a - len(new) - (len(B) - old_b - 1)
+    cut = old_a + len(new) + (lastdoc - old_b)
+    ins = C[cut:cut + n_ins]
+    def rebuild(nw, ii):
+        return B[:old_a] + nw + B[old_b + 1:lastdoc + 1] + ii + B[lastdoc + 1:]
+    print(f"  base paragraphs lines {old_a + 1}-{old_b + 1}; new paragraph lines {len(new)}; inserted lines {n_ins} after base line {lastdoc + 1}")
+    two = n_ins > 0 and rebuild(new, ins) == C
+    res("lib.rs is the base with the two paragraphs replaced and one block inserted after its last //! line, nothing else", two)
+    res("the same reconstruction refuses the code file with one other line changed", rebuild(new, ins) != C[:-2] + [C[-2] + " "] + C[-1:], True)
+    if two:
+        gap = new.index("//!")
+        q1 = " ".join(l[4:] for l in new[:gap]); q2 = " ".join(l[4:] for l in new[gap + 1:])
+        res("the first new paragraph is the README's first paragraph, rewrapped", q1 == p1)
+        p2s = p2[:p2.index("autofit.") + len("autofit.")]
+        print(f"  the openpyxl paragraph's first sentence: {p2s!r}")
+        res("the second is the README's openpyxl paragraph's first sentence alone, rewrapped (ruling C)", q2 == p2s)
+        res("the same comparison refuses the whole openpyxl paragraph", q2 != p2, True)
+        res("the same comparison refuses the paragraphs swapped", q1 != p2, True)
+        w = max(len(l) for l in B if l.startswith("//!"))
+        print(f"  the widest //! line at the base: {w}; of the new paragraphs: {max(len(l) for l in new)}")
+        res("every new paragraph line is within the base's width", max(len(l) for l in new) <= w)
+        res("the inserted block is the example section alone",
+            ins[:4] == ["//!", "//! # Example", "//!", "//! ```"] and ins[-1] == "//! ```" and ins.count("//! ```") == 2)
+    
+    # Citations: every sentence holding a digit in the README head (outside the
+    # code block) cites a records/ path; each of the four figures sits in a
+    # sentence citing its record, at the base and at the code commit.
+    prose = head[:o] + head[c + 1:]
+    paras, cur = [], []
+    for l in prose:
+        if l == "" or l.startswith("#") or l.startswith("- "):
+            if cur: paras.append(" ".join(cur)); cur = []
+            if l.startswith("- "): cur = [l]
+        else:
+            cur.append(l.strip())
+    if cur: paras.append(" ".join(cur))
+    sents = [s for p in paras for s in re.split(r"(?<=\.)\s+(?=[A-Z`])", p)]
+    print("command: the README head's prose split into sentences; each sentence holding a digit, and the records/ path it cites")
+    digit = [s for s in sents if re.search(r"[0-9]", s)]
+    for s in digit:
+        m = re.findall(r"`(records/[^`]+)`", s)
+        print(f"  {s[:60]}... cites {m if m else 'nothing'}")
+    res("every sentence holding a digit cites a records/ path", all(re.search(r"`records/[^`]+`", s) for s in digit))
+    res("the same test refuses a planted sentence 'It has 5 parts.'", re.search(r"`records/[^`]+`", "It has 5 parts.") is None, True)
+    fig = [("870", "records/compare-m6p6-2026-10-24-d88f735.md"), ("456248", "records/logs/m8p3-p3/gate.log"),
+           ("1159829654", "records/compare-m6p6-2026-10-24-d88f735.md"), ("7872", "records/compare-m6p6-2026-10-24-d88f735.md")]
+    def sentences(text):
+        T = text.split("\n")
+        T = T[:T.index("## Dependencies and features")]
+        ps, cu = [], []
+        for l in T:
+            if l == "" or l.startswith("#"):
+                if cu: ps.append(" ".join(cu)); cu = []
+            else:
+                cu.append(l.strip())
+        if cu: ps.append(" ".join(cu))
+        return [s for p in ps for s in re.split(r"(?<=\.)\s+(?=[A-Z`])", p)]
+    for label, text in (("base", rb), ("code", rc)):
+        ss = sentences(text) if label == "code" else [s for p in re.split(r"\n\s*\n", text) for s in re.split(r"(?<=\.)\s+(?=[A-Z`])", " ".join(p.split()))]
+        for f, r in fig:
+            hit = [s for s in ss if re.search(rf"(?<![0-9]){f}(?![0-9])", s)]
+            cited = [s for s in hit if r in s]
+            print(f"  {label} README: {f}: {len(hit)} sentence(s) hold it, {len(cited)} cite {r}")
+            res(f"{label} README: a sentence holding {f} cites {r}", len(cited) >= 1)
+    res("the same test refuses a figure no sentence holds (870870)", not any(re.search(r"(?<![0-9])870870(?![0-9])", s) for s in sentences(rc)), True)
+    
+    # The three crates.
+    bul = {n: [l for l in prose if l.startswith(f"- `{n}`")] for n in ("calamine", "rust_xlsxwriter", "umya-spreadsheet")}
+    um = [p for p in paras if p.startswith("- `umya-spreadsheet`")]
+    print("command: the README head's bullets for the three crates")
+    for p in paras:
+        if p.startswith("- `"):
+            print(f"    {p}")
+    res("one bullet each names calamine, rust_xlsxwriter and umya-spreadsheet", all(len(v) == 1 for v in bul.values()) and len(um) == 1)
+    res("the calamine and rust_xlsxwriter bullets hold no digit and no 'measur'",
+        all(not re.search(r"[0-9]|measur", p) for p in paras if p.startswith("- `calamine`") or p.startswith("- `rust_xlsxwriter`")))
+    res("the umya bullet cites records/decision-architecture.md and says emend has not measured it",
+        len(um) == 1 and "`records/decision-architecture.md`" in um[0] and "emend has not measured it" in um[0])
+    res("no other sentence of the head names one of the three crates",
+        not any(n in s for s in sents for n in ("calamine", "xlsxwriter", "umya") if not s.startswith("- `")))
+    res("the same test refuses a planted sentence naming calamine",
+        any(n in s for s in ["calamine is measured."] for n in ("calamine",) if not s.startswith("- `")), True)
+    
+    # U+2014.
+    for label, text in (("spec", spec), ("README", rc), ("lib.rs", lc)):
+        res(f"{label} at the code commit holds no U+2014", chr(0x2014) not in text)
+    res("the same test finds a planted U+2014", chr(0x2014) in "a " + chr(0x2014) + " b", True)
+    print(f"PYFAILS {fails}")
+    sys.exit(0)
+    PY
+    echo "command: python3 -I -B <run>/text/check.py <run>/text (printed above in this script)"
+    python3 -I -B "$RUN/text/check.py" "$RUN/text" >"$RUN/text/check.out" 2>"$RUN/text/check.err"
+    py_rc=$?
+    grep -v '^PYFAILS ' "$RUN/text/check.out"
+    py_fails=$(sed -n 's/^PYFAILS \([0-9][0-9]*\)$/\1/p' "$RUN/text/check.out")
+    echo "  python exit $py_rc; stderr $(wc -c <"$RUN/text/check.err") bytes; its no-lines ${py_fails:-unread}"
+    sed 's/^/    /' "$RUN/text/check.err"
+    check "the text checks ran to the end" same "$py_rc ${py_fails:+read}" "0 read"
+    FAILS=$((FAILS + ${py_fails:-1}))
+    echo
+    
+    echo "## rule 1: each figure in the record its sentence cites (grep -n -F)"
+    fig_line() { grep -n -F -- "$1" "$2" | grep -v -E '^[0-9]+:    '; }
+    for pair in "870 records/compare-m6p6-2026-10-24-d88f735.md" "456248 records/logs/m8p3-p3/gate.log" "1159829654 records/compare-m6p6-2026-10-24-d88f735.md" "7872 records/compare-m6p6-2026-10-24-d88f735.md"; do
+      f=${pair%% *}; r=${pair#* }
+      git show "$CODE:$r" >"$RUN/text/record" 2>/dev/null || : >"$RUN/text/record"
+      echo "command: grep -n -F $f <code commit>:$r, the lines not printed script text (no four-space indent), the first five"
+      n=$(fig_line "$f" "$RUN/text/record" | wc -l)
+      fig_line "$f" "$RUN/text/record" | head -n 5 | sed 's/^/    /'
+      echo "  lines: $n"
+      check "$f is found in $r" [ "$n" -ge 1 ]
+    done
+    git show "$CODE:records/compare-m6p6-2026-10-24-d88f735.md" >"$RUN/text/record"
+    refuse "the same form over the same record for 870870870" [ "$(fig_line 870870870 "$RUN/text/record" | wc -l)" -ge 1 ]
+    echo "command: grep -n -F <figure> <base>:README.md (the README at e9dcaac already cites each)"
+    for f in 870 456248 1159829654 7872; do
+      git show "$BASE:README.md" | grep -n -F -- "$f" | sed 's/^/    /'
+      check "the README at the base holds $f" [ "$(git show "$BASE:README.md" | grep -c -F -- "$f")" -ge 1 ]
+    done
+    echo
+    
+    echo "## rule 3: the record the umya line cites"
+    echo "command: grep -n -F 3.1.0 <code commit>:records/decision-architecture.md, the first five"
+    git show "$CODE:records/decision-architecture.md" >"$RUN/text/decision.md"
+    grep -n -F '3.1.0' "$RUN/text/decision.md" | head -n 5 | sed 's/^/    /'
+    check "records/decision-architecture.md names umya-spreadsheet 3.1.0" grep -q -F 'umya-spreadsheet 3.1.0' "$RUN/text/decision.md"
+    refuse "the same form for a version it does not name" grep -q -F 'umya-spreadsheet 9.9.9' "$RUN/text/decision.md"
+    echo
+    
+    echo "## rule 2: the two crates' descriptions, read from their crate files"
+    echo "(downloaded into <run>/crates, read-only reference material; nothing is copied into the repository)"
+    mkdir -p "$RUN/crates"
+    cat >"$RUN/crates/pick.py" <<'PY'
+    import json, sys
+    # The newest version in a sparse index file: the greatest semver among the
+    # non-yanked, non-pre-release lines. Prints "<version> <cksum> <lines> <yanked>".
+    lines = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
+    def key(v):
+        return tuple(int(x) for x in v.split("+")[0].split("."))
+    ok = [e for e in lines if not e["yanked"] and "-" not in e["vers"]]
+    best = max(ok, key=lambda e: key(e["vers"]))
+    print(best["vers"], best["cksum"], len(lines), sum(e["yanked"] for e in lines))
+    PY
+    cat >"$RUN/crates/manifest.py" <<'PY'
+    import sys, tarfile
+    # Writes <name>-<version>/Cargo.toml of a crate file to the given path.
+    src, member, dst = sys.argv[1:4]
+    with tarfile.open(src, "r:gz") as t:
+        data = t.extractfile(member).read()
+    open(dst, "wb").write(data)
+    PY
+    for name in calamine rust_xlsxwriter; do
+      idx=$RUN/crates/$name.index
+      url="https://index.crates.io/$(printf %s "$name" | cut -c1-2)/$(printf %s "$name" | cut -c3-4)/$name"
+      echo "command: curl -sS --fail -A emend-docs-check $url"
+      code=$(curl -sS --fail -A emend-docs-check -o "$idx" -w '%{http_code}' "$url" 2>"$RUN/crates/$name.index.err")
+      echo "  HTTP $code; $(wc -c <"$idx" 2>/dev/null || echo 0) bytes"
+      check "$name: the index entry was read (HTTP 200)" same "$code" 200
+      read -r ver ck nl ny < <(python3 -I -B "$RUN/crates/pick.py" "$idx" 2>/dev/null) || true
+      echo "  index lines ${nl:-none}, yanked ${ny:-none}; the newest version ${ver:-none}, cksum ${ck:-none}"
+      crate=$RUN/crates/$name-${ver:-none}.crate
+      echo "command: curl -sS --fail -A emend-docs-check https://static.crates.io/crates/$name/$name-${ver:-none}.crate"
+      code=$(curl -sS --fail -A emend-docs-check -o "$crate" -w '%{http_code}' "https://static.crates.io/crates/$name/$name-${ver:-none}.crate" 2>"$RUN/crates/$name.crate.err")
+      sum=$(sha256sum <"$crate" 2>/dev/null | cut -d' ' -f1)
+      echo "  HTTP $code; $(wc -c <"$crate" 2>/dev/null || echo 0) bytes; sha256 ${sum:-none}"
+      check "$name $ver: the crate file was read (HTTP 200)" same "$code" 200
+      check "$name $ver: the crate file's sha256 is the index's cksum" same "${sum:-x}" "${ck:-y}"
+      chmod a-w "$crate" "$idx"
+      python3 -I -B "$RUN/crates/manifest.py" "$crate" "$name-$ver/Cargo.toml" "$RUN/crates/$name-Cargo.toml" 2>"$RUN/crates/$name.toml.err"
+      echo "command: grep -n -A2 '^description' <run>/crates/$name-$ver/Cargo.toml"
+      grep -n -A2 '^description' "$RUN/crates/$name-Cargo.toml" | sed 's/^/    /'
+      desc=$(grep '^description' "$RUN/crates/$name-Cargo.toml")
+      case $name in
+        calamine) word=reader; claim="a reader" ;;
+        *) word=writing; claim="a writer" ;;
+      esac
+      if printf '%s\n' "$desc" | grep -q -i -w -F "$word"; then
+        ok "$name $ver: its description supports the README line ($claim; it holds '$word')"
+      else
+        finding "$name $ver: its description does not support the README line ($claim); the phase stops (specs/0050 rule 2)"
+        bad "$name $ver: its description supports the README line"
+      fi
+    done
+    refuse "the description test refuses a description without the word" grep -q -i -w -F writing <(echo 'description = "A pure Rust Excel/OpenDocument SpreadSheets file reader"')
+    refuse "the calamine test (reader, whole word) refuses 'A Spreadsheet writer', which holds the letters r-e-a-d" grep -q -i -w -F reader <(echo 'description = "A Spreadsheet writer"')
+    accept "the same test accepts 'A Spreadsheet reader'" grep -q -i -w -F reader <(echo 'description = "A Spreadsheet reader"')
+    echo
+    
+    echo "## Acceptance 4: this script and the record directory hold no U+2014 (ruling G)"
+    nonascii_lines() { LC_ALL=C grep -c '[^ -~]' "$1"; }
+    echo "command: LC_ALL=C grep -c '[^ -~]' <this script>; the same over the superseded d5 script"
+    echo "  this script: $(nonascii_lines "$0") lines; the d5 script: $(nonascii_lines "$HOME/.cache/emend-build/docs-intro-p1/superseded/docs-intro-p1-verify-d5.sh") lines"
+    check "this script holds no byte outside printable ASCII" same "$(nonascii_lines "$0")" 0
+    refuse "the same count over the superseded d5 script, which held U+2014" same "$(nonascii_lines "$HOME/.cache/emend-build/docs-intro-p1/superseded/docs-intro-p1-verify-d5.sh")" 0
+    dash_lines() { git cat-file -p "$1" | grep -c $'\xe2\x80\x94'; }
+    echo "command: git ls-tree -r --name-only <code commit> records/logs/docs-intro-p1; for each, git cat-file -p <code commit>:<file> | grep -c <U+2014 bytes>"
+    for f in $(git ls-tree -r --name-only "$CODE" records/logs/docs-intro-p1); do
+      n=$(dash_lines "$CODE:$f")
+      echo "  $f: $n lines"
+      check "$f at the code commit holds no U+2014" same "$n" 0
+    done
+    check "the record directory at the code commit holds the four record files" same "$(git ls-tree -r --name-only "$CODE" records/logs/docs-intro-p1 | wc -l)" 4
+    echo "  the superseded record commit 25ceb42's verify.log: $(dash_lines 25ceb42:records/logs/docs-intro-p1/verify.log) lines"
+    refuse "the same form finds U+2014 in the superseded record commit 25ceb42's verify.log" same "$(dash_lines 25ceb42:records/logs/docs-intro-p1/verify.log)" 0
+    echo
+    
+    echo "## Acceptance 4: the commit messages and the privacy scan over the range"
+    for c in "$DOC" "$CODE1" "$CODE2" "$REC" "$DOC2" "$CODE"; do
+      m=$(git log -1 --format=%B "$c")
+      check "$(git log -1 --format=%h "$c")'s message is ASCII" same "$(printf '%s' "$m" | grep -c '[^ -~]')" 0
+      check "$(git log -1 --format=%h "$c")'s message ends with the Co-Authored-By line alone" same "$(printf '%s\n' "$m" | grep -c -E '^(Co-Authored-By|Claude-Session):')/$(printf '%s\n' "$m" | tail -n 1)" "1/Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+    done
+    refuse "the ASCII test over a planted U+2014" same "$(printf 'a \xe2\x80\x94 b' | grep -c '[^ -~]')" 0
+    echo "command: bash scripts/privacy.sh --range <base>..<code commit>"
+    bash scripts/privacy.sh --range "$BASE..$CODE" >"$RUN/privacy.out" 2>&1
+    p_rc=$?
+    sed -e "s#$RUN#<run>#g" -e "s#$HOME#<home>#g" "$RUN/privacy.out" | sed 's/^/    /'
+    check "the privacy scan over the range passes (exit 0)" same "$p_rc" 0
+    echo
+    
+    echo "## Acceptance 2: the gate, the doc test on each target, a planted defect, the budget"
+    T=$RUN/target
+    echo "command: CARGO_TARGET_DIR=<run>/target bash scripts/check.sh"
+    CARGO_TARGET_DIR=$T bash scripts/check.sh >"$RUN/check.out" 2>"$RUN/check.err"
+    g_rc=$?
+    sed 's/^/    /' "$RUN/check.out"
+    echo "  exit $g_rc; stderr $(wc -c <"$RUN/check.err") bytes"
+    sed -e "s#$RUN#<run>#g" -e "s#$HOME#<home>#g" "$RUN/check.err" | sed 's/^/    /'
+    check "the gate passes (exit 0)" same "$g_rc" 0
+    check "the gate printed PASS for each of its nine steps" same "$(grep -c -E '^PASS (host|i686|fmt|clippy|doc|native|licences|hygiene|privacy)( \(.*\))?$' "$RUN/check.out")" 9
+    printf 'PASS host\nPASS i686\nPASS fmt\nPASS clippy\nFAIL doc: x\n' >"$RUN/check-control.out"
+    refuse "the same count over a gate output that stopped at doc reaches nine" same "$(grep -c -E '^PASS (host|i686|fmt|clippy|doc|native|licences|hygiene|privacy)( \(.*\))?$' "$RUN/check-control.out")" 9
+    doc_ok() { [ "$(grep -c -E '^test crates/emend/src/lib.rs - \(line [0-9]+\) \.\.\. ok$' "$1")" = 1 ] && grep -q -E '^test result: ok\. 1 passed; 0 failed;' "$1"; }
+    for tgt in host i686-unknown-linux-musl; do
+      if [ "$tgt" = host ]; then targ=(); else targ=(--target "$tgt"); fi
+      echo "command: CARGO_TARGET_DIR=<run>/target cargo test -p emend --doc ${targ[*]}"
+      CARGO_TARGET_DIR=$T cargo test -p emend --doc "${targ[@]}" >"$RUN/doc-$tgt.out" 2>&1
+      rc=$?
+      grep -E '^(running|test |test result:)' "$RUN/doc-$tgt.out" | sed 's/^/    /'
+      echo "  exit $rc"
+      check "the doc test ran and passed on $tgt" doc_ok "$RUN/doc-$tgt.out"
+    done
+    printf 'test crates/emend/src/lib.rs - (line 43) ... FAILED\ntest result: FAILED. 0 passed; 1 failed;\n' >"$RUN/doc-control.out"
+    refuse "the same test over a failed doc test's output" doc_ok "$RUN/doc-control.out"
+    # plant <n> <mode> <expected text>: the code commit's tree in <run>/planted-<n>
+    # with one line of the doc test changed, the doc test run there; it must fail
+    # and print the expected text. mode remove: the set_cell line removed (the
+    # read-back finds no cell); mode value: its text "checked" made "other" (the
+    # read-back's assertion fails).
+    plant() {
+      local n=$1 mode=$2 want=$3 d=$RUN/planted-$1 rc
+      echo "command: git archive <code commit> into <run>/planted-$n; the doc test's set_cell line: $mode; CARGO_TARGET_DIR=<run>/planted-target cargo test -p emend --doc there"
+      mkdir -p "$d"
+      git archive "$CODE" | tar -x -C "$d"
+      python3 -I -B - "$d/crates/emend/src/lib.rs" "$mode" <<'PY'
+    import sys
+    p, mode = sys.argv[1:3]
+    L = open(p, encoding="utf-8").read().split("\n")
+    hit = [n for n, l in enumerate(L) if l.startswith("//!") and "book.set_cell(&sheet, cell" in l]
+    assert len(hit) == 1, hit
+    if mode == "remove":
+        del L[hit[0]]
+    else:
+        assert L[hit[0]].count('"checked"') == 1
+        L[hit[0]] = L[hit[0]].replace('"checked"', '"other"')
+    open(p, "w", encoding="utf-8").write("\n".join(L))
+    print(f"    line {hit[0] + 1}: {mode}")
+    PY
+      ( cd "$d" && CARGO_TARGET_DIR=$RUN/planted-target cargo test -p emend --doc ) >"$d.out" 2>&1
+      rc=$?
+      grep -E '^(test |test result:|Error: )|assertion' "$d.out" | sed "s#$RUN#<run>#g" | sed 's/^/    /'
+      echo "  exit $rc"
+      check "control: the doc test fails with the line's $mode, printing '$want'" same "$([ "$rc" -ne 0 ] && grep -q -F -- "$want" "$d.out" && echo bites)" bites
+    }
+    plant 1 remove 'Error: "no cell"'
+    plant 2 value 'assertion `left == right` failed'
+    echo "command: CARGO_TARGET_DIR=<run>/target cargo build -p size-probe --bin probe-emend-format-write-xml --features emend,xml --profile size --target i686-unknown-linux-musl"
+    CARGO_TARGET_DIR=$T cargo build -p size-probe --bin probe-emend-format-write-xml --features emend,xml --profile size --target i686-unknown-linux-musl >"$RUN/format-build.out" 2>&1
+    f_rc=$?
+    grep -E '^(warning|error)(\[|:)' "$RUN/format-build.out" | sed 's/^/    /'
+    echo "  the build: exit $f_rc"
+    check "the format probe's size-profile build on i686 exits 0" same "$f_rc" 0
+    section_total() { size -A "$1" 2>/dev/null | awk '$1 == "Total" { print $2 }'; }
+    BIN=$T/i686-unknown-linux-musl/size/probe-emend-format-write-xml
+    fs=$(section_total "$BIN")
+    echo "  <run>/target/i686-unknown-linux-musl/size/probe-emend-format-write-xml: file $(wc -c <"$BIN" 2>/dev/null || echo none) bytes; sections ${fs:-none}; sha256 $(sha256sum <"$BIN" 2>/dev/null | cut -d' ' -f1)"
+    check "a section total was read" [ -n "$fs" ]
+    accept "section_total over this shell, same command form, reads a figure" [ -n "$(section_total "$(command -v bash)")" ]
+    SR=records/size-m8p2-2026-11-10-8065795.md
+    record_probe() { awk -F ' [|] ' -v p="| \`$2\` | " 'index($0, p) == 1 && NF == 7 { print $5; exit }' "$1"; }
+    git show "$CODE:$SR" >"$RUN/size-record.md"
+    zx=$(record_probe "$RUN/size-record.md" probe-zip-xml)
+    fr=$(record_probe "$RUN/size-record.md" probe-emend-format-write-xml)
+    echo "command: git show <code commit>:$SR, its verdicts table's rows for probe-zip-xml and the format probe"
+    echo "  probe-zip-xml: ${zx:-none}; the format probe: ${fr:-none}"
+    check "the record's probe-zip-xml figure was read" [ -n "$zx" ]
+    REQ=456248
+    if [ -n "$fs" ] && [ -n "$zx" ]; then
+      budget=$((fs - zx))
+      echo "  the budget, the format probe less probe-zip-xml: $fs - $zx = $budget; required by planning's brief: $REQ; the ceiling 458752, $((458752 - budget)) under it"
+      if [ "$budget" = "$REQ" ]; then
+        ok "the budget is $REQ"
+      else
+        finding "the budget is $budget, not $REQ (specs/0050 Acceptance 2); recorded, not a rerun"
+      fi
+    fi
+    echo
+    
+    echo "## summary"
+    echo "  FINDING lines: $FINDINGS"
+    echo "  checks and controls not as expected: $FAILS"
+    echo "run ended $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ "$FAILS" -eq 0 ]; then echo "verify log checks all as expected: yes"; else echo "verify log checks all as expected: no"; fi
+
+## the environment
+  ANTHROPIC_API_KEY is unset: as-expected
+  CARGO_REGISTRY_TOKEN is unset: as-expected
+  CARGO_REGISTRIES_CRATES_IO_TOKEN is unset: as-expected
+  rustc: rustc 1.98.1 (48a229cea 2026-09-01)
+  cargo: cargo 1.98.1 (797e8a9bc 2026-08-05)
+  python3: Python 3.14.4
+  curl: curl 8.18.0 (x86_64-pc-linux-gnu) libcurl/8.18.0 OpenSSL/3.5.5 zlib/1.3.1 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.2 libssh2/1.11.1 nghttp2/1.68.0 librtmp/2.3 mit-krb5/1.22.1 OpenLDAP/2.6.10
+  size: GNU size (GNU Binutils for Ubuntu) 2.46
+  CARGO_NET_OFFLINE=true for every cargo command; PYTHONDONTWRITEBYTECODE=1
+
+## the commits
+command: git rev-parse, git log -1 --format='%H %P %s' for each
+  e9dcaac50e58f07e63767e2c3e6cdd74fd2201cb 031732b330847a200588e709e3895612051f5908 M8 part 3 P4 record: the publication verified
+  40ee6b1b803ae9e9881a7ba74bf1056fa8176226 e9dcaac50e58f07e63767e2c3e6cdd74fd2201cb Docs intro P1: commit planning docs (the spec, M8 part 3 P4's verification)
+  4dfd4f47c5fe4ea69aac818559063c7d1cf63292 40ee6b1b803ae9e9881a7ba74bf1056fa8176226 Docs intro P1: the README's opening and the crate docs' example
+  2f7891a4048e195debebc8d97613d37956d1404c 4dfd4f47c5fe4ea69aac818559063c7d1cf63292 Docs intro P1 change 1: the crate docs keep the openpyxl paragraph's first sentence
+  a46fe52e28e4531a9003c1609a1bfe6ce405f361 2f7891a4048e195debebc8d97613d37956d1404c Docs intro P1 record: the logged run, the check
+  3a90317a7a526215e18bf0ede4a157e452b25218 a46fe52e28e4531a9003c1609a1bfe6ce405f361 Docs intro P1 change 2: commit planning docs (ruling F, P1's verification)
+  4b2a23e60ca16cc32af4ed5ee7d794816807cdf1 3a90317a7a526215e18bf0ede4a157e452b25218 Docs intro P1 change 2: the umya line says what its record supports
+  HEAD at run: 4b2a23e60ca16cc32af4ed5ee7d794816807cdf1
+  status: 0 lines
+  the base is e9dcaac, the M8 part 3 P4 record: as-expected
+  the doc commit's subject: as-expected
+  the first code commit's subject: as-expected
+  the second code commit's subject (change 1): as-expected
+  the record commit's subject: as-expected
+  change 2's doc commit's subject: as-expected
+  the third code commit's subject (change 2): as-expected
+  each commit of the chain has one parent: as-expected
+command: git show <code commit>:specs/0050-newcomer-intro.md | sha256sum, against the hash planning's change 2 brief pins
+  at the code commit: a00e7d6a0806a50411754a33779fb35ea26a7146823f6df5c946e500c0a902ce; pinned: a00e7d6a0806a50411754a33779fb35ea26a7146823f6df5c946e500c0a902ce
+  the spec at the code commit is the pinned one: as-expected
+  change 2's doc commit message names the spec with that sha256: as-expected
+  control: the same pin test over the spec at the first doc commit: as-expected
+  control: same over two different strings: as-expected
+
+## Acceptance 1: the files each commit changes
+command: git diff --name-only over each code commit and its parent, their union; the same over the record commit, each doc commit
+  first code commit: README.md crates/emend/src/lib.rs 
+  change 1: crates/emend/src/lib.rs 
+  change 2: README.md 
+  the record commit's directories: records/logs/docs-intro-p1 
+  change 2's doc commit: specs/0050-newcomer-intro.md 
+  change 2 names README.md alone: as-expected
+  the record commit writes under records/logs/docs-intro-p1 alone: as-expected
+  change 2's doc commit names specs/0050 alone: as-expected
+  the three code commits' union: README.md crates/emend/src/lib.rs 
+  doc commit: ROADMAP.md specs/0049-excel-check-and-release.md specs/0050-newcomer-intro.md 
+     README.md               | 66 ++++++++++++++++++++++++++++++++++++++++---------
+     crates/emend/src/lib.rs | 51 ++++++++++++++++++++++++++++++--------
+     2 files changed, 96 insertions(+), 21 deletions(-)
+     crates/emend/src/lib.rs | 3 +--
+     1 file changed, 1 insertion(+), 2 deletions(-)
+     README.md | 4 ++--
+     1 file changed, 2 insertions(+), 2 deletions(-)
+  the three code commits name README.md and crates/emend/src/lib.rs and nothing else: as-expected
+  the first code commit names the same two files: as-expected
+  change 1 names crates/emend/src/lib.rs alone: as-expected
+  the doc commit names the three planning files and nothing else: as-expected
+  control: the code commit's form over the doc commit gives a different list: as-expected
+command: git show <doc commit>:<path> | sha256sum, for each planning file, and the doc commit message's line for it
+  specs/0050-newcomer-intro.md sha256 a7d109d992dcf679fc2a8ad39cd9a222cd27caae0753f7a0b30779e97033f66d
+  the doc commit message names specs/0050-newcomer-intro.md with that sha256: as-expected
+  specs/0049-excel-check-and-release.md sha256 921473851f14db07ff6bbf4d86332ec294bf0f10a2e76a6d94dc4215a1e1b82c
+  the doc commit message names specs/0049-excel-check-and-release.md with that sha256: as-expected
+  ROADMAP.md sha256 0e1fad895e3e2348ae401e388016c6b1f0971e0739eabc44054eb3fa809e4f07
+  the doc commit message names ROADMAP.md with that sha256: as-expected
+  control: the same message form for a hash it does not carry: as-expected
+
+## the texts: the README block, the example, the crate doc, the tail, the citations, the three crates
+  <run>/text/spec.md: 8681 bytes, sha256 a00e7d6a0806a50411754a33779fb35ea26a7146823f6df5c946e500c0a902ce
+  <run>/text/readme-base.md: 10951 bytes, sha256 cc59ed2d3a62fd0dd116c95dd16770eb41a62a475d48201229db21728f77110c
+  <run>/text/readme-code.md: 12432 bytes, sha256 2e7ecfe4ab5af692b883f263c7e40ca4594497d0558d462feffadd7c3c71a77f
+  <run>/text/lib-base.rs: 3866 bytes, sha256 3e76f7b121101c0262b41adc1dc0077062e28152d8d25cfa9271d97e9d73c7cc
+  <run>/text/lib-code.rs: 4908 bytes, sha256 8c68120fe003f3cd8f048a34de21902b6cfa6efd25d49e09940192bc32e3f46b
+command: python3 -I -B <run>/text/check.py <run>/text (printed above in this script)
+command: the doc test of <code commit>:crates/emend/src/lib.rs, under its '# Example' heading
+  fence line: '//! ```'; visible lines 15; hidden lines 13
+  no line of the doc test is outside the //! form: as-expected
+  the fence runs the test (no no_run, ignore or compile_fail): as-expected
+  control: the same fence test refuses a no_run fence: as-expected
+  the visible lines are at most 15: as-expected
+  no unwrap in the doc test: as-expected
+  the example opens from a reader, sets one cell and writes to a writer: as-expected
+  the example names no feature-gated item and no file name with a dot: as-expected
+command: the README's ```rust block at <code commit>, against the doc test's visible lines
+  README block lines: 15; doc test visible lines: 15
+  the README block equals the doc test's visible lines byte for byte: as-expected
+  control: the same comparison refuses the visible lines with one byte changed: as-expected
+command: the README's lines before '## Dependencies and features' at <code commit>, against the spec's block with EXAMPLE replaced by the visible lines
+  README head lines: 58; expected: 58
+  the README head is the spec's text verbatim with the example: as-expected
+  control: the same comparison refuses the expected text less one line: as-expected
+command: sha256 of README.md from the line '## Dependencies and features' to the end, at <base> and <code commit>
+  base tail: 10351 bytes, sha256 3c14bdd673a02238ae21bf138d364907d9c82ed1bbed6075fec7782ed9d6435e
+  code tail: 10351 bytes, sha256 3c14bdd673a02238ae21bf138d364907d9c82ed1bbed6075fec7782ed9d6435e
+  the tail is byte for byte as at the base: as-expected
+  control: the same comparison refuses the tail with one byte added: as-expected
+  the 'Out of scope by design' section lies in the tail: as-expected
+command: difflib opcodes of lib.rs, <base> against <code commit>, the non-equal ones
+  replace base lines 3-7 code lines 3-7
+  replace base lines 9-13 code lines 9-10
+  insert base lines 42-41 code lines 39-71
+  base paragraphs lines 3-13; new paragraph lines 8; inserted lines 33 after base line 41
+  lib.rs is the base with the two paragraphs replaced and one block inserted after its last //! line, nothing else: as-expected
+  control: the same reconstruction refuses the code file with one other line changed: as-expected
+  the first new paragraph is the README's first paragraph, rewrapped: as-expected
+  the openpyxl paragraph's first sentence: "emend has the scope of Python's openpyxl and the same limits: it does not evaluate formulas, render, or autofit."
+  the second is the README's openpyxl paragraph's first sentence alone, rewrapped (ruling C): as-expected
+  control: the same comparison refuses the whole openpyxl paragraph: as-expected
+  control: the same comparison refuses the paragraphs swapped: as-expected
+  the widest //! line at the base: 78; of the new paragraphs: 77
+  every new paragraph line is within the base's width: as-expected
+  the inserted block is the example section alone: as-expected
+command: the README head's prose split into sentences; each sentence holding a digit, and the records/ path it cites
+  On a round trip of 27 real workbooks it left 870 zip entries... cites ['records/compare-m6p6-2026-10-24-d88f735.md']
+  - `umya-spreadsheet` reads a workbook into its own model and... cites ['records/decision-architecture.md']
+  The core depends on `zip` and `quick-xml` and nothing else, ... cites ['records/logs/m8p3-p3/gate.log']
+  It streams: a round trip of a 1159829654-byte workbook peake... cites ['records/compare-m6p6-2026-10-24-d88f735.md']
+  every sentence holding a digit cites a records/ path: as-expected
+  control: the same test refuses a planted sentence 'It has 5 parts.': as-expected
+  base README: 870: 1 sentence(s) hold it, 1 cite records/compare-m6p6-2026-10-24-d88f735.md
+  base README: a sentence holding 870 cites records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+  base README: 456248: 1 sentence(s) hold it, 1 cite records/logs/m8p3-p3/gate.log
+  base README: a sentence holding 456248 cites records/logs/m8p3-p3/gate.log: as-expected
+  base README: 1159829654: 1 sentence(s) hold it, 1 cite records/compare-m6p6-2026-10-24-d88f735.md
+  base README: a sentence holding 1159829654 cites records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+  base README: 7872: 1 sentence(s) hold it, 1 cite records/compare-m6p6-2026-10-24-d88f735.md
+  base README: a sentence holding 7872 cites records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+  code README: 870: 1 sentence(s) hold it, 1 cite records/compare-m6p6-2026-10-24-d88f735.md
+  code README: a sentence holding 870 cites records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+  code README: 456248: 1 sentence(s) hold it, 1 cite records/logs/m8p3-p3/gate.log
+  code README: a sentence holding 456248 cites records/logs/m8p3-p3/gate.log: as-expected
+  code README: 1159829654: 1 sentence(s) hold it, 1 cite records/compare-m6p6-2026-10-24-d88f735.md
+  code README: a sentence holding 1159829654 cites records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+  code README: 7872: 1 sentence(s) hold it, 1 cite records/compare-m6p6-2026-10-24-d88f735.md
+  code README: a sentence holding 7872 cites records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+  control: the same test refuses a figure no sentence holds (870870): as-expected
+command: the README head's bullets for the three crates
+    - `calamine` reads workbooks.
+    - `rust_xlsxwriter` writes new workbooks.
+    - `umya-spreadsheet` reads a workbook into its own model and writes a new file from it (`records/decision-architecture.md`, a reading of its 3.1.0 source; emend has not measured it).
+  one bullet each names calamine, rust_xlsxwriter and umya-spreadsheet: as-expected
+  the calamine and rust_xlsxwriter bullets hold no digit and no 'measur': as-expected
+  the umya bullet cites records/decision-architecture.md and says emend has not measured it: as-expected
+  no other sentence of the head names one of the three crates: as-expected
+  control: the same test refuses a planted sentence naming calamine: as-expected
+  spec at the code commit holds no U+2014: as-expected
+  README at the code commit holds no U+2014: as-expected
+  lib.rs at the code commit holds no U+2014: as-expected
+  control: the same test finds a planted U+2014: as-expected
+  python exit 0; stderr 0 bytes; its no-lines 0
+  the text checks ran to the end: as-expected
+
+## rule 1: each figure in the record its sentence cites (grep -n -F)
+command: grep -n -F 870 <code commit>:records/compare-m6p6-2026-10-24-d88f735.md, the lines not printed script text (no four-space indent), the first five
+    9:| roundtrip | emend | host | 27 | 27 | 0 | 0 | 0 | 0 | 0 | 0 | 870 | 0 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 0.10 | 2.70 | 7744 | 7992 |
+    10:| roundtrip | emend | i686 | 27 | 27 | 0 | 0 | 0 | 0 | 0 | 0 | 870 | 0 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 0.10 | 2.70 | 7664 | 8000 |
+    12:| read | emend | host | 27 | 27 | 0 | 0 | 0 | 0 | 0 | 0 | 870 | 0 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 0.10 | 9.70 | 7756 | 8552 |
+    13:| read | emend | i686 | 27 | 27 | 0 | 0 | 0 | 0 | 0 | 0 | 870 | 0 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 27 | 0 | 0 | 0 | 0.10 | 12.72 | 7672 | 7904 |
+  lines: 4
+  870 is found in records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+command: grep -n -F 456248 <code commit>:records/logs/m8p3-p3/gate.log, the lines not printed script text (no four-space indent), the first five
+    12160:  the format probe's sections: 989464; M6 part 6 P3's size record's: 984744; the difference: 4720; the budget, the figure less the record's probe-zip-xml 533216: 456248; the record's budget: 451528; the difference: 4720; printed and told to planning at any value, judged nowhere here (changes Q85, Q88 and Q89)
+    12166:  the budget at this phase: 456248; expected (part 2's size record): 456264, 2488 under the ceiling 458752; at this phase 2504 under it
+    12167:FINDING: the format probe's sections (989464) or the budget (456248) differ from part 2's size record's (989480, 456264); recorded, not a rerun (specs/0049 "Size"; change Q107)
+    12171:  the format probe's sections: 989464; the budget: 456248; required (ruling K; change W107): the format probe 989464, the budget 456248
+    12172:  the format probe's sections are 989464 and the budget 456248, the figures the texts cite (specs/0049 ruling K; change W107): as-expected
+  lines: 5
+  456248 is found in records/logs/m8p3-p3/gate.log: as-expected
+command: grep -n -F 1159829654 <code commit>:records/compare-m6p6-2026-10-24-d88f735.md, the lines not printed script text (no four-space indent), the first five
+    183:| c | roundtrip | emend | host | ok | 0 | 2.30 | 7872 | 1159829654 | 1159829654 | 9 | 0 | 0 | 0 | 0 | - | - |
+    184:| c | roundtrip | emend | i686 | ok | 0 | 3.60 | 7560 | 1159829654 | 1159829654 | 9 | 0 | 0 | 0 | 0 | - | - |
+    185:| c | roundtrip | openpyxl | openpyxl | cap | 137 | 290.83 | 16554684 | 1159829654 | - | - | - | - | - | - | - | 0.53 |
+  lines: 3
+  1159829654 is found in records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+command: grep -n -F 7872 <code commit>:records/compare-m6p6-2026-10-24-d88f735.md, the lines not printed script text (no four-space indent), the first five
+    91:| a | read | emend | i686 | ok | 0 | 4.21 | 7872 | 11025994 | 11025994 | 9 | 0 | 0 | 0 | 0 | ok | - |
+    159:| b | image | emend | host | ok | 0 | 96.13 | 7872 | 176372258 | 179052680 | 7 | 0 | 2 | 0 | 4 | - | - |
+    183:| c | roundtrip | emend | host | ok | 0 | 2.30 | 7872 | 1159829654 | 1159829654 | 9 | 0 | 0 | 0 | 0 | - | - |
+  lines: 3
+  7872 is found in records/compare-m6p6-2026-10-24-d88f735.md: as-expected
+  control: the same form over the same record for 870870870: as-expected
+command: grep -n -F <figure> <base>:README.md (the README at e9dcaac already cites each)
+    74:Comparison with openpyxl: over the 27 workbooks and the sixteen ops of the comparison, each tool's output compared with its input, emend on the host and on the static target and openpyxl each wrote 27 of 27 outputs for every op, and LibreOffice opened every one (`records/compare-m6p6-2026-10-24-d88f735.md`). On the roundtrip emend left 870 zip entries byte-identical and dropped none, where openpyxl left 28 identical and dropped 533 (`records/compare-m6p6-2026-10-24-d88f735.md`). The median wall time per workbook was 0.10 s for emend on the host and 0.81 s for openpyxl on every op, openpyxl's including its container's start, and the roundtrip's largest peak RSS was 7992 kB for emend on the host and 674516 kB for openpyxl (`records/compare-m6p6-2026-10-24-d88f735.md`). On the scale tiers emend completed every run, and openpyxl ended at its memory cap on the tier c roundtrip, exit 137 after 290.83 s at a peak of 16554684 kB (`records/compare-m6p6-2026-10-24-d88f735.md`).
+  the README at the base holds 870: as-expected
+    70:Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 456248 section bytes, 2504 under the ceiling of 458752, at the 0.1.1 manifest (`records/logs/m8p3-p3/gate.log`); Milestone 8 part 2's size record measured 456264 before the version changed (`records/size-m8p2-2026-11-10-8065795.md`).
+  the README at the base holds 456248: as-expected
+    72:Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`). In Milestone 6's rerun of the tiers, emend's roundtrip of the tier c workbook, 1159829654 bytes, took 2.30 s at a peak of 7872 kB on the host and 3.60 s at a peak of 7560 kB on the static target, and of the tier d workbook, 201769244 bytes, 0.40 s on each (`records/compare-m6p6-2026-10-24-d88f735.md`).
+  the README at the base holds 1159829654: as-expected
+    72:Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`). In Milestone 6's rerun of the tiers, emend's roundtrip of the tier c workbook, 1159829654 bytes, took 2.30 s at a peak of 7872 kB on the host and 3.60 s at a peak of 7560 kB on the static target, and of the tier d workbook, 201769244 bytes, 0.40 s on each (`records/compare-m6p6-2026-10-24-d88f735.md`).
+  the README at the base holds 7872: as-expected
+
+## rule 3: the record the umya line cites
+command: grep -n -F 3.1.0 <code commit>:records/decision-architecture.md, the first five
+    17:rests on a reading of the published umya-spreadsheet 3.1.0 crate (study
+    36:- umya-spreadsheet 3.1.0 has 21 normal dependencies and requires
+  records/decision-architecture.md names umya-spreadsheet 3.1.0: as-expected
+  control: the same form for a version it does not name: as-expected
+
+## rule 2: the two crates' descriptions, read from their crate files
+(downloaded into <run>/crates, read-only reference material; nothing is copied into the repository)
+command: curl -sS --fail -A emend-docs-check https://index.crates.io/ca/la/calamine
+  HTTP 200; 120649 bytes
+  calamine: the index entry was read (HTTP 200): as-expected
+  index lines 84, yanked 0; the newest version 0.38.0, cksum f431b67cba6122a1f7d26b7adafc71bbdf07026095fe811f5efc025d8748e1d8
+command: curl -sS --fail -A emend-docs-check https://static.crates.io/crates/calamine/calamine-0.38.0.crate
+  HTTP 200; 192320 bytes; sha256 f431b67cba6122a1f7d26b7adafc71bbdf07026095fe811f5efc025d8748e1d8
+  calamine 0.38.0: the crate file was read (HTTP 200): as-expected
+  calamine 0.38.0: the crate file's sha256 is the index's cksum: as-expected
+command: grep -n -A2 '^description' <run>/crates/calamine-0.38.0/Cargo.toml
+    25:description = "An Excel/OpenDocument Spreadsheet reader and deserializer in pure Rust"
+    26-documentation = "https://docs.rs/calamine"
+    27-readme = "README.md"
+  calamine 0.38.0: its description supports the README line (a reader; it holds 'reader'): as-expected
+command: curl -sS --fail -A emend-docs-check https://index.crates.io/ru/st/rust_xlsxwriter
+  HTTP 200; 205379 bytes
+  rust_xlsxwriter: the index entry was read (HTTP 200): as-expected
+  index lines 130, yanked 0; the newest version 0.102.0, cksum 6ca3d0e879a578c1313c2800ab0c6c029d38eed18098675e50341a30d32372ed
+command: curl -sS --fail -A emend-docs-check https://static.crates.io/crates/rust_xlsxwriter/rust_xlsxwriter-0.102.0.crate
+  HTTP 200; 1031486 bytes; sha256 6ca3d0e879a578c1313c2800ab0c6c029d38eed18098675e50341a30d32372ed
+  rust_xlsxwriter 0.102.0: the crate file was read (HTTP 200): as-expected
+  rust_xlsxwriter 0.102.0: the crate file's sha256 is the index's cksum: as-expected
+command: grep -n -A2 '^description' <run>/crates/rust_xlsxwriter-0.102.0/Cargo.toml
+    25:description = "A Rust library for writing Excel 2007 xlsx files"
+    26-homepage = "https://rustxlsxwriter.github.io"
+    27-readme = "README.md"
+  rust_xlsxwriter 0.102.0: its description supports the README line (a writer; it holds 'writing'): as-expected
+  control: the description test refuses a description without the word: as-expected
+  control: the calamine test (reader, whole word) refuses 'A Spreadsheet writer', which holds the letters r-e-a-d: as-expected
+  control: the same test accepts 'A Spreadsheet reader': as-expected
+
+## Acceptance 4: this script and the record directory hold no U+2014 (ruling G)
+command: LC_ALL=C grep -c '[^ -~]' <this script>; the same over the superseded d5 script
+  this script: 0 lines; the d5 script: 2 lines
+  this script holds no byte outside printable ASCII: as-expected
+  control: the same count over the superseded d5 script, which held U+2014: as-expected
+command: git ls-tree -r --name-only <code commit> records/logs/docs-intro-p1; for each, git cat-file -p <code commit>:<file> | grep -c <U+2014 bytes>
+  records/logs/docs-intro-p1/README.md: 0 lines
+  records/logs/docs-intro-p1/README.md at the code commit holds no U+2014: as-expected
+  records/logs/docs-intro-p1/driver.out: 0 lines
+  records/logs/docs-intro-p1/driver.out at the code commit holds no U+2014: as-expected
+  records/logs/docs-intro-p1/independent-check-1.md: 0 lines
+  records/logs/docs-intro-p1/independent-check-1.md at the code commit holds no U+2014: as-expected
+  records/logs/docs-intro-p1/verify.log: 0 lines
+  records/logs/docs-intro-p1/verify.log at the code commit holds no U+2014: as-expected
+  the record directory at the code commit holds the four record files: as-expected
+  the superseded record commit 25ceb42's verify.log: 2 lines
+  control: the same form finds U+2014 in the superseded record commit 25ceb42's verify.log: as-expected
+
+## Acceptance 4: the commit messages and the privacy scan over the range
+  40ee6b1's message is ASCII: as-expected
+  40ee6b1's message ends with the Co-Authored-By line alone: as-expected
+  4dfd4f4's message is ASCII: as-expected
+  4dfd4f4's message ends with the Co-Authored-By line alone: as-expected
+  2f7891a's message is ASCII: as-expected
+  2f7891a's message ends with the Co-Authored-By line alone: as-expected
+  a46fe52's message is ASCII: as-expected
+  a46fe52's message ends with the Co-Authored-By line alone: as-expected
+  3a90317's message is ASCII: as-expected
+  3a90317's message ends with the Co-Authored-By line alone: as-expected
+  4b2a23e's message is ASCII: as-expected
+  4b2a23e's message ends with the Co-Authored-By line alone: as-expected
+  control: the ASCII test over a planted U+2014: as-expected
+command: bash scripts/privacy.sh --range <base>..<code commit>
+    privacy: 6 commit(s), 3120 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  the privacy scan over the range passes (exit 0): as-expected
+
+## Acceptance 2: the gate, the doc test on each target, a planted defect, the budget
+command: CARGO_TARGET_DIR=<run>/target bash scripts/check.sh
+    PASS host
+    PASS i686
+    PASS fmt
+    PASS clippy
+    PASS doc
+    PASS native (allowlisted -sys: none)
+    PASS licences
+    PASS hygiene
+    PASS privacy
+  exit 0; stderr 0 bytes
+  the gate passes (exit 0): as-expected
+  the gate printed PASS for each of its nine steps: as-expected
+  control: the same count over a gate output that stopped at doc reaches nine: as-expected
+command: CARGO_TARGET_DIR=<run>/target cargo test -p emend --doc 
+    running 1 test
+    test crates/emend/src/lib.rs - (line 42) ... ok
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+  exit 0
+  the doc test ran and passed on host: as-expected
+command: CARGO_TARGET_DIR=<run>/target cargo test -p emend --doc --target i686-unknown-linux-musl
+    running 1 test
+    test crates/emend/src/lib.rs - (line 42) ... ok
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+  exit 0
+  the doc test ran and passed on i686-unknown-linux-musl: as-expected
+  control: the same test over a failed doc test's output: as-expected
+command: git archive <code commit> into <run>/planted-1; the doc test's set_cell line: remove; CARGO_TARGET_DIR=<run>/planted-target cargo test -p emend --doc there
+    line 54: remove
+    test crates/emend/src/lib.rs - (line 42) ... FAILED
+    Error: "no cell"
+    Error: "the test returned a termination value with a non-zero status code (1) which indicates a failure"
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+  exit 101
+  control: the doc test fails with the line's remove, printing 'Error: "no cell"': as-expected
+command: git archive <code commit> into <run>/planted-2; the doc test's set_cell line: value; CARGO_TARGET_DIR=<run>/planted-target cargo test -p emend --doc there
+    line 54: value
+    test crates/emend/src/lib.rs - (line 42) ... FAILED
+    assertion `left == right` failed
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+  exit 101
+  control: the doc test fails with the line's value, printing 'assertion `left == right` failed': as-expected
+command: CARGO_TARGET_DIR=<run>/target cargo build -p size-probe --bin probe-emend-format-write-xml --features emend,xml --profile size --target i686-unknown-linux-musl
+  the build: exit 0
+  the format probe's size-profile build on i686 exits 0: as-expected
+  <run>/target/i686-unknown-linux-musl/size/probe-emend-format-write-xml: file 997924 bytes; sections 989464; sha256 77f7bdddf35d80a1ea12f9ff732a72c769a925873dc95f0122190f0cc7545e66
+  a section total was read: as-expected
+  control: section_total over this shell, same command form, reads a figure: as-expected
+command: git show <code commit>:records/size-m8p2-2026-11-10-8065795.md, its verdicts table's rows for probe-zip-xml and the format probe
+  probe-zip-xml: 533216; the format probe: 989480
+  the record's probe-zip-xml figure was read: as-expected
+  the budget, the format probe less probe-zip-xml: 989464 - 533216 = 456248; required by planning's brief: 456248; the ceiling 458752, 2504 under it
+  the budget is 456248: as-expected
+
+## summary
+  FINDING lines: 0
+  checks and controls not as expected: 0
+run ended 2026-11-13T23:10:45Z
+verify log checks all as expected: yes
