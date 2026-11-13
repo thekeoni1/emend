@@ -53,8 +53,8 @@ The other Rust crates do different jobs:
 
 - `calamine` reads workbooks.
 - `rust_xlsxwriter` writes new workbooks.
-- `umya-spreadsheet` reads a workbook into a model of the whole
-  file and writes the file out again from that model
+- `umya-spreadsheet` reads a workbook into its own model and
+  writes a new file from it
   (`records/decision-architecture.md`, a reading of its 3.1.0
   source; emend has not measured it).
 
@@ -137,8 +137,55 @@ One phase and a close-out, by the standing per-phase workflow.
 
 | Phase | Content | Status |
 | --- | --- | --- |
-| P1 | doc commit (this spec, `specs/0049`, `ROADMAP.md`); one code commit (README, `lib.rs`); the driver's checks above; the gate; logs under `records/logs/docs-intro-p1/`; README of the record; one independent check; one record commit | PLANNED |
+| P1 | doc commit (this spec, `specs/0049`, `ROADMAP.md`); one code commit (README, `lib.rs`); the driver's checks above; the gate; logs under `records/logs/docs-intro-p1/`; README of the record; one independent check; one record commit | logged run VERIFIED 2026-11-13 (record 25ceb42); change 2 (ruling F) pending |
 | Close | close-out push carrying 5df377c, 031732b, e9dcaac and P1's commits; no tag; CI; the post scan; the record | PLANNED |
 
 The stop report before the logged run carries the full diff of
 the two files, so planning reads the example before it is logged.
+
+## Planning rulings at P1's stop report (2026-11-13)
+
+Given by message at the stop report, since the driver pinned this
+file's sha256 (a7d109d9); written here after the record commit.
+Planning verified first: doc commit 40ee6b1 on e9dcaac, code commit
+4dfd4f4, the diff, dry run d3's last line and its 0 FINDING lines.
+
+A. Spec fact: the constructor is `Package::new()`, not
+   `Workbook::new()`. The hidden lines stand.
+B. The example stays at the module doc's end under `# Example`.
+   Its two over-width lines are accepted; the 15-line limit wins.
+C. Change 1, a second code commit (2f7891a, no amend): the crate
+   doc comment's second paragraph is the openpyxl paragraph's
+   first sentence alone. The sentence after it names README
+   sections the crate docs do not have. The README keeps it.
+D. No environment line and no prune in this phase.
+E. The amend c58ebec to 4dfd4f4 (message wrap, same tree) is
+   accepted as disclosed and named in the record's README.
+
+## Planning verification of P1's logged run (2026-11-13)
+
+From primaries: 25ceb42 on 2f7891a on 4dfd4f4 on 40ee6b1; the
+record's `verify.log` sha256 fa264d94, last line "verify log
+checks all as expected: yes", no FINDING line, no line ending
+": no"; `driver.out` exit 0 and stderr 0 bytes; the doc test ok on
+both targets; the budget 456248; the remote unchanged at 635aaba.
+ACCEPTED, with the independent check's points disposed of so:
+
+- The calamine description test matched "read" inside
+  "Spreadsheet" and could not fail. The verdict stands on the
+  printed description. Change 2's run tests for "reader".
+- The controls the check found missing (the budget's FINDING
+  branch, the privacy scan, five small checks) are accepted as
+  they are for a docs phase.
+
+F. Change 2 (the check's note, planning's judgement): the README
+   said umya-spreadsheet reads "a model of the whole file". The
+   cited record does not support "whole": it lists parts the
+   source never mentions and a mode that writes unparsed sheets
+   from raw bytes. The text above now reads "into its own model
+   and writes a new file from it". Steps: a doc commit of this
+   spec; one code commit changing that README bullet alone; the
+   driver rerun once with the fix named, its log
+   `verify-change2.log` beside the first; a short addendum to the
+   record's README; one record commit; the scan; report; STOP. No
+   second independent check: the change is two lines of spec text.
