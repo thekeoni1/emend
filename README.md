@@ -1,16 +1,60 @@
 # emend
 
-emend is a pure-Rust library for read-modify-write of Office Open XML
-spreadsheets: open an existing .xlsx, change what you were asked to
-change, hand the file back with everything else intact. It parses only
-what an edit touches and passes every other zip entry through byte for
-byte.
+emend edits existing Excel workbooks (.xlsx files) from Rust. Open
+a workbook, change the cells, styles or sheets you need, and write
+it back. Every zip entry the edit did not touch comes back byte
+for byte, so the charts, pivot tables, macros and formatting you
+never looked at are still there.
 
-The comparison point is openpyxl, and the definition is exact: like
-openpyxl, emend does not evaluate formulas (it stores formula strings and
-reads cached values), does not render, does not autofit, and does not fix
-up references on row or column insertion. Those limits are by design and
-are not gaps.
+## When to use it
+
+Use emend when the workbook already exists and has to survive the
+edit: a template someone built in Excel, a report with charts and
+pivot tables, a file whose formatting you do not own. emend parses
+only the parts an edit touches and copies the rest unchanged. On a
+round trip of 27 real workbooks it left 870 zip entries
+byte-identical and dropped none
+(`records/compare-m6p6-2026-10-24-d88f735.md`).
+
+The other Rust crates do different jobs:
+
+- `calamine` reads workbooks.
+- `rust_xlsxwriter` writes new workbooks.
+- `umya-spreadsheet` reads a workbook into a model of the whole
+  file and writes the file out again from that model
+  (`records/decision-architecture.md`, a reading of its 3.1.0
+  source; emend has not measured it).
+
+The core depends on `zip` and `quick-xml` and nothing else, and
+measures 456248 section bytes over a static 32-bit binary that
+already links those two (`records/logs/m8p3-p3/gate.log`). It
+streams: a round trip of a 1159829654-byte workbook peaked at
+7872 kB of memory
+(`records/compare-m6p6-2026-10-24-d88f735.md`).
+
+emend has the scope of Python's openpyxl and the same limits: it
+does not evaluate formulas, render, or autofit. See "Out of scope
+by design" below, and "What has been measured" for the comparison.
+
+## Example
+
+```rust
+use emend::{CellRef, Value, package::Package};
+use std::io::{Read, Seek, Write};
+
+fn edit<R, W>(input: R, output: W) -> Result<(), Box<dyn std::error::Error>>
+where
+    R: Read + Seek + 'static,
+    W: Write,
+{
+    let mut book = Package::open(input)?;
+    let sheet = book.workbook()?.sheets.first().ok_or("no sheet")?.part.clone();
+    let cell = CellRef::parse(b"B2").ok_or("not an A1 reference")?;
+    book.set_cell(&sheet, cell, Value::Text("checked".into()));
+    book.write_to(output)?;
+    Ok(())
+}
+```
 
 ## Dependencies and features
 

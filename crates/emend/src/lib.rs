@@ -1,16 +1,14 @@
 //! emend: read-modify-write of Office Open XML spreadsheets.
 //!
-//! emend is a pure-Rust library for read-modify-write of Office Open XML
-//! spreadsheets: open an existing .xlsx, change what you were asked to
-//! change, hand the file back with everything else intact. It parses only
-//! what an edit touches and passes every other zip entry through byte for
-//! byte.
+//! emend edits existing Excel workbooks (.xlsx files) from Rust. Open a
+//! workbook, change the cells, styles or sheets you need, and write it back.
+//! Every zip entry the edit did not touch comes back byte for byte, so the
+//! charts, pivot tables, macros and formatting you never looked at are still
+//! there.
 //!
-//! The comparison point is openpyxl, and the definition is exact: like
-//! openpyxl, emend does not evaluate formulas (it stores formula strings and
-//! reads cached values), does not render, does not autofit, and does not fix
-//! up references on row or column insertion. Those limits are by design and
-//! are not gaps.
+//! emend has the scope of Python's openpyxl and the same limits: it does not
+//! evaluate formulas, render, or autofit. See "Out of scope by design" below,
+//! and "What has been measured" for the comparison.
 //!
 //! The core (open, read, edit, write back) depends on `zip` and `quick-xml`
 //! and nothing else. Everything heavier is a Cargo feature, off by default,
@@ -39,6 +37,39 @@
 //! `usize` is 32 bits on `i686-unknown-linux-musl`, which is the target that
 //! matters for the size budget, and a workbook may hold an entry larger than
 //! that type would like.
+//!
+//! # Example
+//!
+//! ```
+//! use emend::{CellRef, Value, package::Package};
+//! use std::io::{Read, Seek, Write};
+//!
+//! fn edit<R, W>(input: R, output: W) -> Result<(), Box<dyn std::error::Error>>
+//! where
+//!     R: Read + Seek + 'static,
+//!     W: Write,
+//! {
+//!     let mut book = Package::open(input)?;
+//!     let sheet = book.workbook()?.sheets.first().ok_or("no sheet")?.part.clone();
+//!     let cell = CellRef::parse(b"B2").ok_or("not an A1 reference")?;
+//!     book.set_cell(&sheet, cell, Value::Text("checked".into()));
+//!     book.write_to(output)?;
+//!     Ok(())
+//! }
+//! #
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! #     let mut input = Vec::new();
+//! #     Package::new()?.write_to(&mut input)?;
+//! #     let mut output = Vec::new();
+//! #     edit(std::io::Cursor::new(input), &mut output)?;
+//! #     let mut book = Package::open(std::io::Cursor::new(output))?;
+//! #     let sheet = book.workbook()?.sheets.first().ok_or("no sheet")?.part.clone();
+//! #     let cell = book.cells(&sheet)?.next().ok_or("no cell")??;
+//! #     assert_eq!(cell.reference, CellRef { row: 2, col: 2 });
+//! #     assert_eq!(cell.value.as_deref(), Some("checked"));
+//! #     Ok(())
+//! # }
+//! ```
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
