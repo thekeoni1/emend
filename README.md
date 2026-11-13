@@ -20,8 +20,8 @@ The other Rust crates do different jobs:
 
 - `calamine` reads workbooks.
 - `rust_xlsxwriter` writes new workbooks.
-- `umya-spreadsheet` reads a workbook into a model of the whole
-  file and writes the file out again from that model
+- `umya-spreadsheet` reads a workbook into its own model and
+  writes a new file from it
   (`records/decision-architecture.md`, a reading of its 3.1.0
   source; emend has not measured it).
 
