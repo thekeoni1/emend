@@ -31,10 +31,12 @@
   public before with the feature `read` alone, is public with no feature,
   the core's sheet removal reading it (`specs/0048-the-two-refusals.md`,
   "The pivot cache source", and Amendment 1).
-- The README's size sentence cites Milestone 8 part 2's figure, 456264 section
-  bytes, 2488 under the ceiling of 458752
-  (`records/size-m8p2-2026-11-10-8065795.md`); the 0.1.0 entry below cited
-  Milestone 3 part 7's 436992 and stands as released.
+- The README's size sentence cites the budget at the 0.1.1 manifest, 456248
+  section bytes, 2504 under the ceiling of 458752
+  (`records/logs/m8p3-p3/gate.log`); Milestone 8 part 2's size record measured
+  456264 before the version changed (`records/size-m8p2-2026-11-10-8065795.md`);
+  the 0.1.0 entry below cited Milestone 3 part 7's 436992 and stands as
+  released.
 
 ### Measured
 

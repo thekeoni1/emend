@@ -67,7 +67,7 @@ In the copy sample, 784 of the 917 zip entries on the host came back byte for by
 
 Of the 1093 output files the crate's and the copy tool's tests keep, LibreOffice opened 1082; the record's own sections explain the eleven it did not (`records/m3p6-open-2026-10-08-9cfd92e.md`).
 
-Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 456264 section bytes, 2488 under the ceiling of 458752 (`records/size-m8p2-2026-11-10-8065795.md`).
+Size: the core's budget figure, the core probe over a binary that links only `zip` and `quick-xml`, is 456248 section bytes, 2504 under the ceiling of 458752, at the 0.1.1 manifest (`records/logs/m8p3-p3/gate.log`); Milestone 8 part 2's size record measured 456264 before the version changed (`records/size-m8p2-2026-11-10-8065795.md`).
 
 Speed and memory: on generated workbooks up to a 5025024826-byte sheet entry, the streaming samples peaked between 7400 and 8004 kB on every tier they completed, and throughput ran from 2.9 to 4.8 MB/s on the host and from 1.9 to 3.2 MB/s on the static target, the largest tier's figures including the raw-copy samples, whose rewriting samples ran at 1.8 to 3.7 MB/s (`records/scale-m3p1-2026-10-02-6578925.md`). In Milestone 6's rerun of the tiers, emend's roundtrip of the tier c workbook, 1159829654 bytes, took 2.30 s at a peak of 7872 kB on the host and 3.60 s at a peak of 7560 kB on the static target, and of the tier d workbook, 201769244 bytes, 0.40 s on each (`records/compare-m6p6-2026-10-24-d88f735.md`).
 
