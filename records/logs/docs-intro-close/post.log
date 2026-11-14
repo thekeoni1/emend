@@ -1,0 +1,18 @@
+post scan, docs intro close-out
+2026-11-14T00:45:31Z
+$ git ls-remote origin refs/heads/main
+2da5eb94594ae4307766c641e6f35b1b25cb3d69	refs/heads/main
+remote main is 2da5eb9...: yes
+control: remote main is 635aaba...: no
+$ git ls-remote --tags origin | wc -l
+2
+refs/tags/v0.1.0
+refs/tags/v0.1.1
+$ git log --format=%h 635aaba..2da5eb9 | wc -l
+11
+$ scripts/privacy.sh --range 635aaba..2da5eb9
+privacy: 11 commit(s), 3129 blob(s) scanned, 0 finding(s)
+PASS privacy
+privacy exit 0
+$ gh run view 43536026856
+push 2da5eb94594ae4307766c641e6f35b1b25cb3d69 completed success

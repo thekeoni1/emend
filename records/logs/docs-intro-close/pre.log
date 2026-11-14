@@ -1,0 +1,150 @@
+Docs intro close-out pre log
+run started 2026-11-13T23:15:48Z
+attempt 2: attempt 1 (<phase>/superseded/pre-1.log, script close-pre-1.sh) ran its U+2014 grep as a PCRE pattern, which git grep refuses under LC_ALL=C, so its check counted 0 without testing; its control said no. This attempt greps the three bytes as a fixed string.
+script sha256: 1b180dc8b01f77360a2e23495fba68c2e4b7566be75094a54b9835f33250d4ed
+## this script, as run
+    #!/usr/bin/env bash
+    # Docs intro close-out, pre mode (specs/0050 "Close-out"; planning's
+    # close-out brief). Read-only: pushes nothing, changes nothing.
+    # Usage: bash close-pre.sh   (run from anywhere; works in <repo>)
+    set -uo pipefail
+    export LC_ALL=C PYTHONDONTWRITEBYTECODE=1
+    cd "$HOME/emend" || exit 2
+    FAILS=0
+    ok() { echo "  $1: as-expected"; }
+    bad() { echo "  $1: no"; FAILS=$((FAILS + 1)); }
+    check() { local d=$1; shift; if "$@"; then ok "$d"; else bad "$d"; fi; }
+    refuse() { local d=$1; shift; if "$@"; then bad "control: $d"; else ok "control: $d"; fi; }
+    same() { [ "$1" = "$2" ]; }
+    echo "Docs intro close-out pre log"
+    echo "run started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "attempt 2: attempt 1 (<phase>/superseded/pre-1.log, script close-pre-1.sh) ran its U+2014 grep as a PCRE pattern, which git grep refuses under LC_ALL=C, so its check counted 0 without testing; its control said no. This attempt greps the three bytes as a fixed string."
+    echo "script sha256: $(sha256sum <"$0" | cut -d' ' -f1)"
+    echo "## this script, as run"
+    sed 's/^/    /' "$0"
+    echo
+    BASE=$(git rev-parse --verify 635aaba^{commit})
+    HEAD_AT=$(git rev-parse HEAD)
+    echo "## the range"
+    echo "  base (the remote's main at the last push): $BASE"
+    echo "  HEAD: $HEAD_AT"
+    echo "command: git log --reverse --format='%H %P %s' <base>..HEAD"
+    git log --reverse --format='%H %P %s' "$BASE..HEAD" | sed 's/^/  /'
+    n=$(git rev-list --count "$BASE..HEAD")
+    echo "  commits: $n"
+    check "the range is a straight line (every commit has one parent)" same "$(git rev-list --min-parents=2 "$BASE..HEAD" | wc -l)" 0
+    check "the first three are the Milestone 8 commits 5df377c, 031732b, e9dcaac" same "$(git rev-list --reverse --abbrev-commit --abbrev=7 "$BASE..HEAD" | head -n 3 | tr '\n' ' ')" "5df377c 031732b e9dcaac "
+    check "HEAD's subject is this close-out's doc commit" same "$(git log -1 --format=%s HEAD)" "Docs intro close-out: commit planning docs (P1's verification and ruling G)"
+    echo
+    echo "## the remote"
+    echo "command: git ls-remote origin refs/heads/main"
+    rm_main=$(git ls-remote origin refs/heads/main | cut -f1)
+    echo "  origin main: ${rm_main:-none}"
+    check "origin's main is still 635aaba" same "$rm_main" "$BASE"
+    refuse "the same comparison against HEAD" same "$rm_main" "$HEAD_AT"
+    echo "command: git ls-remote --tags origin, count"
+    echo "  tags at origin: $(git ls-remote --tags origin | wc -l)"
+    echo
+    echo "## the messages"
+    msg_ok() { local m; m=$(git log -1 --format=%B "$1"); [ "$(printf '%s' "$m" | grep -c '[^ -~]')" = 0 ] && [ "$(printf '%s\n' "$m" | grep -c -E '^(Co-Authored-By|Claude-Session):')" = 1 ] && [ "$(printf '%s\n' "$m" | tail -n 1)" = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" ]; }
+    for c in $(git rev-list --reverse "$BASE..HEAD"); do
+      check "$(git log -1 --format=%h "$c"): ASCII, ending with the Co-Authored-By line alone" msg_ok "$c"
+    done
+    printf 'x\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: x\n' >"$HOME/.cache/emend-build/docs-intro-close/msg-control.txt"
+    ctl_ok() { local m; m=$(cat "$1"); [ "$(printf '%s\n' "$m" | grep -c -E '^(Co-Authored-By|Claude-Session):')" = 1 ] && [ "$(printf '%s\n' "$m" | tail -n 1)" = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" ]; }
+    refuse "the same test over a message with a Claude-Session line" ctl_ok "$HOME/.cache/emend-build/docs-intro-close/msg-control.txt"
+    echo
+    echo "## U+2014 over the range's tree at HEAD and the gate's hygiene on the committed tree"
+    dash_files() { git grep -c -F $'\xe2\x80\x94' "$1" -- . | wc -l; }
+    d=$(dash_files HEAD)
+    echo "  files holding U+2014 at HEAD: $d"
+    check "no file at HEAD holds U+2014" same "$d" 0
+    echo "  the superseded 25ceb42: $(dash_files 25ceb42) file(s)"
+    refuse "the same form at the superseded 25ceb42 finds one" same "$(dash_files 25ceb42)" 0
+    echo "command: bash scripts/check.sh --only hygiene"
+    bash scripts/check.sh --only hygiene >"$HOME/.cache/emend-build/docs-intro-close/hygiene.out" 2>&1
+    h=$?
+    sed 's/^/    /' "$HOME/.cache/emend-build/docs-intro-close/hygiene.out"
+    check "the gate's hygiene passes at HEAD (exit 0)" same "$h" 0
+    echo
+    echo "## the privacy scan over the range"
+    echo "command: bash scripts/privacy.sh --range <base>..HEAD"
+    bash scripts/privacy.sh --range "$BASE..HEAD" >"$HOME/.cache/emend-build/docs-intro-close/privacy.out" 2>&1
+    pr=$?
+    sed "s#$HOME#<home>#g" "$HOME/.cache/emend-build/docs-intro-close/privacy.out" | sed 's/^/    /'
+    check "the privacy scan passes (exit 0)" same "$pr" 0
+    echo
+    echo "## the tree"
+    st=$(git status --porcelain | wc -l)
+    echo "  status lines: $st"
+    git status --porcelain | sed 's/^/    /'
+    check "the tree is clean" same "$st" 0
+    echo
+    echo "  checks and controls not as expected: $FAILS"
+    echo "run ended $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ "$FAILS" -eq 0 ]; then echo "pre log checks all as expected: yes"; else echo "pre log checks all as expected: no"; fi
+
+## the range
+  base (the remote's main at the last push): 635aabad55bba14f9412a335c92da7b52d2679dc
+  HEAD: 2da5eb94594ae4307766c641e6f35b1b25cb3d69
+command: git log --reverse --format='%H %P %s' <base>..HEAD
+  5df377c0995e2adabb8a449e346f8aeb2a41099b 635aabad55bba14f9412a335c92da7b52d2679dc M8 part 3 close-out record: the push, the CI run and the scan
+  031732b330847a200588e709e3895612051f5908 5df377c0995e2adabb8a449e346f8aeb2a41099b M8 part 3 P4: commit planning docs (the close-out's verification)
+  e9dcaac50e58f07e63767e2c3e6cdd74fd2201cb 031732b330847a200588e709e3895612051f5908 M8 part 3 P4 record: the publication verified
+  40ee6b1b803ae9e9881a7ba74bf1056fa8176226 e9dcaac50e58f07e63767e2c3e6cdd74fd2201cb Docs intro P1: commit planning docs (the spec, M8 part 3 P4's verification)
+  4dfd4f47c5fe4ea69aac818559063c7d1cf63292 40ee6b1b803ae9e9881a7ba74bf1056fa8176226 Docs intro P1: the README's opening and the crate docs' example
+  2f7891a4048e195debebc8d97613d37956d1404c 4dfd4f47c5fe4ea69aac818559063c7d1cf63292 Docs intro P1 change 1: the crate docs keep the openpyxl paragraph's first sentence
+  a46fe52e28e4531a9003c1609a1bfe6ce405f361 2f7891a4048e195debebc8d97613d37956d1404c Docs intro P1 record: the logged run, the check
+  3a90317a7a526215e18bf0ede4a157e452b25218 a46fe52e28e4531a9003c1609a1bfe6ce405f361 Docs intro P1 change 2: commit planning docs (ruling F, P1's verification)
+  4b2a23e60ca16cc32af4ed5ee7d794816807cdf1 3a90317a7a526215e18bf0ede4a157e452b25218 Docs intro P1 change 2: the umya line says what its record supports
+  a2a31d2204c2c185548f1e8b8c4834df3eba3b3a 4b2a23e60ca16cc32af4ed5ee7d794816807cdf1 Docs intro P1 change 2 record: the logged run, the addendum
+  2da5eb94594ae4307766c641e6f35b1b25cb3d69 a2a31d2204c2c185548f1e8b8c4834df3eba3b3a Docs intro close-out: commit planning docs (P1's verification and ruling G)
+  commits: 11
+  the range is a straight line (every commit has one parent): as-expected
+  the first three are the Milestone 8 commits 5df377c, 031732b, e9dcaac: as-expected
+  HEAD's subject is this close-out's doc commit: as-expected
+
+## the remote
+command: git ls-remote origin refs/heads/main
+  origin main: 635aabad55bba14f9412a335c92da7b52d2679dc
+  origin's main is still 635aaba: as-expected
+  control: the same comparison against HEAD: as-expected
+command: git ls-remote --tags origin, count
+  tags at origin: 2
+
+## the messages
+  5df377c: ASCII, ending with the Co-Authored-By line alone: as-expected
+  031732b: ASCII, ending with the Co-Authored-By line alone: as-expected
+  e9dcaac: ASCII, ending with the Co-Authored-By line alone: as-expected
+  40ee6b1: ASCII, ending with the Co-Authored-By line alone: as-expected
+  4dfd4f4: ASCII, ending with the Co-Authored-By line alone: as-expected
+  2f7891a: ASCII, ending with the Co-Authored-By line alone: as-expected
+  a46fe52: ASCII, ending with the Co-Authored-By line alone: as-expected
+  3a90317: ASCII, ending with the Co-Authored-By line alone: as-expected
+  4b2a23e: ASCII, ending with the Co-Authored-By line alone: as-expected
+  a2a31d2: ASCII, ending with the Co-Authored-By line alone: as-expected
+  2da5eb9: ASCII, ending with the Co-Authored-By line alone: as-expected
+  control: the same test over a message with a Claude-Session line: as-expected
+
+## U+2014 over the range's tree at HEAD and the gate's hygiene on the committed tree
+  files holding U+2014 at HEAD: 0
+  no file at HEAD holds U+2014: as-expected
+  the superseded 25ceb42: 1 file(s)
+  control: the same form at the superseded 25ceb42 finds one: as-expected
+command: bash scripts/check.sh --only hygiene
+    PASS hygiene
+  the gate's hygiene passes at HEAD (exit 0): as-expected
+
+## the privacy scan over the range
+command: bash scripts/privacy.sh --range <base>..HEAD
+    privacy: 11 commit(s), 3129 blob(s) scanned, 0 finding(s)
+    PASS privacy
+  the privacy scan passes (exit 0): as-expected
+
+## the tree
+  status lines: 0
+  the tree is clean: as-expected
+
+  checks and controls not as expected: 0
+run ended 2026-11-13T23:17:16Z
+pre log checks all as expected: yes
