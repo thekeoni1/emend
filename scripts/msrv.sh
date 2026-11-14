@@ -49,7 +49,10 @@ if ! rustc "+$F" --version >/dev/null 2>&1; then
   echo "msrv: install it with: rustup toolchain install $F --profile minimal --target $I686 --no-self-update" >&2
   fail "toolchain $F is not installed"
 fi
-if ! rustup target list --installed --toolchain "$F" 2>/dev/null | grep -q -x -F "$I686"; then
+# Read into a variable first: under pipefail, grep -q leaving at its first
+# match could fail a pipeline and report an installed target as missing.
+targets=$(rustup target list --installed --toolchain "$F" 2>/dev/null) || targets=""
+if ! grep -q -x -F "$I686" <<<"$targets"; then
   echo "msrv: the target $I686 is not installed for $F; this script never installs one" >&2
   fail "target $I686 is not installed for $F"
 fi
@@ -63,7 +66,7 @@ executed_tests() {
 }
 
 OUT=$(mktemp -d)
-trap 'rm -rf "${OUT:?}"' EXIT
+trap 'rm -r -- "${OUT:?}"' EXIT
 failed=0
 # The trial's order: on each target, build then test, each with no feature
 # and with every feature.
