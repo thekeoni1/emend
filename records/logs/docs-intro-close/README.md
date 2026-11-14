@@ -36,3 +36,49 @@ after that fix.
   0 findings, exit 0.
 
 This record commit is local and goes with the next push.
+
+## Addendum, 2026-11-14 (planning ruling H)
+
+A code review found three post.log lines and one README name that no
+logged command printed. Ruling H keeps the logs as committed; nothing
+is rerun or edited. The commands below are taken from the implementing
+session's transcript of the close-out.
+
+- (a) post.log's two tag-name lines (refs/tags/v0.1.0 and
+  refs/tags/v0.1.1) were not printed by the `wc -l` command shown above
+  them. The script ran a second command right after it, with no `$`
+  line of its own:
+
+  ```
+  git ls-remote --tags origin | cut -f2
+  ```
+
+- (b) The line after `$ gh run view 43536026856` is not that command's
+  output. The script ran this command under that `$` line:
+
+  ```
+  gh run view 43536026856 --json status,conclusion,headSha,event --jq '"\(.event) \(.headSha) \(.status) \(.conclusion)"'
+  ```
+
+- (c) The job name "check" is in no log. It was read at 00:43Z, after
+  `gh run watch 43536026856` exited 0, with this command, whose output
+  named one job, "check", conclusion success:
+
+  ```
+  gh run view 43536026856 --json status,conclusion,headSha,jobs --jq '{status,conclusion,headSha,jobs:[.jobs[]|{name,conclusion}]}'
+  ```
+
+- (d) Known gaps of close-pre.sh, accepted by ruling H:
+  - Point 1: it writes msg-control.txt into the phase scratch without
+    creating the directory or checking the write, so a failed write
+    would leave the Claude-Session control passing without testing
+    anything.
+  - Point 2: its control drops the ASCII clause of the message check,
+    so the non-ASCII test has no control of its own.
+  - Point 6: it hard-codes the repository and cache paths under the
+    home directory, while its usage line in pre.log says "run from
+    anywhere".
+  - Point 7: its U+2014 test covers the tree at HEAD only, as its
+    heading says ("over the range's tree at HEAD"), not each commit of
+    the range, so a U+2014 added and then removed inside the range
+    would not be seen.
