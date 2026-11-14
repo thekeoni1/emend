@@ -1501,15 +1501,17 @@ recommended options:
   builds and tests the crate is found by trial, declared in the
   crate's manifest and tested by a CI workflow. This moves
   `specs/0029` decision 1, which set the field equal to the pin;
-  the pin stays 1.98.1 for the gate and the tools.
+  the pin stays 1.98.1 for the gate and the tools. Confirmed by
+  the maintainer 2026-11-14 once the earlier decision was named.
 - Decision 3 (the Excel check): A, none for this release. The
   release part proves that 0.1.2 writes the same output bytes as
   0.1.1, which the maintainer checked on 2026-11-12.
 
 | Part | Content | Status |
 | --- | --- | --- |
-| 1 | the minimum Rust version (`specs/0051-msrv.md`): the trial, the manifest field, `scripts/msrv.sh`, the `msrv` workflow, the README's sentence; close-out push | APPROVED 2026-11-14; P1 PLANNED |
-| 2 | release 0.1.2: the version, the CHANGELOG entry, the proof of equal output bytes, the tag, the push, the maintainer's publication from the laptop, the read-back | PLANNED; spec at part 1's close |
+| 1 | the minimum Rust version (`specs/0051-msrv.md`): the trial, the manifest field, `scripts/msrv.sh`, the `msrv` workflow, the README's sentence; close-out push | APPROVED 2026-11-14; P1 DONE 2026-11-14 (record 62902dd, local; the floor 1.89); P2 PLANNED |
+| 2 | launch preparation, docs only (APPROVED 2026-11-14, "i agree with all your recs"): an `examples/` directory of two small programs that the gate compiles; a short CONTRIBUTING file (how to report a bug, what `specs/` and `records/` are); a draft announcement for the maintainer to edit and post. No issue templates | PLANNED; spec at part 1's close |
+| 3 | release 0.1.2, the version the maintainer announces: the version, the CHANGELOG entry, the proof of equal output bytes, the tag, the push, the maintainer's publication from the laptop, the read-back | PLANNED; spec at part 2's close |
 
 ## Unscoped
 

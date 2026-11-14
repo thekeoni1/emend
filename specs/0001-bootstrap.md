@@ -309,8 +309,14 @@ from this needs planning's word before the run (T2 P7 ruling).
   three from the index and refuses a disagreement, with a positive
   control that plants one. A move of the pin is a recorded decision
   in the spec of the part that moves it, never a side effect of a
-  toolchain install; the crate builds on no compiler older than the
-  pin, which is what `rust-version` says.
+  toolchain install; the tools build on no compiler older than the
+  pin, which is what the workspace's `rust-version` says. Since
+  `specs/0051` (2026-11-14) the published crate `crates/emend`
+  declares its own, lower `rust-version`, the floor found by trial.
+  Three places name the floor and agree: that manifest, the `msrv`
+  workflow's install line and the README's sentence. The hygiene
+  step refuses a disagreement, with a control that plants one. A
+  move of the floor is a recorded decision, as a move of the pin is.
 
 ## Planning rulings on P1 (2026-09-14)
 
