@@ -489,6 +489,45 @@ done
 if ! pins "$OUT/pin-rust-toolchain.toml" "$OUT/pin-ci.yml" "$OUT/pin-Cargo.toml" >"$OUT/pins"; then
   fail hygiene "the toolchain pins disagree (rust-toolchain.toml channel, CI workflow, workspace rust-version): $(tr '\t' ' ' <"$OUT/pins")"
 fi
+
+# The crate's minimum Rust, read three times (specs/0051-msrv.md, "The
+# change (P2)", item 4): the rust-version of crates/emend's [package]
+# table, the one version the msrv workflow installs, and the version after
+# "with Rust " in the README. Each is read from the index and the three must
+# be one value.
+# msrv_versions <crate manifest> <workflow file> <readme>: prints the three
+# readings, tab-separated (a reading that is missing or not single prints
+# "-"); returns 0 when they are one value, 1 when not.
+msrv_versions() {
+  local manifest wf readme
+  manifest=$(awk '/^\[/ { inpkg = ($0 == "[package]") }
+    inpkg && /^rust-version = "[^"]*"$/ { n++; v = $3 }
+    END { gsub(/"/, "", v); print (n == 1 ? v : "-") }' "$1")
+  wf=$(awk '{ for (i = 1; i < NF; i++) if ($i == "install" && $(i - 1) == "toolchain") seen[$(i + 1)] = 1 }
+    END { n = 0; for (v in seen) { n++; w = v } print (n == 1 ? w : "-") }' "$2")
+  readme=$(LC_ALL=C /usr/bin/grep -o -E 'with Rust [0-9][0-9.]*[0-9]' "$3" |
+    awk '{ n++; v = $3 } END { print (n == 1 ? v : "-") }')
+  printf '%s\t%s\t%s\n' "$manifest" "$wf" "$readme"
+  [ "$manifest" != - ] && [ "$manifest" = "$wf" ] && [ "$manifest" = "$readme" ]
+}
+# Positive controls: three files that agree, then the same with the README's
+# version moved, which must be refused.
+printf '[package]\nname = "x"\nrust-version = "9.9"\n\n[dependencies]\n' >"$CTL/msrv-manifest"
+printf '      run: |\n          rustup toolchain install 9.9 --profile minimal --no-self-update\n          rustc +9.9 --version\n' >"$CTL/msrv-wf"
+printf 'The crate builds and passes its tests with Rust 9.9 and later\n(`x`).\n' >"$CTL/msrv-readme"
+msrv_versions "$CTL/msrv-manifest" "$CTL/msrv-wf" "$CTL/msrv-readme" >"$CTL/o-msrv" ||
+  fail hygiene "positive control failed: three agreeing minimum Rust versions read as disagreeing ($(tr '\t' ' ' <"$CTL/o-msrv"))"
+sed 's/with Rust 9\.9/with Rust 9.8/' "$CTL/msrv-readme" >"$CTL/msrv-readme-moved"
+if msrv_versions "$CTL/msrv-manifest" "$CTL/msrv-wf" "$CTL/msrv-readme-moved" >"$CTL/o-msrv-moved"; then
+  fail hygiene "positive control failed: a README minimum Rust moved from the manifest's read as agreeing"
+fi
+for f in crates/emend/Cargo.toml .github/workflows/msrv.yml README.md; do
+  git show ":$f" >"$OUT/msrv-$(basename "$f")" 2>>"$OUT/hygiene-err" ||
+    fail hygiene "cannot read $f from the index" "$OUT/hygiene-err"
+done
+if ! msrv_versions "$OUT/msrv-Cargo.toml" "$OUT/msrv-msrv.yml" "$OUT/msrv-README.md" >"$OUT/msrv"; then
+  fail hygiene "the minimum Rust versions disagree (crate rust-version, msrv workflow, README): $(tr '\t' ' ' <"$OUT/msrv")"
+fi
 echo "PASS hygiene"
 fi
 

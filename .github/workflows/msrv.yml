@@ -1,0 +1,32 @@
+# emend MSRV: build and test the crate with the lowest Rust it declares
+# (specs/0051-msrv.md), on every push. The version installed here, the
+# crate manifest's rust-version and the README's sentence are one value; the
+# gate's hygiene step refuses a disagreement. The gate itself runs in ci.yml
+# with the pinned toolchain.
+name: msrv
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+
+jobs:
+  msrv:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the minimum toolchain
+        run: |
+          rustup toolchain install 1.89 --profile minimal --target i686-unknown-linux-musl --no-self-update
+          rustc +1.89 --version
+
+      - name: Build and test with the minimum toolchain
+        run: RUSTUP_AUTO_INSTALL=0 scripts/msrv.sh

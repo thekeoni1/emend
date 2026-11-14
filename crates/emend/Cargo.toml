@@ -3,7 +3,10 @@ name = "emend"
 version = "0.1.1"
 edition.workspace = true
 license.workspace = true
-rust-version.workspace = true
+# The lowest Rust this crate builds and passes its tests with, found by
+# trial (specs/0051-msrv.md, records/logs/m9p1-p1/README.md). The
+# workspace's rust-version stays the pin for the gate and the tools.
+rust-version = "1.89"
 description = "Read-modify-write of Office Open XML spreadsheets: open an existing .xlsx, change what you were asked to change, and hand the file back with everything else intact."
 readme = "../../README.md"
 repository = "https://github.com/thekeoni1/emend"

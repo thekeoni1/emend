@@ -64,6 +64,10 @@ with no dependency of its own. Each feature below is named with the spec
 that added it and with its size cost, in section bytes over the core
 probe it is measured against, from the size record.
 
+The crate builds and passes its tests with Rust 1.89 and later
+(`records/logs/m9p1-p1/README.md`). The repository's own gate
+and tools use the pinned 1.98.1.
+
 - `dates`, the date arithmetic of `specs/0012-styles.md`: 4840 over the styles probe (`records/size-m6p6-2026-10-24-7ac8b74.md`).
 - `rowcol`, the row and column insertions and deletions of `specs/0018-rows-and-columns.md`: 76872 (`records/size-m8p2-2026-11-10-8065795.md`).
 - `metadata`, the defined names, hyperlinks, document properties and protection of `specs/0019-names-links-properties-protection.md`: 49748 (`records/size-m6p6-2026-10-24-7ac8b74.md`).
