@@ -1468,10 +1468,10 @@ The close-out carries part 2's record f44debd.
 | P1 | the eight reruns over the 39, compared per id with part 2 P4's records; the keep and its open record; the list, the stage and the zip; one independent check | DONE 2026-11-11 (record c15561b; 8 records changed 0; open 2280/2268/2269; 3 FINDING lines, a renamed test, ruling B; stage 4850 files) |
 | P2 | after the maintainer's check: the record `records/excel-check-m8-<utc-date>.md`; the acceptance on the six changed rows; one independent check | DONE 2026-11-12 (doc 69a3227, record f8bd007, local; the maintainer's check ran 2026-11-12; `records/excel-check-m8-2026-11-12.md`, 4848 rows, the six changed rows `pass`, corpus 311 pass and 1 repair by hand (the documented limit of the removed sheet's references), fixture pairs 1883, 339, 22 and 24, no finding; decision 2 A met; the record byte-equal to planning's and to the implementing session's own assembly; the scan PASS; one check, its question 2 ruled (I); verified by planning from primaries; `specs/0049` rulings G to I and "verification of P2") |
 | P3 | the manifest's version 0.1.1 and the packaging dry run; the CHANGELOG's 0.1.1 heading; the README's size sentence at 456264 and its Excel sentence; the namespace limit's two sentences (ruling F); one independent check | DONE 2026-11-12 (doc 43b8851, version be6cdb1, texts 41203c5 and 7ea64ba, record dcb312e, local; FINDING: with the version line alone changed the format probe reads 989464 and the budget 456248, 16 section bytes under part 2's record, the cause not measured (ruling K): the size texts cite 456248, 2504 under the ceiling of 458752, from `records/logs/m8p3-p3/gate.log`, and name part 2's 456264; the packaging dry run 75 files, no token variable set; the texts' 29 and 5 digit sentences all cited; the scan PASS; one check, yes to all three; verified by planning from primaries; `specs/0049` rulings J to M and "Planning verification of P3") |
-| Close | close-out push after P3, carrying f44debd, base 9f862ca by its subject, `PREV` `^M8 part 2 close-out record`, three Excel-record checks, the lightweight tag `v0.1.1` pushed with the branch, the whole-history scan at the tag, the range scan, one independent check | DONE and PUSHED 2026-11-13 (635aaba, tag `v0.1.1`; CI run 43456769114 success; record 5df377c local) |
-| P4 | after the maintainer's publication: the crate file and the index checksum read back, every packaged file compared with the tag's tree | DONE 2026-11-13 (0.1.1 published by the maintainer; record e9dcaac local; 76 entries, 73 equal to the tag, 0 differing) |
+| Close | close-out push after P3, carrying f44debd, base 9f862ca by its subject, `PREV` `^M8 part 2 close-out record`, three Excel-record checks, the lightweight tag `v0.1.1` pushed with the branch, the whole-history scan at the tag, the range scan, one independent check | DONE and PUSHED 2026-11-13 (635aaba, tag `v0.1.1`; CI run 43456769114 success; record 5df377c, pushed 2026-11-14 UTC at 2da5eb9) |
+| P4 | after the maintainer's publication: the crate file and the index checksum read back, every packaged file compared with the tag's tree | DONE 2026-11-13 (0.1.1 published by the maintainer; record e9dcaac, pushed 2026-11-14 UTC at 2da5eb9; 76 entries, 73 equal to the tag, 0 differing) |
 
-## Docs: the newcomer's intro (`specs/0050-newcomer-intro.md`, APPROVED 2026-11-13)
+## Docs: the newcomer's intro (`specs/0050-newcomer-intro.md`, DONE and PUSHED 2026-11-14 UTC)
 
 The maintainer's request of 2026-11-13: a reader who does not know
 emend should learn from the README's opening what it is and why to
@@ -1482,7 +1482,34 @@ example, nothing published.
 | Phase | Content | Status |
 | --- | --- | --- |
 | P1 | the README's opening and the crate doc comment's, with the example as a doc test; the gate; the record | DONE 2026-11-13 (records a46fe52, a2a31d2; change 1 the crate docs' openpyxl sentence, change 2 the umya line, ruling G a log's U+2014) |
-| Close | close-out push, carrying Milestone 8's three local commits; no tag | PLANNED |
+| Close | close-out push, carrying Milestone 8's three local commits; no tag | DONE and PUSHED 2026-11-14 UTC (2da5eb9, CI run 43536026856; record 636203f local, goes with the next push) |
+
+## Milestone 9: 0.1.2 (APPROVED 2026-11-14)
+
+Theme chosen by the maintainer 2026-11-14 from planning's
+recommendation ("great, lets go"): a small release that puts the
+newcomer's intro on the registry's page, with the minimum Rust
+version found and tested. No core code changes. Decisions taken
+2026-11-14 by the maintainer's "i recommend all a's" on planning's
+recommended options:
+
+- Decision 1 (the namespace declaration left after a removal): A,
+  it stays the documented limit of `specs/0049` ruling F. The
+  milestone adds no core code, so the ceiling of 458752 is not
+  reopened; the budget figure stays 456248.
+- Decision 2 (the minimum Rust version): A, the oldest Rust that
+  builds and tests the crate is found by trial, declared in the
+  crate's manifest and tested by a CI workflow. This moves
+  `specs/0029` decision 1, which set the field equal to the pin;
+  the pin stays 1.98.1 for the gate and the tools.
+- Decision 3 (the Excel check): A, none for this release. The
+  release part proves that 0.1.2 writes the same output bytes as
+  0.1.1, which the maintainer checked on 2026-11-12.
+
+| Part | Content | Status |
+| --- | --- | --- |
+| 1 | the minimum Rust version (`specs/0051-msrv.md`): the trial, the manifest field, `scripts/msrv.sh`, the `msrv` workflow, the README's sentence; close-out push | APPROVED 2026-11-14; P1 PLANNED |
+| 2 | release 0.1.2: the version, the CHANGELOG entry, the proof of equal output bytes, the tag, the push, the maintainer's publication from the laptop, the read-back | PLANNED; spec at part 1's close |
 
 ## Unscoped
 
@@ -1544,7 +1571,9 @@ approval.
   - Content findings in archive or compound-file blobs at ordinary paths
     print the path (T2 P0 finding 2).
   - Both fit the gate self-test script task.
-- MSRV policy (Milestone 3 part 7).
+- MSRV policy (Milestone 3 part 7; the pin as the field, DONE there).
+  The oldest compiler found by trial: scoped into Milestone 9 part 1
+  (2026-11-14).
 - The publish step (Milestone 4 part 2, decision 1 held 2026-10-10;
   scoped into Milestone 7 part 2, 2026-10-25):
   an `include` list in the crate manifest so a package built outside

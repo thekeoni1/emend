@@ -137,8 +137,8 @@ One phase and a close-out, by the standing per-phase workflow.
 
 | Phase | Content | Status |
 | --- | --- | --- |
-| P1 | doc commit (this spec, `specs/0049`, `ROADMAP.md`); one code commit (README, `lib.rs`); the driver's checks above; the gate; logs under `records/logs/docs-intro-p1/`; README of the record; one independent check; one record commit | DONE 2026-11-13 (records a46fe52 and a2a31d2, local) |
-| Close | close-out push carrying 5df377c, 031732b, e9dcaac and P1's commits; no tag; CI; the post scan; the record | PLANNED |
+| P1 | doc commit (this spec, `specs/0049`, `ROADMAP.md`); one code commit (README, `lib.rs`); the driver's checks above; the gate; logs under `records/logs/docs-intro-p1/`; README of the record; one independent check; one record commit | DONE 2026-11-13 (records a46fe52 and a2a31d2, pushed 2026-11-14 UTC at 2da5eb9) |
+| Close | close-out push carrying 5df377c, 031732b, e9dcaac and P1's commits; no tag; CI; the post scan; the record | DONE and PUSHED 2026-11-14 UTC (2da5eb9; record 636203f, local) |
 
 The stop report before the logged run carries the full diff of
 the two files, so planning reads the example before it is logged.
@@ -223,3 +223,57 @@ A doc commit of this spec and `ROADMAP.md`; the pre scan over
 the gate's hygiene at HEAD; the pre report; planning's word; the
 maintainer's authorisation typed in the implementing session; one
 push of main, no tag; CI; the post scan; the record, local.
+
+## Planning verification of the close-out (2026-11-14 UTC)
+
+Written after the push, so the tree stayed clean through it.
+Planning's word followed the pre report: 11 commits in
+635aaba..2da5eb9, the pre log's last line "pre log checks all as
+expected: yes", the pre scan 0 findings. The first pre attempt
+ended "no" (a `grep -P` for the code point fails under
+`LC_ALL=C`; the control caught it) and is disclosed in the record.
+The maintainer typed "push main no tag" in the implementing
+session.
+
+Verified from primaries: the remote's main is 2da5eb9; its tags
+are v0.1.0 and v0.1.1 alone; CI run 43536026856 (push, head
+2da5eb9) completed with success; `post.log` prints "privacy: 11
+commit(s), 3129 blob(s) scanned, 0 finding(s)"; record commit
+636203f on 2da5eb9 adds four files under
+`records/logs/docs-intro-close/` whose three logs have the sha256
+its message names; no U+2014 and no non-ASCII byte in them; the
+message ends with the Co-Authored-By line only; the tree clean.
+ACCEPTED. The task is DONE. 636203f and this section go with the
+next push.
+
+## Planning ruling H: the close-out record's review (2026-11-14)
+
+A code review run in the implementing session at 636203f raised
+nine points. Planning read each in the primaries; all nine hold.
+
+Points 3 to 5, the record's quoted strings. In `post.log` the two
+tag names follow a `wc -l` command that prints a count alone, and
+the line after `$ gh run view 43536026856` is a summary that
+command does not print. The record's README names the job
+"check", which no log holds. The facts stand on planning's own
+reads of the remote: `git ls-remote` gave main at 2da5eb9 and the
+tags v0.1.0 and v0.1.1 alone; `gh run view` with `--json` gave
+push, the head 2da5eb9, completed, success, and one job named
+check with the conclusion success. No rerun: the logs stay as
+committed. One commit adds an addendum to the record's README
+that names the three lines and the command that produced each.
+
+Points 1, 2, 6 and 7, the pre script. Its Claude-Session control
+writes its fixture unchecked; the non-ASCII test of the messages
+has no control; the header says "run from anywhere" over fixed
+paths; the U+2014 test reads the tree at HEAD alone under a
+heading that says the range. Accepted as recorded: planning read
+the eleven messages' trailers and searched HEAD for the character
+itself before its word. The next close-out's script fixes all
+four, and every `$` line in a log is followed by that command's
+own output.
+
+Points 8 and 9, planning's uncommitted edits. P1's row above said
+its records were local, and two Milestone 8 rows of `ROADMAP.md`
+said the same of 5df377c and e9dcaac. All four went out in the
+push; the rows now say so.
