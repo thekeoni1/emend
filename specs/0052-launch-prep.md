@@ -135,5 +135,71 @@ By the standing per-phase workflow.
 
 | Phase | Content | Status |
 | --- | --- | --- |
-| P1 | doc commit (this spec, `specs/0051`, `ROADMAP.md`); one code commit; the gate; `scripts/msrv.sh`; the example runs; logs under `records/logs/m9p2-p1/`; one independent check; one record commit | PLANNED |
+| P1 | doc commit (this spec, `specs/0051`, `ROADMAP.md`); one code commit; the gate; `scripts/msrv.sh`; the example runs; logs under `records/logs/m9p2-p1/`; one independent check; one record commit | DONE 2026-11-23 (doc e37b276, code 3adfeb1, record b4f38ea, local) |
 | Close | close-out push carrying a031c83 and this part's commits; no tag; both workflows; the post scan; the record | PLANNED |
+
+## Planning ruling A at P1's stop report (2026-11-23)
+
+Planning read both commits and the first dry run's log. The code
+commit was accepted as it stood.
+
+- (a) Planning's brief said the gate needs the root mount's
+  propagation shared. It does not: the first dry run passed the
+  nine steps with it private. The driver's check became a note
+  that prints the reading.
+- (b) The broken-example control also requires the failing output
+  to name the planted line, `edit_cell.rs:29`, by an exact match.
+- (c) The sentence "Every other part of the input is copied
+  unchanged" in `edit_cell.rs` stays. It states the design the
+  README states, and this phase's record backs it for the
+  fixture.
+- (d) `set_cell` with a text writes an inline string, so the
+  shared strings entry does not change. The acceptance allows
+  either entry.
+
+## Planning verification of P1's logged run (2026-11-23)
+
+Read from primaries. The log is 4451 lines, sha256
+ca87c4a20337cc28b2771f54cbc86dc6bb7049cc5e9cf2c44eadc975a24d9b3c,
+run once on 3adfeb1 with the driver whose sha256 it prints: 71
+lines as expected, 0 not as expected, 0 FINDING lines, exit
+status 0. Nine gate PASS lines; the broken clone fails the host
+step at `edit_cell.rs:29:12`; "PASS msrv 1.89"; `edit_cell` over
+the fixture leaves 8 of 9 entries byte-identical on both targets,
+the first sheet alone differing; the budget figure is 456248.
+
+The code commit names four files, 110 lines added, none removed,
+no manifest and no file under `crates/emend/src`. The record is
+commit b4f38ea (parent 3adfeb1), local: the log and a README,
+whose sha256 values planning recomputed. Both messages are ASCII
+and end with the Co-Authored-By line only. No U+2014 and no home
+path. The remote is unchanged at 87b4745. ACCEPTED. P1 is DONE
+2026-11-23.
+
+The independent check found no departure. Its notes, disposed of:
+
+- The record's README says each control reads a planted fixture;
+  the two tool-guard controls and one empty-file control do not.
+  Accepted as a loose sentence; the log is the primary.
+- Some `$` lines print a command without its quoting. Accepted:
+  the output under each is that command's own.
+- Two checks would pass on an empty input ("no PASS host line",
+  "no office extension in the examples"). Accepted: each stands
+  beside a check that fails in that case. The rule of `specs/0051`
+  ruling L covers controls.
+- `CONTRIBUTING.md` carries a title and "at the user's option".
+  Accepted.
+
+## Close-out
+
+A doc commit of this spec and `ROADMAP.md`; a close script with a
+pre mode over 87b4745..HEAD and a post mode, built from part 1's
+final script, with these changes: the range and its commit list,
+the tool guard requiring a count of tools above zero, and every
+control of the pre mode failing on an empty or missing input
+(the three kinds part 1's record lists). The pre mode runs the
+gate's hygiene step and the privacy scan over the range. Then the
+pre report; planning's word; the maintainer's authorisation typed
+in the implementing session; one push of main, no tag; the `ci`
+and `msrv` runs of the pushed head read by `gh run view` with
+`--json`; the post scan; the record, local.
