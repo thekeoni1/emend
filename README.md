@@ -56,6 +56,10 @@ where
 }
 ```
 
+The same edit as a program, with a second one that starts a new
+workbook, is in `crates/emend/examples/`; run it with
+`cargo run -p emend --example edit_cell -- <input> <output>`.
+
 ## Dependencies and features
 
 The core (open, read, edit, write back) depends on `zip` and `quick-xml`
@@ -149,6 +153,8 @@ and the `cellXfs` entries that name them (`specs/0012-styles.md`;
 undo a namespace declaration, or an emptied relationships part, that an
 earlier addition wrote; the result is valid
 (`specs/0049-excel-check-and-release.md`, ruling F).
+
+To report a bug or propose a change, see `CONTRIBUTING.md`.
 
 ## Licence
 
