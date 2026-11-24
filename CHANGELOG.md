@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.2 (unreleased)
+
+### Added
+
+- Two example programs under `crates/emend/examples/`, `edit_cell` and
+  `new_workbook`, and `CONTRIBUTING.md`. Both are in the repository and
+  outside the package (`specs/0052-launch-prep.md`).
+
+### Changed
+
+- The crate declares Rust 1.89, the lowest version it builds and passes its
+  tests with, where 0.1.1 declared 1.98.1 (`specs/0051-msrv.md`,
+  `records/logs/m9p1-p1/README.md`).
+- The README opens with what the crate is for and when to use it
+  (`specs/0050-newcomer-intro.md`).
+- The README's size sentence cites the budget at the 0.1.2 manifest, 456264
+  section bytes, 2488 under the ceiling of 458752, 16 more than at the 0.1.1
+  manifest with the library's code unchanged
+  (`records/logs/m9p3-p1/gate.log`).
+
+### Measured
+
+- The library's code is unchanged from 0.1.1, and the outputs its tests keep
+  with all features are byte-identical to 0.1.1's: 4254 files on the host and
+  4254 on `i686-unknown-linux-musl` (`records/logs/m9p3-p1/run.log`).
+
 ## 0.1.1 (2026-11-13)
 
 ### Added
