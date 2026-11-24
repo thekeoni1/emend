@@ -135,8 +135,8 @@ By the standing per-phase workflow.
 
 | Phase | Content | Status |
 | --- | --- | --- |
-| P1 | doc commit (this spec, `specs/0051`, `ROADMAP.md`); one code commit; the gate; `scripts/msrv.sh`; the example runs; logs under `records/logs/m9p2-p1/`; one independent check; one record commit | DONE 2026-11-23 (doc e37b276, code 3adfeb1, record b4f38ea, local) |
-| Close | close-out push carrying a031c83 and this part's commits; no tag; both workflows; the post scan; the record | PLANNED |
+| P1 | doc commit (this spec, `specs/0051`, `ROADMAP.md`); one code commit; the gate; `scripts/msrv.sh`; the example runs; logs under `records/logs/m9p2-p1/`; one independent check; one record commit | DONE 2026-11-23 (doc e37b276, code 3adfeb1, record b4f38ea, pushed 2026-11-23) |
+| Close | close-out push carrying a031c83 and this part's commits; no tag; both workflows; the post scan; the record | DONE and PUSHED 2026-11-23 (7cf1b10; record ce847c5, local) |
 
 ## Planning ruling A at P1's stop report (2026-11-23)
 
@@ -203,3 +203,44 @@ pre report; planning's word; the maintainer's authorisation typed
 in the implementing session; one push of main, no tag; the `ci`
 and `msrv` runs of the pushed head read by `gh run view` with
 `--json`; the post scan; the record, local.
+
+## Planning verification of the close-out (2026-11-23)
+
+Planning read the close script's 206-line diff from part 1's and
+checked with its own `command -v` that every tool of both modes
+exists, before giving its word on the pre log (549 lines, sha256
+a905e05f82e65041ab168e85f9af14568a999f740cff6d7af7713dcf8fb345d3,
+57 lines as expected, 0 not).
+
+The push went out once on 2026-11-23, main 87b4745..7cf1b10, five
+commits, no tag, on the maintainer's authorisation typed in the
+implementing session. Read from primaries after it: the remote's
+main is 7cf1b10 and its tags are v0.1.0 and v0.1.1 alone.
+Planning's own `gh run view` of runs 45303751433 (`ci`) and
+45303751470 (`msrv`) reads event push, the pushed head, completed,
+success, one job each completed with success. The post log is 486
+lines, sha256
+8910c0124e01af09997ca6e435e7ef746ea8759ae79c96df9304fdd903934791:
+51 lines as expected, 0 not, 0 FINDING lines, exit status 0,
+privacy 5 commits, 3146 blobs, 0 findings.
+
+The record is commit ce847c5 (parent 7cf1b10), local: four files
+under `records/logs/m9p2-close/`, sha256 values recomputed by
+planning. The message is ASCII and ends with the Co-Authored-By
+line only. No U+2014 and no home path. The tree is clean.
+ACCEPTED. Part 2 is DONE and PUSHED 2026-11-23 at 7cf1b10; the
+record goes with the next push.
+
+The independent check found no departure. Its notes, disposed of:
+
+- The status control shows the planted line reads 14 bytes and a
+  missing file reads "missing", without showing the check refuse
+  it. Accepted: the check compares with 0.
+- Header comments of the script still cite part 1's ruling, and
+  three trailing spaces went. Accepted.
+- The maintainer's typed words, the push's own output and the
+  wait loop are in no log. Accepted as in part 1: the push's
+  result is in the post log.
+
+The announcement draft is written and with the maintainer,
+outside the repository.
