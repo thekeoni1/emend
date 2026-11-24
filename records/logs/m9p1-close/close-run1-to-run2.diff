@@ -1,0 +1,210 @@
+--- scripts/close-run1.sh	2026-11-14 10:41:37.232953441 -0800
++++ scripts/close.sh	2026-11-23 15:58:15.661028383 -0800
+@@ -5,11 +5,18 @@
+ # only under <phase>.
+ #
+ # Usage: bash <phase>/scripts/close.sh pre
+-#        bash <phase>/scripts/close.sh post <pushed head>
++#        bash <phase>/scripts/close.sh post <pushed head> [<run dir name>]
+ #
+ # Where it runs: from any current directory. It changes to <repo>
+-# (<home>/emend) itself and writes its log to <phase>/<mode>/<mode>.log;
+-# <phase>/<mode> must not exist (each mode runs once).
++# (<home>/emend) itself and writes its log to <phase>/<dir>/<mode>.log,
++# where <dir> is the mode's name or, for post, the run directory name
++# given (post, post2, ...; planning's ruling L names post2 for the second
++# post run). <phase>/<dir> must not exist (each directory is written once).
++#
++# Before it creates <phase>/<dir> it checks with command -v that every
++# external tool the mode calls exists, and refuses to start if one is
++# missing (ruling L 2). JSON is read by python3 -I -B from the saved files;
++# a reader that exits non-zero is a check not as expected (ruling L 1, 3).
+ #
+ # This script carries the four fixes specs/0050 ruling H names:
+ #   a. each control checks its fixture was written before testing it;
+@@ -27,17 +34,37 @@
+ set -uo pipefail
+ export LC_ALL=C PYTHONDONTWRITEBYTECODE=1 GH_PAGER= GIT_PAGER=cat
+ 
++USAGE="usage: close.sh pre | close.sh post <pushed head> [<run dir name>]"
+ MODE=${1:-}
+ ARG=${2:-}
++ARG3=${3:-}
++DIR=$MODE
+ case "$MODE" in
+-  pre) [ "$#" -eq 1 ] || { echo "usage: close.sh pre | close.sh post <pushed head>" >&2; exit 2; } ;;
+-  post) [ "$#" -eq 2 ] || { echo "usage: close.sh pre | close.sh post <pushed head>" >&2; exit 2; } ;;
+-  *) echo "usage: close.sh pre | close.sh post <pushed head>" >&2; exit 2 ;;
++  pre) [ "$#" -eq 1 ] || { echo "$USAGE" >&2; exit 2; } ;;
++  post)
++    { [ "$#" -eq 2 ] || [ "$#" -eq 3 ]; } || { echo "$USAGE" >&2; exit 2; }
++    DIR=${3:-post}
++    [[ "$DIR" =~ ^post[0-9]*$ ]] || { echo "the run dir name must be post or post<n>" >&2; exit 2; } ;;
++  *) echo "$USAGE" >&2; exit 2 ;;
+ esac
++# The external tools each mode calls (bash builtins aside).
++TOOLS_COMMON="git sha256sum readlink mkdir cat cut sed sort tr wc grep tail head xargs date cmp basename"
++TOOLS_PRE="$TOOLS_COMMON cp"
++TOOLS_POST="$TOOLS_COMMON gh python3"
++# tools_missing <tool...>: prints each name command -v does not find; exit 0
++# only when none is missing.
++tools_missing() {
++  local t miss=0
++  for t in "$@"; do command -v "$t" >/dev/null 2>&1 || { echo "$t"; miss=1; }; done
++  return "$miss"
++}
++if [ "$MODE" = pre ]; then TOOLS=$TOOLS_PRE; else TOOLS=$TOOLS_POST; fi
++# shellcheck disable=SC2086
++MISSING=$(tools_missing $TOOLS) || { echo "missing tool(s), not starting: $(echo $MISSING)" >&2; exit 2; }
+ readonly REPO=$HOME/emend
+ readonly PHASE=$HOME/.cache/emend-build/m9p1-close
+-readonly RUN=$PHASE/$MODE
+-[ ! -e "$RUN" ] || { echo "<phase>/$MODE exists; each mode runs once" >&2; exit 2; }
++readonly RUN=$PHASE/$DIR
++[ ! -e "$RUN" ] || { echo "<phase>/$DIR exists; each run directory is written once" >&2; exit 2; }
+ mkdir -p "$RUN" || exit 2
+ SELF=$(readlink -f "$0")
+ cd "$REPO" || exit 2
+@@ -69,6 +96,44 @@
+ }
+ SHOW=""
+ 
++# The JSON reader (ruling L 1): python3 -I -B over a saved file, never jq.
++# jread <selector> <file>: sets JV to what it prints and checks it exited 0;
++# its stderr is not thrown away (it goes to the log).
++JSONPY='import json, sys
++sel, path = sys.argv[1], sys.argv[2]
++with open(path, encoding="utf-8") as f:
++    d = json.load(f)
++def bad(j):
++    return j["status"] != "completed" or j["conclusion"] != "success"
++if sel == "len":
++    print(len(d))
++elif sel == "id":
++    if len(d) != 1:
++        sys.exit("expected one run, found %d" % len(d))
++    print(d[0]["databaseId"])
++elif sel == "fields":
++    print(" ".join(str(d[k]) for k in ("name", "event", "headSha", "status")))
++elif sel == "conclusion":
++    print(d["conclusion"])
++elif sel == "njobs":
++    print(len(d["jobs"]))
++elif sel == "jobs":
++    print("; ".join("%s: %s %s" % (j["name"], j["status"], j["conclusion"]) for j in d["jobs"]))
++elif sel == "badjobs":
++    print(sum(1 for j in d["jobs"] if bad(j)))
++else:
++    sys.exit("unknown selector " + sel)'
++jread() {
++  local sel=$1 f=$2 rc
++  JV=$(python3 -I -B -c "$JSONPY" "$sel" "$f")
++  rc=$?
++  check "the reader $sel over $(basename "$f") exits 0" same "$rc" 0
++}
++
++# tag_names <file>: the ref names of a git ls-remote --tags output, peeled
++# suffix removed, sorted, each followed by one space.
++tag_names() { cut -f2 "$1" | sed 's/\^{}$//' | sort -u | tr '\n' ' '; }
++
+ # The message tests, each over a file holding one commit message.
+ # nonascii_bytes <file>: the count of bytes outside printable ASCII, tab and
+ # newline (tr, not grep -P).
+@@ -95,11 +160,14 @@
+ header() {
+   note "M9 part 1 close-out, $MODE log (specs/0051-msrv.md, Close-out)"
+   note "run started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+-  note "root: <run> stands for <phase>/$MODE, this mode's directory"
++  note "root: <run> stands for <phase>/$DIR, this run's directory"
+   note "root: <phase> stands for <home>/.cache/emend-build/m9p1-close, the phase's directory"
+   note "root: <repo> stands for <home>/emend, the repository; the script changes to it itself"
+   note "root: <home> stands for the home directory of the account the run ran under"
+-  note "invocation: bash <phase>/scripts/close.sh $MODE${ARG:+ $ARG}"
++  note "invocation: bash <phase>/scripts/close.sh $MODE${ARG:+ $ARG}${ARG3:+ $ARG3}"
++  note "run directory: <phase>/$DIR"
++  # shellcheck disable=SC2086
++  note "tool guard: command -v found every tool this mode calls: $TOOLS"
+   note "script sha256: $(sha256sum <"$SELF" | cut -d' ' -f1)"
+   note "this script, as run:"
+   sed 's/^/#     /' "$SELF"
+@@ -112,17 +180,22 @@
+ 
+ # remote_check <expected main>
+ remote_check() {
++  local want=$1
+   note "## the remote"
+   run "$RUN/rmain" git ls-remote origin refs/heads/main
+   local m
+   m=$(cut -f1 "$RUN/rmain")
+   check "origin's main is $1" same "$m" "$1"
+-  accept "the same comparison refuses an all-zero id" not same "$m" 0000000000000000000000000000000000000000
++  fixture "$RUN/ctl-rmain" '0000000000000000000000000000000000000000\trefs/heads/main\n'
++  accept "the same reading of a planted all-zero main gives exactly the zero id, and the check refuses it" \
++    eval 'same "$(cut -f1 "$RUN/ctl-rmain")" 0000000000000000000000000000000000000000 && not same "$(cut -f1 "$RUN/ctl-rmain")" "$want"'
+   run "$RUN/rtags" git ls-remote --tags origin
+   local names
+-  names=$(cut -f2 "$RUN/rtags" | sed 's/\^{}$//' | sort -u | tr '\n' ' ')
++  names=$(tag_names "$RUN/rtags")
+   check "the remote's tags are v0.1.0 and v0.1.1 alone" same "$names" "refs/tags/v0.1.0 refs/tags/v0.1.1 "
+-  accept "the same comparison refuses the list with a third tag added" not same "${names}refs/tags/v0.1.2 " "refs/tags/v0.1.0 refs/tags/v0.1.1 "
++  fixture "$RUN/ctl-rtags" 'a\trefs/tags/v0.1.0\nb\trefs/tags/v0.1.1\nc\trefs/tags/v0.1.2\nc\trefs/tags/v0.1.2^{}\n'
++  accept "the same reading of a planted list with a third tag gives exactly the three names, and the check refuses it" \
++    eval 'same "$(tag_names "$RUN/ctl-rtags")" "refs/tags/v0.1.0 refs/tags/v0.1.1 refs/tags/v0.1.2 " && not same "$(tag_names "$RUN/ctl-rtags")" "refs/tags/v0.1.0 refs/tags/v0.1.1 "' 
+ }
+ 
+ # range_check <tip>: the list, the count, the straight line.
+@@ -212,17 +285,23 @@
+   SHOW="gh run list --commit $head --workflow $name --json databaseId,name,event,headSha,status,conclusion"
+   run "$RUN/list-$name" gh run list --commit "$head" --workflow "$name" --json databaseId,name,event,headSha,status,conclusion
+   check "gh run list for $name exits 0" same "$RC" 0
+-  check "it lists one run" same "$(jq length "$RUN/list-$name" 2>/dev/null)" 1
+-  id=$(jq -r '.[0].databaseId // empty' "$RUN/list-$name" 2>/dev/null)
++  jread len "$RUN/list-$name"
++  check "it lists one run" same "$JV" 1
++  jread id "$RUN/list-$name"
++  id=$JV
+   [ -n "$id" ] || { bad "a $name run id was read"; return; }
+   run "$RUN/view-$name" gh run view "$id" --json name,event,headSha,status,conclusion,jobs
+   check "gh run view $id exits 0" same "$RC" 0
+-  check "$name run $id: name $name, event push, headSha the pushed head, status completed" same "$(jq -r '[.name, .event, .headSha, .status] | join(" ")' "$RUN/view-$name")" "$name push $head completed"
+-  local concl
+-  concl=$(jq -r '.conclusion' "$RUN/view-$name")
+-  if [ "$concl" = success ]; then ok "$name run $id: conclusion success"; else finding "$name run $id: conclusion $concl, not success; STOP, no rerun"; fi
+-  note "$name run $id jobs (name: status conclusion): $(jq -r '[.jobs[] | "\(.name): \(.status) \(.conclusion)"] | join("; ")' "$RUN/view-$name")"
+-  check "$name run $id: every job completed with success" same "$(jq -r '[.jobs[] | select(.status != "completed" or .conclusion != "success")] | length' "$RUN/view-$name")" 0
++  jread fields "$RUN/view-$name"
++  check "$name run $id: name $name, event push, headSha the pushed head, status completed" same "$JV" "$name push $head completed"
++  jread conclusion "$RUN/view-$name"
++  if [ "$JV" = success ]; then ok "$name run $id: conclusion success"; else finding "$name run $id: conclusion '$JV', not success; STOP, no rerun"; fi
++  jread jobs "$RUN/view-$name"
++  note "$name run $id jobs (name: status conclusion): $JV"
++  jread njobs "$RUN/view-$name"
++  check "$name run $id: it has at least one job" eval '[[ "$JV" =~ ^[1-9][0-9]*$ ]]' 
++  jread badjobs "$RUN/view-$name"
++  check "$name run $id: every job completed with success (count of others exactly 0)" same "$JV" 0
+ }
+ 
+ post() {
+@@ -238,8 +317,20 @@
+   gh_run_check ci "$head"
+   gh_run_check msrv "$head"
+   fixture "$RUN/ctl-view.json" '{"conclusion":"failure","event":"push","headSha":"%s","jobs":[{"conclusion":"failure","name":"x","status":"completed"}],"name":"ci","status":"completed"}\n' "$head"
+-  accept "the conclusion test refuses a planted failure" not same "$(jq -r '.conclusion' "$RUN/ctl-view.json")" success
+-  accept "the job test refuses the same fixture's failed job" not same "$(jq -r '[.jobs[] | select(.status != "completed" or .conclusion != "success")] | length' "$RUN/ctl-view.json")" 0
++  jread conclusion "$RUN/ctl-view.json"
++  accept "the conclusion reader reads the planted failure as exactly failure" same "$JV" failure
++  jread badjobs "$RUN/ctl-view.json"
++  accept "the job reader counts exactly 1 job of the planted fixture not completed with success" same "$JV" 1
++  printf '[]\n' >"$RUN/ctl-list-empty.json"
++  check "the fixture ctl-list-empty.json was written as meant" cmp -s "$RUN/ctl-list-empty.json" <(printf '[]\n')
++  python3 -I -B -c "$JSONPY" id "$RUN/ctl-list-empty.json" >"$RUN/ctl-id-out" 2>"$RUN/ctl-id-err"
++  local idrc=$?
++  accept "the id reader exits non-zero on a planted empty run list, prints nothing, and says why on stderr" \
++    eval 'not same "$idrc" 0 && same "$(wc -c <"$RUN/ctl-id-out" | tr -d " ")" 0 && same "$(cat "$RUN/ctl-id-err")" "expected one run, found 0"' 
++  note "## the tool guard"
++  accept "the tool guard refuses a tool name that does not exist, and names it" \
++    eval 'same "$(tools_missing git emend-no-such-tool-m9p1)" emend-no-such-tool-m9p1 && not tools_missing emend-no-such-tool-m9p1 >/dev/null'
++  accept "the tool guard passes this mode's tools" eval 'tools_missing $TOOLS' 
+ }
+ 
+ main() {
