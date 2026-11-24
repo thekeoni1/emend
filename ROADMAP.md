@@ -1496,7 +1496,9 @@ recommended options:
 - Decision 1 (the namespace declaration left after a removal): A,
   it stays the documented limit of `specs/0049` ruling F. The
   milestone adds no core code, so the ceiling of 458752 is not
-  reopened; the budget figure stays 456248.
+  reopened; the budget figure stays 456248. At the 0.1.2 manifest
+  it reads 456264, 2488 under the ceiling, the code unchanged
+  (`specs/0053` ruling A).
 - Decision 2 (the minimum Rust version): A, the oldest Rust that
   builds and tests the crate is found by trial, declared in the
   crate's manifest and tested by a CI workflow. This moves
